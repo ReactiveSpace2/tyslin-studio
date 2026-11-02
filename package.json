@@ -1,8 +1,8 @@
 {
-  "name": "tyslin-ai",
-  "productName": "Tyslin AI",
+  "name": "tyslin-studio",
+  "productName": "Tyslin Studio",
   "version": "0.1.0",
-  "description": "Tyslin AI — a desktop studio for building and working with AI agents.",
+  "description": "Tyslin Studio — every agent you run. One studio.",
   "author": "ReactiveSpace <info@tyslin.ai>",
   "homepage": "https://tyslin.ai",
   "main": "./out/main/index.js",

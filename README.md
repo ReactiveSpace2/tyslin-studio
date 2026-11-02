@@ -1,6 +1,8 @@
-# Tyslin AI
+# Tyslin Studio
 
-A desktop studio for building and working with AI agents. Runs entirely on your computer: agents, chats, projects and skills are stored in a local SQLite database, and API keys are encrypted with your system keychain.
+**Every agent you run. One studio.**
+
+Tyslin Studio is a desktop studio for building and working with AI agents. Runs entirely on your computer: agents, chats, projects and skills are stored in a local SQLite database, and API keys are encrypted with your system keychain.
 
 A ReactiveSpace product · [tyslin.ai](https://tyslin.ai) · info@tyslin.ai
 

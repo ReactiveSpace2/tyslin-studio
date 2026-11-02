@@ -1,36 +1,62 @@
-# Tyslin AI — notes for Claude Code
+# Tyslin Studio — CLAUDE.md
 
-Tyslin AI is an open-source desktop studio for building and working with AI agents (a ReactiveSpace product, tyslin.ai). Electron + React + TypeScript, local SQLite, built with electron-vite.
+Shared by both Tyslin repositories: the **landing site** (tyslin.ai) and the **desktop app**. The product, brand and voice sections apply to both. Then read the section for the repo you are in.
 
-## Commands
-- `npm install` — install deps (postinstall rebuilds better-sqlite3 for Electron)
-- `npm run dev` — run the app with hot reload
-- `npm run typecheck` — TypeScript check for main/preload and renderer; run after every change
-- `npm run build` — production build to `out/`
-- `npm run dist:mac | dist:win | dist:linux` — installers to `dist/`
+## Product
 
-## Architecture
-- `src/main/` runs in Node (Electron main). Only place that touches the DB, files, network and secrets.
-  - `db.ts` SQLite schema (`migrate`), seed data (`seed`), and all queries.
-  - `runtime.ts` `AgentRuntime` interface + Anthropic and OpenAI-compatible (OpenAI, Ollama) streaming runtimes.
-  - `secrets.ts` API keys encrypted with `safeStorage`.
-  - `index.ts` window + every `ipcMain.handle` channel.
-- `src/preload/index.ts` exposes `window.tyslin` (typed by `TyslinApi` in `src/shared/types.ts`).
-- `src/renderer/src/` React UI. Never import Node or Electron here; go through `window.tyslin`.
-- `src/shared/types.ts` single source of truth for data types and the IPC API.
+- **Name:** Tyslin Studio. Brand: Tyslin. Domain: tyslin.ai. Tagline: "Every agent you run. One studio."
+- **What it is:** an open-source studio for building and working with AI agents. Each agent has a job, instructions, skills, tools, a model the user picks, and a character.
+- **Who it's for:** founders, builders and small teams who want AI agents doing real work without stitching tools together.
+- **Model:** open source (free, self-hosted desktop app) plus a paid hosted plan (no setup, managed models, team features). Vertical agent packs (for example a Startup Visa pack) are a planned add-on.
+- **Owner:** ReactiveSpace (Dubai). Contact info@tyslin.ai · X and Telegram @tyslinai.
+- **Inspiration:** Block's open-source Berd (github.com/block/berd). Tyslin is its own product; never copy Berd's code, characters (Gloopies) or copy.
 
-## Adding a feature that needs data
-1. Add the type / API method to `src/shared/types.ts`.
-2. Add the query in `src/main/db.ts` (new tables go in `migrate`, using `CREATE TABLE IF NOT EXISTS`; add columns with guarded `ALTER TABLE`).
-3. Register an `ipcMain.handle` channel in `src/main/index.ts`.
-4. Expose it in `src/preload/index.ts`.
-5. Use it from the renderer.
+## Brand rules (both repos)
 
-## Brand (keep consistent)
-- Colours (CSS variables in `src/renderer/src/styles.css`): Parchment #FAFAF7 background, Ink #0F0F0D text and dark buttons, Lime #7DB800 fills only (always ink text on top), Dark green #4A7000 for green text and lines.
-- Fonts: Geist (text), Geist Mono (numbers, labels, model names).
-- Logos in `src/renderer/src/assets/` and `resources/brand/`; app icon `resources/icon.png`.
-- No emoji in the UI; icons are inline stroke SVGs in `components/Icon.tsx`.
+- **Colours**
+  - Parchment `#FAFAF7` — page background
+  - Ink `#0F0F0D` — text, dark buttons
+  - Lime `#7DB800` — fills only, and always with Ink text on top (never lime text)
+  - Dark green `#4A7000` — green text, links, lines
+  - Supporting neutrals: panel `#F3F3EE`, border `#E4E4DD`, muted text `#5C5C57`
+- **Type:** Geist for text, Geist Mono for numbers, labels, model names and code.
+- **Logo:** robot mascot (white helmet, lime crest and ear pieces, black visor, lime square eyes) with the TYSLIN wordmark. Files: icon, mark, horizontal, stacked, wordmark black, wordmark white. Never recolour, stretch or redraw the mascot.
+- **Agent characters:** simple robot shapes in the brand colours (block, round, hex, pill × lime, ink, paper). The mascot is reserved for Builder, the built-in agent.
+- **Style:** calm, light, lots of whitespace, rounded cards (12–16 px radius), thin borders, no gradients, no emoji, inline stroke SVG icons.
+- **Accessibility:** text contrast 4.5:1 minimum, real buttons and links, labels on every input, touch targets 44 px.
 
-## Roadmap
-See README.md: Goose (ACP) runtime, scheduler, agent hand-offs, skills editor, hosted (web + Postgres) version.
+## Voice
+
+Plain, confident, short. Talk about the work agents do, not about AI. Prefer "your agents" over "AI assistants". No hype words ("revolutionary", "supercharge", "unleash"). No invented numbers or testimonials; use `[PLACEHOLDER]` until real ones exist.
+
+## Repo: desktop app (`tyslin-studio`)
+
+Electron + React + TypeScript, built with electron-vite. Local SQLite (better-sqlite3).
+
+- `npm install` · `npm run dev` · `npm run typecheck` (run after every change) · `npm run build` · `npm run dist:mac|win|linux`
+- `src/main/` Node side, the only place that touches the DB, files, network and secrets
+  - `db.ts` schema (`migrate`), seed data, all queries
+  - `runtime.ts` `AgentRuntime` interface; Anthropic and OpenAI-compatible (OpenAI, Ollama) streaming runtimes
+  - `secrets.ts` API keys encrypted with Electron `safeStorage`
+  - `index.ts` window and every `ipcMain.handle` channel
+- `src/preload/index.ts` exposes `window.tyslin`, typed by `TyslinApi` in `src/shared/types.ts`
+- `src/renderer/src/` React UI. Never import Node or Electron here; go through `window.tyslin`
+- Brand tokens live as CSS variables in `src/renderer/src/styles.css`; logos in `src/renderer/src/assets/`; app icon `resources/icon.png`
+
+**Adding a feature that needs data:** type in `shared/types.ts` → query in `db.ts` (new tables in `migrate` with `CREATE TABLE IF NOT EXISTS`) → `ipcMain.handle` in `main/index.ts` → expose in `preload/index.ts` → use in the renderer.
+
+## Repo: landing site (tyslin.ai)
+
+- Stack: [FILL IN — e.g. Next.js / Astro / plain HTML]
+- Commands: [FILL IN — dev, build, deploy]
+- Pages: home, download, pricing (open source vs hosted), docs link, GitHub link, contact.
+- Download buttons point to the desktop app's GitHub Releases (`.dmg`, `.exe`, `.AppImage`).
+- Use the same colour tokens and fonts as the app so the site and product feel like one thing.
+- Hero copy anchors on the tagline: "Every agent you run. One studio."
+
+## Working rules
+
+- Keep changes small and focused; don't reformat unrelated code.
+- Typecheck/build before saying something is done.
+- Never commit API keys or `.env` files.
+- Ask before changing brand colours, the logo, pricing or the license.

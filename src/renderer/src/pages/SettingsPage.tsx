@@ -55,7 +55,7 @@ export function SettingsPage(): JSX.Element {
         </div>
         <div className="box" style={{ alignItems: 'center', textAlign: 'center' }}>
           <img src={stacked} alt="Tyslin" style={{ width: 120 }} />
-          <span className="hint">Tyslin AI · a ReactiveSpace product · tyslin.ai</span>
+          <span className="hint">Tyslin Studio · Every agent you run. One studio. · tyslin.ai</span>
         </div>
       </div>
     </div>
