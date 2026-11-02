@@ -13,7 +13,7 @@ function createWindow(): void {
     height: 880,
     minWidth: 900,
     minHeight: 600,
-    title: 'Tyslin AI',
+    title: 'Tyslin Studio',
     backgroundColor: '#FAFAF7',
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
@@ -92,7 +92,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
-  app.setAppUserModelId('ai.tyslin.app')
+  app.setAppUserModelId('ai.tyslin.studio')
   db.openDb()
   registerIpc()
   createWindow()

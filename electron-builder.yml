@@ -1,5 +1,5 @@
-appId: ai.tyslin.app
-productName: Tyslin AI
+appId: ai.tyslin.studio
+productName: Tyslin Studio
 copyright: Copyright © 2026 ReactiveSpace
 directories:
   buildResources: resources
