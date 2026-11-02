@@ -1,0 +1,28 @@
+appId: ai.tyslin.app
+productName: Tyslin AI
+copyright: Copyright © 2026 ReactiveSpace
+directories:
+  buildResources: resources
+  output: dist
+files:
+  - out/**/*
+  - package.json
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+icon: resources/icon.png
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  category: Utility
+  target:
+    - AppImage
+    - deb
+  maintainer: info@tyslin.ai
