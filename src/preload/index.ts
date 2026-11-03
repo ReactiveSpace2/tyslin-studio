@@ -30,7 +30,11 @@ const api: TyslinApi = {
     resolve: (id, acceptedHunks, note) => ipcRenderer.invoke('changes:resolve', id, acceptedHunks, note)
   },
   skills: {
-    list: () => ipcRenderer.invoke('skills:list')
+    list: () => ipcRenderer.invoke('skills:list'),
+    save: (input) => ipcRenderer.invoke('skills:save', input),
+    remove: (id) => ipcRenderer.invoke('skills:remove', id),
+    importFiles: () => ipcRenderer.invoke('skills:importFiles'),
+    exportFile: (id) => ipcRenderer.invoke('skills:exportFile', id)
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),

@@ -73,7 +73,7 @@ export default function App(): JSX.Element {
             onCancel={() => setRoute({ name: 'agents' })}
           />
         )}
-        {route.name === 'skills' && <SkillsPage />}
+        {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
         {route.name === 'settings' && <SettingsPage />}
       </main>
       {newProject && (

@@ -2,7 +2,8 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
-import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill } from '@shared/types'
+import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
+import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 let db: Database.Database
 
@@ -13,6 +14,7 @@ export function openDb(): Database.Database {
   db.pragma('foreign_keys = ON')
   migrate()
   seed()
+  seedSkills()
   return db
 }
 
@@ -62,23 +64,26 @@ function seed(): void {
   const count = (db.prepare('SELECT COUNT(*) AS n FROM agents').get() as { n: number }).n
   if (count > 0) return
   const defaults: AgentInput[] = [
-    { name: 'Builder', description: 'Designs new agents with you, then keeps improving them.', instructions: 'You are Builder, the Tyslin agent that helps users design other agents. Ask what job the agent should do, then propose a name, short description, step-by-step instructions, and which skills and tools it needs.', shape: 'round', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['agent-design'], schedule: 'manual', writeMode: 'ask', isMascot: true },
-    { name: 'Researcher', description: 'Searches your files and sources and returns sourced briefs.', instructions: 'You are a careful researcher. Give concise briefs with clear sections and always say where each fact comes from. Flag anything you are unsure about.', shape: 'round', tone: 'ink', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['cite-sources'], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Writer', description: 'Drafts posts, emails and docs that sound like you.', instructions: 'You write clear, warm, direct prose. Match the user\'s voice and keep drafts short unless asked otherwise.', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Critic', description: 'Reviews any draft and tells you exactly what to fix.', instructions: 'You are a constructive but honest reviewer. List the most important problems first, explain why each matters, and suggest a concrete fix.', shape: 'pill', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Analyst', description: 'Turns numbers into plain answers.', instructions: 'You analyse data the user pastes or describes. Show your working briefly and give the answer in plain language first.', shape: 'block', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', writeMode: 'ask', isMascot: false }
+    { name: 'Builder', description: 'Designs new agents with you, then keeps improving them.', instructions: 'You are Builder, the Tyslin agent that helps users design other agents. Ask what job the agent should do, then propose a name, short description, step-by-step instructions, and which skills and tools it needs.', shape: 'round', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['agent-design', 'skill-writer'], schedule: 'manual', writeMode: 'ask', isMascot: true },
+    { name: 'Researcher', description: 'Searches your files and sources and returns sourced briefs.', instructions: 'You are a careful researcher. Give concise briefs with clear sections and always say where each fact comes from. Flag anything you are unsure about.', shape: 'round', tone: 'ink', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['cite-sources', 'deep-research', 'company-research'], schedule: 'manual', writeMode: 'ask', isMascot: false },
+    { name: 'Writer', description: 'Drafts posts, emails and docs that sound like you.', instructions: 'You write clear, warm, direct prose. Match the user\'s voice and keep drafts short unless asked otherwise.', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['human-voice', 'follow-up-email'], schedule: 'manual', writeMode: 'ask', isMascot: false },
+    { name: 'Critic', description: 'Reviews any draft and tells you exactly what to fix.', instructions: 'You are a constructive but honest reviewer. List the most important problems first, explain why each matters, and suggest a concrete fix.', shape: 'pill', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['edit-for-clarity'], schedule: 'manual', writeMode: 'ask', isMascot: false },
+    { name: 'Analyst', description: 'Turns numbers into plain answers.', instructions: 'You analyse data the user pastes or describes. Show your working briefly and give the answer in plain language first.', shape: 'block', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['data-analysis'], schedule: 'manual', writeMode: 'ask', isMascot: false }
   ]
   const tx = db.transaction(() => {
     for (const a of defaults) saveAgent(a)
-    const skills: Omit<Skill, 'id'>[] = [
-      { name: 'agent-design', description: 'Structure for designing a new agent.', body: 'When designing an agent, produce: name, one-line description, instructions, skills, tools, schedule.' },
-      { name: 'cite-sources', description: 'Always attribute facts to their source.', body: 'For every factual claim, name the source. If there is no source, say so.' },
-      { name: 'plain-language', description: 'Write for a busy non-expert reader.', body: 'Short sentences. No jargon without a definition. Lead with the answer.' }
-    ]
-    const ins = db.prepare('INSERT INTO skills (id, name, description, body) VALUES (?, ?, ?, ?)')
-    for (const s of skills) ins.run(randomUUID(), s.name, s.description, s.body)
   })
   tx()
+}
+
+/** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */
+function seedSkills(): void {
+  if (Number(getSetting('seed:skillsVersion') ?? 0) >= SKILL_LIBRARY_VERSION) return
+  const ins = db.prepare('INSERT OR IGNORE INTO skills (id, name, description, body) VALUES (?, ?, ?, ?)')
+  db.transaction(() => {
+    for (const s of BUILT_IN_SKILLS) ins.run(randomUUID(), s.name, s.description, s.body)
+    setSetting('seed:skillsVersion', String(SKILL_LIBRARY_VERSION))
+  })()
 }
 
 type AgentRow = {
@@ -176,6 +181,46 @@ export function addMessage(sessionId: string, role: Message['role'], content: st
 
 export function listSkills(): Skill[] {
   return db.prepare('SELECT id, name, description, body FROM skills ORDER BY name').all() as Skill[]
+}
+
+export function getSkill(id: string): Skill | null {
+  return (db.prepare('SELECT id, name, description, body FROM skills WHERE id = ?').get(id) as Skill | undefined) ?? null
+}
+
+export function skillNameTaken(name: string, exceptId?: string): boolean {
+  return !!db.prepare('SELECT 1 FROM skills WHERE name = ? AND id != ?').get(name, exceptId ?? '')
+}
+
+/** Agents reference skills by name, so renames and deletes rewrite each agent's list. */
+function renameSkillOnAgents(from: string, to: string | null): void {
+  for (const a of listAgents()) {
+    if (!a.skills.includes(from)) continue
+    const next = to ? a.skills.map((n) => (n === from ? to : n)) : a.skills.filter((n) => n !== from)
+    db.prepare('UPDATE agents SET skills = ? WHERE id = ?').run(JSON.stringify([...new Set(next)]), a.id)
+  }
+}
+
+export function saveSkill(input: SkillInput): Skill {
+  const prev = input.id ? getSkill(input.id) : null
+  return db.transaction(() => {
+    if (prev) {
+      db.prepare('UPDATE skills SET name = ?, description = ?, body = ? WHERE id = ?').run(input.name, input.description, input.body, prev.id)
+      if (prev.name !== input.name) renameSkillOnAgents(prev.name, input.name)
+      return getSkill(prev.id)!
+    }
+    const id = randomUUID()
+    db.prepare('INSERT INTO skills (id, name, description, body) VALUES (?, ?, ?, ?)').run(id, input.name, input.description, input.body)
+    return getSkill(id)!
+  })()
+}
+
+export function removeSkill(id: string): void {
+  const s = getSkill(id)
+  if (!s) return
+  db.transaction(() => {
+    db.prepare('DELETE FROM skills WHERE id = ?').run(id)
+    renameSkillOnAgents(s.name, null)
+  })()
 }
 
 export function getSetting(key: string): string | null {

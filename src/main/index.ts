@@ -1,12 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'path'
+import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
+import { readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
 import { runtimeFor } from './runtime'
 import { listProjectFiles, resolveChange } from './tools'
+import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
-import type { AgentInput, AppInfo, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody } from '@shared/types'
+import type { AgentInput, AppInfo, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -92,6 +94,45 @@ function registerIpc(): void {
   ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => resolveChange(id, acceptedHunks, note))
 
   ipcMain.handle('skills:list', () => db.listSkills())
+  ipcMain.handle('skills:save', (_e, input: SkillInput) => {
+    const s = { ...input, name: input.name.trim(), description: input.description.trim(), body: input.body.trim() }
+    const problem = validateSkill(s)
+    if (problem) throw new Error(problem)
+    if (db.skillNameTaken(s.name, s.id)) throw new Error(`A skill called ${s.name} already exists.`)
+    return db.saveSkill(s)
+  })
+  ipcMain.handle('skills:remove', (_e, id: string) => db.removeSkill(id))
+  ipcMain.handle('skills:importFiles', async (): Promise<SkillImportResult> => {
+    const r = await dialog.showOpenDialog(win!, {
+      title: 'Import skills',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }]
+    })
+    const result: SkillImportResult = { imported: [], skipped: [] }
+    if (r.canceled) return result
+    for (const file of r.filePaths) {
+      const label = basename(file)
+      try {
+        if (statSync(file).size > 200_000) throw new Error('file is over 200 KB')
+        const s = parseSkillFile(readFileSync(file, 'utf8'), label)
+        const problem = validateSkill(s)
+        if (problem) throw new Error(problem)
+        if (db.skillNameTaken(s.name)) throw new Error(`a skill called ${s.name} already exists`)
+        result.imported.push(db.saveSkill(s))
+      } catch (err) {
+        result.skipped.push(`${label}: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+    return result
+  })
+  ipcMain.handle('skills:exportFile', async (_e, id: string) => {
+    const s = db.getSkill(id)
+    if (!s) throw new Error('Skill not found')
+    const r = await dialog.showSaveDialog(win!, { title: 'Export skill', defaultPath: `${s.name}.md`, filters: [{ name: 'Markdown', extensions: ['md'] }] })
+    if (r.canceled || !r.filePath) return false
+    writeFileSync(r.filePath, serializeSkill(s), 'utf8')
+    return true
+  })
 
   ipcMain.handle('settings:get', (): ProviderSettings => ({
     anthropicKeySet: !!getSecret('anthropic'),

@@ -24,7 +24,7 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
 - **Projects:** link a folder on disk; agents in that project can list, read and change its files.
 - **Review before it's written:** when an agent wants to change a file, you see a diff first and accept or reject each change, or all at once. The agent hears what you decided and carries on. Each agent can be switched to "Write directly" instead.
-- **Skills:** reusable instruction blocks added to an agent's system prompt (three included).
+- **Skills:** reusable instruction blocks added to an agent's system prompt. 23 are built in: meeting notes, follow-up emails, meeting prep, daily plans, weekly updates, decision memos, research, competitor briefs, feedback themes, outreach, objection replies, lead qualifying, one-pagers, slide outlines, editing, data analysis, careful file edits and more. Create, edit, search and delete skills in the app, or import and export them as Markdown files (frontmatter `name` and `description`, then the instructions).
 - **Providers:** Anthropic (Claude), OpenAI, Google Gemini (key from Google AI Studio), and local models through Ollama.
 - **Settings:** API keys and Ollama; defaults for new agents and guidelines added to every agent's instructions; update status, app version and where your data lives.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
@@ -103,6 +103,8 @@ src/
     db.ts        SQLite schema, seed data and queries
     runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events)
     tools.ts     project file tools; staged writes and the review hand-back
+    skillFiles.ts  skill Markdown import/export and validation
+    seedSkills.ts  built-in skill library (versioned; new skills reach existing installs)
     secrets.ts   API keys encrypted with Electron safeStorage
   preload/     safe bridge exposing window.tyslin to the UI
   renderer/    React UI (Agents, Chat, Agent editor, Skills, Settings with Models / Agents / About & updates tabs)
@@ -118,11 +120,10 @@ Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts`
 
 1. **Goose runtime:** run agents over Goose's Agent Client Protocol (ACP) with `goose` bundled as a sidecar, so agents can run commands and use MCP connectors (file reading and writing already work).
 2. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
-3. **Skills editor:** create and import skills as Markdown with frontmatter.
-4. **Scheduler:** run agents on their saved schedule.
-5. **Hand-offs:** pass one agent's result to another.
-6. **Releases:** signed installers and auto-update.
-7. **Hosted plan:** the same UI on the web, with Postgres, accounts and billing, for people who don't want to self-host.
+3. **Scheduler:** run agents on their saved schedule.
+4. **Hand-offs:** pass one agent's result to another.
+5. **Releases:** signed installers and auto-update.
+6. **Hosted plan:** the same UI on the web, with Postgres, accounts and billing, for people who don't want to self-host.
 
 ## Contributing
 

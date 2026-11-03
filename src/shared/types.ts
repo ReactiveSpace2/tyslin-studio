@@ -56,6 +56,14 @@ export interface Skill {
   body: string
 }
 
+export type SkillInput = Omit<Skill, 'id'> & { id?: string }
+
+export interface SkillImportResult {
+  imported: Skill[]
+  /** One line per file that was skipped, with the reason. */
+  skipped: string[]
+}
+
 export interface ProviderSettings {
   anthropicKeySet: boolean
   openaiKeySet: boolean
@@ -154,6 +162,14 @@ export interface TyslinApi {
   }
   skills: {
     list(): Promise<Skill[]>
+    /** Creates or updates; a rename also updates every agent that uses the skill. */
+    save(input: SkillInput): Promise<Skill>
+    /** Deletes the skill and detaches it from every agent. */
+    remove(id: string): Promise<void>
+    /** Opens a file picker for .md skill files (frontmatter: name, description). */
+    importFiles(): Promise<SkillImportResult>
+    /** Saves the skill as a .md file; false if the user cancelled. */
+    exportFile(id: string): Promise<boolean>
   }
   settings: {
     get(): Promise<ProviderSettings>
