@@ -110,8 +110,24 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .msg-agent { max-width: 92%; white-space: pre-wrap; line-height: 1.6; }
 .msg-error { background: var(--danger-soft); color: var(--danger); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
 .typing { font-family: var(--mono); font-size: 12px; color: var(--green); }
-.composer { margin: 0 24px 20px; display: flex; gap: 10px; align-items: flex-end; padding: 8px 8px 8px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.composer { margin: 0 24px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
 .composer textarea { flex: 1; border: 0; outline: none; resize: none; background: transparent; padding: 10px 0; max-height: 200px; line-height: 1.5; }
+/* Chat attachments */
+.attach { position: relative; flex: none; }
+.attach-btn { border-radius: 999px; }
+.attach-menu { position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 20; min-width: 168px; padding: 6px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(15, 15, 13, 0.08); display: flex; flex-direction: column; }
+.attach-menu button { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 0; background: none; border-radius: 8px; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer; text-align: left; }
+.attach-menu button:hover, .attach-menu button:focus-visible { background: var(--panel); outline: none; }
+.attach-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.composer-attachments { flex-basis: 100%; padding: 2px 2px 0; }
+.attach-chip { display: inline-flex; align-items: center; gap: 6px; max-width: 280px; height: 32px; padding: 0 6px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 13px; }
+.attach-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attach-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; padding-right: 4px; }
+.attach-note { display: inline-flex; color: var(--danger); }
+.attach-remove { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--muted); cursor: pointer; }
+.attach-remove:hover { background: var(--line); color: var(--ink); }
+.msg-user-wrap { align-self: flex-end; max-width: 80%; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.msg-user-wrap .msg-user { max-width: 100%; }
 .empty { margin: auto; text-align: center; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .context { width: 300px; flex: none; padding: 20px; display: flex; flex-direction: column; gap: 22px; background: var(--card); overflow-y: auto; }
 .context ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }

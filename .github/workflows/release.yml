@@ -61,6 +61,22 @@ jobs:
           # certificate are added as repository secrets.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
+      # Ubuntu App Center installs from the Snap Store. Uploads the snap to the
+      # stable channel once the SNAPCRAFT_STORE_CREDENTIALS secret exists
+      # (make it with: snapcraft export-login --snaps=tyslin-studio --channels=stable -).
+      # The .snap is not attached to the GitHub Release.
+      - name: Publish to the Snap Store
+        if: matrix.name == 'Linux'
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        run: |
+          if [ -z "$SNAPCRAFT_STORE_CREDENTIALS" ]; then
+            echo "No SNAPCRAFT_STORE_CREDENTIALS secret; skipping the Snap Store upload."
+            exit 0
+          fi
+          sudo snap install snapcraft --classic
+          snapcraft upload dist/*.snap --release=stable
+
       - uses: actions/upload-artifact@v4
         with:
           name: tyslin-studio-${{ matrix.name }}

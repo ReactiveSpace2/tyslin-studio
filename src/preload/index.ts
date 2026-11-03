@@ -14,11 +14,14 @@ const api: TyslinApi = {
     pickFolder: () => ipcRenderer.invoke('projects:pickFolder'),
     files: (id) => ipcRenderer.invoke('projects:files', id)
   },
+  attachments: {
+    pick: (kind) => ipcRenderer.invoke('attachments:pick', kind)
+  },
   sessions: {
     list: (agentId) => ipcRenderer.invoke('sessions:list', agentId),
     create: (agentId, projectId) => ipcRenderer.invoke('sessions:create', agentId, projectId),
     messages: (id) => ipcRenderer.invoke('sessions:messages', id),
-    send: (id, text) => ipcRenderer.invoke('sessions:send', id, text),
+    send: (id, text, attachmentIds) => ipcRenderer.invoke('sessions:send', id, text, attachmentIds),
     onEvent: (cb) => {
       const fn = (_e: unknown, ev: RunEvent): void => cb(ev)
       ipcRenderer.on('run-event', fn)

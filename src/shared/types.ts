@@ -96,6 +96,26 @@ export interface Message {
   role: 'user' | 'assistant'
   content: string
   createdAt: number
+  /** Files and folders the user attached to this message. */
+  attachments?: Attachment[]
+}
+
+/**
+ * A file, image or folder attached to a chat message. Picked through `attachments.pick`, which
+ * reads it once in the main process: text goes into the message the agent sees, images are
+ * copied into the app's data folder so later turns can still send them.
+ */
+export interface Attachment {
+  id: string
+  kind: 'file' | 'image' | 'folder'
+  name: string
+  /** Where it was picked from on disk. */
+  path: string
+  size: number
+  /** Folders: how many files were included. */
+  files?: number
+  /** Why some or all of it was left out (binary file, too large, past the size budget). */
+  note?: string
 }
 
 export interface Skill {
@@ -186,6 +206,8 @@ export interface UpdateStatus {
   currentVersion: string
   /** True when this install can download and install updates itself (Windows, Linux AppImage). */
   autoInstall: boolean
+  /** Set when another system updates the app (the Snap Store via snapd); the app then never checks itself. */
+  managedBy?: 'snap'
   version?: string
   percent?: number
   downloadUrl?: string
@@ -205,11 +227,16 @@ export interface TyslinApi {
     pickFolder(): Promise<string | null>
     files(projectId: string): Promise<string[]>
   }
+  attachments: {
+    /** Opens the system picker; the returned ids are passed to `sessions.send`. */
+    pick(kind: 'file' | 'folder'): Promise<Attachment[]>
+  }
   sessions: {
     list(agentId?: string): Promise<Session[]>
     create(agentId: string, projectId: string | null): Promise<Session>
     messages(sessionId: string): Promise<Message[]>
-    send(sessionId: string, text: string): Promise<void>
+    /** `attachmentIds` come from `attachments.pick`. */
+    send(sessionId: string, text: string, attachmentIds?: string[]): Promise<void>
     onEvent(cb: (e: RunEvent) => void): () => void
     /** Stops the session's running reply, if any. */
     stop(sessionId: string): Promise<void>

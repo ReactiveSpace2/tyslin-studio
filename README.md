@@ -23,6 +23,7 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Home:** the first screen shows the Tyslin logo, the standing mascot and the app version, then every model and agent engine Tyslin works with and whether each is ready (key added, installed). Click one to set it up.
 - **Agents:** create, edit and delete agents with a name, instructions, provider, model, skills, schedule and a character (shape and colour). Builder, the built-in agent, uses the Tyslin mascot.
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
+- **Attachments:** the + button in the chat box attaches files or whole folders. Text files go to the agent with your message. A folder sends its file list and every text file in it, skipping hidden folders, `node_modules` and build folders. Images (PNG, JPEG, GIF, WebP, up to 5 MB) are sent to Claude, OpenAI, Gemini and Ollama as images. External agents get the text, plus each image's path. There's a limit of about 200,000 characters per message, and anything left out is marked on the attachment.
 - **Projects:** link a folder on disk; agents in that project can list, read and change its files.
 - **Review before it's written:** when an agent wants to change a file, you see a diff first and accept or reject each change, or all at once. The agent hears what you decided and carries on. Each agent can be switched to "Write directly" instead.
 - **Skills:** reusable instruction blocks added to an agent's system prompt. 23 are built in: meeting notes, follow-up emails, meeting prep, daily plans, weekly updates, decision memos, research, competitor briefs, feedback themes, outreach, objection replies, lead qualifying, one-pagers, slide outlines, editing, data analysis, careful file edits and more. Create, edit, search and delete skills in the app, or import and export them as Markdown files (frontmatter `name` and `description`, then the instructions).
@@ -44,17 +45,20 @@ Get the latest installer from [tyslin.ai](https://tyslin.ai/#download) or [GitHu
 | Linux (any distro) | `Tyslin-Studio-<version>-linux-x86_64.AppImage` |
 | Linux (Debian, Ubuntu) | `Tyslin-Studio-<version>-linux-amd64.deb` |
 
+On Ubuntu you can also install from the Snap Store (coming soon): search for **Tyslin Studio** in App Center, or run `sudo snap install tyslin-studio --classic`. Opening the `.deb` in App Center works too, but App Center labels every downloaded `.deb` "Unknown publisher" and "Potentially unsafe".
+
 Early builds are not code-signed yet:
 
 - **macOS:** right-click the app in Applications and choose **Open**, then **Open** again. If macOS still blocks it, run `xattr -cr "/Applications/Tyslin Studio.app"`.
 - **Windows:** on the SmartScreen prompt choose **More info**, then **Run anyway**.
-- **Linux:** `chmod +x Tyslin-Studio-*.AppImage` and run it, or `sudo apt install ./Tyslin-Studio-*.deb`.
+- **Linux:** `chmod +x Tyslin-Studio-*.AppImage` and run it (on Ubuntu 24.04 and later, first run `sudo apt install libfuse2t64`), or `sudo apt install ./Tyslin-Studio-*.deb`. If apt ends with `Notice: Download is performed unsandboxed as root ... Permission denied`, the install still worked. apt only means it couldn't read your Downloads folder as its restricted `_apt` user. To avoid the notice, copy the `.deb` to `/tmp` first and install it from there.
 
 ### Updates
 
 From v0.2.0, Tyslin Studio checks GitHub Releases when it starts.
 
 - **Windows and Linux AppImage:** the update downloads in the background; restart when prompted to install it.
+- **Snap:** the Snap Store updates the app automatically; it doesn't check GitHub.
 - **macOS and Linux .deb:** the app tells you a new version is available and links to the download. (Automatic install on macOS needs a signed build, which is coming.)
 
 If you're on v0.1.0, download the new version once by hand; updates after that arrive in the app.
@@ -77,7 +81,7 @@ Then open **Settings** and add an Anthropic, OpenAI or Gemini key, or point it a
 ## Build installers
 
 ```bash
-npm run dist:linux   # .AppImage and .deb
+npm run dist:linux   # .AppImage, .deb and .snap
 npm run dist:mac     # .dmg (run on macOS)
 npm run dist:win     # .exe NSIS installer (run on Windows)
 ```
@@ -86,7 +90,7 @@ Output goes to `dist/`. Build each installer on its own platform; GitHub Actions
 
 ## Releasing
 
-Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners. The installers, plus the update files the app reads (`latest*.yml`, `*.blockmap` and the macOS `.zip`), are attached to the GitHub Release automatically.
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners. The installers, plus the update files the app reads (`latest*.yml`, `*.blockmap` and the macOS `.zip`), are attached to the GitHub Release automatically. The Linux job also uploads the `.snap` to the Snap Store's stable channel when the `SNAPCRAFT_STORE_CREDENTIALS` repository secret is set; the `.snap` is not attached to the GitHub Release.
 
 ```bash
 # 1. bump "version" in package.json (e.g. 0.2.0) and commit

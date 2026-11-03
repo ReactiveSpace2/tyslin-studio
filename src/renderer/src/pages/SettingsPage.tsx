@@ -278,11 +278,11 @@ function AboutTab(): JSX.Element {
         <div className="kv">
           <span>Installed</span><span className="mono">v{info?.version ?? '…'}</span>
           <span>Status</span>
-          <span role="status">{update ? (update.state === 'error' ? `${UPDATE_TEXT.error} ${update.error ?? ''}` : UPDATE_TEXT[update.state]) : '…'}
+          <span role="status">{update?.managedBy === 'snap' ? 'Updates install automatically from the Snap Store.' : update ? (update.state === 'error' ? `${UPDATE_TEXT.error} ${update.error ?? ''}` : UPDATE_TEXT[update.state]) : '…'}
             {update?.version && update.state !== 'none' && <span className="mono"> v{update.version}</span>}</span>
         </div>
         <div className="row">
-          <button type="button" className="btn" disabled={update?.state === 'checking'} onClick={() => void window.tyslin.updates.check().then(setUpdate)}>Check now</button>
+          {update?.managedBy !== 'snap' && <button type="button" className="btn" disabled={update?.state === 'checking'} onClick={() => void window.tyslin.updates.check().then(setUpdate)}>Check now</button>}
           {update?.state === 'ready' && <button type="button" className="btn btn-lime" onClick={() => void window.tyslin.updates.install()}>Restart to update</button>}
           {update?.state === 'available' && <button type="button" className="btn btn-lime" onClick={() => void window.tyslin.updates.openDownload()}>Download</button>}
         </div>

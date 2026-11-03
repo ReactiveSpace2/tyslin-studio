@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
+import type { StoredAttachment } from './attachments'
 import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 let db: Database.Database
@@ -53,6 +54,9 @@ function migrate(): void {
   `)
   addColumn('agents', 'write_mode', "TEXT NOT NULL DEFAULT 'ask'")
   addColumn('agents', 'engine', "TEXT NOT NULL DEFAULT 'builtin'")
+  // Chat attachments: what the user sees (JSON list) and the text the model sees.
+  addColumn('messages', 'attachments', "TEXT NOT NULL DEFAULT '[]'")
+  addColumn('messages', 'context', "TEXT NOT NULL DEFAULT ''")
 }
 
 /** CREATE TABLE IF NOT EXISTS never alters an existing table, so new columns go through here. */
@@ -166,17 +170,45 @@ export function createSession(agentId: string, projectId: string | null): Sessio
   return s
 }
 
-export function listMessages(sessionId: string): Message[] {
-  return db.prepare('SELECT id, session_id AS sessionId, role, content, created_at AS createdAt FROM messages WHERE session_id = ? ORDER BY created_at')
-    .all(sessionId) as Message[]
+/** A message as the runtimes see it: with the attachment text and image copies. */
+export interface ModelMessage extends Message {
+  attachments: StoredAttachment[]
+  context: string
 }
 
-export function addMessage(sessionId: string, role: Message['role'], content: string): Message {
+type MessageRow = Omit<ModelMessage, 'attachments'> & { attachments: string }
+
+function messageRows(sessionId: string): MessageRow[] {
+  return db.prepare('SELECT id, session_id AS sessionId, role, content, attachments, context, created_at AS createdAt FROM messages WHERE session_id = ? ORDER BY created_at')
+    .all(sessionId) as MessageRow[]
+}
+
+const parseAttachments = (json: string): StoredAttachment[] => {
+  try { return JSON.parse(json) } catch { return [] }
+}
+
+/** For the UI: attachments without the model-only text. */
+export function listMessages(sessionId: string): Message[] {
+  return messageRows(sessionId).map(({ context: _context, attachments, ...m }) => {
+    const list = parseAttachments(attachments).map(({ copy: _copy, mime: _mime, ...a }) => a)
+    return list.length ? { ...m, attachments: list } : m
+  })
+}
+
+export function listModelMessages(sessionId: string): ModelMessage[] {
+  return messageRows(sessionId).map((m) => ({ ...m, attachments: parseAttachments(m.attachments) }))
+}
+
+export function addMessage(
+  sessionId: string, role: Message['role'], content: string,
+  extra: { attachments?: StoredAttachment[]; context?: string } = {}
+): Message {
   const m: Message = { id: randomUUID(), sessionId, role, content, createdAt: Date.now() }
-  db.prepare('INSERT INTO messages (id, session_id, role, content, created_at) VALUES (?, ?, ?, ?, ?)')
-    .run(m.id, m.sessionId, m.role, m.content, m.createdAt)
+  db.prepare('INSERT INTO messages (id, session_id, role, content, attachments, context, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(m.id, m.sessionId, m.role, m.content, JSON.stringify(extra.attachments ?? []), extra.context ?? '', m.createdAt)
   const s = getSession(sessionId)
-  const title = s && s.title === 'New chat' && role === 'user' ? content.slice(0, 60) : s?.title ?? 'Chat'
+  const label = content.trim() || (extra.attachments ?? []).map((a) => a.name).join(', ')
+  const title = s && s.title === 'New chat' && role === 'user' ? label.slice(0, 60) : s?.title ?? 'Chat'
   db.prepare('UPDATE sessions SET updated_at = ?, title = ? WHERE id = ?').run(m.createdAt, title, sessionId)
   return m
 }

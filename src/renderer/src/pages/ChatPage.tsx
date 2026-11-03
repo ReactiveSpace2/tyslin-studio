@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
+import type { Agent, Attachment, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
 import { RunsOnBadge } from '../components/RunsOnBadge'
 import { Avatar } from '../components/Avatar'
@@ -34,6 +34,29 @@ function activityLabel(a: Activity): string {
   return [TOOL_VERB[a.name], path].filter(Boolean).join(' ')
 }
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void }): JSX.Element {
+  const detail = a.kind === 'folder' ? `${a.files ?? 0} file${a.files === 1 ? '' : 's'}` : formatSize(a.size)
+  return (
+    <span className="attach-chip" title={a.note ? `${a.path} (${a.note})` : a.path}>
+      <Icon name={a.kind === 'folder' ? 'folder' : 'file'} size={14} />
+      <span className="attach-name">{a.name}</span>
+      <span className="attach-meta">{detail}</span>
+      {a.note && <span className="attach-note"><Icon name="warning" size={12} /></span>}
+      {onRemove && (
+        <button type="button" className="attach-remove" aria-label={`Remove ${a.name}`} onClick={onRemove}>
+          <Icon name="close" size={12} />
+        </button>
+      )}
+    </span>
+  )
+}
+
 function changeSummary(list: PendingChange[]): string {
   const n = (s: PendingChange['status'][]): number => list.filter((c) => s.includes(c.status)).length
   const parts = [
@@ -63,6 +86,9 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
   const [streaming, setStreaming] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [text, setText] = useState('')
+  const [attached, setAttached] = useState<Attachment[]>([])
+  const [attachMenu, setAttachMenu] = useState(false)
+  const attachRef = useRef<HTMLDivElement>(null)
   const [files, setFiles] = useState<string[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [waiting, setWaiting] = useState(false)
@@ -140,6 +166,21 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     })
   }, [session])
 
+  // Close the attach menu on an outside click or Escape.
+  useEffect(() => {
+    if (!attachMenu) return
+    const onDown = (e: MouseEvent): void => {
+      if (!attachRef.current?.contains(e.target as Node)) setAttachMenu(false)
+    }
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setAttachMenu(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [attachMenu])
+
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
   }, [messages, streaming, activity, changes])
@@ -162,9 +203,16 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     void window.tyslin.sessions.answerPermission(p.id, choiceId)
   }
 
+  const attach = async (kind: 'file' | 'folder'): Promise<void> => {
+    setAttachMenu(false)
+    const picked = await window.tyslin.attachments.pick(kind)
+    setAttached((list) => [...list, ...picked.filter((p) => !list.some((x) => x.path === p.path))])
+  }
+
   const send = async (): Promise<void> => {
     const t = text.trim()
-    if (!t || streaming !== null) return
+    const sending = attached
+    if ((!t && !sending.length) || streaming !== null) return
     let s = session
     if (!s) {
       s = await window.tyslin.sessions.create(agent.id, projectId)
@@ -172,11 +220,12 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
       setSession(s)
     }
     setText('')
+    setAttached([])
     setError(null)
-    setMessages((m) => [...m, { id: 'pending', sessionId: s!.id, role: 'user', content: t, createdAt: Date.now() }])
+    setMessages((m) => [...m, { id: 'pending', sessionId: s!.id, role: 'user', content: t, createdAt: Date.now(), attachments: sending }])
     setStreaming('')
     try {
-      await window.tyslin.sessions.send(s.id, t)
+      await window.tyslin.sessions.send(s.id, t, sending.map((a) => a.id))
     } catch (err) {
       setStreaming(null)
       setError(err instanceof Error ? err.message : String(err))
@@ -214,7 +263,16 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
             )}
             {messages.map((m) =>
               m.role === 'user'
-                ? <div key={m.id} className="msg-user">{m.content}</div>
+                ? (
+                  <div key={m.id} className="msg-user-wrap">
+                    {m.attachments?.length ? (
+                      <div className="attach-list" aria-label="Attachments">
+                        {m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}
+                      </div>
+                    ) : null}
+                    {m.content && <div className="msg-user">{m.content}</div>}
+                  </div>
+                )
                 : <div key={m.id} className="msg-agent">{m.content}</div>
             )}
             {streaming && <div className="msg-agent">{streaming}</div>}
@@ -270,6 +328,25 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
         </div>
 
         <form className="composer" onSubmit={(e) => { e.preventDefault(); void send() }}>
+          {attached.length > 0 && (
+            <div className="attach-list composer-attachments" aria-label="Attached">
+              {attached.map((a) => (
+                <AttachmentChip key={a.id} a={a} onRemove={() => setAttached((list) => list.filter((x) => x.id !== a.id))} />
+              ))}
+            </div>
+          )}
+          <div className="attach" ref={attachRef}>
+            <button type="button" className="btn icon-btn attach-btn" aria-label="Attach files or a folder" title="Attach"
+              aria-haspopup="menu" aria-expanded={attachMenu} onClick={() => setAttachMenu((o) => !o)}>
+              <Icon name="plus" />
+            </button>
+            {attachMenu && (
+              <div className="attach-menu" role="menu" aria-label="Attach">
+                <button type="button" role="menuitem" autoFocus onClick={() => void attach('file')}><Icon name="file" /> File</button>
+                <button type="button" role="menuitem" onClick={() => void attach('folder')}><Icon name="folder" /> Folder</button>
+              </div>
+            )}
+          </div>
           <label htmlFor="composer" style={{ position: 'absolute', left: -9999 }}>Message {agent.name}</label>
           <textarea
             id="composer"
@@ -289,7 +366,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
               <Icon name="stop" />
             </button>
           ) : (
-            <button type="submit" className="btn btn-primary icon-btn" aria-label="Send" disabled={!text.trim()}>
+            <button type="submit" className="btn btn-primary icon-btn" aria-label="Send" disabled={!text.trim() && !attached.length}>
               <Icon name="send" />
             </button>
           )}

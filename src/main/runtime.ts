@@ -1,9 +1,10 @@
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { homedir } from 'os'
-import type { Agent, ExternalEngineId, Message, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
+import type { Agent, ExternalEngineId, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
-import { getPrefs, getSetting } from './db'
+import { getPrefs, getSetting, type ModelMessage } from './db'
+import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 import { runAcpTurn } from './acp'
 import { engineLaunch, engineStatus } from './engines'
@@ -25,7 +26,7 @@ export interface RunOptions {
   agent: Agent
   skills: Skill[]
   project: Project | null
-  history: Message[]
+  history: ModelMessage[]
   emit: (e: RunEventBody) => void
   signal?: AbortSignal
 }
@@ -60,6 +61,42 @@ function toolsFor(opts: RunOptions): { defs: ToolDef[]; ctx: ToolContext } | nul
   return {
     defs: FILE_TOOLS,
     ctx: { agent: opts.agent, project: opts.project, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit }
+  }
+}
+
+/** The user's words plus the text of anything they attached. */
+function messageText(m: ModelMessage): string {
+  if (!m.context) return m.content
+  return m.content.trim() ? `${m.content}\n\n${m.context}` : m.context
+}
+
+function images(m: ModelMessage): { mime: string; data: string }[] {
+  return m.role === 'user' ? m.attachments.map(readImage).filter((x) => x !== null) : []
+}
+
+function anthropicMessage(m: ModelMessage): unknown {
+  const imgs = images(m)
+  const text = messageText(m)
+  if (!imgs.length) return { role: m.role, content: text }
+  return {
+    role: m.role,
+    content: [
+      ...imgs.map((i) => ({ type: 'image', source: { type: 'base64', media_type: i.mime, data: i.data } })),
+      ...(text ? [{ type: 'text', text }] : [])
+    ]
+  }
+}
+
+function openAIMessage(m: ModelMessage): unknown {
+  const imgs = images(m)
+  const text = messageText(m)
+  if (!imgs.length) return { role: m.role, content: text }
+  return {
+    role: m.role,
+    content: [
+      ...(text ? [{ type: 'text', text }] : []),
+      ...imgs.map((i) => ({ type: 'image_url', image_url: { url: `data:${i.mime};base64,${i.data}` } }))
+    ]
   }
 }
 
@@ -112,7 +149,7 @@ class AnthropicRuntime implements AgentRuntime {
     const key = getSecret('anthropic')
     if (!key) throw new Error('Add your Anthropic API key in Settings.')
     const tools = toolsFor(opts)
-    const messages: unknown[] = history.map((m) => ({ role: m.role, content: m.content }))
+    const messages: unknown[] = history.map(anthropicMessage)
     const texts: string[] = []
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -201,7 +238,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
     let tools = toolsFor(opts)
     const messages: unknown[] = [
       { role: 'system', content: systemPrompt(agent, skills, project) },
-      ...history.map((m) => ({ role: m.role, content: m.content }))
+      ...history.map(openAIMessage)
     ]
     const texts: string[] = []
 
@@ -303,7 +340,7 @@ function acpPrompt(opts: RunOptions): string {
   const turns: string[] = []
   let size = 0
   for (const m of older) {
-    const line = `${m.role === 'user' ? 'User' : 'You'}: ${m.content}`
+    const line = `${m.role === 'user' ? 'User' : 'You'}: ${messageText(m)}`
     if (size + line.length > HISTORY_CHARS) break
     turns.unshift(line)
     size += line.length
@@ -311,7 +348,7 @@ function acpPrompt(opts: RunOptions): string {
   return [
     `# Your role (set in Tyslin Studio)\n${systemPrompt(opts.agent, opts.skills, opts.project)}`,
     turns.length ? `# Conversation so far\n${turns.join('\n\n')}` : '',
-    `# New message from the user\n${latest?.content ?? ''}`
+    `# New message from the user\n${latest ? messageText(latest) : ''}`
   ].filter(Boolean).join('\n\n')
 }
 

@@ -5,7 +5,15 @@ import type { UpdateStatus } from '@shared/types'
 const RELEASES = 'https://github.com/ReactiveSpace2/tyslin-studio/releases'
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
-let status: UpdateStatus = { state: 'idle', currentVersion: app.getVersion(), autoInstall: false }
+// Snap installs are updated by snapd from the Snap Store, so the app stays out of the way.
+const IS_SNAP = process.platform === 'linux' && !!process.env['SNAP']
+
+let status: UpdateStatus = {
+  state: 'idle',
+  currentVersion: app.getVersion(),
+  autoInstall: false,
+  ...(IS_SNAP ? { managedBy: 'snap' as const } : {})
+}
 let win: BrowserWindow | null = null
 
 /**
@@ -30,7 +38,7 @@ export function getUpdateStatus(): UpdateStatus {
 
 export async function checkForUpdates(): Promise<UpdateStatus> {
   // Dev builds have no release metadata to compare against.
-  if (!app.isPackaged) return status
+  if (!app.isPackaged || IS_SNAP) return status
   try {
     await autoUpdater.checkForUpdates()
   } catch (err) {
@@ -51,7 +59,7 @@ export function initUpdater(window: BrowserWindow): void {
   win = window
   const auto = canAutoInstall()
   set({ autoInstall: auto })
-  if (!app.isPackaged) return
+  if (!app.isPackaged || IS_SNAP) return
 
   autoUpdater.autoDownload = auto
   autoUpdater.autoInstallOnAppQuit = auto

@@ -8,6 +8,7 @@ import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
+import { pickAttachments, prepareAttachments } from './attachments'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import type { AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
@@ -64,14 +65,15 @@ function registerIpc(): void {
   ipcMain.handle('sessions:list', (_e, agentId?: string) => db.listSessions(agentId))
   ipcMain.handle('sessions:create', (_e, agentId: string, projectId: string | null) => db.createSession(agentId, projectId))
   ipcMain.handle('sessions:messages', (_e, id: string) => db.listMessages(id))
-  ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string) => {
+  ipcMain.handle('attachments:pick', (_e, kind: 'file' | 'folder') => pickAttachments(win!, kind === 'folder' ? 'folder' : 'file'))
+  ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     const session = db.getSession(sessionId)
     if (!session) throw new Error('Session not found')
     const agent = db.getAgent(session.agentId)
     if (!agent) throw new Error('Agent not found')
-    db.addMessage(sessionId, 'user', text)
-    const project = session.projectId ? db.getProject(session.projectId) : null
     if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
+    db.addMessage(sessionId, 'user', text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
+    const project = session.projectId ? db.getProject(session.projectId) : null
     const runId = randomUUID()
     const controller = new AbortController()
     activeRuns.set(sessionId, { runId, controller })
@@ -86,7 +88,7 @@ function registerIpc(): void {
           agent,
           skills: db.listSkills(),
           project,
-          history: db.listMessages(sessionId),
+          history: db.listModelMessages(sessionId),
           emit: send,
           signal: controller.signal
         })

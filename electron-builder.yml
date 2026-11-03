@@ -42,7 +42,23 @@ linux:
     - target: deb
       arch:
         - x64
+    # Published to the Snap Store so Ubuntu App Center shows the name, icon and
+    # publisher (it shows "Unknown publisher" and a warning for any local .deb).
+    - target: snap
+      arch:
+        - x64
   maintainer: info@tyslin.ai
+deb:
+  # Adds an AppArmor profile so the app can start on Ubuntu 23.10+ (see the script).
+  afterInstall: resources/linux/after-install.sh
+  afterRemove: resources/linux/after-remove.sh
+snap:
+  summary: Every agent you run. One studio.
+  grade: stable
+  # Classic, not strict: the app runs external agent engines from the user's
+  # PATH, their official installers, and works on project folders anywhere.
+  # Needs a one-time classic approval from the Snap Store.
+  confinement: classic
 # Installed apps read latest*.yml from GitHub Releases to find updates (src/main/updater.ts).
 publish:
   provider: github
