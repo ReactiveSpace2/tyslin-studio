@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Agent, AgentInput, ProviderId, Shape, Skill, Tone, WriteMode } from '@shared/types'
+import type { Agent, AgentInput, EngineId, EngineStatus, ProviderId, Shape, Skill, Tone, WriteMode } from '@shared/types'
+import { ENGINE_NAMES } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 
@@ -12,7 +13,7 @@ const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
 
 const BLANK: AgentInput = {
   name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
-  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', writeMode: 'ask', isMascot: false
+  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false
 }
 
 interface Props {
@@ -25,9 +26,11 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
   const [form, setForm] = useState<AgentInput & { id?: string }>(BLANK)
   const [skills, setSkills] = useState<Skill[]>([])
   const [saving, setSaving] = useState(false)
+  const [engines, setEngines] = useState<EngineStatus[]>([])
 
   useEffect(() => {
     void window.tyslin.skills.list().then(setSkills)
+    void window.tyslin.engines.list().then(setEngines)
     if (agentId) void window.tyslin.agents.get(agentId).then((a) => a && setForm(a))
     else void window.tyslin.settings.prefs().then((p) => setForm((f) => ({ ...f, writeMode: p.defaultWriteMode })))
   }, [agentId])
@@ -88,7 +91,27 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
               placeholder="Describe the job, how the agent should work, and what a good result looks like." />
           </div>
 
-          <div className="two">
+          <div className="field">
+            <label htmlFor="f-engine">Runs on</label>
+            <select id="f-engine" className="select" style={{ maxWidth: 420 }} value={form.engine} onChange={(e) => set('engine', e.target.value as EngineId)}>
+              <option value="builtin">Tyslin (pick a model below)</option>
+              {engines.map((e) => (
+                <option key={e.id} value={e.id}>{e.name}{e.resolvedPath ? '' : e.id === 'custom' && !e.command ? ' (set up in Settings)' : ' (not installed)'}</option>
+              ))}
+            </select>
+            {form.engine !== 'builtin' && (() => {
+              const e = engines.find((x) => x.id === form.engine)
+              return (
+                <span className="hint">
+                  {ENGINE_NAMES[form.engine]} runs as its own program and uses its own model settings. Your instructions and skills are sent with each message.
+                  {e && !e.resolvedPath && <> {e.id === 'custom' && !e.command ? 'Enter its command' : "It isn't installed yet, or Tyslin can't find it"} in Settings → Agent engines.</>}
+                  {' '}File edits it asks Tyslin to make go through your review; edits it makes with its own tools can't be reviewed.
+                </span>
+              )
+            })()}
+          </div>
+
+          {form.engine === 'builtin' && <div className="two">
             <div className="field">
               <label htmlFor="f-prov">Provider</label>
               <select id="f-prov" className="select" value={form.provider} onChange={(e) => {
@@ -106,7 +129,7 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
               <input id="f-model" className="input mono" list="models" value={form.model} onChange={(e) => set('model', e.target.value)} />
               <datalist id="models">{MODEL_SUGGESTIONS[form.provider].map((m) => <option key={m} value={m} />)}</datalist>
             </div>
-          </div>
+          </div>}
 
           <fieldset className="field" style={{ border: 0, margin: 0, padding: 0 }}>
             <legend className="label" style={{ marginBottom: 8 }}>Skills</legend>

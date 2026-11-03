@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -23,6 +23,20 @@ const api: TyslinApi = {
       const fn = (_e: unknown, ev: RunEvent): void => cb(ev)
       ipcRenderer.on('run-event', fn)
       return () => ipcRenderer.removeListener('run-event', fn)
+    },
+    stop: (sessionId) => ipcRenderer.invoke('sessions:stop', sessionId),
+    answerPermission: (permissionId, choiceId) => ipcRenderer.invoke('sessions:answerPermission', permissionId, choiceId)
+  },
+  engines: {
+    list: () => ipcRenderer.invoke('engines:list'),
+    setCommand: (id, command) => ipcRenderer.invoke('engines:setCommand', id, command),
+    test: (id) => ipcRenderer.invoke('engines:test', id),
+    install: (id) => ipcRenderer.invoke('engines:install', id),
+    cancelInstall: (id) => ipcRenderer.invoke('engines:cancelInstall', id),
+    onInstallOutput: (cb) => {
+      const fn = (_e: unknown, o: InstallOutput): void => cb(o)
+      ipcRenderer.on('engines:installOutput', fn)
+      return () => ipcRenderer.removeListener('engines:installOutput', fn)
     }
   },
   changes: {

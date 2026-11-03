@@ -4,13 +4,17 @@ import { randomUUID } from 'crypto'
 import { readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
-import { runtimeFor } from './runtime'
-import { listProjectFiles, resolveChange } from './tools'
+import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
+import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
+import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
+import { testAcp } from './acp'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
-import type { AgentInput, AppInfo, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
+/** Replies in progress, by session, so they can be stopped. */
+const activeRuns = new Map<string, { runId: string; controller: AbortController }>()
 
 function createWindow(): void {
   win = new BrowserWindow({
@@ -67,7 +71,10 @@ function registerIpc(): void {
     if (!agent) throw new Error('Agent not found')
     db.addMessage(sessionId, 'user', text)
     const project = session.projectId ? db.getProject(session.projectId) : null
+    if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
     const runId = randomUUID()
+    const controller = new AbortController()
+    activeRuns.set(sessionId, { runId, controller })
     const send = (e: RunEventBody): void => emit({ ...e, runId, sessionId })
     // Run in the background; the renderer listens to run events.
     void (async () => {
@@ -80,15 +87,46 @@ function registerIpc(): void {
           skills: db.listSkills(),
           project,
           history: db.listMessages(sessionId),
-          emit: send
+          emit: send,
+          signal: controller.signal
         })
         if (reply) db.addMessage(sessionId, 'assistant', reply)
         send({ type: 'run_finished' })
       } catch (err) {
-        send({ type: 'run_error', error: err instanceof Error ? err.message : String(err) })
+        const message = controller.signal.aborted ? 'Stopped.' : err instanceof Error ? err.message : String(err)
+        send({ type: 'run_error', error: message })
+      } finally {
+        activeRuns.delete(sessionId)
+        expireRunChanges(runId)
+        cancelRunPermissions(runId)
       }
     })()
   })
+  ipcMain.handle('sessions:stop', (_e, sessionId: string) => {
+    const run = activeRuns.get(sessionId)
+    if (!run) return
+    run.controller.abort()
+    // Unblock a run that is waiting on the user, so it can wind down.
+    expireRunChanges(run.runId)
+    cancelRunPermissions(run.runId)
+  })
+  ipcMain.handle('sessions:answerPermission', (_e, permissionId: string, choiceId: string | null) => answerPermission(permissionId, choiceId))
+
+  ipcMain.handle('engines:list', () => listEngines())
+  ipcMain.handle('engines:setCommand', (_e, id: ExternalEngineId, command: string) => setEngineCommand(id, command))
+  ipcMain.handle('engines:install', async (_e, id: ExternalEngineId) => {
+    const r = await runInstall(id, (text) => win?.webContents.send('engines:installOutput', { id, text }))
+    return { ...r, status: engineStatus(id) }
+  })
+  ipcMain.handle('engines:cancelInstall', (_e, id: ExternalEngineId) => cancelInstall(id))
+  ipcMain.handle('engines:test', async (_e, id: ExternalEngineId) => {
+    try {
+      return await testAcp(engineStatus(id).name, engineLaunch(id, app.getPath('home')), app.getVersion())
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
 
   ipcMain.handle('changes:list', (_e, sessionId: string) => db.listChanges(sessionId))
   ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => resolveChange(id, acceptedHunks, note))

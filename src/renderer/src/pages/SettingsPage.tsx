@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
-import type { AppInfo, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
+import { useEffect, useRef, useState } from 'react'
+import type { AppInfo, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
 
-type Tab = 'models' | 'agents' | 'about'
+type Tab = 'models' | 'engines' | 'agents' | 'about'
 
-const TABS: [Tab, string][] = [['models', 'Models'], ['agents', 'Agents'], ['about', 'About & updates']]
+const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['about', 'About & updates']]
 
 const KEY_FIELDS: [KeyProvider, string, string, keyof ProviderSettings][] = [
   ['anthropic', 'Anthropic (Claude)', 'sk-ant-…', 'anthropicKeySet'],
@@ -141,6 +141,122 @@ function AgentsTab(): JSX.Element {
   )
 }
 
+function EngineCard({ engine, onChange }: { engine: EngineStatus; onChange: (e: EngineStatus) => void }): JSX.Element {
+  const [command, setCommand] = useState(engine.command)
+  const [test, setTest] = useState<EngineTestResult | null>(null)
+  const [testing, setTesting] = useState(false)
+  // Install flow: closed → confirm (shows the exact command) → running → done
+  const [install, setInstall] = useState<'closed' | 'confirm' | 'running' | 'done'>('closed')
+  const [log, setLog] = useState('')
+  const [installError, setInstallError] = useState<string | null>(null)
+  const logRef = useRef<HTMLPreElement>(null)
+  const id = 'eng-' + engine.id
+
+  useEffect(() => window.tyslin.engines.onInstallOutput((o) => {
+    if (o.id === engine.id) setLog((l) => (l + o.text).slice(-60_000))
+  }), [engine.id])
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }) }, [log])
+
+  const runInstall = async (): Promise<void> => {
+    setLog('')
+    setInstallError(null)
+    setInstall('running')
+    const r = await window.tyslin.engines.install(engine.id)
+    onChange(r.status)
+    if (!r.ok) setInstallError(r.error ?? 'The install failed.')
+    else if (!r.status.resolvedPath) setInstallError(`The installer finished, but Tyslin can't find ${engine.name} yet. Restart Tyslin, or set its full path in the Command field below.`)
+    setInstall('done')
+  }
+
+  const save = async (): Promise<void> => {
+    onChange(await window.tyslin.engines.setCommand(engine.id, command))
+    setTest(null)
+  }
+  const runTest = async (): Promise<void> => {
+    setTesting(true)
+    setTest(await window.tyslin.engines.test(engine.id))
+    setTesting(false)
+  }
+
+  return (
+    <section className="box" aria-labelledby={id + '-h'}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="box-head">
+          <h2 id={id + '-h'}>{engine.name}</h2>
+          <p className="hint">{engine.description} {engine.note}</p>
+        </div>
+        <span className={'badge' + (engine.resolvedPath ? ' green' : '')}>{engine.resolvedPath ? 'Installed' : engine.id === 'custom' && !engine.command ? 'Not set up' : 'Not installed'}</span>
+      </div>
+      {engine.resolvedPath && <span className="mono path-inline">{engine.resolvedPath}</span>}
+      {engine.install && !engine.resolvedPath && install === 'closed' && (
+        <div className="row">
+          <button type="button" className="btn btn-primary" onClick={() => setInstall('confirm')}>Install {engine.name}</button>
+          <span className="hint">Runs the official installer from {engine.install.source}.</span>
+        </div>
+      )}
+      {engine.install && install === 'confirm' && (
+        <div className="install-confirm" role="group" aria-label={`Install ${engine.name}`}>
+          <strong>This will run on your computer:</strong>
+          <pre className="install-cmd">{engine.install.command}</pre>
+          <span className="hint">
+            It downloads {engine.name}'s official installer from {engine.install.source} and runs it with your user account.
+            Tyslin doesn't check what the installer does; read the setup guide first if you're unsure.
+          </span>
+          <div className="row">
+            <button type="button" className="btn" onClick={() => setInstall('closed')}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={() => void runInstall()}>Install</button>
+          </div>
+        </div>
+      )}
+      {(install === 'running' || install === 'done') && (
+        <div className="install-confirm">
+          <div className="row" style={{ justifyContent: 'space-between' }}>
+            <strong role="status">{install === 'running' ? `Installing ${engine.name}…` : installError ? 'Install did not finish' : `${engine.name} is installed`}</strong>
+            {install === 'running'
+              ? <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.engines.cancelInstall(engine.id)}>Stop</button>
+              : <button type="button" className="btn btn-sm" onClick={() => setInstall('closed')}>Close</button>}
+          </div>
+          <pre className="install-log" ref={logRef} aria-label="Installer output" tabIndex={0}>{log || 'Starting…'}</pre>
+          {install === 'done' && installError && <div className="msg-error" role="alert">{installError}</div>}
+          {install === 'done' && !installError && engine.install && <span className="ok">Next: {engine.install.nextStep}</span>}
+        </div>
+      )}
+      <div className="field">
+        <label htmlFor={id}>Command</label>
+        <div className="row" style={{ flexWrap: 'nowrap' }}>
+          <input id={id} className="input mono" value={command} onChange={(e) => setCommand(e.target.value)}
+            placeholder={engine.defaultCommand || 'my-agent --acp'} />
+          <button type="button" className="btn" disabled={command.trim() === engine.command} onClick={() => void save()}>Save</button>
+        </div>
+        <span className="hint">{engine.defaultCommand ? `Leave empty to use "${engine.defaultCommand}". Use a full path if Tyslin can't find it.` : 'The program and its arguments.'}</span>
+      </div>
+      <div className="row">
+        <button type="button" className="btn" disabled={testing || !engine.resolvedPath} onClick={() => void runTest()}>{testing ? 'Testing…' : 'Test connection'}</button>
+        <a href={engine.docsUrl} target="_blank" rel="noreferrer">Install and setup guide</a>
+      </div>
+      {test && (test.ok
+        ? <span className="ok" role="status">Connected to {test.agent ?? engine.name} over ACP v{test.protocolVersion}.{test.authMethods?.length ? ` It may ask you to sign in (${test.authMethods.join(', ')}).` : ''}</span>
+        : <div className="msg-error" role="alert" style={{ whiteSpace: 'pre-wrap' }}>{test.error}</div>)}
+    </section>
+  )
+}
+
+function EnginesTab(): JSX.Element {
+  const [engines, setEngines] = useState<EngineStatus[]>([])
+  useEffect(() => { void window.tyslin.engines.list().then(setEngines) }, [])
+  const replace = (e: EngineStatus): void => setEngines((list) => list.map((x) => (x.id === e.id ? e : x)))
+
+  return (
+    <>
+      <p className="hint" style={{ margin: 0 }}>
+        Run any agent below with an external agent instead of Tyslin's built-in models: pick it under "Runs on" in the agent's editor.
+        Tyslin talks to them over the Agent Client Protocol (ACP). Install them yourself; Tyslin starts them when needed and stops them after each reply.
+      </p>
+      {engines.map((e) => <EngineCard key={e.id} engine={e} onChange={replace} />)}
+    </>
+  )
+}
+
 function AboutTab(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
@@ -213,6 +329,7 @@ export function SettingsPage(): JSX.Element {
       <div className="settings" role="tabpanel" id="settings-panel" aria-labelledby={'tab-' + tab}>
         {tab === 'models' && <ModelsTab />}
         {tab === 'agents' && <AgentsTab />}
+        {tab === 'engines' && <EnginesTab />}
         {tab === 'about' && <AboutTab />}
       </div>
     </div>

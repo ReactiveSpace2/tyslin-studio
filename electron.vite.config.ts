@@ -4,7 +4,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    // The ACP SDK is ESM-only and main is CommonJS, so it's bundled in rather than required.
+    plugins: [externalizeDepsPlugin({ exclude: ['@agentclientprotocol/sdk'] })],
     resolve: { alias: { '@shared': resolve('src/shared') } }
   },
   preload: {

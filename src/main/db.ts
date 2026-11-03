@@ -52,6 +52,7 @@ function migrate(): void {
     CREATE INDEX IF NOT EXISTS pending_changes_session ON pending_changes(session_id, created_at);
   `)
   addColumn('agents', 'write_mode', "TEXT NOT NULL DEFAULT 'ask'")
+  addColumn('agents', 'engine', "TEXT NOT NULL DEFAULT 'builtin'")
 }
 
 /** CREATE TABLE IF NOT EXISTS never alters an existing table, so new columns go through here. */
@@ -64,11 +65,11 @@ function seed(): void {
   const count = (db.prepare('SELECT COUNT(*) AS n FROM agents').get() as { n: number }).n
   if (count > 0) return
   const defaults: AgentInput[] = [
-    { name: 'Builder', description: 'Designs new agents with you, then keeps improving them.', instructions: 'You are Builder, the Tyslin agent that helps users design other agents. Ask what job the agent should do, then propose a name, short description, step-by-step instructions, and which skills and tools it needs.', shape: 'round', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['agent-design', 'skill-writer'], schedule: 'manual', writeMode: 'ask', isMascot: true },
-    { name: 'Researcher', description: 'Searches your files and sources and returns sourced briefs.', instructions: 'You are a careful researcher. Give concise briefs with clear sections and always say where each fact comes from. Flag anything you are unsure about.', shape: 'round', tone: 'ink', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['cite-sources', 'deep-research', 'company-research'], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Writer', description: 'Drafts posts, emails and docs that sound like you.', instructions: 'You write clear, warm, direct prose. Match the user\'s voice and keep drafts short unless asked otherwise.', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['human-voice', 'follow-up-email'], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Critic', description: 'Reviews any draft and tells you exactly what to fix.', instructions: 'You are a constructive but honest reviewer. List the most important problems first, explain why each matters, and suggest a concrete fix.', shape: 'pill', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['edit-for-clarity'], schedule: 'manual', writeMode: 'ask', isMascot: false },
-    { name: 'Analyst', description: 'Turns numbers into plain answers.', instructions: 'You analyse data the user pastes or describes. Show your working briefly and give the answer in plain language first.', shape: 'block', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['data-analysis'], schedule: 'manual', writeMode: 'ask', isMascot: false }
+    { name: 'Builder', description: 'Designs new agents with you, then keeps improving them.', instructions: 'You are Builder, the Tyslin agent that helps users design other agents. Ask what job the agent should do, then propose a name, short description, step-by-step instructions, and which skills and tools it needs.', shape: 'round', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['agent-design', 'skill-writer'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: true },
+    { name: 'Researcher', description: 'Searches your files and sources and returns sourced briefs.', instructions: 'You are a careful researcher. Give concise briefs with clear sections and always say where each fact comes from. Flag anything you are unsure about.', shape: 'round', tone: 'ink', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['cite-sources', 'deep-research', 'company-research'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
+    { name: 'Writer', description: 'Drafts posts, emails and docs that sound like you.', instructions: 'You write clear, warm, direct prose. Match the user\'s voice and keep drafts short unless asked otherwise.', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['human-voice', 'follow-up-email'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
+    { name: 'Critic', description: 'Reviews any draft and tells you exactly what to fix.', instructions: 'You are a constructive but honest reviewer. List the most important problems first, explain why each matters, and suggest a concrete fix.', shape: 'pill', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['edit-for-clarity'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
+    { name: 'Analyst', description: 'Turns numbers into plain answers.', instructions: 'You analyse data the user pastes or describes. Show your working briefly and give the answer in plain language first.', shape: 'block', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['data-analysis'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false }
   ]
   const tx = db.transaction(() => {
     for (const a of defaults) saveAgent(a)
@@ -88,7 +89,7 @@ function seedSkills(): void {
 
 type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
-  provider: string; model: string; skills: string; schedule: string; write_mode: string; is_mascot: number
+  provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; is_mascot: number
   created_at: number; updated_at: number
 }
 
@@ -96,6 +97,7 @@ const toAgent = (r: AgentRow): Agent => ({
   id: r.id, name: r.name, description: r.description, instructions: r.instructions,
   shape: r.shape as Agent['shape'], tone: r.tone as Agent['tone'], provider: r.provider as Agent['provider'],
   model: r.model, skills: JSON.parse(r.skills), schedule: r.schedule,
+  engine: (r.engine || 'builtin') as Agent['engine'],
   writeMode: r.write_mode === 'direct' ? 'direct' : 'ask', isMascot: !!r.is_mascot,
   createdAt: r.created_at, updatedAt: r.updated_at
 })
@@ -113,16 +115,16 @@ export function saveAgent(input: AgentInput & { id?: string }): Agent {
   const now = Date.now()
   if (input.id && getAgent(input.id)) {
     db.prepare(`UPDATE agents SET name=?, description=?, instructions=?, shape=?, tone=?, provider=?, model=?,
-      skills=?, schedule=?, write_mode=?, is_mascot=?, updated_at=? WHERE id=?`).run(
+      skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, updated_at=? WHERE id=?`).run(
       input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
-      JSON.stringify(input.skills), input.schedule, input.writeMode, input.isMascot ? 1 : 0, now, input.id)
+      JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, input.id)
     return getAgent(input.id)!
   }
   const id = randomUUID()
   db.prepare(`INSERT INTO agents (id, name, description, instructions, shape, tone, provider, model, skills,
-    schedule, write_mode, is_mascot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    schedule, engine, write_mode, is_mascot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
-    JSON.stringify(input.skills), input.schedule, input.writeMode, input.isMascot ? 1 : 0, now, now)
+    JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, now)
   return getAgent(id)!
 }
 

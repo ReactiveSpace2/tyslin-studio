@@ -26,7 +26,9 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Review before it's written:** when an agent wants to change a file, you see a diff first and accept or reject each change, or all at once. The agent hears what you decided and carries on. Each agent can be switched to "Write directly" instead.
 - **Skills:** reusable instruction blocks added to an agent's system prompt. 23 are built in: meeting notes, follow-up emails, meeting prep, daily plans, weekly updates, decision memos, research, competitor briefs, feedback themes, outreach, objection replies, lead qualifying, one-pagers, slide outlines, editing, data analysis, careful file edits and more. Create, edit, search and delete skills in the app, or import and export them as Markdown files (frontmatter `name` and `description`, then the instructions).
 - **Providers:** Anthropic (Claude), OpenAI, Google Gemini (key from Google AI Studio), and local models through Ollama.
-- **Settings:** API keys and Ollama; defaults for new agents and guidelines added to every agent's instructions; update status, app version and where your data lives.
+- **External agents:** run any agent on an agent you've installed instead of Tyslin's built-in models: Goose, Hermes, ZeroClaw, OpenClaw, or any other program that speaks the Agent Client Protocol (ACP). Pick it under "Runs on" in the agent editor. Tyslin sends your instructions and skills with each message, shows the agent's tool calls, puts file edits it asks Tyslin to make through your review, and shows its permission requests ("Run npm test?") in chat. Settings → Agent engines shows what's installed, tests the connection, and has an Install button for Goose, Hermes and OpenClaw that runs each project's official installer (it shows you the exact command first and streams the output). Tyslin doesn't ship these agents.
+- **Stop:** stop any reply mid-way from the chat box.
+- **Settings:** API keys and Ollama; agent engines; defaults for new agents and guidelines added to every agent's instructions; update status, app version and where your data lives.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
 
 ## Download
@@ -101,7 +103,9 @@ src/
   main/        Electron main process (the only code that touches DB, files, network, secrets)
     index.ts     window + IPC handlers
     db.ts        SQLite schema, seed data and queries
-    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events)
+    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events) + AcpRuntime
+    acp.ts       ACP client: starts an external agent, drives one turn, maps its updates to run events
+    engines.ts   external agent catalogue, PATH lookup, command overrides
     tools.ts     project file tools; staged writes and the review hand-back
     skillFiles.ts  skill Markdown import/export and validation
     seedSkills.ts  built-in skill library (versioned; new skills reach existing installs)
@@ -118,7 +122,7 @@ Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts`
 
 ## Roadmap
 
-1. **Goose runtime:** run agents over Goose's Agent Client Protocol (ACP) with `goose` bundled as a sidecar, so agents can run commands and use MCP connectors (file reading and writing already work).
+1. **External agents, next steps:** keep an agent's process running between messages, pass MCP servers through, and show plans and token usage.
 2. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
 3. **Scheduler:** run agents on their saved schedule.
 4. **Hand-offs:** pass one agent's result to another.

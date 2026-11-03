@@ -176,14 +176,9 @@ export async function runTools(calls: ToolCall[], ctx: ToolContext): Promise<Too
         }
         if (stagedPaths.has(p.rel)) throw new Error(`${p.rel} already has a change waiting for review in this step; put all edits to a file in one call`)
         stagedPaths.add(p.rel)
-        const change = db.createChange({
-          runId: ctx.runId, sessionId: ctx.sessionId, toolCallId: call.id,
-          filePath: p.rel, original: p.original, proposed: p.proposed
-        })
         staged++
-        results.push(new Promise<PendingChange>((done) => waiting.set(change.id, done))
+        results.push(stageChange(ctx, call.id, p.rel, p.original, p.proposed)
           .then((c) => ({ id: call.id, content: describeDecision(c), isError: false })))
-        ctx.emit({ type: 'approval_needed', toolCallId: call.id, changeId: change.id, filePath: p.rel })
       } else {
         throw new Error(`Unknown tool ${call.name}`)
       }
@@ -197,6 +192,59 @@ export async function runTools(calls: ToolCall[], ctx: ToolContext): Promise<Too
   if (staged) ctx.emit({ type: 'state_update', status: 'running' })
   for (const r of out) ctx.emit({ type: 'tool_result', toolCallId: r.id, content: r.content, isError: r.isError })
   return out
+}
+
+/** Stages a change for review and resolves with the user's decision. */
+function stageChange(ctx: Pick<ToolContext, 'runId' | 'sessionId' | 'emit'>, toolCallId: string, rel: string, original: string | null, proposed: string): Promise<PendingChange> {
+  const change = db.createChange({ runId: ctx.runId, sessionId: ctx.sessionId, toolCallId, filePath: rel, original, proposed })
+  const decided = new Promise<PendingChange>((done) => waiting.set(change.id, done))
+  ctx.emit({ type: 'approval_needed', toolCallId, changeId: change.id, filePath: rel })
+  return decided
+}
+
+/**
+ * File access for external (ACP) agents: reads and writes confined to the project folder, with
+ * writes going through the same review as built-in agents unless the agent writes directly.
+ */
+export function acpFileAccess(ctx: ToolContext): {
+  read: (absPath: string, line?: number | null, limit?: number | null) => string
+  write: (absPath: string, content: string, toolCallId: string) => Promise<void>
+} {
+  const folder = ctx.project.folder!
+  return {
+    read: (absPath, line, limit) => {
+      const { abs, rel } = safePath(folder, absPath)
+      const text = readText(abs)
+      if (text === null) throw new Error(`${rel} does not exist`)
+      if (!line && !limit) return text
+      const lines = text.split('\n')
+      const from = Math.max(0, (line ?? 1) - 1)
+      return lines.slice(from, limit ? from + limit : undefined).join('\n')
+    },
+    write: async (absPath, content, toolCallId) => {
+      const { abs, rel } = safePath(folder, absPath)
+      if (ctx.agent.writeMode === 'direct') {
+        writeText(abs, content)
+        return
+      }
+      ctx.emit({ type: 'state_update', status: 'waiting_for_review' })
+      const c = await stageChange(ctx, toolCallId, rel, readText(abs), content)
+      ctx.emit({ type: 'state_update', status: 'running' })
+      // ACP has no partial-success reply, so anything short of a full accept is reported as an error.
+      if (c.status !== 'accepted') throw new Error(describeDecision(c))
+    }
+  }
+}
+
+/** Ends the review wait for a stopped run, so its staged changes don't hang forever. */
+export function expireRunChanges(runId: string): void {
+  for (const [id, done] of waiting) {
+    const c = db.getChange(id)
+    if (c?.runId !== runId || c.status !== 'pending') continue
+    db.setChangeStatus(id, 'expired')
+    done(db.getChange(id)!)
+    waiting.delete(id)
+  }
 }
 
 /** Applies the user's decision to disk and hands it back to the waiting run. */

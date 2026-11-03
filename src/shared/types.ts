@@ -3,6 +3,54 @@ export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
 /** Providers that need an API key (stored encrypted). */
 export type KeyProvider = 'anthropic' | 'openai' | 'gemini'
+/**
+ * What runs the agent: Tyslin's own model runtime, or an external agent driven over ACP
+ * (Agent Client Protocol). The external program is installed by the user, never bundled.
+ */
+export type EngineId = 'builtin' | 'goose' | 'hermes' | 'zeroclaw' | 'openclaw' | 'custom'
+export type ExternalEngineId = Exclude<EngineId, 'builtin'>
+
+export interface EngineStatus {
+  id: ExternalEngineId
+  name: string
+  description: string
+  docsUrl: string
+  /** Shown under the engine, e.g. "Needs a running OpenClaw Gateway." */
+  note: string
+  /** Default command line, e.g. "hermes acp". */
+  defaultCommand: string
+  /** The user's override, or '' to use the default. */
+  command: string
+  /** Absolute path of the program that would be started, or null if it can't be found. */
+  resolvedPath: string | null
+  /** The engine's official installer for this platform, or null if Tyslin can't install it. */
+  install: EngineInstall | null
+}
+
+export interface EngineInstall {
+  /** Exactly what will run, shown to the user before it does. */
+  command: string
+  /** Where the installer script comes from, e.g. "openclaw.ai". */
+  source: string
+  /** What the user still has to do afterwards, e.g. choose a model. */
+  nextStep: string
+}
+
+export interface InstallOutput {
+  id: ExternalEngineId
+  text: string
+}
+
+export interface EngineTestResult {
+  ok: boolean
+  /** Name and version the agent reports, e.g. "hermes-agent 0.9.1". */
+  agent?: string
+  protocolVersion?: number
+  /** Sign-in methods the agent offers; empty when it handles auth itself. */
+  authMethods?: string[]
+  error?: string
+}
+
 /** ask: file writes are staged for review · direct: written straight to disk */
 export type WriteMode = 'ask' | 'direct'
 
@@ -17,6 +65,7 @@ export interface Agent {
   model: string
   skills: string[]
   schedule: string
+  engine: EngineId
   writeMode: WriteMode
   isMascot: boolean
   createdAt: number
@@ -83,11 +132,19 @@ export type RunEventBody =
   | { type: 'tool_call_end'; toolCallId: string }
   | { type: 'tool_result'; toolCallId: string; content: string; isError: boolean }
   | { type: 'approval_needed'; toolCallId: string; changeId: string; filePath: string }
+  | { type: 'approval_needed'; toolCallId: string; permissionId: string; title: string; choices: PermissionChoice[] }
   | { type: 'state_update'; status: 'running' | 'waiting_for_review' }
   | { type: 'run_finished' }
   | { type: 'run_error'; error: string }
 
 export type RunEvent = RunEventBody & { runId: string; sessionId: string }
+
+/** An option an external agent offers when it asks permission, e.g. "Allow once". */
+export interface PermissionChoice {
+  id: string
+  name: string
+  kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
+}
 
 export type ChangeStatus = 'pending' | 'accepted' | 'rejected' | 'partial' | 'expired'
 
@@ -154,6 +211,20 @@ export interface TyslinApi {
     messages(sessionId: string): Promise<Message[]>
     send(sessionId: string, text: string): Promise<void>
     onEvent(cb: (e: RunEvent) => void): () => void
+    /** Stops the session's running reply, if any. */
+    stop(sessionId: string): Promise<void>
+    /** Answers an external agent's permission request; null declines. */
+    answerPermission(permissionId: string, choiceId: string | null): Promise<void>
+  }
+  engines: {
+    list(): Promise<EngineStatus[]>
+    setCommand(id: ExternalEngineId, command: string): Promise<EngineStatus>
+    /** Starts the engine, runs the ACP handshake and stops it again. */
+    test(id: ExternalEngineId): Promise<EngineTestResult>
+    /** Runs the engine's official installer; output streams through onInstallOutput. */
+    install(id: ExternalEngineId): Promise<{ ok: boolean; error?: string; status: EngineStatus }>
+    cancelInstall(id: ExternalEngineId): Promise<void>
+    onInstallOutput(cb: (o: InstallOutput) => void): () => void
   }
   changes: {
     list(sessionId: string): Promise<PendingChange[]>

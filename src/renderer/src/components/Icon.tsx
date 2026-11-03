@@ -10,6 +10,7 @@ const PATHS = {
   file: <><path d="M4 1.5h5L12 4.5v10H4z" /><path d="M9 1.5v3h3" /></>,
   check: <path d="m3 8.5 3 3 7-7" />,
   close: <path d="M4 4l8 8M12 4l-8 8" />,
+  stop: <rect x="4" y="4" width="8" height="8" rx="1.5" />,
   warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
 } as const
 

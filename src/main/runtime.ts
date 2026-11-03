@@ -1,12 +1,18 @@
-import type { Agent, Message, Project, RunEventBody, Skill } from '@shared/types'
+import { app } from 'electron'
+import { randomUUID } from 'crypto'
+import { homedir } from 'os'
+import type { Agent, ExternalEngineId, Message, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
 import { getPrefs, getSetting } from './db'
-import { FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
+import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
+import { runAcpTurn } from './acp'
+import { engineLaunch, engineStatus } from './engines'
 
 /**
  * AgentRuntime is the seam between Tyslin and whatever runs the agent loop.
- * This MVP ships a direct model runtime (Anthropic + OpenAI-compatible: OpenAI, Gemini, Ollama) with file tools.
- * A Goose/ACP runtime can implement the same interface later (see README).
+ * Two kinds: Tyslin's direct model runtimes (Anthropic + OpenAI-compatible: OpenAI, Gemini, Ollama)
+ * with file tools, and AcpRuntime, which drives an external agent (Goose, Hermes, ZeroClaw, OpenClaw…)
+ * over the Agent Client Protocol.
  * Runtimes report progress only through `emit`, as AG-UI-shaped events.
  */
 export interface AgentRuntime {
@@ -272,7 +278,75 @@ class OpenAICompatibleRuntime implements AgentRuntime {
   }
 }
 
+/** Permission requests from external agents, waiting for the user's answer. */
+const permissions = new Map<string, { runId: string; done: (choiceId: string | null) => void }>()
+
+export function answerPermission(permissionId: string, choiceId: string | null): void {
+  permissions.get(permissionId)?.done(choiceId)
+  permissions.delete(permissionId)
+}
+
+/** Declines every open permission request of a stopped run. */
+export function cancelRunPermissions(runId: string): void {
+  for (const [id, p] of permissions) if (p.runId === runId) answerPermission(id, null)
+}
+
+/** Most recent turns, newest last, within a rough size budget. */
+const HISTORY_CHARS = 30_000
+
+/**
+ * ACP sessions start fresh each run, so the agent's role and the conversation so far go into
+ * the prompt itself.
+ */
+function acpPrompt(opts: RunOptions): string {
+  const [latest, ...older] = [...opts.history].reverse()
+  const turns: string[] = []
+  let size = 0
+  for (const m of older) {
+    const line = `${m.role === 'user' ? 'User' : 'You'}: ${m.content}`
+    if (size + line.length > HISTORY_CHARS) break
+    turns.unshift(line)
+    size += line.length
+  }
+  return [
+    `# Your role (set in Tyslin Studio)\n${systemPrompt(opts.agent, opts.skills, opts.project)}`,
+    turns.length ? `# Conversation so far\n${turns.join('\n\n')}` : '',
+    `# New message from the user\n${latest?.content ?? ''}`
+  ].filter(Boolean).join('\n\n')
+}
+
+class AcpRuntime implements AgentRuntime {
+  constructor(private engine: ExternalEngineId) {}
+
+  async run(opts: RunOptions): Promise<string> {
+    const { name } = engineStatus(this.engine)
+    const folder = opts.project?.folder ?? null
+    const launch = engineLaunch(this.engine, folder ?? homedir())
+    const files = folder
+      ? acpFileAccess({ agent: opts.agent, project: opts.project!, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit })
+      : null
+
+    const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
+      const permissionId = randomUUID()
+      const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, done }))
+      opts.emit({ type: 'state_update', status: 'waiting_for_review' })
+      opts.emit({ type: 'approval_needed', toolCallId, permissionId, title, choices })
+      return answer.finally(() => opts.emit({ type: 'state_update', status: 'running' }))
+    }
+
+    return runAcpTurn({
+      name,
+      launch,
+      prompt: acpPrompt(opts),
+      clientVersion: app.getVersion(),
+      signal: opts.signal,
+      host: { emit: opts.emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
+    })
+  }
+}
+
 export function runtimeFor(agent: Agent): AgentRuntime {
+  if (agent.engine !== 'builtin') return new AcpRuntime(agent.engine)
   switch (agent.provider) {
     case 'anthropic': return new AnthropicRuntime()
     case 'openai': return new OpenAICompatibleRuntime('openai')

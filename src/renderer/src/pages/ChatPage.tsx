@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, Message, PendingChange, Project, Session } from '@shared/types'
+import type { Agent, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
+import { ENGINE_NAMES } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { ChangeReview } from '../components/ChangeReview'
 import { Icon } from '../components/Icon'
@@ -17,10 +18,19 @@ const TOOL_VERB: Record<string, string> = {
   list_files: 'Listed files', read_file: 'Read', write_file: 'Proposed', edit_file: 'Proposed an edit to'
 }
 
+/** A permission request from an external agent, waiting for an answer. */
+interface Permission {
+  id: string
+  title: string
+  choices: PermissionChoice[]
+}
+
 function activityLabel(a: Activity): string {
+  // External agents send a ready-made title, like "Read notes.md".
+  if (!TOOL_VERB[a.name]) return a.name
   let path = ''
   try { path = JSON.parse(a.args || '{}').path ?? '' } catch { /* args still streaming */ }
-  return [TOOL_VERB[a.name] ?? a.name, path].filter(Boolean).join(' ')
+  return [TOOL_VERB[a.name], path].filter(Boolean).join(' ')
 }
 
 function changeSummary(list: PendingChange[]): string {
@@ -58,6 +68,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
   const [changes, setChanges] = useState<PendingChange[]>([])
   const [liveRun, setLiveRun] = useState<string | null>(null)
   const [reviewRun, setReviewRun] = useState<string | null>(null)
+  const [permissions, setPermissions] = useState<Permission[]>([])
   const threadRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -78,6 +89,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     setActivity([])
     setWaiting(false)
     setLiveRun(null)
+    setPermissions([])
     if (session) {
       void window.tyslin.sessions.messages(session.id).then(setMessages)
       void loadChanges(session.id)
@@ -108,7 +120,8 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
           setActivity((a) => a.map((x) => (x.id === e.toolCallId ? { ...x, done: true, isError: e.isError } : x)))
           break
         case 'approval_needed':
-          await loadChanges(session.id)
+          if ('permissionId' in e) setPermissions((p) => [...p, { id: e.permissionId, title: e.title, choices: e.choices }])
+          else await loadChanges(session.id)
           break
         case 'state_update':
           setWaiting(e.status === 'waiting_for_review')
@@ -117,6 +130,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
         case 'run_error':
           setStreaming(null)
           setWaiting(false)
+          setPermissions([])
           if (e.type === 'run_error') setError(e.error)
           setMessages(await window.tyslin.sessions.messages(session.id))
           await loadChanges(session.id)
@@ -140,6 +154,11 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     const s = await window.tyslin.sessions.create(agent.id, projectId)
     setSessions((list) => [s, ...list])
     setSession(s)
+  }
+
+  const answer = (p: Permission, choiceId: string | null): void => {
+    setPermissions((list) => list.filter((x) => x.id !== p.id))
+    void window.tyslin.sessions.answerPermission(p.id, choiceId)
   }
 
   const send = async (): Promise<void> => {
@@ -171,7 +190,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
             <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={44} />
             <div>
               <h2>{agent.name}</h2>
-              <span className="sub">{project ? project.name : 'No project'} · <span className="mono">{agent.model}</span></span>
+              <span className="sub">{project ? project.name : 'No project'} · <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
             </div>
           </div>
           <div className="row">
@@ -224,6 +243,21 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
                 </div>
               )
             })}
+            {permissions.map((p) => (
+              <div key={p.id} className="change-card open" role="group" aria-label="Permission request">
+                <Icon name="warning" />
+                <div className="change-card-text">
+                  <strong>{p.title}</strong>
+                  <span>{agent.name} is asking before it goes ahead</span>
+                </div>
+                <div className="row" style={{ gap: 6 }}>
+                  {p.choices.map((c) => (
+                    <button key={c.id} type="button" className={'btn btn-sm' + (c.kind.startsWith('allow') ? ' btn-primary' : '')} onClick={() => answer(p, c.id)}>{c.name}</button>
+                  ))}
+                  {p.choices.length === 0 && <button type="button" className="btn btn-sm" onClick={() => answer(p, null)}>Decline</button>}
+                </div>
+              </div>
+            ))}
             {streaming !== null && !waiting && <div className="typing">{agent.name} is working…</div>}
             {error && (
               <div className="msg-error">
@@ -249,9 +283,15 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
               }
             }}
           />
-          <button type="submit" className="btn btn-primary icon-btn" aria-label="Send" disabled={!text.trim() || streaming !== null}>
-            <Icon name="send" />
-          </button>
+          {streaming !== null && session ? (
+            <button type="button" className="btn icon-btn" aria-label={`Stop ${agent.name}`} title="Stop" onClick={() => void window.tyslin.sessions.stop(session.id)}>
+              <Icon name="stop" />
+            </button>
+          ) : (
+            <button type="submit" className="btn btn-primary icon-btn" aria-label="Send" disabled={!text.trim()}>
+              <Icon name="send" />
+            </button>
+          )}
         </form>
       </section>
 

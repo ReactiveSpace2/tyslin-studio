@@ -19,9 +19,11 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "2.0.0",
     "better-sqlite3": "^11.7.0",
     "diff": "^8.0.4",
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

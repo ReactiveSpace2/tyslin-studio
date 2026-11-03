@@ -3,6 +3,8 @@ import type { Agent } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 
+import { ENGINE_NAMES } from '@shared/engines'
+
 const PROVIDER_LABEL: Record<Agent['provider'], string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', ollama: 'Local · Ollama' }
 
 interface Props {
@@ -71,7 +73,7 @@ export function AgentsPage({ agents, onChat, onEdit, onNew }: Props): JSX.Elemen
               <p>{a.description}</p>
             </div>
             <div className="card-foot">
-              <span className="mono" title={a.model}>{PROVIDER_LABEL[a.provider]} · {a.model}</span>
+              <span className="mono" title={a.engine === 'builtin' ? a.model : undefined}>{a.engine === 'builtin' ? `${PROVIDER_LABEL[a.provider]} · ${a.model}` : `Runs on ${ENGINE_NAMES[a.engine]}`}</span>
               <div className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
                 <button type="button" className="btn btn-sm" onClick={() => onEdit(a)}>Edit</button>
                 <button type="button" className="btn btn-sm btn-lime" onClick={() => onChat(a)}>Chat</button>
