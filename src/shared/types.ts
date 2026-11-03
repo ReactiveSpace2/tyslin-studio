@@ -64,6 +64,18 @@ export interface StreamEvent {
   error?: string
 }
 
+export interface UpdateStatus {
+  /** idle: not checked yet (always in dev) · none: up to date · available: newer version to download by hand */
+  state: 'idle' | 'checking' | 'none' | 'available' | 'downloading' | 'ready' | 'error'
+  currentVersion: string
+  /** True when this install can download and install updates itself (Windows, Linux AppImage). */
+  autoInstall: boolean
+  version?: string
+  percent?: number
+  downloadUrl?: string
+  error?: string
+}
+
 export interface TyslinApi {
   agents: {
     list(): Promise<Agent[]>
@@ -91,5 +103,12 @@ export interface TyslinApi {
     get(): Promise<ProviderSettings>
     setKey(provider: 'anthropic' | 'openai', key: string): Promise<void>
     setOllamaUrl(url: string): Promise<void>
+  }
+  updates: {
+    status(): Promise<UpdateStatus>
+    check(): Promise<UpdateStatus>
+    install(): Promise<void>
+    openDownload(): Promise<void>
+    onStatus(cb: (s: UpdateStatus) => void): () => void
   }
 }

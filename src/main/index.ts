@@ -3,6 +3,7 @@ import { join } from 'path'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
 import { listProjectFiles, runtimeFor } from './runtime'
+import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import type { AgentInput, ProviderSettings, StreamEvent } from '@shared/types'
 
 let win: BrowserWindow | null = null
@@ -89,6 +90,11 @@ function registerIpc(): void {
   }))
   ipcMain.handle('settings:setKey', (_e, provider: 'anthropic' | 'openai', key: string) => setSecret(provider, key.trim()))
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
+
+  ipcMain.handle('updates:status', () => getUpdateStatus())
+  ipcMain.handle('updates:check', () => checkForUpdates())
+  ipcMain.handle('updates:install', () => installUpdate())
+  ipcMain.handle('updates:openDownload', () => openUpdateDownload())
 }
 
 app.whenReady().then(() => {
@@ -96,6 +102,7 @@ app.whenReady().then(() => {
   db.openDb()
   registerIpc()
   createWindow()
+  initUpdater(win!)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })

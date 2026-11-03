@@ -2,6 +2,7 @@ import type { Project } from '@shared/types'
 import type { Route } from '../App'
 import logo from '../assets/logo-horizontal.png'
 import { Icon } from './Icon'
+import { UpdateNotice } from './UpdateNotice'
 
 interface Props {
   route: Route
@@ -60,6 +61,7 @@ export function Sidebar({ route, projects, onNavigate, onOpenProject, onNewProje
         ))}
       </div>
       <div className="sidebar-foot">
+        <UpdateNotice />
         <div className="workspace">
           <span className="section-label" style={{ padding: 0 }}>Workspace</span>
           <strong>Self-hosted · this computer</strong>

@@ -37,6 +37,12 @@ a { color: var(--green); }
 .workspace { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
 .workspace strong { font-size: 14px; }
 .workspace span { font-size: 12px; color: var(--muted); }
+.update { background: var(--lime-soft); border: 1px solid var(--green); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+.update strong { font-size: 14px; }
+.update span { font-size: 12px; color: var(--muted); }
+.update .btn { align-self: flex-start; margin-top: 2px; }
+.update-bar { height: 6px; border-radius: 999px; background: var(--card); overflow: hidden; }
+.update-bar span { display: block; height: 100%; background: var(--lime); transition: width .3s ease; }
 
 /* Main area */
 .main { flex: 1; min-width: 0; overflow-y: auto; }

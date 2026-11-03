@@ -1,7 +1,7 @@
 {
   "name": "tyslin-studio",
   "productName": "Tyslin Studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Tyslin Studio — every agent you run. One studio.",
   "author": "ReactiveSpace <info@tyslin.ai>",
   "homepage": "https://tyslin.ai",
@@ -19,7 +19,8 @@
     "dist:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0"
+    "better-sqlite3": "^11.7.0",
+    "electron-updater": "^6.8.11"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",

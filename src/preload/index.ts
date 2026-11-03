@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { StreamEvent, TyslinApi } from '@shared/types'
+import type { StreamEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -32,6 +32,17 @@ const api: TyslinApi = {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
     setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url)
+  },
+  updates: {
+    status: () => ipcRenderer.invoke('updates:status'),
+    check: () => ipcRenderer.invoke('updates:check'),
+    install: () => ipcRenderer.invoke('updates:install'),
+    openDownload: () => ipcRenderer.invoke('updates:openDownload'),
+    onStatus: (cb) => {
+      const fn = (_e: unknown, s: UpdateStatus): void => cb(s)
+      ipcRenderer.on('updates:status', fn)
+      return () => ipcRenderer.removeListener('updates:status', fn)
+    }
   }
 }
 
