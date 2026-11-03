@@ -1,7 +1,38 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, Message, Project, Session } from '@shared/types'
+import type { Agent, Message, PendingChange, Project, Session } from '@shared/types'
 import { Avatar } from '../components/Avatar'
+import { ChangeReview } from '../components/ChangeReview'
 import { Icon } from '../components/Icon'
+
+/** A tool call in the live run, shown as one compact line. */
+interface Activity {
+  id: string
+  name: string
+  args: string
+  done: boolean
+  isError: boolean
+}
+
+const TOOL_VERB: Record<string, string> = {
+  list_files: 'Listed files', read_file: 'Read', write_file: 'Proposed', edit_file: 'Proposed an edit to'
+}
+
+function activityLabel(a: Activity): string {
+  let path = ''
+  try { path = JSON.parse(a.args || '{}').path ?? '' } catch { /* args still streaming */ }
+  return [TOOL_VERB[a.name] ?? a.name, path].filter(Boolean).join(' ')
+}
+
+function changeSummary(list: PendingChange[]): string {
+  const n = (s: PendingChange['status'][]): number => list.filter((c) => s.includes(c.status)).length
+  const parts = [
+    n(['accepted']) && `${n(['accepted'])} accepted`,
+    n(['partial']) && `${n(['partial'])} partly accepted`,
+    n(['rejected']) && `${n(['rejected'])} rejected`,
+    n(['expired']) && `${n(['expired'])} expired`
+  ].filter(Boolean)
+  return parts.join(', ')
+}
 
 interface Props {
   agentId: string
@@ -22,6 +53,11 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
   const [error, setError] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [files, setFiles] = useState<string[]>([])
+  const [activity, setActivity] = useState<Activity[]>([])
+  const [waiting, setWaiting] = useState(false)
+  const [changes, setChanges] = useState<PendingChange[]>([])
+  const [liveRun, setLiveRun] = useState<string | null>(null)
+  const [reviewRun, setReviewRun] = useState<string | null>(null)
   const threadRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -34,28 +70,69 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     else setFiles([])
   }, [agentId, projectId])
 
+  const loadChanges = (id: string): Promise<void> => window.tyslin.changes.list(id).then(setChanges)
+
   useEffect(() => {
     setError(null)
     setStreaming(null)
-    if (session) void window.tyslin.sessions.messages(session.id).then(setMessages)
-    else setMessages([])
+    setActivity([])
+    setWaiting(false)
+    setLiveRun(null)
+    if (session) {
+      void window.tyslin.sessions.messages(session.id).then(setMessages)
+      void loadChanges(session.id)
+    } else {
+      setMessages([])
+      setChanges([])
+    }
   }, [session])
 
   useEffect(() => {
-    return window.tyslin.sessions.onStream(async (e) => {
+    return window.tyslin.sessions.onEvent(async (e) => {
       if (!session || e.sessionId !== session.id) return
-      if (e.type === 'delta') setStreaming((s) => (s ?? '') + (e.text ?? ''))
-      if (e.type === 'done' || e.type === 'error') {
-        setStreaming(null)
-        if (e.error) setError(e.error)
-        setMessages(await window.tyslin.sessions.messages(session.id))
+      switch (e.type) {
+        case 'run_started':
+          setLiveRun(e.runId)
+          setActivity([])
+          break
+        case 'text_delta':
+          setStreaming((s) => (s ?? '') + e.text)
+          break
+        case 'tool_call_start':
+          setActivity((a) => [...a, { id: e.toolCallId, name: e.name, args: '', done: false, isError: false }])
+          break
+        case 'tool_call_args':
+          setActivity((a) => a.map((x) => (x.id === e.toolCallId ? { ...x, args: x.args + e.delta } : x)))
+          break
+        case 'tool_result':
+          setActivity((a) => a.map((x) => (x.id === e.toolCallId ? { ...x, done: true, isError: e.isError } : x)))
+          break
+        case 'approval_needed':
+          await loadChanges(session.id)
+          break
+        case 'state_update':
+          setWaiting(e.status === 'waiting_for_review')
+          break
+        case 'run_finished':
+        case 'run_error':
+          setStreaming(null)
+          setWaiting(false)
+          if (e.type === 'run_error') setError(e.error)
+          setMessages(await window.tyslin.sessions.messages(session.id))
+          await loadChanges(session.id)
+          break
       }
     })
   }, [session])
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
-  }, [messages, streaming])
+  }, [messages, streaming, activity, changes])
+
+  // One card per run: the live run, plus any earlier run still waiting for review.
+  const runsWithChanges = [...new Set(changes.map((c) => c.runId))]
+    .filter((r) => r === liveRun || changes.some((c) => c.runId === r && c.status === 'pending'))
+  const reviewing = reviewRun ? changes.filter((c) => c.runId === reviewRun) : []
 
   if (!agent) return <div className="page"><p className="lead">Agent not found.</p></div>
 
@@ -120,7 +197,34 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
                 ? <div key={m.id} className="msg-user">{m.content}</div>
                 : <div key={m.id} className="msg-agent">{m.content}</div>
             )}
-            {streaming !== null && (streaming ? <div className="msg-agent">{streaming}</div> : <div className="typing">{agent.name} is working…</div>)}
+            {streaming && <div className="msg-agent">{streaming}</div>}
+            {streaming !== null && activity.length > 0 && (
+              <ul className="activity" aria-label="Tool calls">
+                {activity.map((a) => (
+                  <li key={a.id} className={a.isError ? 'err' : ''}>
+                    <Icon name={a.isError ? 'warning' : a.done ? 'check' : 'file'} size={12} />
+                    <span className="mono">{activityLabel(a)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {runsWithChanges.map((runId) => {
+              const list = changes.filter((c) => c.runId === runId)
+              const open = list.filter((c) => c.status === 'pending').length
+              return (
+                <div key={runId} className={'change-card' + (open ? ' open' : '')}>
+                  <Icon name="file" />
+                  <div className="change-card-text">
+                    <strong>{list.length} file{list.length === 1 ? '' : 's'} changed</strong>
+                    <span>{open ? `${agent.name} is waiting for your review` : changeSummary(list)}</span>
+                  </div>
+                  <button type="button" className={'btn btn-sm' + (open ? ' btn-primary' : '')} onClick={() => setReviewRun(runId)}>
+                    {open ? 'Review' : 'View'}
+                  </button>
+                </div>
+              )
+            })}
+            {streaming !== null && !waiting && <div className="typing">{agent.name} is working…</div>}
             {error && (
               <div className="msg-error">
                 {error}{' '}
@@ -181,6 +285,9 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
           ))}
         </div>
       </aside>
+      {reviewing.length > 0 && (
+        <ChangeReview changes={reviewing} onClose={() => setReviewRun(null)} onResolved={() => session && void loadChanges(session.id)} />
+      )}
     </div>
   )
 }

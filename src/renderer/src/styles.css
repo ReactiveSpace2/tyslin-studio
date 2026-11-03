@@ -11,6 +11,7 @@
   --lime-soft: #eef5df;
   --green: #4a7000;     /* green text and lines */
   --danger: #a11b1b;
+  --danger-soft: #fbe3e3;
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 }
@@ -98,7 +99,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .thread-inner { max-width: 780px; width: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
 .msg-user { align-self: flex-end; max-width: 80%; background: var(--ink); color: var(--parchment); padding: 12px 16px; border-radius: 14px 14px 4px 14px; white-space: pre-wrap; line-height: 1.5; }
 .msg-agent { max-width: 92%; white-space: pre-wrap; line-height: 1.6; }
-.msg-error { background: #fbe3e3; color: var(--danger); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.msg-error { background: var(--danger-soft); color: var(--danger); border-radius: 10px; padding: 10px 14px; font-size: 14px; }
 .typing { font-family: var(--mono); font-size: 12px; color: var(--green); }
 .composer { margin: 0 24px 20px; display: flex; gap: 10px; align-items: flex-end; padding: 8px 8px 8px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
 .composer textarea { flex: 1; border: 0; outline: none; resize: none; background: transparent; padding: 10px 0; max-height: 200px; line-height: 1.5; }
@@ -109,6 +110,51 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .path { font-family: var(--mono); font-size: 12px; background: var(--panel); padding: 8px 10px; border-radius: 8px; word-break: break-all; }
 .sessions button { width: 100%; text-align: left; background: none; border: 0; padding: 6px 4px; cursor: pointer; border-radius: 6px; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sessions button.active { color: var(--ink); background: var(--lime-soft); }
+
+/* Tool activity and staged changes in the thread */
+.activity { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.activity li { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.activity li.err { color: var(--danger); }
+.change-card { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; max-width: 520px; }
+.change-card.open { border-color: var(--green); background: var(--lime-soft); }
+.change-card-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.change-card-text strong { font-size: 14px; }
+.change-card-text span { font-size: 12px; color: var(--muted); }
+.change-card .btn { min-height: 44px; }
+
+/* Change review */
+.modal.review { width: 1040px; max-width: calc(100% - 48px); height: calc(100% - 64px); padding: 0; gap: 0; overflow: hidden; }
+.review-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.review-head > div { display: flex; flex-direction: column; gap: 4px; }
+.review-body { flex: 1; min-height: 0; display: flex; }
+.review-files { list-style: none; margin: 0; padding: 10px; width: 280px; flex: none; border-right: 1px solid var(--line); overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.review-files button { width: 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: none; cursor: pointer; text-align: left; }
+.review-files button.active { background: var(--card); border-color: var(--line); }
+.review-files .name { flex: 1; min-width: 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diff { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; background: var(--card); font-family: var(--mono); font-size: 12px; line-height: 1.6; }
+.dl { white-space: pre; padding: 0 8px; }
+.dl .dm { display: inline-block; width: 16px; color: var(--muted); user-select: none; }
+.dl.add { background: var(--lime-soft); }
+.dl.del { background: var(--danger-soft); }
+.dl.gap { color: var(--muted); background: var(--panel); border-radius: 6px; margin: 6px 0; padding: 2px 8px; font-family: var(--font); }
+.hunk { border: 1px solid var(--line); border-radius: 12px; margin: 8px 0; overflow: hidden; }
+.hunk.off .dl { opacity: 0.45; text-decoration: line-through; }
+.hunk-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); font-family: var(--font); }
+.hunk-head .mono { font-size: 11px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--card); }
+.seg button { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 0; background: none; cursor: pointer; font-size: 13px; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--ink); color: var(--parchment); }
+.review-foot { display: flex; align-items: flex-end; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.review > .msg-error { margin: 0 20px 16px; }
+
+/* Option cards (radio) */
+.choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.choice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; min-height: 44px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); cursor: pointer; }
+.choice.on { border-color: var(--ink); background: var(--lime-soft); }
+.choice input { margin-top: 3px; accent-color: var(--ink); }
+.choice > span { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.warn { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: var(--danger-soft); color: var(--danger); font-size: 13px; }
 
 /* Editor */
 .editor { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }

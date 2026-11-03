@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent, AgentInput, ProviderId, Shape, Skill, Tone } from '@shared/types'
+import type { Agent, AgentInput, ProviderId, Shape, Skill, Tone, WriteMode } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 
@@ -11,7 +11,7 @@ const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
 
 const BLANK: AgentInput = {
   name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
-  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', isMascot: false
+  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', writeMode: 'ask', isMascot: false
 }
 
 interface Props {
@@ -113,6 +113,27 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
                   aria-pressed={form.skills.includes(s.name)} onClick={() => toggleSkill(s.name)}>{s.name}</button>
               ))}
             </div>
+          </fieldset>
+
+          <fieldset className="field" style={{ border: 0, margin: 0, padding: 0 }}>
+            <legend className="label" style={{ marginBottom: 8 }}>File changes</legend>
+            <div className="choices">
+              {([
+                ['ask', 'Ask before writing files', 'You review a diff and accept or reject each change.'],
+                ['direct', 'Write directly', 'Changes go straight to disk in linked project folders.']
+              ] as [WriteMode, string, string][]).map(([mode, title, hint]) => (
+                <label key={mode} className={'choice' + (form.writeMode === mode ? ' on' : '')}>
+                  <input type="radio" name="write-mode" value={mode} checked={form.writeMode === mode} onChange={() => set('writeMode', mode)} />
+                  <span><strong>{title}</strong><span className="hint">{hint}</span></span>
+                </label>
+              ))}
+            </div>
+            {form.writeMode === 'direct' && (
+              <div className="warn" role="note">
+                <Icon name="warning" size={14} />
+                {form.name || 'This agent'} will change files without asking. Use it only on folders you can restore, such as a git repo.
+              </div>
+            )}
           </fieldset>
 
           <div className="field" style={{ maxWidth: 320 }}>

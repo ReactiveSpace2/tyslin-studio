@@ -1,6 +1,8 @@
 export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'ollama'
+/** ask: file writes are staged for review · direct: written straight to disk */
+export type WriteMode = 'ask' | 'direct'
 
 export interface Agent {
   id: string
@@ -13,6 +15,7 @@ export interface Agent {
   model: string
   skills: string[]
   schedule: string
+  writeMode: WriteMode
   isMascot: boolean
   createdAt: number
   updatedAt: number
@@ -57,11 +60,40 @@ export interface ProviderSettings {
   ollamaUrl: string
 }
 
-export interface StreamEvent {
+/**
+ * Run event stream, shaped like AG-UI events so the hosted version can adopt AG-UI without UI changes.
+ * Every runtime emits these; the UI and storage consume nothing else.
+ */
+export type RunEventBody =
+  | { type: 'run_started' }
+  | { type: 'text_delta'; text: string }
+  | { type: 'tool_call_start'; toolCallId: string; name: string }
+  | { type: 'tool_call_args'; toolCallId: string; delta: string }
+  | { type: 'tool_call_end'; toolCallId: string }
+  | { type: 'tool_result'; toolCallId: string; content: string; isError: boolean }
+  | { type: 'approval_needed'; toolCallId: string; changeId: string; filePath: string }
+  | { type: 'state_update'; status: 'running' | 'waiting_for_review' }
+  | { type: 'run_finished' }
+  | { type: 'run_error'; error: string }
+
+export type RunEvent = RunEventBody & { runId: string; sessionId: string }
+
+export type ChangeStatus = 'pending' | 'accepted' | 'rejected' | 'partial' | 'expired'
+
+/** A file write proposed by an agent, staged until the user reviews it. */
+export interface PendingChange {
+  id: string
+  runId: string
   sessionId: string
-  type: 'delta' | 'done' | 'error'
-  text?: string
-  error?: string
+  toolCallId: string
+  /** Relative to the project folder. */
+  filePath: string
+  /** null when the agent is creating a new file. */
+  original: string | null
+  proposed: string
+  status: ChangeStatus
+  note: string
+  createdAt: number
 }
 
 export interface UpdateStatus {
@@ -94,7 +126,12 @@ export interface TyslinApi {
     create(agentId: string, projectId: string | null): Promise<Session>
     messages(sessionId: string): Promise<Message[]>
     send(sessionId: string, text: string): Promise<void>
-    onStream(cb: (e: StreamEvent) => void): () => void
+    onEvent(cb: (e: RunEvent) => void): () => void
+  }
+  changes: {
+    list(sessionId: string): Promise<PendingChange[]>
+    /** Applies the accepted hunks (indexes from `diffHunks`) and reports the outcome back into the run. */
+    resolve(changeId: string, acceptedHunks: number[], note: string): Promise<PendingChange>
   }
   skills: {
     list(): Promise<Skill[]>

@@ -22,7 +22,8 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 
 - **Agents:** create, edit and delete agents with a name, instructions, provider, model, skills, schedule and a character (shape and colour). Builder, the built-in agent, uses the Tyslin mascot.
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
-- **Projects:** link a folder on disk; agents in that project see its file list.
+- **Projects:** link a folder on disk; agents in that project can list, read and change its files.
+- **Review before it's written:** when an agent wants to change a file, you see a diff first and accept or reject each change, or all at once. The agent hears what you decided and carries on. Each agent can be switched to "Write directly" instead.
 - **Skills:** reusable instruction blocks added to an agent's system prompt (three included).
 - **Providers:** Anthropic (Claude), OpenAI, and local models through Ollama.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
@@ -99,19 +100,22 @@ src/
   main/        Electron main process (the only code that touches DB, files, network, secrets)
     index.ts     window + IPC handlers
     db.ts        SQLite schema, seed data and queries
-    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible runtimes
+    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible runtimes (tool loop, run events)
+    tools.ts     project file tools; staged writes and the review hand-back
     secrets.ts   API keys encrypted with Electron safeStorage
   preload/     safe bridge exposing window.tyslin to the UI
   renderer/    React UI (Agents, Chat, Agent editor, Skills, Settings)
-  shared/      types shared by all three
+  shared/      types shared by all three, plus diff.ts (hunk split and apply, used by main and UI)
 resources/     app icon and brand files
 ```
+
+Runtimes report progress as a typed event stream shaped like AG-UI events (`RunEvent` in `shared/types.ts`: run_started, text_delta, tool_call_start/args/end, tool_result, approval_needed, state_update, run_finished, run_error). The UI listens to that stream only.
 
 Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts` → `ipcMain.handle` in `main/index.ts` → expose in `preload/index.ts` → use in the renderer. Run `npm run typecheck` after every change.
 
 ## Roadmap
 
-1. **Goose runtime:** run agents over Goose's Agent Client Protocol (ACP) with `goose` bundled as a sidecar, so agents can read and write files, run commands and use MCP connectors.
+1. **Goose runtime:** run agents over Goose's Agent Client Protocol (ACP) with `goose` bundled as a sidecar, so agents can run commands and use MCP connectors (file reading and writing already work).
 2. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
 3. **Skills editor:** create and import skills as Markdown with frontmatter.
 4. **Scheduler:** run agents on their saved schedule.

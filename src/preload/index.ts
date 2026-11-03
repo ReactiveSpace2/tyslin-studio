@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { StreamEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -19,11 +19,15 @@ const api: TyslinApi = {
     create: (agentId, projectId) => ipcRenderer.invoke('sessions:create', agentId, projectId),
     messages: (id) => ipcRenderer.invoke('sessions:messages', id),
     send: (id, text) => ipcRenderer.invoke('sessions:send', id, text),
-    onStream: (cb) => {
-      const fn = (_e: unknown, ev: StreamEvent): void => cb(ev)
-      ipcRenderer.on('stream', fn)
-      return () => ipcRenderer.removeListener('stream', fn)
+    onEvent: (cb) => {
+      const fn = (_e: unknown, ev: RunEvent): void => cb(ev)
+      ipcRenderer.on('run-event', fn)
+      return () => ipcRenderer.removeListener('run-event', fn)
     }
+  },
+  changes: {
+    list: (sessionId) => ipcRenderer.invoke('changes:list', sessionId),
+    resolve: (id, acceptedHunks, note) => ipcRenderer.invoke('changes:resolve', id, acceptedHunks, note)
   },
   skills: {
     list: () => ipcRenderer.invoke('skills:list')

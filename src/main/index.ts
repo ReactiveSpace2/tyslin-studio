@@ -1,10 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'path'
+import { randomUUID } from 'crypto'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
-import { listProjectFiles, runtimeFor } from './runtime'
+import { runtimeFor } from './runtime'
+import { listProjectFiles, resolveChange } from './tools'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
-import type { AgentInput, ProviderSettings, StreamEvent } from '@shared/types'
+import type { AgentInput, ProviderSettings, RunEvent, RunEventBody } from '@shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -32,8 +34,8 @@ function createWindow(): void {
   else win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
-function emit(e: StreamEvent): void {
-  win?.webContents.send('stream', e)
+function emit(e: RunEvent): void {
+  win?.webContents.send('run-event', e)
 }
 
 function registerIpc(): void {
@@ -63,23 +65,31 @@ function registerIpc(): void {
     if (!agent) throw new Error('Agent not found')
     db.addMessage(sessionId, 'user', text)
     const project = session.projectId ? db.getProject(session.projectId) : null
-    // Run in the background; the renderer listens to stream events.
+    const runId = randomUUID()
+    const send = (e: RunEventBody): void => emit({ ...e, runId, sessionId })
+    // Run in the background; the renderer listens to run events.
     void (async () => {
+      send({ type: 'run_started' })
       try {
         const reply = await runtimeFor(agent).run({
+          runId,
+          sessionId,
           agent,
           skills: db.listSkills(),
           project,
           history: db.listMessages(sessionId),
-          onDelta: (t) => emit({ sessionId, type: 'delta', text: t })
+          emit: send
         })
-        db.addMessage(sessionId, 'assistant', reply)
-        emit({ sessionId, type: 'done' })
+        if (reply) db.addMessage(sessionId, 'assistant', reply)
+        send({ type: 'run_finished' })
       } catch (err) {
-        emit({ sessionId, type: 'error', error: err instanceof Error ? err.message : String(err) })
+        send({ type: 'run_error', error: err instanceof Error ? err.message : String(err) })
       }
     })()
   })
+
+  ipcMain.handle('changes:list', (_e, sessionId: string) => db.listChanges(sessionId))
+  ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => resolveChange(id, acceptedHunks, note))
 
   ipcMain.handle('skills:list', () => db.listSkills())
 
@@ -100,6 +110,7 @@ function registerIpc(): void {
 app.whenReady().then(() => {
   app.setAppUserModelId('ai.tyslin.studio')
   db.openDb()
+  db.expireStaleChanges()
   registerIpc()
   createWindow()
   initUpdater(win!)
