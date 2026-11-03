@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="resources/brand/logo-stacked.png" alt="Tyslin Studio" width="220">
+  <img src="resources/brand/logo-beta.png" alt="Tyslin Studio beta" width="360">
 </p>
 
 <h1 align="center">Tyslin Studio</h1>
