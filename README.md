@@ -27,9 +27,32 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Providers:** Anthropic (Claude), OpenAI, and local models through Ollama.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
 
-## Install
+## Download
 
-Installers will be published on [GitHub Releases](https://github.com/Umar-Abbas/tyslin-studio/releases) (`.dmg`, `.exe`, `.AppImage`, `.deb`). Until then, build from source as below.
+Get the latest installer from [tyslin.ai](https://tyslin.ai/#download) or [GitHub Releases](https://github.com/Umar-Abbas/tyslin-studio/releases/latest).
+
+| Platform | File |
+|---|---|
+| macOS (Apple silicon) | `Tyslin-Studio-<version>-mac-arm64.dmg` |
+| macOS (Intel) | `Tyslin-Studio-<version>-mac-x64.dmg` |
+| Windows 10/11 | `Tyslin-Studio-<version>-windows-x64-setup.exe` |
+| Linux (any distro) | `Tyslin-Studio-<version>-linux-x86_64.AppImage` |
+| Linux (Debian, Ubuntu) | `Tyslin-Studio-<version>-linux-amd64.deb` |
+
+Early builds are not code-signed yet:
+
+- **macOS:** right-click the app in Applications and choose **Open**, then **Open** again. If macOS still blocks it, run `xattr -cr "/Applications/Tyslin Studio.app"`.
+- **Windows:** on the SmartScreen prompt choose **More info**, then **Run anyway**.
+- **Linux:** `chmod +x Tyslin-Studio-*.AppImage` and run it, or `sudo apt install ./Tyslin-Studio-*.deb`.
+
+### Updates
+
+From v0.2.0, Tyslin Studio checks GitHub Releases when it starts.
+
+- **Windows and Linux AppImage:** the update downloads in the background; restart when prompted to install it.
+- **macOS and Linux .deb:** the app tells you a new version is available and links to the download. (Automatic install on macOS needs a signed build, which is coming.)
+
+If you're on v0.1.0, download the new version once by hand; updates after that arrive in the app.
 
 ## Run from source
 
@@ -55,6 +78,19 @@ npm run dist:win     # .exe NSIS installer (run on Windows)
 ```
 
 Output goes to `dist/`. Build each installer on its own platform; GitHub Actions can build all three for a release. Public releases need signing (an Apple Developer ID with notarisation for macOS, a code-signing certificate for Windows), otherwise users see security warnings.
+
+## Releasing
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners. The installers, plus the update files the app reads (`latest*.yml`, `*.blockmap` and the macOS `.zip`), are attached to the GitHub Release automatically.
+
+```bash
+# 1. bump "version" in package.json (e.g. 0.2.0) and commit
+# 2. tag that commit with the same version and push the tag
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag must match `package.json`; installed apps compare their own version against the newest release. The workflow can also be started by hand from the **Actions** tab (Release → Run workflow → enter the tag).
 
 ## Project layout
 
