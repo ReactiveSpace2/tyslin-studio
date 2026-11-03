@@ -2,9 +2,29 @@
 
 **Every agent you run. One studio.**
 
-Tyslin Studio is a desktop studio for building and working with AI agents. Runs entirely on your computer: agents, chats, projects and skills are stored in a local SQLite database, and API keys are encrypted with your system keychain.
+Tyslin Studio is an open-source studio for building and working with AI agents. Give each agent a job, instructions, skills, a model you pick and a character, link your projects, and work with your agents in chat. Free and self-hosted as a desktop app; a hosted plan is coming for teams that don't want setup.
 
-A ReactiveSpace product · [tyslin.ai](https://tyslin.ai) · info@tyslin.ai
+Runs entirely on your computer: agents, chats, projects and skills are stored in a local SQLite database, and API keys are encrypted with your system keychain.
+
+A ReactiveSpace product · [tyslin.ai](https://tyslin.ai) · info@tyslin.ai · X and Telegram [@tyslinai](https://x.com/tyslinai)
+
+## Download
+
+Get the latest installer from [Releases](https://github.com/Umar-Abbas/tyslin-studio/releases/latest).
+
+| Platform | File |
+|---|---|
+| macOS (Apple silicon) | `Tyslin-Studio-<version>-mac-arm64.dmg` |
+| macOS (Intel) | `Tyslin-Studio-<version>-mac-x64.dmg` |
+| Windows 10/11 | `Tyslin-Studio-<version>-windows-x64-setup.exe` |
+| Linux (any distro) | `Tyslin-Studio-<version>-linux-x86_64.AppImage` |
+| Linux (Debian, Ubuntu) | `Tyslin-Studio-<version>-linux-amd64.deb` |
+
+Early builds are not code-signed yet:
+
+- **macOS:** right-click the app in Applications and choose **Open**, then **Open** again. If macOS still blocks it, run `xattr -cr "/Applications/Tyslin Studio.app"`.
+- **Windows:** on the SmartScreen prompt choose **More info**, then **Run anyway**.
+- **Linux:** `chmod +x Tyslin-Studio-*.AppImage` and run it, or `sudo apt install ./Tyslin-Studio-*.deb`.
 
 ## What works today
 
@@ -37,7 +57,21 @@ npm run dist:win     # .exe (NSIS installer)
 npm run dist:linux   # .AppImage and .deb
 ```
 
-Output goes to `dist/`. For public releases, sign the builds: an Apple Developer ID (plus notarisation) for macOS and a code-signing certificate for Windows. Without them users see security warnings.
+Output goes to `dist/`. Running from a VS Code terminal? Use `env -u ELECTRON_RUN_AS_NODE npm run dev` (VS Code sets that variable and it stops Electron from starting).
+
+## Releasing
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners, and the installers are attached to the GitHub Release automatically.
+
+```bash
+# bump "version" in package.json, commit, then:
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The workflow can also be started by hand from the **Actions** tab (Release → Run workflow → enter the tag).
+
+For public releases, sign the builds: an Apple Developer ID (plus notarisation) for macOS and a code-signing certificate for Windows. Without them users see security warnings.
 
 ## Project layout
 

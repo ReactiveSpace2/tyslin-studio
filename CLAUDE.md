@@ -34,6 +34,8 @@ Plain, confident, short. Talk about the work agents do, not about AI. Prefer "yo
 Electron + React + TypeScript, built with electron-vite. Local SQLite (better-sqlite3).
 
 - `npm install` · `npm run dev` · `npm run typecheck` (run after every change) · `npm run build` · `npm run dist:mac|win|linux`
+- Running from a VS Code terminal or extension: VS Code sets `ELECTRON_RUN_AS_NODE=1`, which makes Electron start as plain Node and crash with `Cannot read properties of undefined (reading 'whenReady')`. Use `env -u ELECTRON_RUN_AS_NODE npm run dev`.
+- `.dmg` builds need a Mac; build all platforms in CI (GitHub Actions) for releases.
 - `src/main/` Node side, the only place that touches the DB, files, network and secrets
   - `db.ts` schema (`migrate`), seed data, all queries
   - `runtime.ts` `AgentRuntime` interface; Anthropic and OpenAI-compatible (OpenAI, Ollama) streaming runtimes
@@ -47,9 +49,13 @@ Electron + React + TypeScript, built with electron-vite. Local SQLite (better-sq
 
 ## Repo: landing site (tyslin.ai)
 
-- Stack: [FILL IN — e.g. Next.js / Astro / plain HTML]
-- Commands: [FILL IN — dev, build, deploy]
-- Pages: home, download, pricing (open source vs hosted), docs link, GitHub link, contact.
+- Folder: `tyslin-web`. Stack: Next.js 16 (App Router, TypeScript), fully static pages; Geist via the `geist` package.
+- Commands: `npm run dev` (http://localhost:3000) · `npm run build` · `npm start`
+- Content lives in `lib/site.ts` (name, URL, contacts, colours) and `lib/content.ts` (features, steps, FAQ).
+- Hosting: Google Cloud Run service `tyslin-web`, project `tyslin-auth`, region `us-central1`. No load balancer, no database. Deploy:
+  `gcloud run deploy tyslin-web --source . --region us-central1 --project tyslin-auth --allow-unauthenticated`
+- Domains: `tyslin.ai` and `www.tyslin.ai` use Cloud Run domain mappings (Google-managed certificates). DNS is at Namecheap: `@` A/AAAA to Google's 216.239.32/34/36/38.21 addresses, `www` CNAME to `ghs.googlehosted.com.`
+- Pages today: one landing page with waitlist form. Planned: download, pricing (open source vs hosted), docs link, GitHub link, contact.
 - Download buttons point to the desktop app's GitHub Releases (`.dmg`, `.exe`, `.AppImage`).
 - Use the same colour tokens and fonts as the app so the site and product feel like one thing.
 - Hero copy anchors on the tagline: "Every agent you run. One studio."
