@@ -305,7 +305,7 @@ function AboutTab(): JSX.Element {
           <span>Electron</span><span className="mono">{info?.electron ?? '…'}</span>
           <span>Platform</span><span className="mono">{info?.platform ?? '…'}</span>
         </div>
-        <span className="hint">Every agent you run. One studio. · <a href="https://tyslin.ai" target="_blank" rel="noreferrer">tyslin.ai</a> · <a href="https://github.com/Umar-Abbas/tyslin-studio/issues" target="_blank" rel="noreferrer">Report an issue</a></span>
+        <span className="hint">Every agent you run. One studio. · <a href="https://tyslin.ai" target="_blank" rel="noreferrer">tyslin.ai</a> · <a href="https://github.com/ReactiveSpace2/tyslin-studio/issues" target="_blank" rel="noreferrer">Report an issue</a></span>
       </section>
     </>
   )

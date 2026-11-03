@@ -33,7 +33,7 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 
 ## Download
 
-Get the latest installer from [tyslin.ai](https://tyslin.ai/#download) or [GitHub Releases](https://github.com/Umar-Abbas/tyslin-studio/releases/latest).
+Get the latest installer from [tyslin.ai](https://tyslin.ai/#download) or [GitHub Releases](https://github.com/ReactiveSpace2/tyslin-studio/releases/latest).
 
 | Platform | File |
 |---|---|
@@ -63,7 +63,7 @@ If you're on v0.1.0, download the new version once by hand; updates after that a
 Requires Node.js 20 or 22.
 
 ```bash
-git clone https://github.com/Umar-Abbas/tyslin-studio.git
+git clone https://github.com/ReactiveSpace2/tyslin-studio.git
 cd tyslin-studio
 npm install        # also rebuilds the SQLite driver for Electron
 npm run dev        # starts the app with hot reload

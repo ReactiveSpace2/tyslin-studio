@@ -46,6 +46,6 @@ linux:
 # Installed apps read latest*.yml from GitHub Releases to find updates (src/main/updater.ts).
 publish:
   provider: github
-  owner: Umar-Abbas
+  owner: ReactiveSpace2
   repo: tyslin-studio
   releaseType: release

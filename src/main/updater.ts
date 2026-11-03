@@ -2,7 +2,7 @@ import { app, shell, type BrowserWindow } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { UpdateStatus } from '@shared/types'
 
-const RELEASES = 'https://github.com/Umar-Abbas/tyslin-studio/releases'
+const RELEASES = 'https://github.com/ReactiveSpace2/tyslin-studio/releases'
 const CHECK_EVERY_MS = 6 * 60 * 60 * 1000
 
 let status: UpdateStatus = { state: 'idle', currentVersion: app.getVersion(), autoInstall: false }
