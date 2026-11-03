@@ -1,4 +1,5 @@
 const PATHS = {
+  home: <><path d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h8V6.5" /><path d="M6.5 13V9.5h3V13" /></>,
   agents: <><rect x="2" y="4" width="12" height="10" rx="3" /><path d="M8 1v3" /><circle cx="6" cy="9" r="0.8" fill="currentColor" /><circle cx="10" cy="9" r="0.8" fill="currentColor" /></>,
   skills: <><path d="M3 2h7l3 3v9H3z" /><path d="M6 8h4M6 11h4" /></>,
   folder: <path d="M2 4h4l1.5 1.5H14V13H2z" />,

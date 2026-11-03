@@ -16,10 +16,11 @@ Tyslin Studio is an open-source desktop studio for building and working with AI 
 
 Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database, and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
 
-> **Status: early preview (v0.1.0).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
+> **Status: beta (v0.2.0).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
 
 ## What works today
 
+- **Home:** the first screen shows the Tyslin logo, the standing mascot and the app version, then every model and agent engine Tyslin works with and whether each is ready (key added, installed). Click one to set it up.
 - **Agents:** create, edit and delete agents with a name, instructions, provider, model, skills, schedule and a character (shape and colour). Builder, the built-in agent, uses the Tyslin mascot.
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
 - **Projects:** link a folder on disk; agents in that project can list, read and change its files.
@@ -122,12 +123,15 @@ Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts`
 
 ## Roadmap
 
-1. **External agents, next steps:** keep an agent's process running between messages, pass MCP servers through, and show plans and token usage.
-2. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
-3. **Scheduler:** run agents on their saved schedule.
-4. **Hand-offs:** pass one agent's result to another.
-5. **Releases:** signed installers and auto-update.
-6. **Hosted plan:** the same UI on the web, with Postgres, accounts and billing, for people who don't want to self-host.
+1. **Runs and triggers:** every reply as an inspectable run; run agents on their schedule, when files change in a project folder, or from a local webhook.
+2. **Costs:** tokens and spend per run, agent, project and model, with an optional monthly cap.
+3. **Memory in your files:** per-project memory in `.tyslin/memory/` that you can read, edit and commit.
+4. **Crews:** ordered pipelines of agents, such as Researcher → Writer → Critic, including hand-offs.
+5. **Packs:** share agents, skills and crews as a folder you can import and export.
+6. **External agents, next steps:** keep an agent running between messages, pass MCP servers through, and show plans and token usage.
+7. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
+8. **Signed installers:** code signing for macOS and Windows, which also makes updates automatic on macOS.
+9. **Hosted plan:** the same UI on the web, with Postgres, accounts and billing, for people who don't want to self-host.
 
 ## Contributing
 

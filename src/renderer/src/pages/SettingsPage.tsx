@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { AppInfo, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
 
-type Tab = 'models' | 'engines' | 'agents' | 'about'
+export type SettingsTab = 'models' | 'engines' | 'agents' | 'about'
+type Tab = SettingsTab
 
 const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['about', 'About & updates']]
 
@@ -311,8 +312,8 @@ function AboutTab(): JSX.Element {
   )
 }
 
-export function SettingsPage(): JSX.Element {
-  const [tab, setTab] = useState<Tab>('models')
+export function SettingsPage({ initialTab = 'models' }: { initialTab?: SettingsTab }): JSX.Element {
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
     <div className="page">

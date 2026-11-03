@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Agent, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
+import { RunsOnBadge } from '../components/RunsOnBadge'
 import { Avatar } from '../components/Avatar'
 import { ChangeReview } from '../components/ChangeReview'
 import { Icon } from '../components/Icon'
@@ -190,7 +191,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
             <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={44} />
             <div>
               <h2>{agent.name}</h2>
-              <span className="sub">{project ? project.name : 'No project'} · <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
+              <span className="sub">{project ? project.name : 'No project'} · <RunsOnBadge agent={agent} size={16} /> <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
             </div>
           </div>
           <div className="row">

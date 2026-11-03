@@ -32,6 +32,7 @@ export function Sidebar({ route, projects, onNavigate, onOpenProject, onNewProje
         <img src={logo} alt="Tyslin" />
       </div>
       <div className="nav">
+        {item('home', 'Home', 'home', { name: 'home' })}
         {item('agents', 'Agents', 'agents', { name: 'agents' })}
         {item('skills', 'Skills', 'skills', { name: 'skills' })}
       </div>

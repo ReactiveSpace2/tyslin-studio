@@ -5,18 +5,20 @@ import { AgentsPage } from './pages/AgentsPage'
 import { ChatPage } from './pages/ChatPage'
 import { AgentEditor } from './pages/AgentEditor'
 import { SkillsPage } from './pages/SkillsPage'
-import { SettingsPage } from './pages/SettingsPage'
+import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
+import { HomePage } from './pages/HomePage'
 import { NewProjectModal } from './components/NewProjectModal'
 
 export type Route =
+  | { name: 'home' }
   | { name: 'agents' }
   | { name: 'chat'; agentId: string; projectId: string | null }
   | { name: 'editor'; agentId?: string }
   | { name: 'skills' }
-  | { name: 'settings' }
+  | { name: 'settings'; tab?: SettingsTab }
 
 export default function App(): JSX.Element {
-  const [route, setRoute] = useState<Route>({ name: 'agents' })
+  const [route, setRoute] = useState<Route>({ name: 'home' })
   const [agents, setAgents] = useState<Agent[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [newProject, setNewProject] = useState(false)
@@ -43,6 +45,14 @@ export default function App(): JSX.Element {
         onNewProject={() => setNewProject(true)}
       />
       <main className="main">
+        {route.name === 'home' && (
+          <HomePage
+            agentCount={agents.length}
+            onAgents={() => setRoute({ name: 'agents' })}
+            onNewAgent={() => setRoute({ name: 'editor' })}
+            onSettings={(tab) => setRoute({ name: 'settings', tab })}
+          />
+        )}
         {route.name === 'agents' && (
           <AgentsPage
             agents={agents}
@@ -74,7 +84,7 @@ export default function App(): JSX.Element {
           />
         )}
         {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
-        {route.name === 'settings' && <SettingsPage />}
+        {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} />}
       </main>
       {newProject && (
         <NewProjectModal
