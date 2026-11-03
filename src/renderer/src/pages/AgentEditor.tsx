@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon'
 const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
   anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'],
   openai: ['gpt-4o', 'gpt-4o-mini'],
+  gemini: ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
   ollama: ['llama3.1', 'qwen2.5', 'mistral']
 }
 
@@ -28,6 +29,7 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
   useEffect(() => {
     void window.tyslin.skills.list().then(setSkills)
     if (agentId) void window.tyslin.agents.get(agentId).then((a) => a && setForm(a))
+    else void window.tyslin.settings.prefs().then((p) => setForm((f) => ({ ...f, writeMode: p.defaultWriteMode })))
   }, [agentId])
 
   const set = <K extends keyof AgentInput>(k: K, v: AgentInput[K]): void => setForm((f) => ({ ...f, [k]: v }))
@@ -95,6 +97,7 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
               }}>
                 <option value="anthropic">Anthropic (Claude)</option>
                 <option value="openai">OpenAI</option>
+                <option value="gemini">Google Gemini</option>
                 <option value="ollama">Ollama (local)</option>
               </select>
             </div>

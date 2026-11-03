@@ -6,7 +6,7 @@ import { setSecret, getSecret } from './secrets'
 import { runtimeFor } from './runtime'
 import { listProjectFiles, resolveChange } from './tools'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
-import type { AgentInput, ProviderSettings, RunEvent, RunEventBody } from '@shared/types'
+import type { AgentInput, AppInfo, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody } from '@shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -96,10 +96,21 @@ function registerIpc(): void {
   ipcMain.handle('settings:get', (): ProviderSettings => ({
     anthropicKeySet: !!getSecret('anthropic'),
     openaiKeySet: !!getSecret('openai'),
+    geminiKeySet: !!getSecret('gemini'),
     ollamaUrl: db.getSetting('ollamaUrl') || 'http://localhost:11434'
   }))
-  ipcMain.handle('settings:setKey', (_e, provider: 'anthropic' | 'openai', key: string) => setSecret(provider, key.trim()))
+  ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => setSecret(provider, key.trim()))
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
+  ipcMain.handle('settings:prefs', () => db.getPrefs())
+  ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => db.setPrefs(p))
+
+  ipcMain.handle('app:info', (): AppInfo => ({
+    version: app.getVersion(),
+    electron: process.versions.electron,
+    platform: `${process.platform} ${process.arch}`,
+    dataPath: app.getPath('userData')
+  }))
+  ipcMain.handle('app:openDataFolder', () => shell.openPath(app.getPath('userData')).then(() => undefined))
 
   ipcMain.handle('updates:status', () => getUpdateStatus())
   ipcMain.handle('updates:check', () => checkForUpdates())

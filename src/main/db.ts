@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
-import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Project, Session, Skill } from '@shared/types'
+import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill } from '@shared/types'
 
 let db: Database.Database
 
@@ -213,4 +213,17 @@ export function setChangeStatus(id: string, status: ChangeStatus, note = ''): vo
 /** Runs don't survive a restart, so changes still waiting from a previous launch can no longer be answered. */
 export function expireStaleChanges(): void {
   db.prepare("UPDATE pending_changes SET status = 'expired' WHERE status = 'pending'").run()
+}
+
+export function getPrefs(): Preferences {
+  return {
+    defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
+    sharedInstructions: getSetting('pref:sharedInstructions') ?? ''
+  }
+}
+
+export function setPrefs(p: Partial<Preferences>): Preferences {
+  if (p.defaultWriteMode) setSetting('pref:defaultWriteMode', p.defaultWriteMode)
+  if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
+  return getPrefs()
 }

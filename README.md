@@ -14,7 +14,7 @@
 
 Tyslin Studio is an open-source desktop studio for building and working with AI agents. Give each agent a job, instructions, skills, a model and a character, link it to your projects, and work with it in chat.
 
-Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database, and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude) or OpenAI, or run models locally with Ollama.
+Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database, and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
 
 > **Status: early preview (v0.1.0).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
 
@@ -25,7 +25,8 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Projects:** link a folder on disk; agents in that project can list, read and change its files.
 - **Review before it's written:** when an agent wants to change a file, you see a diff first and accept or reject each change, or all at once. The agent hears what you decided and carries on. Each agent can be switched to "Write directly" instead.
 - **Skills:** reusable instruction blocks added to an agent's system prompt (three included).
-- **Providers:** Anthropic (Claude), OpenAI, and local models through Ollama.
+- **Providers:** Anthropic (Claude), OpenAI, Google Gemini (key from Google AI Studio), and local models through Ollama.
+- **Settings:** API keys and Ollama; defaults for new agents and guidelines added to every agent's instructions; update status, app version and where your data lives.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
 
 ## Download
@@ -68,7 +69,7 @@ npm run dev        # starts the app with hot reload
 
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev` instead.
 
-Then open **Settings** and add an Anthropic or OpenAI key, or point it at a running Ollama (`http://localhost:11434`), and say hello to Builder.
+Then open **Settings** and add an Anthropic, OpenAI or Gemini key, or point it at a running Ollama (`http://localhost:11434`), and say hello to Builder.
 
 ## Build installers
 
@@ -100,11 +101,11 @@ src/
   main/        Electron main process (the only code that touches DB, files, network, secrets)
     index.ts     window + IPC handlers
     db.ts        SQLite schema, seed data and queries
-    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible runtimes (tool loop, run events)
+    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events)
     tools.ts     project file tools; staged writes and the review hand-back
     secrets.ts   API keys encrypted with Electron safeStorage
   preload/     safe bridge exposing window.tyslin to the UI
-  renderer/    React UI (Agents, Chat, Agent editor, Skills, Settings)
+  renderer/    React UI (Agents, Chat, Agent editor, Skills, Settings with Models / Agents / About & updates tabs)
   shared/      types shared by all three, plus diff.ts (hunk split and apply, used by main and UI)
 resources/     app icon and brand files
 ```

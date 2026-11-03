@@ -35,7 +35,13 @@ const api: TyslinApi = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
-    setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url)
+    setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url),
+    prefs: () => ipcRenderer.invoke('settings:prefs'),
+    setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p)
+  },
+  app: {
+    info: () => ipcRenderer.invoke('app:info'),
+    openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')
   },
   updates: {
     status: () => ipcRenderer.invoke('updates:status'),

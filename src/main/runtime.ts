@@ -1,11 +1,11 @@
 import type { Agent, Message, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
-import { getSetting } from './db'
+import { getPrefs, getSetting } from './db'
 import { FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 
 /**
  * AgentRuntime is the seam between Tyslin and whatever runs the agent loop.
- * This MVP ships a direct model runtime (Anthropic + OpenAI-compatible, incl. Ollama) with file tools.
+ * This MVP ships a direct model runtime (Anthropic + OpenAI-compatible: OpenAI, Gemini, Ollama) with file tools.
  * A Goose/ACP runtime can implement the same interface later (see README).
  * Runtimes report progress only through `emit`, as AG-UI-shaped events.
  */
@@ -29,6 +29,8 @@ const MAX_TURNS = 12
 
 function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): string {
   const parts = [agent.instructions.trim() || `You are ${agent.name}.`]
+  const shared = getPrefs().sharedInstructions
+  if (shared) parts.push('## Workspace guidelines\n' + shared)
   const used = skills.filter((s) => agent.skills.includes(s.name))
   if (used.length) {
     parts.push('## Skills\n' + used.map((s) => `### ${s.name}\n${s.body}`).join('\n\n'))
@@ -176,16 +178,17 @@ class AnthropicRuntime implements AgentRuntime {
 }
 
 class OpenAICompatibleRuntime implements AgentRuntime {
-  constructor(private kind: 'openai' | 'ollama') {}
+  constructor(private kind: 'openai' | 'gemini' | 'ollama') {}
 
   async run(opts: RunOptions): Promise<string> {
     const { agent, skills, project, history, emit, signal } = opts
     let base = 'https://api.openai.com/v1'
     const headers: Record<string, string> = { 'content-type': 'application/json' }
-    if (this.kind === 'openai') {
-      const key = getSecret('openai')
-      if (!key) throw new Error('Add your OpenAI API key in Settings.')
+    if (this.kind === 'openai' || this.kind === 'gemini') {
+      const key = getSecret(this.kind)
+      if (!key) throw new Error(`Add your ${this.kind === 'openai' ? 'OpenAI' : 'Google Gemini'} API key in Settings.`)
       headers.authorization = `Bearer ${key}`
+      if (this.kind === 'gemini') base = 'https://generativelanguage.googleapis.com/v1beta/openai'
     } else {
       base = (getSetting('ollamaUrl') || 'http://localhost:11434').replace(/\/$/, '') + '/v1'
     }
@@ -222,7 +225,8 @@ class OpenAICompatibleRuntime implements AgentRuntime {
       let text = ''
       let finish = ''
       const say = textEmitter(emit, texts)
-      const calls: { id: string; name: string; args: string }[] = []
+      // extra: provider data to echo back (Gemini 3 rejects the next turn without its thought_signature).
+      const calls: { id: string; name: string; args: string; extra?: unknown }[] = []
       for await (const data of sseLines(res)) {
         if (data === '[DONE]') break
         for (const chunk of parsed(data)) {
@@ -238,6 +242,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
               calls[i] = { id: tc.id || `call_${opts.runId.slice(0, 8)}_${turn}_${i}`, name: tc.function?.name ?? '', args: '' }
               emit({ type: 'tool_call_start', toolCallId: calls[i].id, name: calls[i].name })
             }
+            if (tc.extra_content) calls[i].extra = tc.extra_content
             if (tc.function?.arguments) {
               calls[i].args += tc.function.arguments
               emit({ type: 'tool_call_args', toolCallId: calls[i].id, delta: tc.function.arguments })
@@ -255,7 +260,10 @@ class OpenAICompatibleRuntime implements AgentRuntime {
       messages.push({
         role: 'assistant',
         content: text || null,
-        tool_calls: live.map((c) => ({ id: c.id, type: 'function', function: { name: c.name, arguments: c.args || '{}' } }))
+        tool_calls: live.map((c) => ({
+          id: c.id, type: 'function', function: { name: c.name, arguments: c.args || '{}' },
+          ...(c.extra !== undefined && { extra_content: c.extra })
+        }))
       })
       const results = await runTools(live.map((c) => ({ id: c.id, name: c.name, input: parseArgs(c.args) })), tools.ctx)
       for (const r of results) messages.push({ role: 'tool', tool_call_id: r.id, content: r.content })
@@ -268,6 +276,7 @@ export function runtimeFor(agent: Agent): AgentRuntime {
   switch (agent.provider) {
     case 'anthropic': return new AnthropicRuntime()
     case 'openai': return new OpenAICompatibleRuntime('openai')
+    case 'gemini': return new OpenAICompatibleRuntime('gemini')
     case 'ollama': return new OpenAICompatibleRuntime('ollama')
   }
 }

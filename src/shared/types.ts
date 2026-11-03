@@ -1,6 +1,8 @@
 export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
-export type ProviderId = 'anthropic' | 'openai' | 'ollama'
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
+/** Providers that need an API key (stored encrypted). */
+export type KeyProvider = 'anthropic' | 'openai' | 'gemini'
 /** ask: file writes are staged for review · direct: written straight to disk */
 export type WriteMode = 'ask' | 'direct'
 
@@ -57,6 +59,7 @@ export interface Skill {
 export interface ProviderSettings {
   anthropicKeySet: boolean
   openaiKeySet: boolean
+  geminiKeySet: boolean
   ollamaUrl: string
 }
 
@@ -94,6 +97,22 @@ export interface PendingChange {
   status: ChangeStatus
   note: string
   createdAt: number
+}
+
+/** Workspace-wide defaults, edited in Settings → Agents. */
+export interface Preferences {
+  /** File-change mode given to newly created agents. */
+  defaultWriteMode: WriteMode
+  /** Added to every agent's instructions. */
+  sharedInstructions: string
+}
+
+export interface AppInfo {
+  version: string
+  electron: string
+  platform: string
+  /** Folder holding tyslin.db. */
+  dataPath: string
 }
 
 export interface UpdateStatus {
@@ -138,8 +157,14 @@ export interface TyslinApi {
   }
   settings: {
     get(): Promise<ProviderSettings>
-    setKey(provider: 'anthropic' | 'openai', key: string): Promise<void>
+    setKey(provider: KeyProvider, key: string): Promise<void>
     setOllamaUrl(url: string): Promise<void>
+    prefs(): Promise<Preferences>
+    setPrefs(p: Partial<Preferences>): Promise<Preferences>
+  }
+  app: {
+    info(): Promise<AppInfo>
+    openDataFolder(): Promise<void>
   }
   updates: {
     status(): Promise<UpdateStatus>

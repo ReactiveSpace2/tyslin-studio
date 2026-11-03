@@ -172,7 +172,18 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .swatch { width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--ink); }
 
 /* Settings */
-.settings { display: flex; flex-direction: column; gap: 16px; max-width: 640px; }
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; align-self: flex-start; flex-wrap: wrap; }
+.tabs button { min-height: 44px; padding: 0 18px; border-radius: 9px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.tabs button:hover { color: var(--ink); }
+.tabs button.on { background: var(--card); border-color: var(--line); color: var(--ink); font-weight: 600; }
+.settings { display: flex; flex-direction: column; gap: 16px; max-width: 720px; }
+.box-head { display: flex; flex-direction: column; gap: 4px; }
+.box-head .hint { margin: 0; font-size: 13px; }
+.kv { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 16px; font-size: 14px; }
+.kv > span:nth-child(odd) { color: var(--muted); }
+.path-inline { font-size: 12px; word-break: break-all; }
+.about { align-items: flex-start; }
+.about img { width: 96px; }
 .ok { color: var(--green); font-size: 13px; }
 
 /* Modal */

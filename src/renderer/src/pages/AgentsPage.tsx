@@ -3,7 +3,7 @@ import type { Agent } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 
-const PROVIDER_LABEL: Record<Agent['provider'], string> = { anthropic: 'Claude', openai: 'OpenAI', ollama: 'Local · Ollama' }
+const PROVIDER_LABEL: Record<Agent['provider'], string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', ollama: 'Local · Ollama' }
 
 interface Props {
   agents: Agent[]
