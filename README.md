@@ -27,6 +27,8 @@ npm install        # also rebuilds the SQLite driver for Electron
 npm run dev        # starts the app with hot reload
 ```
 
+Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev` instead.
+
 Open **Settings** in the app and add an Anthropic or OpenAI key, or point it at a running Ollama (`http://localhost:11434`).
 
 ## Build installers
@@ -37,7 +39,7 @@ npm run dist:win     # .exe (NSIS installer)
 npm run dist:linux   # .AppImage and .deb
 ```
 
-Output goes to `dist/`. For public releases, sign the builds: an Apple Developer ID (plus notarisation) for macOS and a code-signing certificate for Windows. Without them users see security warnings.
+Output goes to `dist/`. Build each installer on its own platform (`.dmg` requires macOS); GitHub Actions can build all three for a release. For public releases, sign the builds: an Apple Developer ID (plus notarisation) for macOS and a code-signing certificate for Windows. Without them users see security warnings.
 
 ## Project layout
 
