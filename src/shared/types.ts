@@ -244,6 +244,18 @@ export interface Preferences {
   sharedInstructions: string
 }
 
+/** The Google account signed in on this computer. Only the profile is kept; no Google tokens are stored. */
+export interface Account {
+  email: string
+  name: string
+}
+
+export interface AuthStatus {
+  /** False when this build has no Google client ID, so sign-in is hidden. */
+  configured: boolean
+  account: Account | null
+}
+
 export interface AppInfo {
   version: string
   electron: string
@@ -339,6 +351,13 @@ export interface TyslinApi {
     setOllamaUrl(url: string): Promise<void>
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
+  }
+  auth: {
+    status(): Promise<AuthStatus>
+    /** Opens Google in the browser and resolves once the user has signed in there. */
+    signIn(): Promise<AuthStatus>
+    cancelSignIn(): Promise<void>
+    signOut(): Promise<AuthStatus>
   }
   app: {
     info(): Promise<AppInfo>

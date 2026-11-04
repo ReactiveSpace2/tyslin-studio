@@ -21,6 +21,7 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 ## What works today
 
 - **Home:** the first screen shows the Tyslin logo, the standing mascot and the app version, then every model and agent engine Tyslin works with and whether each is ready (key added, installed). Click one to set it up.
+- **Sign in with Google:** official builds open on a sign-in screen; after signing in you land on Home, and Settings → Account signs you out. Tyslin keeps only your name and email; agents, chats and keys stay on your computer. Builds made without a Google OAuth client (no `.env`, see `.env.example`) skip sign-in.
 - **Agents:** create, edit and delete agents with a name, instructions, provider, model, skills, schedule and a character (shape and colour). Builder, the built-in agent, uses the Tyslin mascot.
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
 - **Attachments:** the + button in the chat box attaches files or whole folders. Text files go to the agent with your message. A folder sends its file list and every text file in it, skipping hidden folders, `node_modules` and build folders. Images (PNG, JPEG, GIF, WebP, up to 5 MB) are sent to Claude, OpenAI, Gemini and Ollama as images. External agents get the text, plus each image's path. There's a limit of about 200,000 characters per message, and anything left out is marked on the attachment.

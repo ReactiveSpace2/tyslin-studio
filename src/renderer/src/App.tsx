@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Agent, Project } from '@shared/types'
+import type { Agent, AuthStatus, Project } from '@shared/types'
 import { Sidebar } from './components/Sidebar'
 import { AgentsPage } from './pages/AgentsPage'
 import { ChatPage } from './pages/ChatPage'
@@ -8,6 +8,7 @@ import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { HomePage } from './pages/HomePage'
 import { NewProjectModal } from './components/NewProjectModal'
+import { LoginScreen } from './components/LoginScreen'
 
 export type Route =
   | { name: 'home' }
@@ -22,6 +23,7 @@ export default function App(): JSX.Element {
   const [agents, setAgents] = useState<Agent[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [newProject, setNewProject] = useState(false)
+  const [auth, setAuth] = useState<AuthStatus | null>(null)
 
   const refresh = useCallback(async () => {
     const [a, p] = await Promise.all([window.tyslin.agents.list(), window.tyslin.projects.list()])
@@ -31,9 +33,17 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void refresh()
+    void window.tyslin.auth.status().then(setAuth)
   }, [refresh])
 
   const builder = agents.find((a) => a.isMascot) ?? agents[0]
+
+  // Wait for the account check so the app never flashes before the sign-in screen.
+  if (!auth) return <div className="app" />
+  // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
+  if (auth.configured && !auth.account) {
+    return <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
+  }
 
   return (
     <div className="app">
@@ -84,7 +94,7 @@ export default function App(): JSX.Element {
           />
         )}
         {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
-        {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} />}
+        {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
       </main>
       {newProject && (
         <NewProjectModal

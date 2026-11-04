@@ -67,6 +67,12 @@ const api: TyslinApi = {
     prefs: () => ipcRenderer.invoke('settings:prefs'),
     setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p)
   },
+  auth: {
+    status: () => ipcRenderer.invoke('auth:status'),
+    signIn: () => ipcRenderer.invoke('auth:signIn'),
+    cancelSignIn: () => ipcRenderer.invoke('auth:cancelSignIn'),
+    signOut: () => ipcRenderer.invoke('auth:signOut')
+  },
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')

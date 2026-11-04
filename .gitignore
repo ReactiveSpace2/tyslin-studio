@@ -2,6 +2,9 @@ node_modules/
 out/
 dist/
 *.log
+.env
+.env.*
+!.env.example
 .DS_Store
 
 # Private working notes (kept in the parent Tyslin-Studio folder)

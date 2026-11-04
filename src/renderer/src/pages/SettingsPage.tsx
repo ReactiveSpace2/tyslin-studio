@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppInfo, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
+import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
+import { AccountBox } from '../components/AccountBox'
 
-export type SettingsTab = 'models' | 'engines' | 'agents' | 'about'
+export type SettingsTab = 'models' | 'engines' | 'agents' | 'account' | 'about'
 type Tab = SettingsTab
 
-const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['about', 'About & updates']]
+const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['account', 'Account'], ['about', 'About & updates']]
 
 const KEY_FIELDS: [KeyProvider, string, string, keyof ProviderSettings][] = [
   ['anthropic', 'Anthropic (Claude)', 'sk-ant-…', 'anthropicKeySet'],
@@ -258,6 +259,18 @@ function EnginesTab(): JSX.Element {
   )
 }
 
+function AccountTab({ onAuthChange }: { onAuthChange?: (s: AuthStatus) => void }): JSX.Element {
+  return (
+    <section className="box" aria-labelledby="account-h">
+      <div className="box-head">
+        <h2 id="account-h">Google account</h2>
+        <p className="hint">Your agents, chats and keys stay on this computer. Tyslin keeps only your name and email, and no Google tokens.</p>
+      </div>
+      <AccountBox onChange={onAuthChange} />
+    </section>
+  )
+}
+
 function AboutTab(): JSX.Element {
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
@@ -290,7 +303,7 @@ function AboutTab(): JSX.Element {
       <section className="box" aria-labelledby="data-h">
         <div className="box-head">
           <h2 id="data-h">Your data</h2>
-          <p className="hint">Agents, chats, projects and skills live in one local database. Tyslin sends nothing anywhere except your messages to the model providers you set up.</p>
+          <p className="hint">Agents, chats, projects and skills live in one local database. Tyslin sends nothing anywhere except your messages to the model providers you set up, and Google when you choose to sign in.</p>
         </div>
         <div className="kv">
           <span>Location</span><span className="mono path-inline">{info?.dataPath ?? '…'}</span>
@@ -312,7 +325,7 @@ function AboutTab(): JSX.Element {
   )
 }
 
-export function SettingsPage({ initialTab = 'models' }: { initialTab?: SettingsTab }): JSX.Element {
+export function SettingsPage({ initialTab = 'models', onAuthChange }: { initialTab?: SettingsTab; onAuthChange?: (s: AuthStatus) => void }): JSX.Element {
   const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
@@ -331,6 +344,7 @@ export function SettingsPage({ initialTab = 'models' }: { initialTab?: SettingsT
         {tab === 'models' && <ModelsTab />}
         {tab === 'agents' && <AgentsTab />}
         {tab === 'engines' && <EnginesTab />}
+        {tab === 'account' && <AccountTab onAuthChange={onAuthChange} />}
         {tab === 'about' && <AboutTab />}
       </div>
     </div>

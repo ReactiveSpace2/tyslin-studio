@@ -8,6 +8,7 @@ import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
+import { authStatus, cancelSignIn, signIn, signOut } from './auth'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
@@ -191,6 +192,10 @@ function registerIpc(): void {
   ipcMain.handle('settings:prefs', () => db.getPrefs())
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => db.setPrefs(p))
 
+  ipcMain.handle('auth:status', () => authStatus())
+  ipcMain.handle('auth:signIn', () => signIn())
+  ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
+  ipcMain.handle('auth:signOut', () => signOut())
   ipcMain.handle('app:info', (): AppInfo => ({
     version: app.getVersion(),
     electron: process.versions.electron,

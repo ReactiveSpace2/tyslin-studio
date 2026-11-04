@@ -53,6 +53,10 @@ jobs:
 
       - name: Build app
         run: npm run build
+        env:
+          # Optional Google sign-in (src/main/auth.ts). Without these secrets the app builds with sign-in hidden.
+          MAIN_VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          MAIN_VITE_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
       - name: Package installers
         run: npx electron-builder ${{ matrix.target }} --publish never
