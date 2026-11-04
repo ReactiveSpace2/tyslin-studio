@@ -9,6 +9,7 @@ import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
 import { pickAttachments, prepareAttachments } from './attachments'
+import { checkPacks, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import type { AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
@@ -134,6 +135,11 @@ function registerIpc(): void {
   ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => resolveChange(id, acceptedHunks, note))
 
   ipcMain.handle('skills:list', () => db.listSkills())
+  ipcMain.handle('skillPacks:list', () => listPacks())
+  ipcMain.handle('skillPacks:check', () => checkPacks())
+  ipcMain.handle('skillPacks:discover', (_e, query: string, page: number) => discoverPacks(String(query ?? ''), Number(page) || 1))
+  ipcMain.handle('skillPacks:install', (_e, id: string) => installPack(id))
+  ipcMain.handle('skillPacks:uninstall', (_e, id: string) => uninstallPack(id))
   ipcMain.handle('skills:save', (_e, input: SkillInput) => {
     const s = { ...input, name: input.name.trim(), description: input.description.trim(), body: input.body.trim() }
     const problem = validateSkill(s)

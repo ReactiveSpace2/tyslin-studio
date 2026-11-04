@@ -123,6 +123,58 @@ export interface Skill {
   name: string
   description: string
   body: string
+  /** The skill's page on GitHub, for skills installed from a pack; shown as a link on its card. */
+  sourceUrl?: string
+  /** Set when the skill came from a skill pack (`SkillPack.id`). */
+  packId?: string
+}
+
+/**
+ * A set of skills installed from a public GitHub repo. Featured packs are picked in skillPacks.ts;
+ * the rest are repos tagged `agent-skills` on GitHub (Skills page, "More on GitHub").
+ */
+export interface SkillPack {
+  id: string
+  name: string
+  author: string
+  description: string
+  /** github.com URL of the repo. */
+  url: string
+  /** SPDX id from GitHub, or '' when the repo has no licence GitHub recognises. */
+  license: string
+  featured: boolean
+  /** GitHub stars, for topic repos. */
+  stars?: number
+  /** False when the pack can't be installed; `blockedReason` says why. */
+  installable: boolean
+  blockedReason?: string
+  installed: boolean
+  /** Skills currently installed from this pack. */
+  skillCount: number
+  installedCommit?: string
+  installedAt?: number
+  /** Latest commit on GitHub, once checked. */
+  latestCommit?: string
+  updateAvailable: boolean
+  /** Why the last update check failed (offline, rate limit). */
+  checkError?: string
+}
+
+/** One page of repos from the GitHub `agent-skills` topic, most stars first. */
+export interface SkillPackSearch {
+  packs: SkillPack[]
+  total: number
+  /** Page to ask for next, if there are more. */
+  nextPage?: number
+}
+
+export interface SkillPackResult {
+  pack: SkillPack
+  added: number
+  updated: number
+  removed: number
+  /** One line per skill that was skipped, with the reason. */
+  skipped: string[]
 }
 
 export type SkillInput = Omit<Skill, 'id'> & { id?: string }
@@ -268,6 +320,18 @@ export interface TyslinApi {
     importFiles(): Promise<SkillImportResult>
     /** Saves the skill as a .md file; false if the user cancelled. */
     exportFile(id: string): Promise<boolean>
+  }
+  skillPacks: {
+    /** Packs with their install state, without going online. */
+    list(): Promise<SkillPack[]>
+    /** Same, plus the latest commit from GitHub for each (cached for 15 minutes). */
+    check(): Promise<SkillPack[]>
+    /** Repos tagged agent-skills on GitHub, optionally matching `query`. Featured packs are left out. */
+    discover(query: string, page: number): Promise<SkillPackSearch>
+    /** Installs the pack, or updates it to the latest commit. Replaces edits to its skills. */
+    install(id: string): Promise<SkillPackResult>
+    /** Deletes the pack's skills and detaches them from every agent. */
+    uninstall(id: string): Promise<void>
   }
   settings: {
     get(): Promise<ProviderSettings>

@@ -2,7 +2,7 @@ import { basename } from 'path'
 import type { SkillInput } from '@shared/types'
 
 /** Skills go into every system prompt they're attached to, so keep them prompt-sized. */
-export const MAX_SKILL_CHARS = 20_000
+export const MAX_SKILL_CHARS = 40_000
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 

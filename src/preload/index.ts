@@ -53,6 +53,13 @@ const api: TyslinApi = {
     importFiles: () => ipcRenderer.invoke('skills:importFiles'),
     exportFile: (id) => ipcRenderer.invoke('skills:exportFile', id)
   },
+  skillPacks: {
+    list: () => ipcRenderer.invoke('skillPacks:list'),
+    check: () => ipcRenderer.invoke('skillPacks:check'),
+    discover: (query, page) => ipcRenderer.invoke('skillPacks:discover', query, page),
+    install: (id) => ipcRenderer.invoke('skillPacks:install', id),
+    uninstall: (id) => ipcRenderer.invoke('skillPacks:uninstall', id)
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),

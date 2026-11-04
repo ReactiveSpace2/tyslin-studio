@@ -55,6 +55,16 @@ function migrate(): void {
   addColumn('agents', 'write_mode', "TEXT NOT NULL DEFAULT 'ask'")
   addColumn('agents', 'engine', "TEXT NOT NULL DEFAULT 'builtin'")
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
+  addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
+  // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
+  addColumn('skills', 'pack_id', "TEXT NOT NULL DEFAULT ''")
+  db.exec('CREATE TABLE IF NOT EXISTS skill_packs (id TEXT PRIMARY KEY, commit_sha TEXT NOT NULL, installed_at INTEGER NOT NULL)')
+  // Dev builds briefly shipped humanizer as a built-in; treat that copy as an install of the pack.
+  const adopted = db.prepare("UPDATE skills SET pack_id = 'humanizer' WHERE name = 'humanizer' AND pack_id = '' AND source_url LIKE 'https://github.com/blader/humanizer%'").run()
+  if (adopted.changes) db.prepare("INSERT OR IGNORE INTO skill_packs (id, commit_sha, installed_at) VALUES ('humanizer', '', ?)").run(Date.now())
+  // Packs found through the GitHub agent-skills topic aren't in skillPacks.ts, so their card details are kept here.
+  addColumn('skill_packs', 'repo', "TEXT NOT NULL DEFAULT ''")
+  addColumn('skill_packs', 'meta', "TEXT NOT NULL DEFAULT ''")
   addColumn('messages', 'attachments', "TEXT NOT NULL DEFAULT '[]'")
   addColumn('messages', 'context', "TEXT NOT NULL DEFAULT ''")
 }
@@ -84,9 +94,9 @@ function seed(): void {
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */
 function seedSkills(): void {
   if (Number(getSetting('seed:skillsVersion') ?? 0) >= SKILL_LIBRARY_VERSION) return
-  const ins = db.prepare('INSERT OR IGNORE INTO skills (id, name, description, body) VALUES (?, ?, ?, ?)')
+  const ins = db.prepare('INSERT OR IGNORE INTO skills (id, name, description, body, source_url) VALUES (?, ?, ?, ?, ?)')
   db.transaction(() => {
-    for (const s of BUILT_IN_SKILLS) ins.run(randomUUID(), s.name, s.description, s.body)
+    for (const s of BUILT_IN_SKILLS) ins.run(randomUUID(), s.name, s.description, s.body, s.sourceUrl ?? '')
     setSetting('seed:skillsVersion', String(SKILL_LIBRARY_VERSION))
   })()
 }
@@ -213,12 +223,17 @@ export function addMessage(
   return m
 }
 
+type SkillRow = Omit<Skill, 'sourceUrl' | 'packId'> & { sourceUrl: string; packId: string }
+const SKILL_COLS = 'id, name, description, body, source_url AS sourceUrl, pack_id AS packId'
+const toSkill = ({ sourceUrl, packId, ...s }: SkillRow): Skill => ({ ...s, ...(sourceUrl && { sourceUrl }), ...(packId && { packId }) })
+
 export function listSkills(): Skill[] {
-  return db.prepare('SELECT id, name, description, body FROM skills ORDER BY name').all() as Skill[]
+  return (db.prepare(`SELECT ${SKILL_COLS} FROM skills ORDER BY name`).all() as SkillRow[]).map(toSkill)
 }
 
 export function getSkill(id: string): Skill | null {
-  return (db.prepare('SELECT id, name, description, body FROM skills WHERE id = ?').get(id) as Skill | undefined) ?? null
+  const r = db.prepare(`SELECT ${SKILL_COLS} FROM skills WHERE id = ?`).get(id) as SkillRow | undefined
+  return r ? toSkill(r) : null
 }
 
 export function skillNameTaken(name: string, exceptId?: string): boolean {
@@ -239,7 +254,11 @@ export function saveSkill(input: SkillInput): Skill {
   return db.transaction(() => {
     if (prev) {
       db.prepare('UPDATE skills SET name = ?, description = ?, body = ? WHERE id = ?').run(input.name, input.description, input.body, prev.id)
-      if (prev.name !== input.name) renameSkillOnAgents(prev.name, input.name)
+      if (prev.name !== input.name) {
+        renameSkillOnAgents(prev.name, input.name)
+        // A renamed pack skill becomes the user's own, so pack updates leave it alone.
+        db.prepare("UPDATE skills SET pack_id = '' WHERE id = ?").run(prev.id)
+      }
       return getSkill(prev.id)!
     }
     const id = randomUUID()
@@ -254,6 +273,76 @@ export function removeSkill(id: string): void {
   db.transaction(() => {
     db.prepare('DELETE FROM skills WHERE id = ?').run(id)
     renameSkillOnAgents(s.name, null)
+  })()
+}
+
+export interface PackRow {
+  id: string
+  commitSha: string
+  installedAt: number
+  skillCount: number
+  /** owner/name, for packs installed from the GitHub topic. */
+  repo: string
+  /** JSON card details (name, author, description, license, stars) for those packs. */
+  meta: string
+}
+
+const PACK_COLS = 'id, commit_sha AS commitSha, installed_at AS installedAt, repo, meta, (SELECT COUNT(*) FROM skills WHERE pack_id = skill_packs.id) AS skillCount'
+
+export function getPackRow(id: string): PackRow | null {
+  return (db.prepare(`SELECT ${PACK_COLS} FROM skill_packs WHERE id = ?`).get(id) as PackRow | undefined) ?? null
+}
+
+/** Installed packs that came from the GitHub topic rather than skillPacks.ts. */
+export function listRepoPackRows(): PackRow[] {
+  return db.prepare(`SELECT ${PACK_COLS} FROM skill_packs WHERE repo != '' ORDER BY installed_at`).all() as PackRow[]
+}
+
+export interface PackSkill { name: string; description: string; body: string; sourceUrl: string }
+
+/**
+ * Installs or updates a pack's skills in one transaction: adds new ones, replaces the text of
+ * ones it installed before, deletes ones the pack no longer has (detaching them from agents),
+ * and skips names already used by another skill.
+ */
+export function applyPack(packId: string, commitSha: string, incoming: PackSkill[], source = { repo: '', meta: '' }): { added: number; updated: number; removed: number; skipped: string[] } {
+  const res = { added: 0, updated: 0, removed: 0, skipped: [] as string[] }
+  db.transaction(() => {
+    const mine = new Map((db.prepare('SELECT id, name FROM skills WHERE pack_id = ?').all(packId) as { id: string; name: string }[]).map((r) => [r.name, r.id]))
+    const keep = new Set<string>()
+    for (const s of incoming) {
+      const id = mine.get(s.name)
+      if (id) {
+        db.prepare('UPDATE skills SET description = ?, body = ?, source_url = ? WHERE id = ?').run(s.description, s.body, s.sourceUrl, id)
+        keep.add(s.name)
+        res.updated++
+      } else if (skillNameTaken(s.name)) {
+        res.skipped.push(`${s.name}: you already have a skill with this name`)
+      } else {
+        db.prepare('INSERT INTO skills (id, name, description, body, source_url, pack_id) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(randomUUID(), s.name, s.description, s.body, s.sourceUrl, packId)
+        res.added++
+      }
+    }
+    for (const [name, id] of mine) {
+      if (keep.has(name)) continue
+      db.prepare('DELETE FROM skills WHERE id = ?').run(id)
+      renameSkillOnAgents(name, null)
+      res.removed++
+    }
+    db.prepare(`INSERT INTO skill_packs (id, commit_sha, installed_at, repo, meta) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET commit_sha = excluded.commit_sha, installed_at = excluded.installed_at, repo = excluded.repo, meta = excluded.meta`)
+      .run(packId, commitSha, Date.now(), source.repo, source.meta)
+  })()
+  return res
+}
+
+/** Deletes every skill from the pack (detaching them from agents) and forgets the install. */
+export function removePack(packId: string): void {
+  db.transaction(() => {
+    for (const r of db.prepare('SELECT name FROM skills WHERE pack_id = ?').all(packId) as { name: string }[]) renameSkillOnAgents(r.name, null)
+    db.prepare('DELETE FROM skills WHERE pack_id = ?').run(packId)
+    db.prepare('DELETE FROM skill_packs WHERE id = ?').run(packId)
   })()
 }
 

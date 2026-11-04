@@ -12,6 +12,8 @@ const PATHS = {
   check: <path d="m3 8.5 3 3 7-7" />,
   close: <path d="M4 4l8 8M12 4l-8 8" />,
   stop: <rect x="4" y="4" width="8" height="8" rx="1.5" />,
+  // Same stroke GitHub mark as the landing site (tyslin-web/components/Icons.tsx), drawn on a 24 px grid.
+  github: <g transform="scale(0.6667)" strokeWidth="2.4"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></g>,
   warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
 } as const
 
