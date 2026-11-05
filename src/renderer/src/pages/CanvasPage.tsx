@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Agent, Project, StudioFile } from '@shared/types'
 import { Icon } from '../components/Icon'
-import { SAVE_LABEL, StudioFiles, useAutosave } from '../components/StudioFiles'
+import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { AgentSelect } from './WorkflowsPage'
 
 interface Props {
@@ -89,16 +89,13 @@ export function CanvasPage({ agents, projects, onOpenChat, initial }: Props): JS
 
   return (
     <div className="studio">
-      <StudioFiles kind="canvas" title="Canvas" newLabel="New document" projects={projects} projectId={projectId}
+      <StudioFiles kind="canvas" title="Canvas" newLabel="New document" allLabel="All documents" projects={projects} projectId={projectId}
         onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {text === null ? (
-          <div className="studio-empty">
-            <Icon name="canvas" size={36} />
-            <h1>Canvas</h1>
-            <p className="lead">Draft a document with an agent beside you: rewrite a passage, continue the text or ask about it. Documents are Markdown files in the project folder under <code className="mono">canvas/</code>.</p>
-          </div>
+          <StudioOverview kind="canvas" title="Canvas" newLabel="New document" projectId={projectId} refreshKey={refresh} error={null}
+            intro={<>Draft a document with an agent beside you: rewrite a passage, continue the text or ask about it. Documents are Markdown files in the project folder under <code className="mono">canvas/</code>.</>} onOpen={(f) => void open(f)} onNew={(n) => void create(n)} />
         ) : (
           <>
             <div className="studio-bar">

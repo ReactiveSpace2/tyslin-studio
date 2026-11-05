@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Agent, MindMapDoc, MindNode, Project, StudioFile } from '@shared/types'
 import { Icon } from '../components/Icon'
-import { SAVE_LABEL, StudioFiles, useAutosave } from '../components/StudioFiles'
+import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { AgentSelect } from './WorkflowsPage'
 
 interface Props {
@@ -186,17 +186,13 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
 
   return (
     <div className="studio">
-      <StudioFiles kind="mindmap" title="Mind mapper" newLabel="New mind map" projects={projects} projectId={projectId}
+      <StudioFiles kind="mindmap" title="Mind mapper" newLabel="New mind map" allLabel="All mind maps" projects={projects} projectId={projectId}
         onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!root ? (
-          <div className="studio-empty">
-            <Icon name="mindmap" size={36} />
-            <h1>Mind mapper</h1>
-            <p className="lead">Turn a topic into a map you can grow and edit. Maps are saved in the project folder under <code className="mono">mindmaps/</code>.</p>
-            {error && <p className="hint account-error">{error}</p>}
-          </div>
+          <StudioOverview kind="mindmap" title="Mind mapper" newLabel="New mind map" projectId={projectId} refreshKey={refresh} error={error}
+            intro={<>Turn a topic into a map you can grow and edit. Maps are saved in the project folder under <code className="mono">mindmaps/</code>.</>} onOpen={(f) => void open(f)} onNew={(n) => void create(n)} />
         ) : (
           <>
             <div className="studio-bar">

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Agent, Project, StudioFile, WorkflowDoc, WorkflowProgress, WorkflowStep } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { SAVE_LABEL, StudioFiles, useAutosave } from '../components/StudioFiles'
+import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 
 interface Props {
   agents: Agent[]
@@ -101,17 +101,13 @@ export function WorkflowsPage({ agents, projects, onOpenChat, initial }: Props):
 
   return (
     <div className="studio">
-      <StudioFiles kind="workflow" title="Workflows" newLabel="New workflow" projects={projects} projectId={projectId}
+      <StudioFiles kind="workflow" title="Workflows" newLabel="New workflow" allLabel="All workflows" projects={projects} projectId={projectId}
         onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!doc ? (
-          <div className="studio-empty">
-            <Icon name="workflow" size={36} />
-            <h1>Workflows</h1>
-            <p className="lead">Chain agents into steps that hand work to each other: each step gets the brief and the previous step's result. Workflows and their run logs are saved in the project folder under <code className="mono">workflows/</code>.</p>
-            {error && <p className="hint account-error">{error}</p>}
-          </div>
+          <StudioOverview kind="workflow" title="Workflows" newLabel="New workflow" projectId={projectId} refreshKey={refresh} error={error}
+            intro={<>Chain agents into steps that hand work to each other: each step gets the brief and the previous step's result. Workflows and their run logs are saved in the project folder under <code className="mono">workflows/</code>.</>} onOpen={(f) => void open(f)} onNew={(n) => void create(n)} />
         ) : (
           <>
             <div className="studio-bar">

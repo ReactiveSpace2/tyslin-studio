@@ -43,7 +43,9 @@ const PATHS = {
   warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
 } as const
 
-export function Icon({ name, size = 16 }: { name: keyof typeof PATHS; size?: number }): JSX.Element {
+export type IconName = keyof typeof PATHS
+
+export function Icon({ name, size = 16 }: { name: IconName; size?: number }): JSX.Element {
   return (
     <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {PATHS[name]}

@@ -716,19 +716,29 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 
 /* Studio screens (Mind mapper, Workflows, Canvas): files on the left, work in the middle, agent on the right */
 .studio { display: flex; height: 100%; }
-.sf { width: 260px; flex: none; border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; box-sizing: border-box; background: var(--parchment); }
-.sf-folder { display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; color: var(--muted); font-size: 11px; font-family: var(--mono); text-align: left; cursor: pointer; min-width: 0; }
-.sf-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; }
-.sf-folder:hover { color: var(--ink); }
-.sf-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
-.sf-item { display: flex; align-items: center; border-radius: 10px; border: 1px solid transparent; }
-.sf-item.on { background: var(--card); border-color: var(--line); }
-.sf-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-height: 44px; border: 0; background: none; text-align: left; cursor: pointer; color: var(--ink); border-radius: 10px; }
-.sf-open.on { background: var(--card); }
-.sf-open strong { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sf-open span { font-size: 11px; color: var(--muted); }
+/* Studio and Drive panels: same look as the assistants panel (.panel) */
+.studio-panel { border-right: 1px solid var(--line); }
+.panel-file { position: relative; display: flex; align-items: center; }
+.panel-file .panel-item { padding-right: 40px; }
+.panel-file .sf-del { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.panel-file:hover .sf-del { opacity: 1; }
+.panel-form { padding: 2px 0 6px; }
+.panel-note { padding: 8px 10px 0; margin: 0; }
+.panel-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); display: flex; align-items: flex-end; gap: 6px; }
+.panel-project { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.panel-project .select { height: 40px; }
+.panel-foot .icon-btn { height: 40px; flex: none; }
+.studio-over { flex: 1; overflow-y: auto; padding: 32px 36px; display: flex; flex-direction: column; gap: 20px; }
+.studio-over-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+.studio-over-head > div:first-child { display: flex; flex-direction: column; gap: 8px; max-width: 640px; min-width: 0; }
+.studio-over-head h1 { font-size: 32px; }
+.studio-over-path { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.studio-over-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.studio-over-card { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); text-align: left; cursor: pointer; min-height: 120px; }
+.studio-over-card:hover { border-color: var(--ink); }
+.studio-over-card strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.studio-over-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 20px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); text-align: center; }
 .sf-del { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; background: none; color: var(--muted); border-radius: 8px; cursor: pointer; opacity: 0; }
-.sf-item:hover .sf-del, .sf-del:focus-visible { opacity: 1; }
 .sf-del:hover { color: var(--danger); }
 .studio-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .studio-empty { margin: auto; max-width: 520px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; color: var(--muted); padding: 32px; }
@@ -776,11 +786,6 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 
 /* Drive */
 .drive { display: flex; height: 100%; }
-.dv-roots { width: 240px; flex: none; border-right: 1px solid var(--line); padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; box-sizing: border-box; background: var(--parchment); }
-.dv-roots .hint { margin: 0 0 8px; }
-.dv-root { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--muted); text-align: left; cursor: pointer; font-size: 14px; }
-.dv-root span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dv-root.on { background: var(--card); border-color: var(--line); color: var(--ink); font-weight: 600; }
 .dv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; overflow-y: auto; }
 .dv-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .dv-crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 15px; font-weight: 600; min-width: 0; }
@@ -808,5 +813,8 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .dv-side { width: 320px; flex: none; border-left: 1px solid var(--line); padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; box-sizing: border-box; background: var(--parchment); }
 .dv-title { display: block; font-size: 15px; overflow-wrap: anywhere; }
 .dv-img { max-width: 100%; max-height: 320px; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+.sf-open { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-height: 44px; text-align: left; cursor: pointer; color: var(--ink); border-radius: 10px; }
+.sf-open strong { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-open span { font-size: 11px; color: var(--muted); }
 .studio-side .sf-open { flex: none; border: 1px solid var(--line); background: var(--card); }
 .studio-side .sf-open.on { border-color: var(--ink); }

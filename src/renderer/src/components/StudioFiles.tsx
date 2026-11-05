@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { Project, StudioFile, StudioKind } from '@shared/types'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 
 interface Props {
   kind: StudioKind
   title: string
   newLabel: string
+  /** "All mind maps", "All workflows", ... */
+  allLabel: string
   projects: Project[]
   /** null = the Default project. */
   projectId: string | null
@@ -18,77 +20,134 @@ interface Props {
   onDelete: (f: StudioFile) => void
 }
 
+const ICON: Record<StudioKind, IconName> = { mindmap: 'mindmap', workflow: 'workflow', run: 'workflow', canvas: 'canvas' }
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
-/**
- * Left column of the Mind mapper, Workflows and Canvas screens: which project the files live in
- * (the Default project when none is chosen), the files of this kind there, New and Delete.
- */
-export function StudioFiles({ kind, title, newLabel, projects, projectId, onProject, selected, onSelect, refreshKey, onNew, onDelete }: Props): JSX.Element {
-  const [files, setFiles] = useState<StudioFile[]>([])
-  const [project, setProject] = useState<Project | null>(null)
-  const [defaultId, setDefaultId] = useState<string | null>(null)
-  const [naming, setNaming] = useState(false)
-  const [name, setName] = useState('')
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDefaultId(p.id)) }, [])
+/** The files of one kind in a project (the Default project when none is chosen). */
+function useStudioList(kind: StudioKind, projectId: string | null, refreshKey: number): { files: StudioFile[]; project: Project | null; error: string | null } {
+  const [state, setState] = useState<{ files: StudioFile[]; project: Project | null; error: string | null }>({ files: [], project: null, error: null })
   useEffect(() => {
-    setError(null)
     window.tyslin.studio.list(kind, projectId)
-      .then((r) => { setFiles(r.files); setProject(r.project) })
-      .catch((e) => { setFiles([]); setProject(null); setError(errorText(e)) })
+      .then((r) => setState({ files: r.files, project: r.project, error: null }))
+      .catch((e) => setState({ files: [], project: null, error: errorText(e) }))
   }, [kind, projectId, refreshKey])
+  return state
+}
 
-  const others = projects.filter((p) => p.folder && p.id !== defaultId)
-  const create = (): void => {
-    const n = name.trim()
-    if (!n) return
-    setNaming(false)
-    setName('')
-    onNew(n)
-  }
+/** Inline "name it" form used by the panel and the overview. */
+function NameForm({ onDone, onCancel, className }: { onDone: (name: string) => void; onCancel: () => void; className?: string }): JSX.Element {
+  const [name, setName] = useState('')
+  return (
+    <form className={'row ' + (className ?? '')} style={{ flexWrap: 'nowrap', gap: 6 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) onDone(name.trim()) }}>
+      <input className="input" style={{ flex: 1, minWidth: 0 }} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Name"
+        onKeyDown={(e) => { if (e.key === 'Escape') onCancel() }} />
+      <button type="submit" className="btn btn-primary" disabled={!name.trim()}>Create</button>
+    </form>
+  )
+}
+
+/**
+ * Left panel of the Mind mapper, Workflows and Canvas screens, in the same style as the assistants panel:
+ * New, All, then the files. Which project they live in (the Default project when none is chosen) sits at the bottom.
+ */
+export function StudioFiles({ kind, title, newLabel, allLabel, projects, projectId, onProject, selected, onSelect, refreshKey, onNew, onDelete }: Props): JSX.Element {
+  const { files, error } = useStudioList(kind, projectId, refreshKey)
+  const [naming, setNaming] = useState(false)
 
   return (
-    <aside className="sf">
-      <span className="eyebrow">{title}</span>
-      <label className="field" style={{ gap: 4 }}>
+    <nav className="panel studio-panel" aria-label={title}>
+      {naming
+        ? <NameForm className="panel-form" onDone={(n) => { setNaming(false); onNew(n) }} onCancel={() => setNaming(false)} />
+        : <button type="button" className="panel-item panel-add" disabled={!!error} onClick={() => setNaming(true)}><Icon name="plus" size={14} /> {newLabel}</button>}
+      <button type="button" className={'panel-item panel-add' + (!selected ? ' active' : '')} aria-current={!selected ? 'page' : undefined} onClick={() => onSelect(null)}>
+        <Icon name="grid" size={14} /> {allLabel}
+      </button>
+      {files.map((f) => (
+        <div key={f.path} className="panel-file">
+          <button type="button" className={'panel-item panel-agent' + (selected === f.path ? ' active' : '')} aria-current={selected === f.path ? 'page' : undefined}
+            title={`${f.name} · ${when(f.updatedAt)}`} onClick={() => onSelect(f)}>
+            <span className="panel-folder"><Icon name={ICON[kind]} /></span>
+            <span className="panel-label">{f.name}</span>
+          </button>
+          <button type="button" className="sf-del" aria-label={`Delete ${f.name}`} title="Delete" onClick={() => {
+            if (window.confirm(`Delete "${f.name}"? The file is removed from the project folder.`)) onDelete(f)
+          }}><Icon name="trash" size={13} /></button>
+        </div>
+      ))}
+      {error && <p className="hint account-error panel-note" role="alert">{error}</p>}
+      <ProjectPicker projects={projects} projectId={projectId} onProject={(id) => { onProject(id); onSelect(null) }} />
+    </nav>
+  )
+}
+
+/** The project picker at the foot of a studio panel ('' = the Default project), with a button to show its folder. */
+export function ProjectPicker({ projects, projectId, onProject }: { projects: Project[]; projectId: string | null; onProject: (id: string | null) => void }): JSX.Element {
+  const [defaultId, setDefaultId] = useState<string | null>(null)
+  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDefaultId(p.id)) }, [])
+  const others = projects.filter((p) => p.folder && p.id !== defaultId)
+  return (
+    <div className="panel-foot">
+      <label className="panel-project">
         <span className="label">Project</span>
-        <select className="select" value={projectId && projectId !== defaultId ? projectId : ''} onChange={(e) => { onProject(e.target.value || null); onSelect(null) }}>
+        <select className="select" value={projectId && projectId !== defaultId ? projectId : ''} onChange={(e) => onProject(e.target.value || null)}>
           <option value="">Default project</option>
           {others.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </label>
-      {project?.folder && (
-        <button type="button" className="sf-folder" title={project.folder} onClick={() => void window.tyslin.studio.reveal(projectId)}>
-          <Icon name="folder" size={13} /><span>{project.folder}</span>
-        </button>
-      )}
-      {error && <p className="hint account-error" role="alert">{error}</p>}
-      {naming ? (
-        <form className="row" style={{ flexWrap: 'nowrap', gap: 6 }} onSubmit={(e) => { e.preventDefault(); create() }}>
-          <input className="input" style={{ flex: 1, minWidth: 0 }} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" aria-label="Name"
-            onKeyDown={(e) => { if (e.key === 'Escape') setNaming(false) }} />
-          <button type="submit" className="btn btn-primary" disabled={!name.trim()}>Create</button>
-        </form>
-      ) : (
-        <button type="button" className="btn btn-primary" disabled={!!error} onClick={() => setNaming(true)}><Icon name="plus" size={12} /> {newLabel}</button>
-      )}
-      <div className="sf-list">
-        {files.map((f) => (
-          <div key={f.path} className={'sf-item' + (selected === f.path ? ' on' : '')}>
-            <button type="button" className="sf-open" aria-current={selected === f.path ? 'page' : undefined} onClick={() => onSelect(f)}>
-              <strong>{f.name}</strong><span>{when(f.updatedAt)}</span>
-            </button>
-            <button type="button" className="sf-del" aria-label={`Delete ${f.name}`} title="Delete" onClick={() => {
-              if (window.confirm(`Delete "${f.name}"? The file is removed from the project folder.`)) onDelete(f)
-            }}><Icon name="trash" size={13} /></button>
-          </div>
-        ))}
-        {!error && files.length === 0 && <p className="hint">Nothing here yet.</p>}
+      <button type="button" className="btn icon-btn" aria-label="Show the project folder" title="Show the project folder" onClick={() => void window.tyslin.studio.reveal(projectId)}>
+        <Icon name="folder" size={15} />
+      </button>
+    </div>
+  )
+}
+
+interface OverviewProps {
+  kind: StudioKind
+  title: string
+  intro: JSX.Element
+  newLabel: string
+  projectId: string | null
+  refreshKey: number
+  onOpen: (f: StudioFile) => void
+  onNew: (name: string) => void
+  error?: string | null
+}
+
+/** What "All ..." shows in the main area: a short intro, New, and every file of this kind as a card. */
+export function StudioOverview({ kind, title, intro, newLabel, projectId, refreshKey, onOpen, onNew, error }: OverviewProps): JSX.Element {
+  const { files, project, error: listError } = useStudioList(kind, projectId, refreshKey)
+  const [naming, setNaming] = useState(false)
+  return (
+    <div className="studio-over">
+      <div className="studio-over-head">
+        <div>
+          <span className="eyebrow">{project?.name ?? 'Default project'}</span>
+          <h1>{title}</h1>
+          <p className="lead">{intro}</p>
+          {project?.folder && <p className="hint mono studio-over-path" title={project.folder}>{project.folder}</p>}
+        </div>
+        {naming
+          ? <NameForm onDone={(n) => { setNaming(false); onNew(n) }} onCancel={() => setNaming(false)} />
+          : <button type="button" className="btn btn-primary" disabled={!!listError} onClick={() => setNaming(true)}><Icon name="plus" size={12} /> {newLabel}</button>}
       </div>
-    </aside>
+      {(error || listError) && <p className="hint account-error" role="alert">{error || listError}</p>}
+      {files.length === 0 && !listError
+        ? <div className="studio-over-empty"><Icon name={ICON[kind]} size={32} /><p>Nothing here yet. {newLabel} to get started.</p></div>
+        : (
+          <ul className="studio-over-grid">
+            {files.map((f) => (
+              <li key={f.path}>
+                <button type="button" className="studio-over-card" onClick={() => onOpen(f)}>
+                  <span className="dv-ic"><Icon name={ICON[kind]} size={16} /></span>
+                  <strong>{f.name}</strong>
+                  <span className="hint">Edited {when(f.updatedAt)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+    </div>
   )
 }
 

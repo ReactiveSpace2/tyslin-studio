@@ -97,18 +97,17 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
 
   return (
     <div className="drive">
-      <aside className="dv-roots">
-        <span className="eyebrow">Drive</span>
-        <h1 style={{ fontSize: 24 }}>Files</h1>
-        <p className="hint">Each project's folder on this computer. Mind maps, workflows and Canvas documents are saved here too.</p>
+      <nav className="panel studio-panel" aria-label="Drive">
+        <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> Link a folder</button>
         {roots.map((r) => (
-          <button key={r.id ?? 'default'} type="button" className={'dv-root' + (projectId === r.id ? ' on' : '')} aria-current={projectId === r.id ? 'page' : undefined}
-            onClick={() => { setProjectId(r.id); go('') }}>
-            <Icon name="folder" size={16} /><span>{r.name}</span>
+          <button key={r.id ?? 'default'} type="button" className={'panel-item panel-agent' + (projectId === r.id ? ' active' : '')} aria-current={projectId === r.id ? 'page' : undefined}
+            title={r.name} onClick={() => { setProjectId(r.id); go('') }}>
+            <span className="panel-folder"><Icon name={r.id === null ? 'drive' : 'folder'} /></span>
+            <span className="panel-label">{r.name}</span>
           </button>
         ))}
-        <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start', marginTop: 6 }} onClick={onNewProject}><Icon name="plus" size={12} /> Link a folder</button>
-      </aside>
+        <p className="hint panel-note">Each project's folder on this computer. Mind maps, workflows and Canvas documents are saved here too.</p>
+      </nav>
 
       <section className="dv-main" {...dropProps('main', dir)} aria-label="Files">
         <div className="dv-bar">
