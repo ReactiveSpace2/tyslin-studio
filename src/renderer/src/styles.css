@@ -74,16 +74,13 @@ a { color: var(--green); }
 /* Title bar: replaces the native one. Empty space drags the window; the system draws the window
    buttons over the right edge (Windows, Linux) or the traffic lights at the left (macOS). */
 .titlebar { height: 44px; flex: none; display: flex; align-items: stretch; background: var(--parchment); border-bottom: 1px solid var(--line); -webkit-app-region: drag; user-select: none; }
-.titlebar-side { width: 320px; flex: none; display: flex; align-items: center; padding: 0 10px; background: var(--panel); border-right: 1px solid var(--line); }
+.titlebar-side { width: 320px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 16px; background: var(--panel); border-right: 1px solid var(--line); }
 .titlebar.mac .titlebar-side { padding-left: 84px; }
+.titlebar-logo { width: 28px; height: 28px; flex: none; object-fit: contain; }
+.titlebar-wordmark { height: 14px; width: auto; flex: none; }
 .titlebar-main { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 150px 0 24px; }
 .titlebar.mac .titlebar-main { padding-right: 24px; }
 .titlebar-title { font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.titlebar-switch { position: relative; min-width: 0; -webkit-app-region: no-drag; }
-.switch-btn { display: flex; align-items: center; gap: 10px; max-width: 100%; height: 36px; padding: 0 10px 0 6px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--ink); cursor: pointer; font-size: 14px; font-weight: 600; }
-.switch-btn:hover, .switch-btn[aria-expanded="true"] { background: var(--card); border-color: var(--line); }
-.switch-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
-.switch-btn svg { color: var(--muted); flex: none; }
 .switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .switch-initial { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border-radius: 7px; background: var(--lime); color: var(--on-lime); font-size: 12px; font-weight: 700; }
 .switch-initial.small { width: 22px; height: 22px; border-radius: 6px; font-size: 11px; }
@@ -93,15 +90,28 @@ a { color: var(--green); }
 .switch-menu button:hover, .switch-menu button:focus-visible { background: var(--panel); outline: none; }
 .switch-menu button .switch-name { flex: 1; }
 .switch-error { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 280px; padding: 10px 12px; font-size: 13px; background: var(--danger-soft); color: var(--danger); border: 1px solid var(--danger); border-radius: 10px; }
+.statusbar { height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 8px 0 14px; background: var(--panel); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); user-select: none; }
+.statusbar-group { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.status-item { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; white-space: nowrap; }
+.status-btn { border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.status-btn:hover { background: var(--card); color: var(--ink); }
+.status-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 0; }
+.status-btn.attention { color: var(--green); font-weight: 600; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); }
+.status-busy { color: var(--ink); }
+.status-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); animation: status-pulse 1.2s ease-in-out infinite; }
+@keyframes status-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .status-pulse { animation: none; } }
+.switch-initial.tiny { width: 16px; height: 16px; border-radius: 4px; font-size: 10px; }
+.org-switch { position: relative; }
+.org-btn { color: var(--ink); font-weight: 600; }
+.org-btn svg { color: var(--muted); }
+.switch-menu.up { top: auto; bottom: calc(100% + 6px); }
+.switch-error.up { top: auto; bottom: calc(100% + 6px); }
 .switch-sep { height: 1px; background: var(--line); margin: 4px 6px; }
 
 /* Sidebar: icon rail, plus a chat panel on chat screens */
 .rail { width: 68px; flex: none; background: var(--panel); border-right: 1px solid var(--line); padding: 14px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; }
-.rail-logo { width: 36px; height: 36px; object-fit: contain; display: block; }
-.rail-logo-btn { width: 48px; height: 48px; flex: none; display: grid; place-items: center; margin-bottom: 6px; border-radius: 14px; border: 1px solid transparent; background: none; cursor: pointer; padding: 0; }
-.rail-logo-btn:hover { background: var(--card); }
-.rail-logo-btn.active { background: var(--card); border-color: var(--line); }
-.rail-logo-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
 .rail-btn { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; }
 .rail-btn:hover { color: var(--ink); background: var(--card); }
 .rail-btn.active { background: var(--card); border-color: var(--line); color: var(--ink); }
@@ -122,7 +132,7 @@ a { color: var(--green); }
 .panel-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .panel-folder { width: 26px; display: grid; place-items: center; color: var(--muted); flex: none; }
 .section-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--muted); padding: 0 10px; text-transform: uppercase; }
-.update-float { position: fixed; left: 80px; bottom: 16px; width: 240px; z-index: 20; pointer-events: none; }
+.update-float { position: fixed; left: 80px; bottom: 44px; width: 240px; z-index: 20; pointer-events: none; }
 .update-float > * { pointer-events: auto; box-shadow: 0 4px 16px var(--shadow); }
 .soon-card { display: flex; align-items: center; gap: 14px; padding: 20px; max-width: 560px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; color: var(--muted); }
 .update { background: var(--lime-soft); border: 1px solid var(--green); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 6px; }

@@ -10,6 +10,7 @@ const PATHS = {
   mindmap: <><circle cx="8" cy="8" r="2" /><circle cx="2.75" cy="3.25" r="1.25" /><circle cx="13.25" cy="3.25" r="1.25" /><circle cx="2.75" cy="12.75" r="1.25" /><circle cx="13.25" cy="12.75" r="1.25" /><path d="M6.5 6.6 3.7 4.1M9.5 6.6l2.8-2.5M6.5 9.4l-2.8 2.5M9.5 9.4l2.8 2.5" /></>,
   drive: <><rect x="1.5" y="9" width="13" height="4.5" rx="1.5" /><path d="M3 9 5 3h6l2 6" /><circle cx="11.5" cy="11.25" r="0.6" fill="currentColor" /></>,
   knowledge: <><path d="M8 4.5C6.5 3.2 4.3 2.8 2 3v9.5c2.3-.2 4.5.2 6 1.5 1.5-1.3 3.7-1.7 6-1.5V3c-2.3-.2-4.5.2-6 1.5z" /><path d="M8 4.5V14" /></>,
+  dashboard: <><rect x="2" y="2" width="5" height="6" rx="1.2" /><rect x="9" y="2" width="5" height="3.5" rx="1.2" /><rect x="9" y="7.5" width="5" height="6.5" rx="1.2" /><rect x="2" y="10" width="5" height="4" rx="1.2" /></>,
   updown: <path d="m5 6 3-3 3 3M5 10l3 3 3-3" />,
   chat: <path d="M2.5 3h11v8H7.5L4.5 13.5V11h-2z" />,
   art: <><path d="M8 2a6 6 0 1 0 0 12c1 0 1.3-.8.9-1.5-.5-.9 0-1.7 1-1.7h1.6A2.5 2.5 0 0 0 14 8.3 6 6 0 0 0 8 2z" /><circle cx="5" cy="7.5" r="0.8" fill="currentColor" /><circle cx="7.5" cy="4.8" r="0.8" fill="currentColor" /><circle cx="10.7" cy="6" r="0.8" fill="currentColor" /></>,

@@ -1,6 +1,5 @@
 import type { Agent, AgentKind, Project, Session } from '@shared/types'
 import type { Route } from '../App'
-import mark from '../assets/logo-mark.png'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 
@@ -23,7 +22,7 @@ const SECTION_KIND: Record<Exclude<Section, 'projects'>, AgentKind> = { agents: 
 const kindSection = (k: AgentKind): Section => (k === 'assistant' ? 'assistants' : 'agents')
 
 /**
- * Icon rail (logo opens the Dashboard; Home, Agents, Assistants, Art, Videos, Workflows, Canvas, Mind mapper, Projects; Drive, Knowledge base, Connectors, Skills, Settings at the
+ * Icon rail (Home, Dashboard, Agents, Assistants, Art, Videos, Workflows, Canvas, Mind mapper, Projects; Drive, Knowledge base, Connectors, Skills, Settings at the
  * bottom) plus a panel listing agents, assistants or projects with their recent chats.
  */
 export function Sidebar(props: Props): JSX.Element {
@@ -128,17 +127,8 @@ export function Sidebar(props: Props): JSX.Element {
   return (
     <>
       <nav className="rail" aria-label="Main">
-        <button
-          type="button"
-          className={'rail-logo-btn' + (route.name === 'dashboard' ? ' active' : '')}
-          aria-label="Dashboard"
-          aria-current={route.name === 'dashboard' ? 'page' : undefined}
-          title="Dashboard"
-          onClick={() => onNavigate({ name: 'dashboard' })}
-        >
-          <img className="rail-logo" src={mark} alt="" />
-        </button>
         {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }))}
+        {railBtn('Dashboard', 'dashboard', route.name === 'dashboard', () => onNavigate({ name: 'dashboard' }))}
         {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'))}
         {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'))}
         {railBtn('Art', 'art', route.name === 'art', () => onNavigate({ name: 'art' }))}

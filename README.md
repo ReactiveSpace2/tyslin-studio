@@ -12,9 +12,9 @@
 
 ---
 
-Tyslin Studio is an open-source desktop studio for building and working with AI agents. Give each agent a job, instructions, skills, a model and a character, link it to your projects, and work with it in chat.
+Tyslin Studio is an open-source desktop studio for building and working with AI agents. Give each agent a job, instructions, skills, a model and a character, let it work in your project folders, and work with it in chat. Assistants cover quick chats that don't need files or tools.
 
-Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database, and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
+Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database (one per organization), and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
 
 > **Status: beta (v0.3.0).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
 
@@ -23,10 +23,11 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Home:** the first screen shows the Tyslin logo, the standing mascot and the app version, with buttons to agents and assistants. **Your studio** then has a tile for every sidebar area: Agents, Assistants, Projects and Skills with their counts, and the areas still to come marked Soon. Below that, every model and agent engine Tyslin works with and whether each is ready (key added, installed). Click one to set it up.
 - **Sign in with Google:** official builds open on a sign-in screen; after signing in you land on Home, and Settings → Account signs you out. Tyslin keeps only your name and email; agents, chats and keys stay on your computer. Builds made without a Google OAuth client (no `.env`, see `.env.example`) skip sign-in.
 - **Agents:** create, edit and delete agents with a name, instructions, provider, model, skills, schedule and a character (shape and colour). Builder, the built-in agent, uses the Tyslin mascot. Ten starter agents ship with it: Atlas (operations), Forge (code), Quill (content), Scout (research), Relay (support), Passage (startup visa), Ledger (data), Hunter (leads), Crew (ticket to tested change) and Bench (model comparison).
-- **Sidebar:** an icon rail with Home, Agents, Assistants, Art, Videos, Workflows, Canvas, Mind mapper and Projects, and Drive, Knowledge base, Connectors, Skills and Settings at the bottom (sign out is in Settings → Account). Agents and Assistants each open a panel listing them with their recent chats (plus New and All); Projects opens the same panel for projects, with each project's chats and the agent behind each one. Art, Videos, Workflows, Canvas, Mind mapper, Drive (files and storage), Knowledge base and Connectors are placeholders for now.
-- **Organizations:** separate spaces, each with its own agents, assistants, projects, chats and skills. The default one is called Tyslin. Switch or create one from the top-left of the title bar; switching reopens the app in that organization. Your sign-in, API keys, Ollama address, agent engine paths and theme are shared by all of them.
-- **Title bar:** Tyslin draws its own title bar instead of the system one (no File/Edit/View menu). On the left, the organization switcher; then the name of the current screen. Drag the empty space to move the window; the system's window buttons sit at the right (Windows, Linux) or left (macOS) and follow the light or dark theme.
-- **Dashboard:** click the Tyslin logo at the top of the sidebar. Counts of agents, assistants, projects, chats and messages, a chart of the messages you sent over the last 14 days, file changes waiting for review, recent chats and your most-used agents. Everything is read from the local database.
+- **Sidebar:** an icon rail with Home, Dashboard, Agents, Assistants, Art, Videos, Workflows, Canvas, Mind mapper and Projects, and Drive, Knowledge base, Connectors, Skills and Settings at the bottom (sign out is in Settings → Account). Agents and Assistants each open a panel listing them with their recent chats (plus New and All); Projects opens the same panel for projects, with each project's chats and the agent behind each one. Art, Videos, Workflows, Canvas, Mind mapper, Drive (files and storage), Knowledge base and Connectors are placeholders for now.
+- **Organizations:** separate spaces, each with its own agents, assistants, projects, chats and skills. The default one is called Tyslin. Switch or create one from the bottom-left of the status bar; switching reopens the app in that organization. Your sign-in, API keys, Ollama address, agent engine paths and theme are shared by all of them.
+- **Title bar:** Tyslin draws its own title bar instead of the system one (no File/Edit/View menu). On the left, the Tyslin logo and wordmark; then the name of the current screen. Drag the empty space to move the window; the system's window buttons sit at the right (Windows, Linux) or left (macOS) and follow the light or dark theme.
+- **Status bar:** along the bottom: the organization switcher (menu opens upward), data is local, which agent is replying, file changes waiting for review (opens the Dashboard), which model providers have a key (opens Settings → Models), and the app version or a waiting update.
+- **Dashboard:** second item in the sidebar. Counts of agents, assistants, projects, chats and messages, a chart of the messages you sent over the last 14 days, file changes waiting for review, recent chats and your most-used agents. Everything is read from the local database.
 - **Light and dark theme:** Settings → Appearance offers System (follows your computer), Light and Dark. The choice is saved and applies straight away.
 - **Assistants:** a prompt and a model for quick chats, separate from agents. Six ship with it, written for Tyslin: Sage (questions), Polish (editing), Lingo (translation), Inbox (emails), Tutor (explanations) and Spark (ideas). Assistants can use skills but have no project folder, file tools, external engine or schedule; those are what agents are for.
 - **Chat:** streamed conversations with any agent; history is saved per agent and project.
@@ -37,7 +38,7 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Providers:** Anthropic (Claude), OpenAI, Google Gemini (key from Google AI Studio), and local models through Ollama.
 - **External agents:** run any agent on an agent you've installed instead of Tyslin's built-in models: Goose, Hermes, ZeroClaw, OpenClaw, or any other program that speaks the Agent Client Protocol (ACP). Pick it under "Runs on" in the agent editor. Tyslin sends your instructions and skills with each message, shows the agent's tool calls, puts file edits it asks Tyslin to make through your review, and shows its permission requests ("Run npm test?") in chat. Settings → Agent engines shows what's installed, tests the connection, and has an Install button for Goose, Hermes and OpenClaw that runs each project's official installer (it shows you the exact command first and streams the output). Tyslin doesn't ship these agents.
 - **Stop:** stop any reply mid-way from the chat box.
-- **Settings:** API keys and Ollama; agent engines; defaults for new agents and guidelines added to every agent's instructions; update status, app version and where your data lives.
+- **Settings:** API keys and Ollama; agent engines; defaults for new agents and guidelines added to every agent's instructions; appearance (light, dark or system); your Google account; update status, app version and where your data lives.
 - **Local-first:** one SQLite file (`tyslin.db`) in the app's user-data folder; no server, no account.
 
 ## Download
@@ -113,8 +114,8 @@ The tag must match `package.json`; installed apps compare their own version agai
 ```
 src/
   main/        Electron main process (the only code that touches DB, files, network, secrets)
-    index.ts     window + IPC handlers
-    db.ts        SQLite schema, seed data and queries
+    index.ts     window (custom title bar, theme) + IPC handlers
+    db.ts        SQLite schema, seed data and queries; one database per organization
     runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events) + AcpRuntime
     acp.ts       ACP client: starts an external agent, drives one turn, maps its updates to run events
     engines.ts   external agent catalogue, PATH lookup, command overrides
@@ -122,11 +123,15 @@ src/
     skillFiles.ts  skill Markdown import/export and validation
     skillPacks.ts  skill packs installed from GitHub (featured packs and the agent-skills topic)
     attachments.ts chat attachments (files, folders, images)
-    seedAgents.ts  built-in agents (versioned; new agents reach existing installs)
+    seedAgents.ts  built-in agents and starter assistants (versioned; new ones reach existing installs)
+    auth.ts      optional Google sign-in
     seedSkills.ts  built-in skill library (versioned; new skills reach existing installs)
     secrets.ts   API keys encrypted with Electron safeStorage
   preload/     safe bridge exposing window.tyslin to the UI
-  renderer/    React UI (Agents, Chat, Agent editor, Skills, Settings with Models / Agents / About & updates tabs)
+  renderer/    React UI
+    components/  TitleBar, Sidebar (icon rail and chat panel), StatusBar with OrgSwitcher, avatars, icons, dialogs
+    pages/       Home, Dashboard, Agents/Assistants list, editor, Chat, Skills, Settings
+                 (Models, Agent engines, Agents, Appearance, Account, About & updates), ComingSoon placeholders
   shared/      types shared by all three, plus diff.ts (hunk split and apply, used by main and UI)
 resources/     app icon and brand files
 ```
@@ -140,7 +145,7 @@ Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts`
 1. **Runs and triggers:** every reply as an inspectable run; run agents on their schedule, when files change in a project folder, or from a local webhook.
 2. **Costs:** tokens and spend per run, agent, project and model, with an optional monthly cap.
 3. **Memory in your files:** per-project memory in `.tyslin/memory/` that you can read, edit and commit.
-4. **Crews:** ordered pipelines of agents, such as Researcher → Writer → Critic, including hand-offs.
+4. **Crews:** ordered pipelines of agents, such as Scout → Quill → Forge, including hand-offs (the Workflows screen is reserved for this).
 5. **Packs:** share agents, skills and crews as a folder you can import and export.
 6. **External agents, next steps:** keep an agent running between messages, pass MCP servers through, and show plans and token usage.
 7. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
