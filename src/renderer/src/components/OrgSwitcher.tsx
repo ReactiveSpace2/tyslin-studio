@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
-import type { Organization } from '@shared/types'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { ORG_COLORS, type Organization } from '@shared/types'
 import { Icon } from './Icon'
 
 const initial = (name: string): string => name.trim().slice(0, 1).toUpperCase() || '?'
+/** Each organization's own colour, whatever the accent setting (ink text on every fill). */
+const tile = (o?: Organization): CSSProperties => ({ background: ORG_COLORS[o?.color ?? 'lime'].fill, color: '#0F0F0D' })
 
 /**
  * Organization switcher (bottom left of the status bar). The menu opens upward. Switching reopens
@@ -14,7 +16,12 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { void window.tyslin.orgs.list().then(setOrgs) }, [])
+  useEffect(() => {
+    const load = (): void => { void window.tyslin.orgs.list().then(setOrgs) }
+    load()
+    window.addEventListener('tyslin:orgs-changed', load)
+    return () => window.removeEventListener('tyslin:orgs-changed', load)
+  }, [])
 
   // Close the menu on an outside click or Escape.
   useEffect(() => {
@@ -48,7 +55,7 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
     <div className="org-switch" ref={ref}>
       <button type="button" className="status-item status-btn org-btn" aria-haspopup="menu" aria-expanded={open}
         aria-label={`Organization: ${name}. Switch organization`} onClick={() => setOpen((o) => !o)}>
-        <span className="switch-initial tiny" aria-hidden="true">{initial(name)}</span>
+        <span className="switch-initial tiny" aria-hidden="true" style={tile(current)}>{initial(name)}</span>
         {name}
         <Icon name="updown" size={12} />
       </button>
@@ -57,7 +64,7 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
           <span className="section-label">Organizations</span>
           {orgs.map((o) => (
             <button key={o.id} type="button" role="menuitemradio" aria-checked={o.current} onClick={() => void switchTo(o)}>
-              <span className="switch-initial small" aria-hidden="true">{initial(o.name)}</span>
+              <span className="switch-initial small" aria-hidden="true" style={tile(o)}>{initial(o.name)}</span>
               <span className="switch-name">{o.name}</span>
               {o.current && <Icon name="check" size={14} />}
             </button>

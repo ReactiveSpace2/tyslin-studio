@@ -86,7 +86,8 @@ const api: TyslinApi = {
   },
   orgs: {
     list: () => ipcRenderer.invoke('orgs:list'),
-    create: (name: string) => ipcRenderer.invoke('orgs:create', name),
+    create: (name, color) => ipcRenderer.invoke('orgs:create', name, color),
+    setColor: (id, color) => ipcRenderer.invoke('orgs:setColor', id, color),
     rename: (id: string, name: string) => ipcRenderer.invoke('orgs:rename', id, name),
     switch: (id: string) => ipcRenderer.invoke('orgs:switch', id)
   },

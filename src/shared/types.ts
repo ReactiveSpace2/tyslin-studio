@@ -264,9 +264,21 @@ export interface PendingChange {
  * A separate space with its own agents, assistants, projects, chats and skills (its own database file).
  * Sign-in, API keys, agent engine paths and the theme are shared by all organizations on this computer.
  */
+/** Colour that marks an organization (switcher tile, and the accent when Accent is "Organization colour"). */
+export type OrgColor = 'lime' | 'teal' | 'amber' | 'coral' | 'violet'
+/** Fill shades, each with ink text on top (all at least 7:1). Text and line shades live in styles.css. */
+export const ORG_COLORS: Record<OrgColor, { label: string; fill: string }> = {
+  lime: { label: 'Lime', fill: '#7DB800' },
+  teal: { label: 'Teal', fill: '#2BB3A3' },
+  amber: { label: 'Amber', fill: '#F2B33D' },
+  coral: { label: 'Coral', fill: '#F2836A' },
+  violet: { label: 'Violet', fill: '#A992F5' }
+}
+
 export interface Organization {
   id: string
   name: string
+  color: OrgColor
   createdAt: number
   current: boolean
 }
@@ -332,6 +344,12 @@ export interface Preferences {
   theme: Theme
   /** Page zoom, ZOOM_MIN–ZOOM_MAX (1 = 100%). Per computer, like the theme. */
   zoom: number
+  /** outline: 1.6 px strokes · bold: 2.1 px. */
+  iconStyle: 'outline' | 'bold'
+  /** Names under the left-menu icons. */
+  railLabels: boolean
+  /** Fill and highlight colour: brand lime, dark green, ink only, or the current organization's colour. */
+  accent: 'lime' | 'forest' | 'mono' | 'org'
   /** File-change mode given to newly created agents. */
   defaultWriteMode: WriteMode
   /** Added to every agent's instructions. */
@@ -462,7 +480,8 @@ export interface TyslinApi {
   orgs: {
     list(): Promise<Organization[]>
     /** Creates the organization; call `switch` to move into it. */
-    create(name: string): Promise<Organization>
+    create(name: string, color?: OrgColor): Promise<Organization>
+    setColor(id: string, color: OrgColor): Promise<void>
     rename(id: string, name: string): Promise<void>
     /** Fails while a reply is still running. The renderer reloads afterwards. */
     switch(id: string): Promise<void>

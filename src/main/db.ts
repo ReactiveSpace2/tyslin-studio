@@ -7,7 +7,7 @@ import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
-import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
+import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -24,7 +24,8 @@ export const DEFAULT_ORG = 'default'
 /** Settings shared by every organization on this computer. Everything else is per organization. */
 const GLOBAL_SETTING = (key: string): boolean =>
   key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') ||
-  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom'
+  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom' ||
+  key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent'
 
 const orgFile = (id: string): string =>
   id === DEFAULT_ORG ? join(app.getPath('userData'), 'tyslin.db') : join(app.getPath('userData'), 'orgs', `${id}.db`)
@@ -47,6 +48,9 @@ function openOrgDb(id: string): Database.Database {
 export function openDb(): Database.Database {
   openOrgDb(DEFAULT_ORG)
   home.exec('CREATE TABLE IF NOT EXISTS orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)')
+  if (!(home.prepare('PRAGMA table_info(orgs)').all() as { name: string }[]).some((c) => c.name === 'color')) {
+    home.exec("ALTER TABLE orgs ADD COLUMN color TEXT NOT NULL DEFAULT 'lime'")
+  }
   home.prepare('INSERT OR IGNORE INTO orgs (id, name, created_at) VALUES (?, ?, ?)').run(DEFAULT_ORG, 'Tyslin', Date.now())
   const current = getSetting('org:current')
   if (current && current !== DEFAULT_ORG && home.prepare('SELECT 1 FROM orgs WHERE id = ?').get(current)) openOrgDb(current)
@@ -55,8 +59,8 @@ export function openDb(): Database.Database {
 
 export function listOrgs(): Organization[] {
   const current = getSetting('org:current') || DEFAULT_ORG
-  return (home.prepare('SELECT id, name, created_at AS createdAt FROM orgs ORDER BY id = ? DESC, created_at').all(DEFAULT_ORG) as Omit<Organization, 'current'>[])
-    .map((o) => ({ ...o, current: o.id === current }))
+  return (home.prepare('SELECT id, name, color, created_at AS createdAt FROM orgs ORDER BY id = ? DESC, created_at').all(DEFAULT_ORG) as Omit<Organization, 'current'>[])
+    .map((o) => ({ ...o, color: ORG_COLOR_IDS.includes(o.color) ? o.color : 'lime', current: o.id === current }))
 }
 
 export function currentOrg(): Organization {
@@ -64,11 +68,18 @@ export function currentOrg(): Organization {
 }
 
 /** Creates an organization with its own empty database (plus the built-in agents, assistants and skills). */
-export function createOrg(name: string): Organization {
+const ORG_COLOR_IDS: OrgColor[] = ['lime', 'teal', 'amber', 'coral', 'violet']
+
+export function setOrgColor(id: string, color: OrgColor): void {
+  if (!ORG_COLOR_IDS.includes(color)) throw new Error('Unknown colour.')
+  home.prepare('UPDATE orgs SET color = ? WHERE id = ?').run(color, id)
+}
+
+export function createOrg(name: string, color: OrgColor = 'teal'): Organization {
   const clean = name.trim().slice(0, 60)
   if (!clean) throw new Error('Give the organization a name.')
   const id = randomUUID()
-  home.prepare('INSERT INTO orgs (id, name, created_at) VALUES (?, ?, ?)').run(id, clean, Date.now())
+  home.prepare('INSERT INTO orgs (id, name, color, created_at) VALUES (?, ?, ?, ?)').run(id, clean, ORG_COLOR_IDS.includes(color) ? color : 'teal', Date.now())
   const prev = db
   openOrgDb(id).close()
   db = prev
@@ -495,7 +506,10 @@ export function getPrefs(): Preferences {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
     sharedInstructions: getSetting('pref:sharedInstructions') ?? '',
     theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system',
-    zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1))
+    zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1)),
+    iconStyle: getSetting('pref:iconStyle') === 'bold' ? 'bold' : 'outline',
+    railLabels: getSetting('pref:railLabels') === '1',
+    accent: (['forest', 'mono', 'org'] as const).find((a) => a === getSetting('pref:accent')) ?? 'lime'
   }
 }
 
@@ -504,6 +518,9 @@ export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
   if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
   if (typeof p.zoom === 'number') setSetting('pref:zoom', String(clampZoom(p.zoom)))
+  if (p.iconStyle === 'outline' || p.iconStyle === 'bold') setSetting('pref:iconStyle', p.iconStyle)
+  if (typeof p.railLabels === 'boolean') setSetting('pref:railLabels', p.railLabels ? '1' : '0')
+  if (p.accent && ['lime', 'forest', 'mono', 'org'].includes(p.accent)) setSetting('pref:accent', p.accent)
   return getPrefs()
 }
 

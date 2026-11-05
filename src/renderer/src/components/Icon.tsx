@@ -42,7 +42,7 @@ const PATHS = {
 
 export function Icon({ name, size = 16 }: { name: keyof typeof PATHS; size?: number }): JSX.Element {
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {PATHS[name]}
     </svg>
   )

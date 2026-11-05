@@ -63,6 +63,7 @@ export function Sidebar(props: Props): JSX.Element {
       onClick={onClick}
     >
       <Icon name={icon} size={20} />
+      <span className="rail-label" aria-hidden="true">{label}</span>
     </button>
   )
 

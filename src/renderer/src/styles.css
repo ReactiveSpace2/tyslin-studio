@@ -50,6 +50,30 @@
   }
 }
 
+/*
+ * Appearance presets (Settings → Appearance), set as data attributes by renderer/src/appearance.ts.
+ * Accent: --lime is the fill (text on it is --on-lime), --lime-soft the tint, --green text and lines.
+ * Organization colours keep ink text on the fill; their text shades pass 4.5:1 on parchment, and in
+ * dark mode the fill itself is the text colour (as lime is). Robot characters keep brand lime.
+ */
+:root[data-accent="forest"] { --lime: #4a7000; --on-lime: #fafaf7; --lime-soft: #e8efda; }
+:root[data-accent="mono"] { --lime: #0f0f0d; --on-lime: #fafaf7; --lime-soft: #eeeee8; --green: #0f0f0d; }
+:root[data-accent="teal"] { --lime: #2bb3a3; --lime-soft: #ddf3f0; --green: #0b6e63; }
+:root[data-accent="amber"] { --lime: #f2b33d; --lime-soft: #fcf0d6; --green: #8a5a00; }
+:root[data-accent="coral"] { --lime: #f2836a; --lime-soft: #fce5df; --green: #a63a1f; }
+:root[data-accent="violet"] { --lime: #a992f5; --lime-soft: #eee9fd; --green: #5b3fb8; }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="forest"] { --lime-soft: #1f2a10; }
+  :root[data-accent="mono"] { --lime: #f3f3ee; --on-lime: #0f0f0d; --lime-soft: #2a2a26; --green: #f3f3ee; }
+  :root[data-accent="teal"] { --lime-soft: #10302c; --green: #2bb3a3; }
+  :root[data-accent="amber"] { --lime-soft: #33280f; --green: #f2b33d; }
+  :root[data-accent="coral"] { --lime-soft: #3a1f18; --green: #f2836a; }
+  :root[data-accent="violet"] { --lime-soft: #26203d; --green: #a992f5; }
+}
+/* Icon style: SVG strokes read the CSS value over the attribute. */
+.icon { stroke-width: var(--icon-stroke, 1.6); }
+:root[data-icons="bold"] { --icon-stroke: 2.1; }
+
 /* Logos with a black wordmark get a white-wordmark twin for dark mode. */
 .dark-only { display: none; }
 @media (prefers-color-scheme: dark) {
@@ -64,6 +88,8 @@
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
+/* Only the content area scrolls; the window chrome (title bar, rail, status bar) never moves. */
+html, body { overflow: hidden; }
 body { background: var(--parchment); color: var(--ink); font-family: var(--font); font-size: 15px; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--green); }
@@ -137,11 +163,16 @@ a { color: var(--green); }
 .switch-sep { height: 1px; background: var(--line); margin: 4px 6px; }
 
 /* Sidebar: icon rail, plus a chat panel on chat screens */
-.rail { width: 68px; flex: none; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; overflow-y: auto; scrollbar-width: none; }
+.rail { width: 68px; flex: none; background: var(--panel); border-right: 1px solid var(--line); padding: 10px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
 .rail-btn { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 12px; border: 1px solid transparent; background: none; color: var(--muted); cursor: pointer; }
 .rail-btn:hover { color: var(--ink); background: var(--card); }
 .rail-btn.active { background: var(--card); border-color: var(--line); color: var(--ink); }
 .rail-btn:focus-visible, .panel-item:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.rail-label { display: none; }
+:root[data-rail-labels="on"] .rail { scrollbar-width: thin; }
+:root[data-rail-labels="on"] .rail-btn { height: 52px; width: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 10px; }
+:root[data-rail-labels="on"] .rail-btn .icon { width: 18px; height: 18px; }
+:root[data-rail-labels="on"] .rail-label { display: block; max-width: 54px; font-size: 10px; line-height: 1.1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-sep { width: 28px; height: 1px; flex: none; background: var(--line); margin: 6px 0; }
 .rail-foot { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .panel { width: 252px; flex: none; background: var(--parchment); border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
@@ -504,3 +535,17 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .task-check { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; font-weight: 600; flex-wrap: wrap; }
 .task-check input { margin-top: 3px; accent-color: var(--ink); }
 .task-check .hint { font-weight: 400; flex-basis: 100%; padding-left: 22px; margin-top: -4px; }
+
+/* Settings → Appearance: accent, organization colour, icons */
+.accent-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.accent-choice { align-items: center; }
+.accent-dot { width: 28px; height: 28px; flex: none; border-radius: 8px; border: 1px solid var(--line); }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.swatch-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 56px; padding: 6px; border-radius: 10px; cursor: pointer; font-size: 12px; color: var(--muted); }
+.swatch-pick.on { color: var(--ink); font-weight: 600; }
+.swatch-pick:focus-within { outline: 2px solid var(--green); outline-offset: 1px; }
+.swatch-dot { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: #0f0f0d; border: 2px solid transparent; }
+.swatch-pick.on .swatch-dot { border-color: var(--ink); }
+.icon-sample { display: flex; gap: 12px; margin-top: 8px; color: var(--ink); }
+.icon-sample .icon { stroke-width: 1.6; }
+.icon-sample.bold .icon { stroke-width: 2.1; }

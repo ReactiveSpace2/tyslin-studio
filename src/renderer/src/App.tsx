@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Agent, AgentKind, AuthStatus, Project, Session } from '@shared/types'
 import { Sidebar } from './components/Sidebar'
 import { TitleBar } from './components/TitleBar'
+import { refreshAppearance } from './appearance'
 import { StatusBar } from './components/StatusBar'
 import { NewOrgModal } from './components/NewOrgModal'
 import { AgentsPage } from './pages/AgentsPage'
@@ -56,6 +57,7 @@ export default function App(): JSX.Element {
   useEffect(() => {
     void refresh()
     void refreshSessions()
+    void refreshAppearance()
     void window.tyslin.auth.status().then(setAuth)
   }, [refresh, refreshSessions])
 

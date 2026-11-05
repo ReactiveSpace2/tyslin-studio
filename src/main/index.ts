@@ -14,7 +14,7 @@ import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, unins
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -299,7 +299,8 @@ function registerIpc(): void {
     return runTask(t, false)
   })
   ipcMain.handle('orgs:list', () => db.listOrgs())
-  ipcMain.handle('orgs:create', (_e, name: string) => db.createOrg(String(name ?? '')))
+  ipcMain.handle('orgs:create', (_e, name: string, color?: OrgColor) => db.createOrg(String(name ?? ''), color))
+  ipcMain.handle('orgs:setColor', (_e, id: string, color: OrgColor) => db.setOrgColor(id, color))
   ipcMain.handle('orgs:rename', (_e, id: string, name: string) => db.renameOrg(id, String(name ?? '')))
   ipcMain.handle('orgs:switch', (_e, id: string) => {
     if (activeRuns.size) throw new Error('An agent is still replying. Stop it or wait, then switch.')

@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
+import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Organization, OrgColor, Preferences, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 import { AccountBox } from '../components/AccountBox'
 import { track } from '../activity'
 import { ZoomControl } from '../components/ZoomControl'
+import { ColorSwatches } from '../components/ColorSwatches'
+import { Icon } from '../components/Icon'
+import { refreshAppearance } from '../appearance'
+import { ORG_COLORS } from '@shared/types'
 
 export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
@@ -57,16 +61,41 @@ function ThemePreview({ theme }: { theme: Theme }): JSX.Element {
   )
 }
 
+type Accent = Preferences['accent']
+
+/** Accent cards: the fill colour each one shows; "org" shows the current organization's colour. */
+const ACCENTS: [Accent, string, string][] = [
+  ['lime', 'Lime', 'The Tyslin brand colour.'],
+  ['forest', 'Forest', 'Dark green fills with light text. Quieter.'],
+  ['mono', 'Monochrome', 'Ink only. Good for screenshots and focus.'],
+  ['org', 'Organization colour', 'Each organization uses its own colour.']
+]
+
 function AppearanceTab(): JSX.Element {
-  const [theme, setTheme] = useState<Theme | null>(null)
+  const [prefs, setPrefsState] = useState<Preferences | null>(null)
+  const [org, setOrg] = useState<Organization | null>(null)
 
-  useEffect(() => { void window.tyslin.settings.prefs().then((p) => setTheme(p.theme)) }, [])
-  if (!theme) return <></>
+  const loadOrg = (): void => { void window.tyslin.orgs.list().then((o) => setOrg(o.find((x) => x.current) ?? null)) }
+  useEffect(() => {
+    void window.tyslin.settings.prefs().then(setPrefsState)
+    loadOrg()
+  }, [])
+  if (!prefs) return <></>
 
-  const choose = async (t: Theme): Promise<void> => {
-    setTheme(t)
-    setTheme((await window.tyslin.settings.setPrefs({ theme: t })).theme)
+  const save = async (p: Partial<Preferences>): Promise<void> => {
+    setPrefsState({ ...prefs, ...p })
+    setPrefsState(await window.tyslin.settings.setPrefs(p))
+    await refreshAppearance()
   }
+  const setOrgColor = async (c: OrgColor): Promise<void> => {
+    if (!org) return
+    setOrg({ ...org, color: c })
+    await window.tyslin.orgs.setColor(org.id, c)
+    await refreshAppearance()
+    window.dispatchEvent(new Event('tyslin:orgs-changed'))
+  }
+  const accentFill = (a: Accent): string =>
+    a === 'lime' ? '#7DB800' : a === 'forest' ? '#4A7000' : a === 'mono' ? '#0F0F0D' : ORG_COLORS[org?.color ?? 'lime'].fill
 
   return (
     <>
@@ -77,15 +106,63 @@ function AppearanceTab(): JSX.Element {
       </div>
       <div className="theme-choices" role="radiogroup" aria-labelledby="theme-h">
         {THEMES.map(([id, title, hint]) => (
-          <label key={id} className={'choice theme-choice' + (theme === id ? ' on' : '')}>
+          <label key={id} className={'choice theme-choice' + (prefs.theme === id ? ' on' : '')}>
             <ThemePreview theme={id} />
             <span className="row" style={{ gap: 10, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-              <input type="radio" name="theme" value={id} checked={theme === id} onChange={() => void choose(id)} />
+              <input type="radio" name="theme" value={id} checked={prefs.theme === id} onChange={() => void save({ theme: id })} />
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><strong>{title}</strong><span className="hint">{hint}</span></span>
             </span>
           </label>
         ))}
       </div>
+    </section>
+    <section className="box" aria-labelledby="accent-h">
+      <div className="box-head">
+        <h2 id="accent-h">Accent colour</h2>
+        <p className="hint">Used for buttons like Chat, selected items, progress bars and highlights. The Tyslin logo and robots keep their colours.</p>
+      </div>
+      <div className="accent-choices" role="radiogroup" aria-labelledby="accent-h">
+        {ACCENTS.map(([id, title, hint]) => (
+          <label key={id} className={'choice accent-choice' + (prefs.accent === id ? ' on' : '')}>
+            <input type="radio" name="accent" value={id} checked={prefs.accent === id} onChange={() => void save({ accent: id })} />
+            <span className="accent-dot" aria-hidden="true" style={{ background: accentFill(id) }} />
+            <span><strong>{title}</strong><span className="hint">{hint}</span></span>
+          </label>
+        ))}
+      </div>
+    </section>
+    {org && (
+      <section className="box" aria-labelledby="orgcolor-h">
+        <div className="box-head">
+          <h2 id="orgcolor-h">Colour for {org.name}</h2>
+          <p className="hint">Marks this organization in the switcher{prefs.accent === 'org' ? ' and sets the accent while you are in it' : '. Choose "Organization colour" above to use it as the accent too'}.</p>
+        </div>
+        <ColorSwatches value={org.color} onChange={(c) => void setOrgColor(c)} name="org-color" />
+      </section>
+    )}
+    <section className="box" aria-labelledby="icons-h">
+      <div className="box-head">
+        <h2 id="icons-h">Icons</h2>
+        <p className="hint">Bold strokes are easier to see at small sizes and low zoom.</p>
+      </div>
+      <div className="choices" role="radiogroup" aria-labelledby="icons-h">
+        {([['outline', 'Outline', 'Thin, light strokes.'], ['bold', 'Bold', 'Thicker strokes.']] as const).map(([id, title, hint]) => (
+          <label key={id} className={'choice' + (prefs.iconStyle === id ? ' on' : '')}>
+            <input type="radio" name="icon-style" value={id} checked={prefs.iconStyle === id} onChange={() => void save({ iconStyle: id })} />
+            <span>
+              <strong>{title}</strong><span className="hint">{hint}</span>
+              <span className={'icon-sample' + (id === 'bold' ? ' bold' : '')} aria-hidden="true">
+                <Icon name="home" size={18} /><Icon name="agents" size={18} /><Icon name="chat" size={18} /><Icon name="clock" size={18} /><Icon name="settings" size={18} />
+              </span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <label className="task-check">
+        <input type="checkbox" checked={prefs.railLabels} onChange={(e) => void save({ railLabels: e.target.checked })} />
+        Show names under menu icons
+        <span className="hint">Easier to learn. The menu gets taller and scrolls on smaller windows.</span>
+      </label>
     </section>
     <section className="box" aria-labelledby="zoom-h">
       <div className="box-head">
