@@ -321,9 +321,17 @@ export interface DashboardStats {
 /** system follows the computer's light or dark setting. */
 export type Theme = 'system' | 'light' | 'dark'
 
+export const ZOOM_MIN = 0.7
+export const ZOOM_MAX = 1.5
+export const ZOOM_STEP = 0.1
+/** Clamps and rounds to whole percent. */
+export const clampZoom = (z: number): number => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number.isFinite(z) ? z : 1)) * 100) / 100
+
 export interface Preferences {
   /** App colours; applied in main through nativeTheme so the CSS prefers-color-scheme rules follow it. */
   theme: Theme
+  /** Page zoom, ZOOM_MIN–ZOOM_MAX (1 = 100%). Per computer, like the theme. */
+  zoom: number
   /** File-change mode given to newly created agents. */
   defaultWriteMode: WriteMode
   /** Added to every agent's instructions. */
@@ -439,6 +447,8 @@ export interface TyslinApi {
     setOllamaUrl(url: string): Promise<void>
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
+    /** Fires when the zoom changes anywhere (slider, Settings or keyboard shortcut). */
+    onZoom(cb: (zoom: number) => void): () => void
   }
   tasks: {
     list(): Promise<ScheduledTask[]>

@@ -28,9 +28,22 @@ const TITLEBAR_HEIGHT = 44
 const isMac = process.platform === 'darwin'
 
 /** Window buttons drawn by the system over the right of the title bar on Windows and Linux, in theme colours. */
-const titleBarOverlay = (): Electron.TitleBarOverlayOptions => nativeTheme.shouldUseDarkColors
-  ? { color: BACKGROUND.dark, symbolColor: '#F3F3EE', height: TITLEBAR_HEIGHT }
-  : { color: BACKGROUND.light, symbolColor: '#0F0F0D', height: TITLEBAR_HEIGHT }
+const titleBarOverlay = (): Electron.TitleBarOverlayOptions => {
+  // The title bar is 44 CSS px, so its on-screen height grows with the zoom; the buttons follow it.
+  const height = Math.round(TITLEBAR_HEIGHT * db.getPrefs().zoom)
+  return nativeTheme.shouldUseDarkColors
+    ? { color: BACKGROUND.dark, symbolColor: '#F3F3EE', height }
+    : { color: BACKGROUND.light, symbolColor: '#0F0F0D', height }
+}
+
+/** Applies the saved zoom to the page and the window buttons, and tells the renderer. */
+function applyZoom(): void {
+  if (!win) return
+  const zoom = db.getPrefs().zoom
+  win.webContents.setZoomFactor(zoom)
+  if (!isMac) win.setTitleBarOverlay(titleBarOverlay())
+  win.webContents.send('zoom:changed', zoom)
+}
 
 /** Light, dark or the system setting. The renderer's CSS follows it through prefers-color-scheme. */
 function applyTheme(): void {
@@ -141,6 +154,8 @@ function createWindow(): void {
       sandbox: false
     }
   })
+  // Zoom survives reloads (the shortcuts live in the renderer, ZoomControl.tsx).
+  win.webContents.on('did-finish-load', applyZoom)
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -265,6 +280,7 @@ function registerIpc(): void {
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
     const next = db.setPrefs(p)
     if (p.theme) applyTheme()
+    if (typeof p.zoom === 'number') applyZoom()
     return next
   })
 

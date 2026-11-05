@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
+import { clampZoom } from '@shared/types'
 import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 /**
@@ -23,7 +24,7 @@ export const DEFAULT_ORG = 'default'
 /** Settings shared by every organization on this computer. Everything else is per organization. */
 const GLOBAL_SETTING = (key: string): boolean =>
   key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') ||
-  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme'
+  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom'
 
 const orgFile = (id: string): string =>
   id === DEFAULT_ORG ? join(app.getPath('userData'), 'tyslin.db') : join(app.getPath('userData'), 'orgs', `${id}.db`)
@@ -493,7 +494,8 @@ export function getPrefs(): Preferences {
   return {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
     sharedInstructions: getSetting('pref:sharedInstructions') ?? '',
-    theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system'
+    theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system',
+    zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1))
   }
 }
 
@@ -501,6 +503,7 @@ export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.defaultWriteMode) setSetting('pref:defaultWriteMode', p.defaultWriteMode)
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
   if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
+  if (typeof p.zoom === 'number') setSetting('pref:zoom', String(clampZoom(p.zoom)))
   return getPrefs()
 }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Agent, Project } from '@shared/types'
 import type { Route } from '../App'
 import mark from '../assets/logo-mark.png'
+import { ZoomControl } from './ZoomControl'
 import wordmarkBlack from '../assets/wordmark-black.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 
@@ -44,6 +45,7 @@ export function TitleBar({ route, agents, projects }: Props): JSX.Element {
       </div>
       <div className="titlebar-main">
         <span className="titlebar-title">{titleFor(route, agents, projects)}</span>
+        <ZoomControl compact />
       </div>
     </header>
   )

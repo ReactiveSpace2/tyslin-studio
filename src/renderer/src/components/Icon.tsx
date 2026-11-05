@@ -27,6 +27,7 @@ const PATHS = {
   connectors: <><path d="M6 1.5V5M10 1.5V5" /><path d="M4 5h8v2.5a4 4 0 0 1-8 0z" /><path d="M8 11.5v3" /></>,
   settings: <><circle cx="8" cy="8" r="2.5" /><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" /></>,
   plus: <path d="M8 2v12M2 8h12" />,
+  minus: <path d="M2 8h12" />,
   send: <path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" />,
   back: <path d="M10 3 5 8l5 5" />,
   search: <><circle cx="7" cy="7" r="4.5" /><path d="m10.5 10.5 3 3" /></>,

@@ -5,6 +5,7 @@ import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 import { AccountBox } from '../components/AccountBox'
 import { track } from '../activity'
+import { ZoomControl } from '../components/ZoomControl'
 
 export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
@@ -68,6 +69,7 @@ function AppearanceTab(): JSX.Element {
   }
 
   return (
+    <>
     <section className="box" aria-labelledby="theme-h">
       <div className="box-head">
         <h2 id="theme-h">Theme</h2>
@@ -85,6 +87,14 @@ function AppearanceTab(): JSX.Element {
         ))}
       </div>
     </section>
+    <section className="box" aria-labelledby="zoom-h">
+      <div className="box-head">
+        <h2 id="zoom-h">Zoom</h2>
+        <p className="hint">Makes everything larger or smaller, from 70% to 150%. Also in the title bar, and with Ctrl + and Ctrl − (⌘ on Mac); Ctrl 0 resets.</p>
+      </div>
+      <ZoomControl />
+    </section>
+    </>
   )
 }
 

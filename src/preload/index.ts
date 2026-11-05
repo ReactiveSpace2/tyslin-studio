@@ -66,7 +66,12 @@ const api: TyslinApi = {
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
     setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url),
     prefs: () => ipcRenderer.invoke('settings:prefs'),
-    setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p)
+    setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p),
+    onZoom: (cb) => {
+      const fn = (_e: unknown, z: number): void => cb(z)
+      ipcRenderer.on('zoom:changed', fn)
+      return () => ipcRenderer.removeListener('zoom:changed', fn)
+    }
   },
   tasks: {
     list: () => ipcRenderer.invoke('tasks:list'),
