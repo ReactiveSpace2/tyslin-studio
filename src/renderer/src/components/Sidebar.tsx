@@ -48,25 +48,28 @@ export function Sidebar(props: Props): JSX.Element {
     if (last) onOpenChat(last.agentId, p.id, last.id, 'projects')
     else if (builder) onOpenChat(builder.id, p.id, undefined, 'projects')
   }
-  const openProjects = (): void => {
-    const last = sessions.find((s) => s.projectId && projects.some((p) => p.id === s.projectId))
-    if (last) onOpenChat(last.agentId, last.projectId, last.id, 'projects')
-    else if (projects[0]) openProject(projects[0])
-    else onNewProject()
-  }
 
-  const railBtn = (label: string, icon: IconName, active: boolean, onClick: () => void): JSX.Element => (
+  const railBtn = (label: string, icon: IconName, active: boolean, onClick: () => void, groupName: string): JSX.Element => (
     <button
       type="button"
       className={'rail-btn' + (active ? ' active' : '')}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
-      title={label}
+      title={`${label} · ${groupName}`}
       onClick={onClick}
     >
       <Icon name={icon} size={20} />
       <span className="rail-label" aria-hidden="true">{label}</span>
     </button>
+  )
+
+  /** A group break: a thin line, or a small heading when menu labels are on. */
+  const group = (name: string): JSX.Element => (
+    <span className="rail-group" aria-hidden="true">
+      <span className="rail-sep" />
+      <span className="rail-group-name">{name}</span>
+      <span className="rail-sep" />
+    </span>
   )
 
   const currentSession = route.name === 'chat' ? route.sessionId : undefined
@@ -129,26 +132,31 @@ export function Sidebar(props: Props): JSX.Element {
 
   return (
     <>
+      {/* Grouped: overview, team, tools, create, then resources and setup at the foot. Group names show
+          as small headings when menu labels are on, and in every button's tooltip. Projects live in the
+          title bar's project switcher. */}
       <nav className="rail" aria-label="Main">
-        {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }))}
-        {railBtn('Dashboard', 'dashboard', route.name === 'dashboard', () => onNavigate({ name: 'dashboard' }))}
-        {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'))}
-        {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'))}
-        {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }))}
-        {railBtn('Art', 'art', route.name === 'art', () => onNavigate({ name: 'art' }))}
-        {railBtn('Videos', 'video', route.name === 'videos', () => onNavigate({ name: 'videos' }))}
-        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }))}
-        {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }))}
-        {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }))}
-        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }))}
-        <span className="rail-sep" aria-hidden="true" />
-        {railBtn('Projects', 'folder', section === 'projects', openProjects)}
+        {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }), 'Overview')}
+        {group('Team')}
+        {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'), 'Team')}
+        {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'), 'Team')}
+        {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }), 'Team')}
+        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }), 'Team')}
+        {group('Tools')}
+        {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }), 'Tools')}
+        {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }), 'Tools')}
+        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }), 'Tools')}
+        {group('Create')}
+        {railBtn('Image', 'art', route.name === 'art', () => onNavigate({ name: 'art' }), 'Create')}
+        {railBtn('Videos', 'video', route.name === 'videos', () => onNavigate({ name: 'videos' }), 'Create')}
         <div className="rail-foot">
-          {railBtn('Drive', 'drive', route.name === 'drive', () => onNavigate({ name: 'drive' }))}
-          {railBtn('Knowledge base', 'knowledge', route.name === 'knowledge', () => onNavigate({ name: 'knowledge' }))}
-          {railBtn('Connectors', 'connectors', route.name === 'connectors', () => onNavigate({ name: 'connectors' }))}
-          {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }))}
-          {railBtn('Settings', 'settings', route.name === 'settings', () => onNavigate({ name: 'settings' }))}
+          {group('Resources')}
+          {railBtn('Drive', 'drive', route.name === 'drive', () => onNavigate({ name: 'drive' }), 'Resources')}
+          {railBtn('Knowledge base', 'knowledge', route.name === 'knowledge', () => onNavigate({ name: 'knowledge' }), 'Resources')}
+          {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }), 'Resources')}
+          {group('Setup')}
+          {railBtn('Connectors', 'connectors', route.name === 'connectors', () => onNavigate({ name: 'connectors' }), 'Setup')}
+          {railBtn('Settings', 'settings', route.name === 'settings', () => onNavigate({ name: 'settings' }), 'Setup')}
         </div>
       </nav>
 

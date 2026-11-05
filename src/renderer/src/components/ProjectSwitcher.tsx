@@ -4,7 +4,7 @@ import { useCurrentProject } from '../currentProject'
 import { Icon } from './Icon'
 
 /** Project picker in the title bar, after the organization. One project is always selected. */
-export function ProjectSwitcher({ projects, onNewProject }: { projects: Project[]; onNewProject: () => void }): JSX.Element {
+export function ProjectSwitcher({ projects, onNewProject, onOpenChats }: { projects: Project[]; onNewProject: () => void; onOpenChats: () => void }): JSX.Element {
   const [projectId, setProjectId] = useCurrentProject()
   const [open, setOpen] = useState(false)
   const [defaultId, setDefaultId] = useState<string | null>(null)
@@ -47,6 +47,9 @@ export function ProjectSwitcher({ projects, onNewProject }: { projects: Project[
             </button>
           ))}
           <span className="switch-sep" aria-hidden="true" />
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenChats() }}>
+            <Icon name="chat" size={14} /> Open project chats
+          </button>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onNewProject() }}>
             <Icon name="plus" size={14} /> New project
           </button>

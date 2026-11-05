@@ -1,5 +1,6 @@
+import { Activity } from '../components/Activity'
 import { useEffect, useState } from 'react'
-import type { AppInfo, EngineStatus, ProviderSettings } from '@shared/types'
+import type { AppInfo, EngineStatus, ProviderSettings, Agent, Project, Session } from '@shared/types'
 import logo from '../assets/logo-horizontal.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
@@ -11,6 +12,12 @@ export type StudioArea = 'agents' | 'assistants' | 'tasks' | 'projects' | 'skill
   | 'art' | 'videos' | 'automation' | 'canvas' | 'mindmap' | 'kanban' | 'drive' | 'knowledge' | 'connectors'
 
 interface Props {
+  agents: Agent[]
+  projects: Project[]
+  sessions: Session[]
+  onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
+  /** Scroll to a section on open. */
+  focus?: 'activity'
   agentCount: number
   assistantCount: number
   projectCount: number
@@ -36,7 +43,7 @@ const READY_AREAS: [StudioArea, IconName, string, string][] = [
   ['connectors', 'connectors', 'Connectors', 'Telegram today; more channels soon']
 ]
 const SOON_AREAS: [StudioArea, IconName, string, string][] = [
-  ['art', 'art', 'Art', 'Make images with your agents'],
+  ['art', 'art', 'Image', 'Make images with your agents'],
   ['videos', 'video', 'Videos', 'Make and edit short videos'],
   ['knowledge', 'knowledge', 'Knowledge base', 'Your material, searchable']
 ]
@@ -83,7 +90,9 @@ function SupportTile({ tile, onOpen }: { tile: Tile; onOpen: () => void }): JSX.
   )
 }
 
-export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onNewAgent, onSettings }: Props): JSX.Element {
+export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onNewAgent, onSettings, agents, projects, sessions, onOpenChat, focus }: Props): JSX.Element {
+  // "To review" in the status bar opens Home at the activity section.
+  useEffect(() => { if (focus === 'activity') document.getElementById('activity')?.scrollIntoView({ block: 'start' }) }, [focus])
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [keys, setKeys] = useState<ProviderSettings | null>(null)
   const [engines, setEngines] = useState<EngineStatus[]>([])
@@ -144,6 +153,8 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
         </div>
         <img src={mascot} alt="The Tyslin robot mascot standing" className="home-mascot" />
       </section>
+
+      <Activity agents={agents} projects={projects} sessions={sessions} onOpenChat={onOpenChat} />
 
       <section className="home-section" aria-labelledby="studio-h">
         <div className="home-section-head">

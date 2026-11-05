@@ -201,7 +201,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
         )}
       </div>
       <div className="statusbar-group">
-        <button type="button" className={'status-item status-btn' + (pending ? ' attention' : '')} onClick={() => onNavigate({ name: 'dashboard' })}
+        <button type="button" className={'status-item status-btn' + (pending ? ' attention' : '')} onClick={() => onNavigate({ name: 'home', focus: 'activity' })}
           title="File changes waiting for your review">
           <Icon name="file" size={12} />
           {pending ? `${pending} to review` : 'Nothing to review'}

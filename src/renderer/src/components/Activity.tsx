@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Agent, DashboardStats, Project, Session } from '@shared/types'
-import { Avatar } from '../components/Avatar'
-import { Icon } from '../components/Icon'
+import { Avatar } from './Avatar'
+import { Icon } from './Icon'
 
 interface Props {
   agents: Agent[]
@@ -69,8 +69,8 @@ function ActivityChart({ daily }: { daily: DashboardStats['daily'] }): JSX.Eleme
   )
 }
 
-/** Overview of what's happening in the studio: counts, activity, reviews waiting and recent chats. */
-export function DashboardPage({ agents, projects, sessions, onOpenChat }: Props): JSX.Element {
+/** Home's activity section (formerly the Dashboard): counts, activity, reviews waiting, recent chats and most used. */
+export function Activity({ agents, projects, sessions, onOpenChat }: Props): JSX.Element {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   useEffect(() => { void window.tyslin.app.dashboard().then(setStats) }, [sessions])
 
@@ -107,14 +107,11 @@ export function DashboardPage({ agents, projects, sessions, onOpenChat }: Props)
   }
 
   return (
-    <div className="page">
-      <header className="page-head">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="eyebrow">Dashboard</span>
-          <h1>What your studio is doing</h1>
-          <p className="lead">Activity from this computer: your agents, assistants, chats and the changes waiting for you.</p>
-        </div>
-      </header>
+    <section id="activity" className="home-section home-activity" aria-labelledby="activity-title">
+      <div className="home-section-head">
+        <h2 id="activity-title">What your studio is doing</h2>
+        <p className="hint">Activity from this computer: your agents, assistants, chats and the changes waiting for you.</p>
+      </div>
 
       {!stats ? <p className="hint">Loading…</p> : (
         <>
@@ -186,6 +183,6 @@ export function DashboardPage({ agents, projects, sessions, onOpenChat }: Props)
           </div>
         </>
       )}
-    </div>
+    </section>
   )
 }

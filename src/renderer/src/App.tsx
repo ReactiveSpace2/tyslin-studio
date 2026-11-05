@@ -11,7 +11,6 @@ import { AgentEditor } from './pages/AgentEditor'
 import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { HomePage, type StudioArea } from './pages/HomePage'
-import { DashboardPage } from './pages/DashboardPage'
 import { TasksPage } from './pages/TasksPage'
 import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
@@ -33,8 +32,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 import { ComingSoon } from './pages/ComingSoon'
 
 export type Route =
-  | { name: 'home' }
-  | { name: 'dashboard' }
+  | { name: 'home'; focus?: 'activity' }
   | { name: 'tasks'; newFor?: string }
   | { name: 'agents'; kind: AgentKind }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string; via?: 'projects' }
@@ -154,6 +152,14 @@ export default function App(): JSX.Element {
         projects={projects}
         onNewOrg={() => setNewOrg(true)}
         onNewProject={() => setNewProject(true)}
+        onOpenProjectChats={() => {
+          // The selected project's chats, in the projects side panel (its latest chat, or Builder there).
+          const pid = currentProject ?? projects[0]?.id
+          if (!pid) return setNewProject(true)
+          const last = sessions.find((s) => s.projectId === pid)
+          if (last) openChat(last.agentId, pid, last.id, 'projects')
+          else if (builder) openChat(builder.id, pid, undefined, 'projects')
+        }}
       />
       <div className="app-body">
       <Sidebar
@@ -174,6 +180,11 @@ export default function App(): JSX.Element {
             onOpen={openArea}
             onNewAgent={() => setRoute({ name: 'editor', kind: 'agent' })}
             onSettings={(tab) => setRoute({ name: 'settings', tab })}
+            agents={agents}
+            projects={projects}
+            sessions={sessions}
+            onOpenChat={openChat}
+            focus={route.focus}
           />
         )}
         {route.name === 'agents' && route.kind === 'agent' && (
@@ -241,12 +252,9 @@ export default function App(): JSX.Element {
             onCancel={() => setRoute({ name: 'agents', kind: route.kind })}
           />
         )}
-        {route.name === 'dashboard' && (
-          <DashboardPage agents={agents} projects={projects} sessions={sessions} onOpenChat={openChat} />
-        )}
         {route.name === 'tasks' && <TasksPage key={route.newFor ?? 'tasks'} agents={agents} projects={projects} onOpenChat={openChat} newFor={route.newFor} />}
         {route.name === 'art' && (
-          <ComingSoon title="Art" icon="art" text="Make images with your agents: pick a model that draws, describe what you need, and keep the results with your projects." />
+          <ComingSoon title="Image" icon="art" text="Make images with your agents: pick a model that draws, describe what you need, and keep the results with your projects." />
         )}
         {route.name === 'videos' && (
           <ComingSoon title="Videos" icon="video" text="Make and edit short videos with your agents: describe the clip, pick a model that makes video, and keep the results with your projects." />

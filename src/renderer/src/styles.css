@@ -190,6 +190,13 @@ a { color: var(--green); }
 :root[data-rail-labels="on"] .rail-btn .icon { width: 18px; height: 18px; }
 :root[data-rail-labels="on"] .rail-label { display: block; max-width: 54px; font-size: 10px; line-height: 1.1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-sep { width: 28px; height: 1px; flex: none; background: var(--line); margin: 6px 0; }
+.rail-group .rail-sep { margin: 3px 0; }
+/* Short windows: the rail scrolls (with a thin scrollbar, so the hidden buttons are findable); buttons stay 44 px. */
+.rail { overflow-y: auto; scrollbar-width: thin; }
+.rail-foot { flex: none; }
+.rail-group { display: flex; align-items: center; gap: 3px; width: 60px; flex: none; margin: 5px 0 3px; }
+.rail-group .rail-sep { flex: 1; width: auto; min-width: 4px; margin: 0; }
+.rail-group-name { font-family: var(--mono); font-size: 8px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); line-height: 1; }
 .rail-foot { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .panel { width: 252px; flex: none; background: var(--parchment); border-right: 1px solid var(--line); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
 .panel-group { display: flex; flex-direction: column; gap: 2px; }

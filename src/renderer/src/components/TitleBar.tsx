@@ -15,10 +15,11 @@ interface Props {
   projects: Project[]
   onNewOrg: () => void
   onNewProject: () => void
+  onOpenProjectChats: () => void
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
-  home: 'Home', dashboard: 'Dashboard', tasks: 'Scheduled tasks', skills: 'Skills', settings: 'Settings', art: 'Art', videos: 'Videos',
+  home: 'Home', tasks: 'Scheduled tasks', skills: 'Skills', settings: 'Settings', art: 'Image', videos: 'Videos',
   automation: 'Automation', canvas: 'Canvas', mindmap: 'Mind mapper', kanban: 'Kanban', drive: 'Drive', knowledge: 'Knowledge base', connectors: 'Connectors'
 }
 
@@ -37,7 +38,7 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
 }
 
 /** The window's title bar: Tyslin mark and wordmark, the current screen's name, the organization switcher and zoom. Empty space drags the window. */
-export function TitleBar({ route, agents, projects, onNewOrg, onNewProject }: Props): JSX.Element {
+export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
 
@@ -54,7 +55,7 @@ export function TitleBar({ route, agents, projects, onNewOrg, onNewProject }: Pr
         <span className="titlebar-sep" aria-hidden="true" />
         <OrgSwitcher onNewOrg={onNewOrg} />
         <span className="titlebar-slash" aria-hidden="true">/</span>
-        <ProjectSwitcher projects={projects} onNewProject={onNewProject} />
+        <ProjectSwitcher projects={projects} onNewProject={onNewProject} onOpenChats={onOpenProjectChats} />
         <span className="status-item titlebar-local" title="Agents, chats and keys are stored on this computer">
           <span className="status-dot" aria-hidden="true" /> Local
         </span>
