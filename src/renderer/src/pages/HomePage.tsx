@@ -1,3 +1,4 @@
+import { Watermark } from '../components/Watermark'
 import { Activity } from '../components/Activity'
 import { useEffect, useState } from 'react'
 import type { AppInfo, EngineStatus, ProviderSettings, Agent, Project, Session } from '@shared/types'
@@ -124,7 +125,8 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
   }))
 
   return (
-    <div className="page home">
+    <div className="page home watermarked">
+      <Watermark />
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-intro">
           <img src={logo} alt="Tyslin" className="home-logo light-only" />

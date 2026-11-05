@@ -1148,3 +1148,14 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .agent-table:not(.as-table) .at-row { grid-template-columns: 40px minmax(0, 3.2fr) minmax(0, 1.7fr) minmax(0, .9fr) 56px 140px; }
 .at-who strong { display: flex; align-items: center; flex-wrap: nowrap; min-width: 0; white-space: nowrap; }
 .at-team, .at-count { flex: none; }
+
+/* Watermark (components/Watermark.tsx): the jumping mascot, large and faint, behind Home and Settings.
+   It fills the main area's height; cards there are slightly see-through so it shows behind them. */
+.watermarked { position: relative; isolation: isolate; --card: rgba(255, 255, 255, 0.82); }
+.page-watermark { position: fixed; z-index: -1; right: 2%; bottom: 36px; height: calc(100vh - 110px); width: auto; max-width: 70vw; object-fit: contain; opacity: 0.24; pointer-events: none; user-select: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .watermarked { --card: rgba(31, 31, 28, 0.82); }
+  :root:not([data-theme="light"]) .page-watermark { opacity: 0.17; }
+}
+:root[data-theme="dark"] .watermarked { --card: rgba(31, 31, 28, 0.82); }
+:root[data-theme="dark"] .page-watermark { opacity: 0.17; }

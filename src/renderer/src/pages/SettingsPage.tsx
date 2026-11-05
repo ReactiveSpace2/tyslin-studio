@@ -1,3 +1,4 @@
+import { Watermark } from '../components/Watermark'
 import { useEffect, useRef, useState } from 'react'
 import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, Organization, OrgColor, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
@@ -525,7 +526,8 @@ export function SettingsPage({ initialTab = 'models', onAuthChange }: { initialT
   const [tab, setTab] = useState<Tab>(initialTab)
 
   return (
-    <div className="page">
+    <div className="page watermarked">
+      <Watermark pose="thinking" />
       <header style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className="eyebrow">Settings</span>
         <h1>Your studio</h1>
