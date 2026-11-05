@@ -271,6 +271,36 @@ export interface Organization {
   current: boolean
 }
 
+/** When a scheduled task runs, in local time. */
+export interface TaskSchedule {
+  repeat: 'daily' | 'weekdays' | 'weekly'
+  /** 24-hour HH:MM. */
+  time: string
+  /** Weekly only: 0 Sunday … 6 Saturday. */
+  day?: number
+}
+
+/** A prompt an agent or assistant runs on a schedule, each run in a new chat (per organization). */
+export interface ScheduledTask {
+  id: string
+  name: string
+  prompt: string
+  agentId: string
+  /** Agents only; assistants never get a folder. */
+  projectId: string | null
+  schedule: TaskSchedule
+  enabled: boolean
+  nextRunAt: number | null
+  lastRunAt: number | null
+  lastStatus: 'running' | 'ok' | 'error' | null
+  lastError: string
+  /** The chat the last run wrote to. */
+  lastSessionId: string | null
+  createdAt: number
+}
+
+export type TaskInput = Pick<ScheduledTask, 'name' | 'prompt' | 'agentId' | 'projectId' | 'schedule' | 'enabled'> & { id?: string }
+
 /** Activity summary for the Dashboard, from the local database. */
 export interface DashboardStats {
   chats: number
@@ -409,6 +439,15 @@ export interface TyslinApi {
     setOllamaUrl(url: string): Promise<void>
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
+  }
+  tasks: {
+    list(): Promise<ScheduledTask[]>
+    save(input: TaskInput): Promise<ScheduledTask>
+    remove(id: string): Promise<void>
+    /** Starts the task now in a new chat and returns that chat's id. */
+    runNow(id: string): Promise<string>
+    /** Fires when a task starts or finishes a run (scheduled or manual). */
+    onChanged(cb: () => void): () => void
   }
   orgs: {
     list(): Promise<Organization[]>

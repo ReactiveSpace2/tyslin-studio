@@ -13,7 +13,8 @@ import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
-import type { AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import { nextRunAfter } from '@shared/schedule'
+import type { ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -36,6 +37,87 @@ function applyTheme(): void {
   nativeTheme.themeSource = db.getPrefs().theme
   win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)
   if (win && !isMac) win.setTitleBarOverlay(titleBarOverlay())
+}
+
+/**
+ * Saves the user's message and starts the agent's reply in the background (chat and scheduled tasks).
+ * The renderer follows the run through run events; `done` settles when the run ends.
+ */
+function startRun(sessionId: string, text: string, attachments: ReturnType<typeof prepareAttachments> = { attachments: [], context: '' }): { runId: string; done: Promise<{ ok: boolean; error?: string }> } {
+  const session = db.getSession(sessionId)
+  if (!session) throw new Error('Session not found')
+  const agent = db.getAgent(session.agentId)
+  if (!agent) throw new Error('Agent not found')
+  if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
+  db.addMessage(sessionId, 'user', text, attachments)
+  const project = session.projectId && agent.kind === 'agent' ? db.getProject(session.projectId) : null
+  const runId = randomUUID()
+  const controller = new AbortController()
+  activeRuns.set(sessionId, { runId, controller })
+  const send = (e: RunEventBody): void => emit({ ...e, runId, sessionId })
+  const done = (async () => {
+    send({ type: 'run_started' })
+    try {
+      const reply = await runtimeFor(agent).run({
+        runId,
+        sessionId,
+        agent,
+        skills: db.listSkills(),
+        project,
+        history: db.listModelMessages(sessionId),
+        emit: send,
+        signal: controller.signal
+      })
+      if (reply) db.addMessage(sessionId, 'assistant', reply)
+      send({ type: 'run_finished' })
+      return { ok: true }
+    } catch (err) {
+      const message = controller.signal.aborted ? 'Stopped.' : err instanceof Error ? err.message : String(err)
+      send({ type: 'run_error', error: message })
+      return { ok: false, error: message }
+    } finally {
+      activeRuns.delete(sessionId)
+      expireRunChanges(runId)
+      cancelRunPermissions(runId)
+    }
+  })()
+  return { runId, done }
+}
+
+/**
+ * Runs a task in a new chat titled after it. Scheduled runs also move the task to its next time.
+ * The result is written when the reply ends; the renderer hears `tasks:changed` either way.
+ */
+function runTask(t: ScheduledTask, scheduled: boolean): string {
+  const now = Date.now()
+  const next = scheduled ? nextRunAfter(t.schedule, now) : undefined
+  try {
+    const s = db.createSession(t.agentId, t.projectId)
+    const { done } = startRun(s.id, t.prompt)
+    db.setSessionTitle(s.id, t.name)
+    db.markTaskRun(t.id, { lastRunAt: now, lastStatus: 'running', lastSessionId: s.id, nextRunAt: next })
+    win?.webContents.send('tasks:changed')
+    void done.then((r) => {
+      db.markTaskRun(t.id, { lastStatus: r.ok ? 'ok' : 'error', lastError: r.error ?? '' })
+      win?.webContents.send('tasks:changed')
+    })
+    return s.id
+  } catch (err) {
+    db.markTaskRun(t.id, { lastRunAt: now, lastStatus: 'error', lastError: err instanceof Error ? err.message : String(err), nextRunAt: next })
+    win?.webContents.send('tasks:changed')
+    throw err
+  }
+}
+
+/** Every 30 seconds, start the current organization's tasks that are due. Missed runs while the app was closed run once on launch. */
+function startScheduler(): void {
+  const tick = (): void => {
+    for (const t of db.dueTasks(Date.now())) {
+      try { runTask(t, true) } catch { /* recorded on the task */ }
+    }
+  }
+  setTimeout(tick, 5000)
+  setInterval(tick, 30_000)
 }
 
 function createWindow(): void {
@@ -93,42 +175,7 @@ function registerIpc(): void {
   ipcMain.handle('sessions:messages', (_e, id: string) => db.listMessages(id))
   ipcMain.handle('attachments:pick', (_e, kind: 'file' | 'folder') => pickAttachments(win!, kind === 'folder' ? 'folder' : 'file'))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
-    const session = db.getSession(sessionId)
-    if (!session) throw new Error('Session not found')
-    const agent = db.getAgent(session.agentId)
-    if (!agent) throw new Error('Agent not found')
-    if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
-    db.addMessage(sessionId, 'user', text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
-    const project = session.projectId && agent.kind === 'agent' ? db.getProject(session.projectId) : null
-    const runId = randomUUID()
-    const controller = new AbortController()
-    activeRuns.set(sessionId, { runId, controller })
-    const send = (e: RunEventBody): void => emit({ ...e, runId, sessionId })
-    // Run in the background; the renderer listens to run events.
-    void (async () => {
-      send({ type: 'run_started' })
-      try {
-        const reply = await runtimeFor(agent).run({
-          runId,
-          sessionId,
-          agent,
-          skills: db.listSkills(),
-          project,
-          history: db.listModelMessages(sessionId),
-          emit: send,
-          signal: controller.signal
-        })
-        if (reply) db.addMessage(sessionId, 'assistant', reply)
-        send({ type: 'run_finished' })
-      } catch (err) {
-        const message = controller.signal.aborted ? 'Stopped.' : err instanceof Error ? err.message : String(err)
-        send({ type: 'run_error', error: message })
-      } finally {
-        activeRuns.delete(sessionId)
-        expireRunChanges(runId)
-        cancelRunPermissions(runId)
-      }
-    })()
+    startRun(sessionId, text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
   })
   ipcMain.handle('sessions:stop', (_e, sessionId: string) => {
     const run = activeRuns.get(sessionId)
@@ -226,6 +273,15 @@ function registerIpc(): void {
   ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
   ipcMain.handle('auth:signOut', () => signOut())
   ipcMain.handle('app:dashboard', () => db.dashboardStats())
+  ipcMain.handle('tasks:list', () => db.listTasks())
+  ipcMain.handle('tasks:save', (_e, input: TaskInput) =>
+    db.saveTask(input, input.enabled ? nextRunAfter(input.schedule, Date.now()) : null))
+  ipcMain.handle('tasks:remove', (_e, id: string) => db.removeTask(id))
+  ipcMain.handle('tasks:runNow', (_e, id: string) => {
+    const t = db.getTask(id)
+    if (!t) throw new Error('That task no longer exists.')
+    return runTask(t, false)
+  })
   ipcMain.handle('orgs:list', () => db.listOrgs())
   ipcMain.handle('orgs:create', (_e, name: string) => db.createOrg(String(name ?? '')))
   ipcMain.handle('orgs:rename', (_e, id: string, name: string) => db.renameOrg(id, String(name ?? '')))
@@ -253,6 +309,7 @@ app.whenReady().then(() => {
   db.expireStaleChanges()
   registerIpc()
   createWindow()
+  startScheduler()
   // With the System theme, keep the window buttons and background in step when the OS switches.
   nativeTheme.on('updated', () => {
     win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)

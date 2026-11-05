@@ -11,6 +11,7 @@ import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { HomePage, type StudioArea } from './pages/HomePage'
 import { DashboardPage } from './pages/DashboardPage'
+import { TasksPage } from './pages/TasksPage'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
 import { UpdateNotice } from './components/UpdateNotice'
@@ -19,6 +20,7 @@ import { ComingSoon } from './pages/ComingSoon'
 export type Route =
   | { name: 'home' }
   | { name: 'dashboard' }
+  | { name: 'tasks' }
   | { name: 'agents'; kind: AgentKind }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; kind: AgentKind; agentId?: string }
@@ -56,6 +58,9 @@ export default function App(): JSX.Element {
     void refreshSessions()
     void window.tyslin.auth.status().then(setAuth)
   }, [refresh, refreshSessions])
+
+  // Scheduled tasks start chats on their own; keep the sidebar's chat list current.
+  useEffect(() => window.tyslin.tasks.onChanged(() => void refreshSessions()), [refreshSessions])
 
   const builder = agents.find((a) => a.isMascot) ?? agents[0]
   const [newOrg, setNewOrg] = useState(false)
@@ -152,6 +157,7 @@ export default function App(): JSX.Element {
         {route.name === 'dashboard' && (
           <DashboardPage agents={agents} projects={projects} sessions={sessions} onOpenChat={openChat} />
         )}
+        {route.name === 'tasks' && <TasksPage agents={agents} projects={projects} onOpenChat={openChat} />}
         {route.name === 'art' && (
           <ComingSoon title="Art" icon="art" text="Make images with your agents: pick a model that draws, describe what you need, and keep the results with your projects." />
         )}

@@ -12,7 +12,7 @@ interface Props {
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
-  home: 'Home', dashboard: 'Dashboard', skills: 'Skills', settings: 'Settings', art: 'Art', videos: 'Videos',
+  home: 'Home', dashboard: 'Dashboard', tasks: 'Scheduled tasks', skills: 'Skills', settings: 'Settings', art: 'Art', videos: 'Videos',
   workflows: 'Workflows', canvas: 'Canvas', mindmap: 'Mind mapper', drive: 'Drive', knowledge: 'Knowledge base', connectors: 'Connectors'
 }
 

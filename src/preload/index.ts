@@ -68,6 +68,17 @@ const api: TyslinApi = {
     prefs: () => ipcRenderer.invoke('settings:prefs'),
     setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p)
   },
+  tasks: {
+    list: () => ipcRenderer.invoke('tasks:list'),
+    save: (input) => ipcRenderer.invoke('tasks:save', input),
+    remove: (id: string) => ipcRenderer.invoke('tasks:remove', id),
+    runNow: (id: string) => ipcRenderer.invoke('tasks:runNow', id),
+    onChanged: (cb) => {
+      const fn = (): void => cb()
+      ipcRenderer.on('tasks:changed', fn)
+      return () => ipcRenderer.removeListener('tasks:changed', fn)
+    }
+  },
   orgs: {
     list: () => ipcRenderer.invoke('orgs:list'),
     create: (name: string) => ipcRenderer.invoke('orgs:create', name),

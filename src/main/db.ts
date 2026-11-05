@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
-import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
+import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -138,6 +138,15 @@ function migrate(): void {
   addColumn('skill_packs', 'meta', "TEXT NOT NULL DEFAULT ''")
   addColumn('messages', 'attachments', "TEXT NOT NULL DEFAULT '[]'")
   addColumn('messages', 'context', "TEXT NOT NULL DEFAULT ''")
+  // Scheduled tasks (Tasks screen); run by scheduler.ts while the app is open.
+  db.exec(`CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, prompt TEXT NOT NULL,
+    agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    schedule TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+    next_run_at INTEGER, last_run_at INTEGER, last_status TEXT, last_error TEXT NOT NULL DEFAULT '',
+    last_session_id TEXT, created_at INTEGER NOT NULL
+  )`)
 }
 
 /** CREATE TABLE IF NOT EXISTS never alters an existing table, so new columns go through here. */
@@ -527,4 +536,66 @@ export function dashboardStats(now = Date.now()): DashboardStats {
       FROM pending_changes c JOIN sessions s ON s.id = c.session_id WHERE c.status = 'pending'
       GROUP BY s.id ORDER BY MAX(c.created_at) DESC LIMIT 6`).all() as DashboardStats['reviews']
   }
+}
+
+type TaskRow = {
+  id: string; name: string; prompt: string; agent_id: string; project_id: string | null; schedule: string; enabled: number
+  next_run_at: number | null; last_run_at: number | null; last_status: string | null; last_error: string; last_session_id: string | null; created_at: number
+}
+const toTask = (r: TaskRow): ScheduledTask => ({
+  id: r.id, name: r.name, prompt: r.prompt, agentId: r.agent_id, projectId: r.project_id, schedule: JSON.parse(r.schedule),
+  enabled: !!r.enabled, nextRunAt: r.next_run_at, lastRunAt: r.last_run_at,
+  lastStatus: (['running', 'ok', 'error'] as const).find((x) => x === r.last_status) ?? null,
+  lastError: r.last_error, lastSessionId: r.last_session_id, createdAt: r.created_at
+})
+
+export function listTasks(): ScheduledTask[] {
+  return (db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all() as TaskRow[]).map(toTask)
+}
+
+export function getTask(id: string): ScheduledTask | null {
+  const r = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined
+  return r ? toTask(r) : null
+}
+
+/** Saves a task; `nextRunAt` is worked out by the caller from the schedule. */
+export function saveTask(input: TaskInput, nextRunAt: number | null): ScheduledTask {
+  const name = input.name.trim().slice(0, 80)
+  const prompt = input.prompt.trim()
+  if (!name) throw new Error('Give the task a name.')
+  if (!prompt) throw new Error('Write what the agent should do.')
+  const agent = getAgent(input.agentId)
+  if (!agent) throw new Error('Pick an agent or assistant.')
+  const projectId = agent.kind === 'agent' ? input.projectId : null
+  const schedule = JSON.stringify(input.schedule)
+  if (input.id && getTask(input.id)) {
+    db.prepare('UPDATE tasks SET name=?, prompt=?, agent_id=?, project_id=?, schedule=?, enabled=?, next_run_at=? WHERE id=?')
+      .run(name, prompt, agent.id, projectId, schedule, input.enabled ? 1 : 0, nextRunAt, input.id)
+    return getTask(input.id)!
+  }
+  const id = randomUUID()
+  db.prepare(`INSERT INTO tasks (id, name, prompt, agent_id, project_id, schedule, enabled, next_run_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, name, prompt, agent.id, projectId, schedule, input.enabled ? 1 : 0, nextRunAt, Date.now())
+  return getTask(id)!
+}
+
+export function removeTask(id: string): void {
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
+}
+
+/** Enabled tasks whose next run time has passed. */
+export function dueTasks(now: number): ScheduledTask[] {
+  return (db.prepare('SELECT * FROM tasks WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?').all(now) as TaskRow[]).map(toTask)
+}
+
+export function markTaskRun(id: string, fields: { lastRunAt?: number; lastStatus: ScheduledTask['lastStatus']; lastError?: string; lastSessionId?: string; nextRunAt?: number | null }): void {
+  const t = getTask(id)
+  if (!t) return
+  db.prepare('UPDATE tasks SET last_run_at=?, last_status=?, last_error=?, last_session_id=?, next_run_at=? WHERE id=?').run(
+    fields.lastRunAt ?? t.lastRunAt, fields.lastStatus, fields.lastError ?? '', fields.lastSessionId ?? t.lastSessionId,
+    fields.nextRunAt === undefined ? t.nextRunAt : fields.nextRunAt, id)
+}
+
+export function setSessionTitle(id: string, title: string): void {
+  db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run(title.slice(0, 80), id)
 }

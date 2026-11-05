@@ -7,7 +7,7 @@ import mascot from '../assets/mascot-standing.png'
 import { Icon } from '../components/Icon'
 import { Mark, MARKS, type MarkKey } from '../components/RunsOnBadge'
 
-export type StudioArea = 'agents' | 'assistants' | 'projects' | 'skills'
+export type StudioArea = 'agents' | 'assistants' | 'tasks' | 'projects' | 'skills'
   | 'art' | 'videos' | 'workflows' | 'canvas' | 'mindmap' | 'drive' | 'knowledge' | 'connectors'
 
 interface Props {
@@ -25,6 +25,7 @@ type IconName = Parameters<typeof Icon>[0]['name']
 const READY_AREAS: [StudioArea, IconName, string, string][] = [
   ['agents', 'agents', 'Agents', 'Do work in your project folders with tools'],
   ['assistants', 'chat', 'Assistants', 'A prompt and a model for quick chats'],
+  ['tasks', 'clock', 'Tasks', 'Prompts that run on a schedule'],
   ['projects', 'folder', 'Projects', 'Folders on disk your agents work in'],
   ['skills', 'skills', 'Skills', 'Reusable instructions for any agent']
 ]
@@ -86,12 +87,14 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
   const [keys, setKeys] = useState<ProviderSettings | null>(null)
   const [engines, setEngines] = useState<EngineStatus[]>([])
   const [skillCount, setSkillCount] = useState(0)
+  const [taskCount, setTaskCount] = useState(0)
 
   useEffect(() => {
     void window.tyslin.app.info().then(setInfo)
     void window.tyslin.settings.get().then(setKeys)
     void window.tyslin.engines.list().then(setEngines)
     void window.tyslin.skills.list().then((s) => setSkillCount(s.length))
+    void window.tyslin.tasks.list().then((t) => setTaskCount(t.length))
   }, [])
 
   const keySet: Record<string, boolean | undefined> = {
@@ -102,7 +105,7 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
     const ready = !!keySet[id]
     return { id, description, ready, status: ready ? 'Ready' : 'Add key' }
   })
-  const counts: Record<string, number> = { agents: agentCount, assistants: assistantCount, projects: projectCount, skills: skillCount }
+  const counts: Record<string, number> = { agents: agentCount, assistants: assistantCount, projects: projectCount, skills: skillCount, tasks: taskCount }
   const external: Tile[] = engines.map((e) => ({
     id: e.id,
     description: e.description,
@@ -149,7 +152,7 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
         <div className="support-grid">
           {READY_AREAS.map(([id, icon, name, description]) => (
             <AreaTile key={id} icon={icon} name={name} description={description} ready
-              status={id === 'projects' && !counts[id] ? 'Add one' : String(counts[id] ?? 0)} onOpen={() => onOpen(id)} />
+              status={(id === 'projects' || id === 'tasks') && !counts[id] ? 'Add one' : String(counts[id] ?? 0)} onOpen={() => onOpen(id)} />
           ))}
         </div>
         <div className="home-section-head" style={{ marginTop: 6 }}>
