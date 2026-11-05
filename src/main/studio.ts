@@ -28,12 +28,42 @@ export function defaultProject(): Project {
     mkdirSync(existing.folder, { recursive: true })
     return existing
   }
+  return createDefault('Default project')
+}
+
+function createDefault(name: string): Project {
   const org = db.currentOrg()
-  const folder = join(app.getPath('documents'), 'Tyslin Studio', safeName(org.name), 'Default project')
+  const folder = join(app.getPath('documents'), 'Tyslin Studio', safeName(org.name), safeName(name))
   mkdirSync(folder, { recursive: true })
-  const p = db.createProject('Default project', folder)
+  const p = db.createProject(safeName(name), folder)
   db.setSetting('project:default', p.id)
   return p
+}
+
+/** The Default project's folder, or null when it hasn't been created yet. */
+export function defaultProjectFolder(): string | null {
+  const id = db.getSetting('project:default')
+  return (id ? db.getProject(id)?.folder : null) ?? null
+}
+
+/** The Default project's name ("Default project" until it is named). */
+export function defaultProjectName(): string {
+  const id = db.getSetting('project:default')
+  return (id ? db.getProject(id)?.name : null) ?? 'Default project'
+}
+
+/**
+ * Names the Default project (onboarding). Not created yet: it is created now, with a folder of that name.
+ * Already there: only the name changes; its folder and files stay where they are.
+ */
+export function setDefaultProjectName(name: string): Project {
+  const id = db.getSetting('project:default')
+  const existing = id ? db.getProject(id) : null
+  if (existing?.folder) {
+    db.renameProject(existing.id, safeName(name))
+    return db.getProject(existing.id)!
+  }
+  return createDefault(name)
 }
 
 /** The project to use: the chosen one (it must have a folder), or the Default project. */

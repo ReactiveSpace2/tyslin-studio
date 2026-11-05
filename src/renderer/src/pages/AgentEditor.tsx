@@ -4,13 +4,11 @@ import { ENGINE_NAMES } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { HeadPicker } from '../components/HeadPicker'
+import { MODEL_SUGGESTIONS } from '@shared/models'
+import { getDefaultModel } from '../defaultModel'
 
-export const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
-  anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'],
-  openai: ['gpt-4o', 'gpt-4o-mini'],
-  gemini: ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
-  ollama: ['llama3.1', 'qwen2.5', 'mistral']
-}
+/** Kept here too for older imports; the list lives in shared/models.ts. */
+export { MODEL_SUGGESTIONS }
 
 const BLANK: AgentInput = {
   kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
@@ -26,7 +24,7 @@ interface Props {
 }
 
 export function AgentEditor({ kind, agentId, onDone, onCancel }: Props): JSX.Element {
-  const [form, setForm] = useState<AgentInput & { id?: string }>({ ...BLANK, kind })
+  const [form, setForm] = useState<AgentInput & { id?: string }>({ ...BLANK, kind, provider: getDefaultModel()?.provider ?? BLANK.provider, model: getDefaultModel()?.model ?? BLANK.model })
   const [skills, setSkills] = useState<Skill[]>([])
   const [saving, setSaving] = useState(false)
   const [engines, setEngines] = useState<EngineStatus[]>([])

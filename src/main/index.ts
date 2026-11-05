@@ -9,7 +9,9 @@ import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
 import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
-import { defaultProject, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
+import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant } from './defaultModel'
+import { DEFAULT_MODEL_AGENT } from '@shared/models'
+import { defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { initTelegram, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, signIn, signOut } from './auth'
 import { pickAttachments, prepareAttachments } from './attachments'
@@ -17,7 +19,7 @@ import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, unins
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, WorkflowDoc, WorkflowProgress, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, WorkflowDoc, WorkflowProgress, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -228,7 +230,8 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
  */
 async function askAgent(agentId: string, projectId: string | null, prompt: string, title: string, onSession?: (id: string) => void): Promise<AskResult> {
   try {
-    const agent = db.getAgent(agentId)
+    // "Default model" runs through the organization's Studio assistant, which follows the default model.
+    const agent = agentId === DEFAULT_MODEL_AGENT ? studioAssistant() : db.getAgent(agentId)
     if (!agent) throw new Error('Pick an agent or assistant.')
     const project = agent.kind === 'agent' ? projectFor(projectId) : null
     const s = db.createSession(agent.id, project?.id ?? null)
@@ -264,7 +267,7 @@ async function runWorkflow(runId: string, projectId: string | null, path: string
   let status: WorkflowProgress['status'] = 'done'
   for (let i = 0; i < doc.steps.length; i++) {
     const step = doc.steps[i]
-    const agent = db.getAgent(step.agentId)
+    const agent = step.agentId === DEFAULT_MODEL_AGENT ? studioAssistant() : db.getAgent(step.agentId)
     if (run.stopped) { status = 'stopped'; break }
     send({ step: i, status: 'running' })
     const prompt = [step.instruction.trim(), '', i === 0 ? '## Brief' : '## Input from the previous step', '', input || '(empty)',
@@ -324,10 +327,25 @@ function emit(e: RunEvent): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('agents:list', () => db.listAgents())
+  ipcMain.handle('agents:list', () => {
+    // Every organization has a Studio assistant on the default model (per computer); it catches up here.
+    studioAssistant()
+    return db.listAgents()
+  })
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
-  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => db.saveAgent(input))
-  ipcMain.handle('agents:remove', (_e, id: string) => db.removeAgent(id))
+  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => {
+    const saved = db.saveAgent(input)
+    // Changing the Studio assistant's model changes the default model (they are the same thing).
+    if (isStudioAssistant(saved.id)) {
+      const d = defaultModel()
+      if (saved.provider !== d.provider || saved.model !== d.model) db.setPrefs({ defaultProvider: saved.provider, defaultModel: saved.model })
+    }
+    return saved
+  })
+  ipcMain.handle('agents:remove', (_e, id: string) => {
+    if (isStudioAssistant(id)) throw new Error('Studio runs your default model for Mind mapper, Canvas and Workflows, so it stays. Change its model in Settings → Models.')
+    db.removeAgent(id)
+  })
   ipcMain.handle('agents:statuses', () => agentStatuses())
   ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
@@ -429,16 +447,40 @@ function registerIpc(): void {
     anthropicKeySet: !!getSecret('anthropic'),
     openaiKeySet: !!getSecret('openai'),
     geminiKeySet: !!getSecret('gemini'),
-    ollamaUrl: db.getSetting('ollamaUrl') || 'http://localhost:11434'
+    ollamaUrl: db.getSetting('ollamaUrl') || 'http://localhost:11434',
+    defaultModel: defaultModel()
   }))
-  ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => setSecret(provider, key.trim()))
+  ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => {
+    setSecret(provider, key.trim())
+    syncStudioAssistant()
+  })
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
   ipcMain.handle('settings:prefs', () => db.getPrefs())
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
     const next = db.setPrefs(p)
     if (p.theme) applyTheme()
     if (typeof p.zoom === 'number') applyZoom()
+    if (p.defaultProvider) syncStudioAssistant()
     return next
+  })
+
+  ipcMain.handle('onboarding:status', (): OnboardingStatus => ({
+    needed: db.getSetting('onboarded') !== '1',
+    orgName: db.currentOrg().name,
+    projectName: defaultProjectName(),
+    projectFolder: defaultProjectFolder()
+  }))
+  ipcMain.handle('onboarding:finish', (_e, input: OnboardingInput) => {
+    const org = db.currentOrg()
+    const orgName = String(input.orgName ?? '').trim()
+    if (orgName && orgName !== org.name) db.renameOrg(org.id, orgName)
+    // After the organization's name, so a new Default project folder is created under it.
+    setDefaultProjectName(String(input.projectName ?? '').trim() || 'Default project')
+    if (input.defaultProvider) {
+      db.setPrefs({ defaultProvider: input.defaultProvider, defaultModel: input.defaultModel })
+      syncStudioAssistant()
+    }
+    db.setSetting('onboarded', '1')
   })
 
   ipcMain.handle('auth:status', () => authStatus())

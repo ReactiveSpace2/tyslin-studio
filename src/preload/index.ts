@@ -122,6 +122,10 @@ const api: TyslinApi = {
     unlink: (id) => ipcRenderer.invoke('telegram:unlink', id),
     setNotify: (p) => ipcRenderer.invoke('telegram:setNotify', p)
   },
+  onboarding: {
+    status: () => ipcRenderer.invoke('onboarding:status'),
+    finish: (input) => ipcRenderer.invoke('onboarding:finish', input)
+  },
   orgs: {
     list: () => ipcRenderer.invoke('orgs:list'),
     create: (name, color) => ipcRenderer.invoke('orgs:create', name, color),

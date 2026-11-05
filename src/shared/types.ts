@@ -350,6 +350,35 @@ export interface ProviderSettings {
   openaiKeySet: boolean
   geminiKeySet: boolean
   ollamaUrl: string
+  /** The model Mind mapper, Canvas and Workflows use when "Default model" is picked (shown in the status bar). */
+  defaultModel: DefaultModel
+}
+
+export interface DefaultModel {
+  provider: ProviderId
+  model: string
+  /** false = nothing chosen yet; this is the fallback (first provider with a key). */
+  chosen: boolean
+  /** The provider has a key (always true for Ollama). */
+  ready: boolean
+  /** The current organization's Studio assistant, which runs "Default model" requests. */
+  assistantId: string | null
+}
+
+/** First-run setup, shown once per computer after sign-in. */
+export interface OnboardingStatus {
+  needed: boolean
+  orgName: string
+  projectName: string
+  /** The Default project's folder when it already exists (renaming keeps it there); null = created on finish. */
+  projectFolder: string | null
+}
+
+export interface OnboardingInput {
+  orgName: string
+  projectName: string
+  defaultProvider: ProviderId | null
+  defaultModel: string
 }
 
 /**
@@ -491,6 +520,9 @@ export interface Preferences {
   defaultWriteMode: WriteMode
   /** Added to every agent's instructions. */
   sharedInstructions: string
+  /** The default model (per computer); null = not chosen yet. */
+  defaultProvider: ProviderId | null
+  defaultModel: string
 }
 
 /** The Google account signed in on this computer. Only the profile is kept; no Google tokens are stored. */
@@ -659,6 +691,11 @@ export interface TyslinApi {
     linkCode(): Promise<TelegramStatus>
     unlink(chatId: number): Promise<TelegramStatus>
     setNotify(p: Partial<TelegramNotify>): Promise<TelegramStatus>
+  }
+  onboarding: {
+    status(): Promise<OnboardingStatus>
+    /** Names the current organization and its Default project, saves the default model and marks setup done. */
+    finish(input: OnboardingInput): Promise<void>
   }
   orgs: {
     list(): Promise<Organization[]>

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, ProviderSettings, Session, UpdateStatus } from '@shared/types'
+import type { Agent, Session, UpdateStatus } from '@shared/types'
+import { PROVIDER_NAME } from '@shared/models'
+import { modelLabel, refreshDefaultModel, useDefaultModel } from '../defaultModel'
 import type { Route } from '../App'
 import { updateTask, useTasks } from '../activity'
 import { Icon } from './Icon'
@@ -49,11 +51,11 @@ const elapsed = (from: number, now: number): string => {
 
 /**
  * Bottom bar: organization switcher, where data lives, everything running (replies, installs,
- * update downloads) with a list on click, file changes waiting for review, which models have a key,
+ * update downloads) with a list on click, file changes waiting for review, the default model (and whether its key is saved),
  * and the app version or a pending update. Everything here is live.
  */
 export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onNewOrg }: Props): JSX.Element {
-  const [keys, setKeys] = useState<ProviderSettings | null>(null)
+  const dm = useDefaultModel()
   const [pending, setPending] = useState(0)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   const [version, setVersion] = useState('')
@@ -71,9 +73,9 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onN
     return window.tyslin.updates.onStatus(setUpdate)
   }, [])
 
-  // Keys and reviews can change on any screen, so look again when the screen changes.
+  // Keys, the default model and reviews can change on any screen, so look again when the screen changes.
   useEffect(() => {
-    void window.tyslin.settings.get().then(setKeys)
+    void refreshDefaultModel()
     refreshPending()
   }, [route])
 
@@ -145,7 +147,6 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onN
     }
   }, [open])
 
-  const ready = keys ? ([['Claude', keys.anthropicKeySet], ['OpenAI', keys.openaiKeySet], ['Gemini', keys.geminiKeySet]] as const).filter(([, on]) => on).map(([n]) => n) : []
   const summary = items.length === 1 ? `${items[0].title}: ${items[0].detail}` : `${items.length} running`
 
   return (
@@ -205,11 +206,16 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onN
           <Icon name="file" size={12} />
           {pending ? `${pending} to review` : 'Nothing to review'}
         </button>
-        <button type="button" className={'status-item status-btn' + (ready.length ? '' : ' attention')} onClick={() => onNavigate({ name: 'settings', tab: 'models' })}
-          title="Model providers with a key saved">
-          <Icon name="agents" size={12} />
-          {ready.length ? ready.join(' · ') : 'Add a model key'}
-        </button>
+        {dm && (
+          <button type="button" className={'status-item status-btn' + (dm.ready ? '' : ' attention')} onClick={() => onNavigate({ name: 'settings', tab: 'models' })}
+            title={dm.ready
+              ? `Default model, used by Mind mapper, Canvas and Workflows: ${modelLabel(dm)}. Click to change it.`
+              : `The default model needs a ${PROVIDER_NAME[dm.provider]} key. Click to add one.`}>
+            <Icon name="agents" size={12} />
+            <span className="mono">{modelLabel(dm)}</span>
+            {!dm.ready && <span>· add a key</span>}
+          </button>
+        )}
         {update && (update.state === 'ready' || update.state === 'available') ? (
           <button type="button" className="status-item status-btn attention"
             onClick={() => void (update.state === 'ready' ? window.tyslin.updates.install() : window.tyslin.updates.openDownload())}>

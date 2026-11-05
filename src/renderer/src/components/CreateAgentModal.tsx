@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Agent, AgentInput, AgentTestResult, EngineStatus, ExternalEngineId, Project, ProviderId, ProviderSettings, Shape, Skill, Tone } from '@shared/types'
 import { MODEL_SUGGESTIONS } from '../pages/AgentEditor'
+import { getDefaultModel } from '../defaultModel'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Mark, MARKS } from './RunsOnBadge'
@@ -30,7 +31,9 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat, onTask, onOpen, onAskBuilder }: Props): JSX.Element {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<AgentInput>({
-    kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5',
+    kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
+    // New agents start on the default model.
+    provider: getDefaultModel()?.provider ?? 'anthropic', model: getDefaultModel()?.model ?? 'claude-sonnet-5-5',
     skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false,
     projectId: null, leadId: null, tools: { read: true, write: true }, channels: { telegram: false }, head: 'smile'
   })

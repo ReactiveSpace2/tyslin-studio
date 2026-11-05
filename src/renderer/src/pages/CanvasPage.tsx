@@ -3,6 +3,7 @@ import type { Agent, Project, StudioFile } from '@shared/types'
 import { Icon } from '../components/Icon'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { AgentSelect } from './WorkflowsPage'
+import { DEFAULT_MODEL_AGENT } from '@shared/models'
 
 interface Props {
   agents: Agent[]
@@ -24,7 +25,7 @@ export function CanvasPage({ agents, projects, onOpenChat, initial }: Props): JS
   const [text, setText] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [refresh, setRefresh] = useState(0)
-  const [agentId, setAgentId] = useState<string>(agents.find((a) => a.name === 'Polish')?.id ?? agents.find((a) => a.kind === 'assistant')?.id ?? agents[0]?.id ?? '')
+  const [agentId, setAgentId] = useState<string>(DEFAULT_MODEL_AGENT)
   const [mode, setMode] = useState<Mode>('rewrite')
   const [instruction, setInstruction] = useState('')
   const [range, setRange] = useState<[number, number]>([0, 0])

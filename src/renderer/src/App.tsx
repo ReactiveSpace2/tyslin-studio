@@ -23,6 +23,9 @@ import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
+import { Onboarding } from './components/Onboarding'
+import { DEFAULT_MODEL_AGENT } from '@shared/models'
+import { getDefaultModel, refreshDefaultModel } from './defaultModel'
 import { UpdateNotice } from './components/UpdateNotice'
 import { ComingSoon } from './pages/ComingSoon'
 
@@ -51,6 +54,8 @@ export default function App(): JSX.Element {
   const [sessions, setSessions] = useState<Session[]>([])
   const [newProject, setNewProject] = useState(false)
   const [auth, setAuth] = useState<AuthStatus | null>(null)
+  /** null = still checking. */
+  const [onboarding, setOnboarding] = useState<boolean | null>(null)
 
   const refresh = useCallback(async () => {
     const [a, p] = await Promise.all([window.tyslin.agents.list(), window.tyslin.projects.list()])
@@ -61,6 +66,10 @@ export default function App(): JSX.Element {
   const refreshSessions = useCallback(async () => setSessions(await window.tyslin.sessions.list()), [])
   /** New chats with an agent open in its project; `via` keeps the Projects panel when opened from there. */
   const openChat = (agentId: string, projectId: string | null, sessionId?: string, via?: 'projects'): void => {
+    // "Default model" chats belong to the Studio assistant.
+    if (agentId === DEFAULT_MODEL_AGENT) agentId = getDefaultModel()?.assistantId ?? agentId
+    // Chats started elsewhere (Mind mapper, Canvas, Workflows, tasks) show up in the side panel straight away.
+    void refreshSessions()
     const a = agents.find((x) => x.id === agentId)
     const pid = !sessionId && projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
     setRoute({ name: 'chat', agentId, projectId: pid, sessionId, via })
@@ -80,6 +89,7 @@ export default function App(): JSX.Element {
     void refreshSessions()
     void refreshAppearance()
     void window.tyslin.auth.status().then(setAuth)
+    void window.tyslin.onboarding.status().then((s) => setOnboarding(s.needed))
   }, [refresh, refreshSessions])
 
   // Scheduled tasks start chats on their own; keep the sidebar's chat list current.
@@ -101,14 +111,28 @@ export default function App(): JSX.Element {
     setRoute({ name: area } as Route)
   }
 
-  // Wait for the account check so the app never flashes before the sign-in screen.
-  if (!auth) return <div className="app"><div className="titlebar" /></div>
+  // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
+  if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
   // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
   if (auth.configured && !auth.account) {
     return (
       <div className="app">
         <div className="titlebar" />
         <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
+      </div>
+    )
+  }
+  // First run on this computer: name the organization and Default project, add keys, pick the default model.
+  if (onboarding) {
+    return (
+      <div className="app">
+        <div className="titlebar" />
+        <Onboarding firstName={auth.account?.name?.split(' ')[0]} onDone={() => {
+          setOnboarding(false)
+          setRoute({ name: 'home' })
+          void refresh()
+          void refreshDefaultModel()
+        }} />
       </div>
     )
   }

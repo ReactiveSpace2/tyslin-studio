@@ -83,15 +83,16 @@ export function StudioFiles({ kind, title, newLabel, allLabel, projects, project
 
 /** The project picker at the foot of a studio panel ('' = the Default project), with a button to show its folder. */
 export function ProjectPicker({ projects, projectId, onProject }: { projects: Project[]; projectId: string | null; onProject: (id: string | null) => void }): JSX.Element {
-  const [defaultId, setDefaultId] = useState<string | null>(null)
-  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDefaultId(p.id)) }, [])
+  const [def, setDef] = useState<{ id: string; name: string } | null>(null)
+  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDef({ id: p.id, name: p.name })) }, [])
+  const defaultId = def?.id ?? null
   const others = projects.filter((p) => p.folder && p.id !== defaultId)
   return (
     <div className="panel-foot">
       <label className="panel-project">
         <span className="label">Project</span>
         <select className="select" value={projectId && projectId !== defaultId ? projectId : ''} onChange={(e) => onProject(e.target.value || null)}>
-          <option value="">Default project</option>
+          <option value="">{def ? `${def.name} (default)` : 'Default project'}</option>
           {others.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
       </label>

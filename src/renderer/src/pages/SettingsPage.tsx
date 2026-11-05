@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Organization, OrgColor, Preferences, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
+import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, Organization, OrgColor, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
@@ -10,18 +10,14 @@ import { ColorSwatches } from '../components/ColorSwatches'
 import { GitHubStars } from '../components/GitHubStars'
 import { Icon } from '../components/Icon'
 import { refreshAppearance } from '../appearance'
+import { DefaultModelPicker, ModelKeys } from '../components/ModelSetup'
+import { modelLabel, refreshDefaultModel } from '../defaultModel'
 import { ORG_COLORS } from '@shared/types'
 
 export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
 
 const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['appearance', 'Appearance'], ['account', 'Account'], ['about', 'About & updates']]
-
-const KEY_FIELDS: [KeyProvider, string, string, keyof ProviderSettings][] = [
-  ['anthropic', 'Anthropic (Claude)', 'sk-ant-…', 'anthropicKeySet'],
-  ['openai', 'OpenAI', 'sk-…', 'openaiKeySet'],
-  ['gemini', 'Google Gemini', 'From Google AI Studio', 'geminiKeySet']
-]
 
 const UPDATE_TEXT: Record<UpdateStatus['state'], string> = {
   idle: 'Update checks run in installed builds only.',
@@ -178,39 +174,46 @@ function AppearanceTab(): JSX.Element {
 
 function ModelsTab(): JSX.Element {
   const [s, setS] = useState<ProviderSettings | null>(null)
-  const [keys, setKeys] = useState<Record<KeyProvider, string>>({ anthropic: '', openai: '', gemini: '' })
   const [ollama, setOllama] = useState('')
+  const [pick, setPick] = useState<{ provider: ProviderId; model: string } | null>(null)
   const [saved, flash] = useFlash()
 
   const load = async (): Promise<void> => {
     const v = await window.tyslin.settings.get()
     setS(v)
     setOllama(v.ollamaUrl)
+    setPick((p) => p ?? { provider: v.defaultModel.provider, model: v.defaultModel.model })
   }
   useEffect(() => { void load() }, [])
 
+  const current = s?.defaultModel
+  const changed = !!pick && !!current && (!current.chosen || pick.provider !== current.provider || pick.model.trim() !== current.model)
+
   return (
     <>
+      <section className="box" aria-labelledby="default-h">
+        <div className="box-head">
+          <h2 id="default-h">Default model</h2>
+          <p className="hint">Mind mapper, Canvas and Workflows use it when you pick "Default model", through the Studio assistant. It shows in the status bar.</p>
+        </div>
+        {pick && <DefaultModelPicker settings={s} value={pick} onChange={setPick} />}
+        <div className="row" style={{ gap: 10 }}>
+          <button type="button" className="btn btn-primary" disabled={!changed || !pick?.model.trim()} onClick={async () => {
+            if (!pick) return
+            await window.tyslin.settings.setPrefs({ defaultProvider: pick.provider, defaultModel: pick.model.trim() })
+            await refreshDefaultModel()
+            await load()
+            flash(`Default model: ${modelLabel(pick)}`)
+          }}>Save default model</button>
+          {current && !current.chosen && <span className="hint">Not chosen yet: using {modelLabel(current)}.</span>}
+        </div>
+      </section>
       <section className="box" aria-labelledby="keys-h">
         <div className="box-head">
           <h2 id="keys-h">API keys</h2>
           <p className="hint">Encrypted with your system keychain. A key only ever goes to its own provider.</p>
         </div>
-        {KEY_FIELDS.map(([id, label, placeholder, flag]) => (
-          <div className="field" key={id}>
-            <label htmlFor={'k-' + id}>{label}</label>
-            <div className="row" style={{ flexWrap: 'nowrap' }}>
-              <input id={'k-' + id} type="password" className="input mono" placeholder={s?.[flag] ? '•••••••• saved' : placeholder}
-                value={keys[id]} onChange={(e) => setKeys((k) => ({ ...k, [id]: e.target.value }))} />
-              <button type="button" className="btn btn-primary" disabled={!keys[id]} onClick={async () => {
-                await window.tyslin.settings.setKey(id, keys[id])
-                setKeys((k) => ({ ...k, [id]: '' }))
-                await load()
-                flash(`${label} key saved`)
-              }}>Save</button>
-            </div>
-          </div>
-        ))}
+        <ModelKeys settings={s} onSaved={async (label) => { await load(); flash(`${label} key saved`) }} />
       </section>
       <section className="box" aria-labelledby="local-h">
         <div className="box-head">

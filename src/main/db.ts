@@ -8,7 +8,7 @@ import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUIL
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import { DEFAULT_HEADS, HEAD_IDS } from '@shared/heads'
-import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
+import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -26,7 +26,8 @@ export const DEFAULT_ORG = 'default'
 const GLOBAL_SETTING = (key: string): boolean =>
   key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') || key.startsWith('telegram:') ||
   key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom' ||
-  key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent'
+  key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent' ||
+  key === 'pref:defaultProvider' || key === 'pref:defaultModel' || key === 'onboarded'
 
 const orgFile = (id: string): string =>
   id === DEFAULT_ORG ? join(app.getPath('userData'), 'tyslin.db') : join(app.getPath('userData'), 'orgs', `${id}.db`)
@@ -342,6 +343,17 @@ export function getProject(id: string): Project | null {
   return (db.prepare('SELECT id, name, folder, created_at AS createdAt FROM projects WHERE id = ?').get(id) as Project | undefined) ?? null
 }
 
+export function renameProject(id: string, name: string): void {
+  const clean = name.trim().slice(0, 80)
+  if (!clean) throw new Error('Give the project a name.')
+  db.prepare('UPDATE projects SET name = ? WHERE id = ?').run(clean, id)
+}
+
+/** Points an agent at another provider and model (used to keep the Studio assistant on the default model). */
+export function setAgentModel(id: string, provider: ProviderId, model: string): void {
+  db.prepare('UPDATE agents SET provider = ?, model = ?, updated_at = ? WHERE id = ?').run(provider, model, Date.now(), id)
+}
+
 export function createProject(name: string, folder: string | null): Project {
   const p: Project = { id: randomUUID(), name, folder, createdAt: Date.now() }
   db.prepare('INSERT INTO projects (id, name, folder, created_at) VALUES (?, ?, ?, ?)').run(p.id, p.name, p.folder, p.createdAt)
@@ -573,6 +585,8 @@ export function expireStaleChanges(): void {
   db.prepare("UPDATE pending_changes SET status = 'expired' WHERE status = 'pending'").run()
 }
 
+const PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
+
 export function getPrefs(): Preferences {
   return {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
@@ -581,7 +595,9 @@ export function getPrefs(): Preferences {
     zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1)),
     iconStyle: getSetting('pref:iconStyle') === 'bold' ? 'bold' : 'outline',
     railLabels: getSetting('pref:railLabels') === '1',
-    accent: (['forest', 'mono', 'org'] as const).find((a) => a === getSetting('pref:accent')) ?? 'lime'
+    accent: (['forest', 'mono', 'org'] as const).find((a) => a === getSetting('pref:accent')) ?? 'lime',
+    defaultProvider: PROVIDERS.find((x) => x === getSetting('pref:defaultProvider')) ?? null,
+    defaultModel: getSetting('pref:defaultModel') ?? ''
   }
 }
 
@@ -593,6 +609,12 @@ export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.iconStyle === 'outline' || p.iconStyle === 'bold') setSetting('pref:iconStyle', p.iconStyle)
   if (typeof p.railLabels === 'boolean') setSetting('pref:railLabels', p.railLabels ? '1' : '0')
   if (p.accent && ['lime', 'forest', 'mono', 'org'].includes(p.accent)) setSetting('pref:accent', p.accent)
+  if (p.defaultProvider && PROVIDERS.includes(p.defaultProvider)) {
+    const model = (p.defaultModel ?? '').trim().slice(0, 120)
+    if (!model) throw new Error('Pick a model.')
+    setSetting('pref:defaultProvider', p.defaultProvider)
+    setSetting('pref:defaultModel', model)
+  }
   return getPrefs()
 }
 

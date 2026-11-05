@@ -23,6 +23,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
  */
 export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Element {
   const [defaultId, setDefaultId] = useState<string | null>(null)
+  const [defaultName, setDefaultName] = useState('Default project')
   const [projectId, setProjectId] = useState<string | null>(null)
   const [dir, setDir] = useState('')
   const [listing, setListing] = useState<DriveListing | null>(null)
@@ -36,7 +37,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
-  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDefaultId(p.id)) }, [])
+  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => { setDefaultId(p.id); setDefaultName(p.name) }) }, [])
   const load = (): void => {
     setError(null)
     window.tyslin.drive.list(projectId, dir, hidden).then(setListing).catch((e) => { setListing(null); setError(errorText(e)) })
@@ -47,7 +48,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     if (sel && !sel.isDir) void window.tyslin.drive.preview(projectId, sel.path).then(setPreview).catch(() => setPreview({ kind: 'none', note: 'Could not read this file.' }))
   }, [sel?.path])
 
-  const roots = [{ id: null as string | null, name: 'Default project' }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
+  const roots = [{ id: null as string | null, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
   const crumbs = dir ? dir.split('/') : []
   const shown = useMemo(() => {
     const list = (listing?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase()))

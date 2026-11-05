@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { Agent, Project, StudioFile, WorkflowDoc, WorkflowProgress, WorkflowStep } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { DEFAULT_MODEL_AGENT } from '@shared/models'
+import { modelLabel, useDefaultModel } from '../defaultModel'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 
 interface Props {
@@ -15,11 +17,16 @@ interface Props {
 const uid = (): string => Math.random().toString(36).slice(2, 10)
 
 /** Agents and assistants, grouped. */
+/** Picks who does the work: the default model (first), an agent or an assistant. */
 export function AgentSelect({ agents, value, onChange, label }: { agents: Agent[]; value: string; onChange: (id: string) => void; label?: string }): JSX.Element {
+  const d = useDefaultModel()
+  // The Studio assistant is what "Default model" runs on, so it isn't listed twice.
+  const shown = agents.filter((a) => a.id !== d?.assistantId)
   return (
     <select className="select" value={value} aria-label={label ?? 'Agent or assistant'} onChange={(e) => onChange(e.target.value)}>
-      <optgroup label="Agents">{agents.filter((a) => a.kind === 'agent').map((a) => <option key={a.id} value={a.id}>{a.name}{a.paused ? ' (paused)' : ''}</option>)}</optgroup>
-      <optgroup label="Assistants">{agents.filter((a) => a.kind === 'assistant').map((a) => <option key={a.id} value={a.id}>{a.name}{a.paused ? ' (paused)' : ''}</option>)}</optgroup>
+      <option value={DEFAULT_MODEL_AGENT}>Default model{d ? ` (${modelLabel(d)})` : ''}</option>
+      <optgroup label="Agents">{shown.filter((a) => a.kind === 'agent').map((a) => <option key={a.id} value={a.id}>{a.name}{a.paused ? ' (paused)' : ''}</option>)}</optgroup>
+      <optgroup label="Assistants">{shown.filter((a) => a.kind === 'assistant').map((a) => <option key={a.id} value={a.id}>{a.name}{a.paused ? ' (paused)' : ''}</option>)}</optgroup>
     </select>
   )
 }
@@ -28,6 +35,7 @@ interface StepRun { status: WorkflowProgress['status'] | 'waiting'; output?: str
 
 /** Workflows: a brief and steps; each step is an agent with an instruction, fed the step before it. */
 export function WorkflowsPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
+  const dm = useDefaultModel()
   const [projectId, setProjectId] = useState<string | null>(null)
   const [file, setFile] = useState<StudioFile | null>(null)
   const [doc, setDoc] = useState<WorkflowDoc | null>(null)
@@ -61,8 +69,7 @@ export function WorkflowsPage({ agents, projects, onOpenChat, initial }: Props):
     void open({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
   const create = async (name: string): Promise<void> => {
-    const first = agents.find((a) => a.kind === 'agent' && !a.isMascot) ?? agents[0]
-    const d: WorkflowDoc = { version: 1, brief: '', steps: [{ id: uid(), agentId: first?.id ?? '', instruction: '' }] }
+    const d: WorkflowDoc = { version: 1, brief: '', steps: [{ id: uid(), agentId: DEFAULT_MODEL_AGENT, instruction: '' }] }
     const f = await window.tyslin.studio.write(projectId, { kind: 'workflow', name }, JSON.stringify(d, null, 2))
     setRefresh((x) => x + 1)
     setFile(f); setDoc(d); setDirty(false); setSteps([]); setResult(null); setLogs([])
@@ -126,7 +133,7 @@ export function WorkflowsPage({ agents, projects, onOpenChat, initial }: Props):
                     placeholder="What the workflow starts from: a goal, a topic, notes or a link to a file in the project." />
                 </label>
                 {doc.steps.map((s, i) => {
-                  const a = agents.find((x) => x.id === s.agentId)
+                  const a = agents.find((x) => x.id === (s.agentId === DEFAULT_MODEL_AGENT ? dm?.assistantId : s.agentId))
                   const r = steps[i]
                   return (
                     <div key={s.id} className={'wf-step' + (r ? ' ' + r.status : '')}>
@@ -151,7 +158,7 @@ export function WorkflowsPage({ agents, projects, onOpenChat, initial }: Props):
                     </div>
                   )
                 })}
-                <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => edit((d) => ({ ...d, steps: [...d.steps, { id: uid(), agentId: d.steps[d.steps.length - 1]?.agentId ?? agents[0]?.id ?? '', instruction: '' }] }))}>
+                <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} onClick={() => edit((d) => ({ ...d, steps: [...d.steps, { id: uid(), agentId: d.steps[d.steps.length - 1]?.agentId ?? DEFAULT_MODEL_AGENT, instruction: '' }] }))}>
                   <Icon name="plus" size={12} /> Add step
                 </button>
               </div>

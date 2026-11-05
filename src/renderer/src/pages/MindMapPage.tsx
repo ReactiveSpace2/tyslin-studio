@@ -3,6 +3,7 @@ import type { Agent, MindMapDoc, MindNode, Project, StudioFile } from '@shared/t
 import { Icon } from '../components/Icon'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { AgentSelect } from './WorkflowsPage'
+import { DEFAULT_MODEL_AGENT } from '@shared/models'
 
 interface Props {
   agents: Agent[]
@@ -52,7 +53,7 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
   const [editing, setEditing] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   const [zoom, setZoom] = useState(1)
-  const [agentId, setAgentId] = useState<string>(agents.find((a) => a.kind === 'assistant')?.id ?? agents[0]?.id ?? '')
+  const [agentId, setAgentId] = useState<string>(DEFAULT_MODEL_AGENT)
   const [topic, setTopic] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
