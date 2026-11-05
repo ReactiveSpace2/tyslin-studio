@@ -1128,3 +1128,23 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .nt-blank { flex-direction: column; }
 .nt-choose { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .modal.nt-modal.nt-small { width: 900px; }
+
+/* Agents list as a tree (pages/AgentsHub.tsx) and the assistants list (pages/AgentsPage.tsx) */
+.at-tree { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.at-tree .at-who { flex: 1; min-width: 0; }
+.at-caret { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--muted); cursor: pointer; transform: rotate(-90deg); transition: transform .12s; }
+.at-caret.open { transform: none; }
+.at-caret:hover { color: var(--ink); border-color: var(--line-strong); }
+.at-caret-space { width: 24px; flex: none; }
+.at-branch { width: 24px; height: 28px; flex: none; position: relative; }
+.at-branch::before { content: ''; position: absolute; left: 11px; top: -16px; bottom: 50%; border-left: 1.5px solid var(--line-strong); }
+.at-branch::after { content: ''; position: absolute; left: 11px; right: 2px; top: 50%; border-top: 1.5px solid var(--line-strong); }
+.at-lead { background: var(--parchment); }
+.at-child { background: var(--card); }
+.at-team { font-style: normal; font-family: var(--mono); font-size: 10.5px; font-weight: 500; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--lime-soft); color: var(--green); vertical-align: middle; }
+.at-count { font-style: normal; font-size: 11px; font-weight: 400; margin-left: 8px; color: var(--muted); }
+.as-table .at-row { grid-template-columns: minmax(0, 2.6fr) minmax(0, 1.6fr) 60px 150px; }
+@media (prefers-reduced-motion: reduce) { .at-caret { transition: none; } }
+.agent-table:not(.as-table) .at-row { grid-template-columns: 40px minmax(0, 3.2fr) minmax(0, 1.7fr) minmax(0, .9fr) 56px 140px; }
+.at-who strong { display: flex; align-items: center; flex-wrap: nowrap; min-width: 0; white-space: nowrap; }
+.at-team, .at-count { flex: none; }

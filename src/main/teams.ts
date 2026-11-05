@@ -74,7 +74,9 @@ export function ensureDefaultTeam(): boolean {
   try {
     const project = defaultProject()
     const atlas = db.listAgents().find((a) => a.name === 'Atlas' && a.kind === 'agent')
-    if (atlas && !atlas.projectId) db.saveAgent({ ...atlas, projectId: project.id, leadId: null })
+    // Atlas joins the Default project on the default model, like every other agent made there.
+    const m = defaultModel()
+    if (atlas && !atlas.projectId) db.saveAgent({ ...atlas, projectId: project.id, leadId: null, ...(atlas.engine === 'builtin' ? { provider: m.provider, model: m.model } : {}) })
     if (!db.teamsInUse().some((u) => u.team === 'engineering')) createTeam({ templateId: 'engineering', projectId: project.id, onTheirOwn: true, askBeforeWrite: true })
     return true
   } catch (e) {

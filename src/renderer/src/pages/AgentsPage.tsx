@@ -24,7 +24,7 @@ const COPY = {
   }
 } as const
 
-/** List page for agents or for assistants (same cards, different filters and copy). */
+/** List page for assistants (a table; agents use AgentsHub). */
 export function AgentsPage({ kind, agents, onChat, onEdit, onNew }: Props): JSX.Element {
   const c = COPY[kind]
   const [q, setQ] = useState('')
@@ -73,35 +73,28 @@ export function AgentsPage({ kind, agents, onChat, onEdit, onNew }: Props): JSX.
         ))}
       </div>
 
-      <div className="grid">
+      <div className="agent-table as-table" role="table" aria-label={c.title}>
+        <div className="at-row at-head" role="row">
+          <span role="columnheader">{kind === 'assistant' ? 'Assistant' : 'Agent'}</span><span role="columnheader">Runs on</span>
+          <span role="columnheader">Skills</span><span role="columnheader"><span className="sr-only">Actions</span></span>
+        </div>
         {shown.map((a) => (
-          <article key={a.id} className="card">
-            <div className="card-top">
-              <div className="avatar-tile">
-                <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} />
-              </div>
-              {a.isMascot ? <span className="badge green">Built-in</span> : a.schedule !== 'manual' ? <span className="badge green">{a.schedule}</span> : null}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <h2>{a.name}</h2>
-              <p>{a.description}</p>
-            </div>
-            <div className="card-foot">
-              <span className="runs-on-line" title={a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : `Runs on ${runsOnLabel(a)}`}>
-                <RunsOnBadge agent={a} />
-                <span className="mono">{a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : `Runs on ${runsOnLabel(a)}`}</span>
-              </span>
-              <div className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
-                <button type="button" className="btn btn-sm" onClick={() => onEdit(a)}>Edit</button>
-                <button type="button" className="btn btn-sm btn-lime" onClick={() => onChat(a)}>Chat</button>
-              </div>
-            </div>
-          </article>
+          <div key={a.id} className="at-row" role="row">
+            <button type="button" role="cell" className="at-who" onClick={() => onEdit(a)}>
+              <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={34} />
+              <span><strong>{a.name}</strong><span>{a.description}</span></span>
+            </button>
+            <span role="cell" className="at-runs" title={a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : `Runs on ${runsOnLabel(a)}`}>
+              <RunsOnBadge agent={a} size={20} />{a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : runsOnLabel(a)}
+            </span>
+            <span role="cell" className="mono at-muted">{a.skills.length}</span>
+            <span role="cell" className="row" style={{ flexWrap: 'nowrap', gap: 6, justifyContent: 'flex-end' }}>
+              <button type="button" className="btn btn-sm" onClick={() => onEdit(a)}>Edit</button>
+              <button type="button" className="btn btn-sm btn-lime" onClick={() => onChat(a)}>Chat</button>
+            </span>
+          </div>
         ))}
-        <button type="button" className="add-card" onClick={onNew}>
-          <Icon name="plus" size={28} />
-          {c.add}
-        </button>
+        {shown.length === 0 && <p className="hint" style={{ padding: 16 }}>{agents.some(inWs) ? `No ${c.noun}s match.` : `No ${c.noun}s in this project yet. Use New ${c.noun} to add a ready-made one or write your own.`}</p>}
       </div>
     </div>
   )

@@ -35,7 +35,8 @@ Everything runs on your computer. Agents, chats, projects and skills live in a l
 - **Light and dark theme:** Settings → Appearance offers System (follows your computer), Light and Dark. The choice is saved and applies straight away.
 - **Accent, organization colours and icons:** Settings → Appearance also sets the accent colour (Lime, Forest, Monochrome, or each organization's own colour), a colour per organization (lime, teal, amber, coral or violet; shown on the switcher), outline or bold icons, and optional names under the menu icons.
 - **Zoom:** 70% to 150%, from the slider at the top right of the title bar, Settings → Appearance, or Ctrl/⌘ + and − (Ctrl/⌘ 0 resets). Saved for this computer.
-- **Agents page:** a list (status, runs on, project, last active, tasks; pin favourites), cards, or an **org chart per project**: You at the top, each agent under its lead, set by drag and drop or a "Reports to" menu, with a tray of agents that have no project yet. Each agent works in one project; a lead's instructions include its team, and every agent knows who it reports to. Status is live: Working, Ready, Needs setup (no key, engine not installed) or Last run failed, with the reason on hover.
+- **Agents page:** a list (the default) as a tree: each lead with a ▾ to collapse its reports, department team leads tagged with their team ("Engineering team"); status, runs on, last active, tasks, pins; flat while searching or filtering. Or an **org chart** for the selected project: You at the top, each agent under its lead, set by drag and drop or a "Reports to" menu, with a tray of agents that have no project yet. Each agent works in one project; a lead's instructions include its team, and every agent knows who it reports to. Status is live: Working, Ready, Needs setup (no key, engine not installed) or Last run failed, with the reason on hover.
+- **Assistants page:** a list (name, runs on, skills, Edit and Chat). No card view.
 - **Agent heads:** agents and assistants wear one of 20 Tyslin mascot heads (smile, gears, chart, globe, lightbulb and more), picked in New agent and on the agent page; the simple robot shapes are still there as an option. The starter agents and assistants come with heads that match their jobs.
 - **New agent:** six short steps (Basics, Runs on, Instructions, Skills, Access, Test & finish). Runs on shows which models have a key and which engines are installed; the test sends one real message (or checks the engine starts) before you create it.
 - **Agent page:** status and actions (Chat, Give it a task, Pause/Resume, Delete), and sections for Overview, Instructions, Skills, Runs on (with Test), Project & access (move project, reports to, file changes, read/change files), Channels, Tasks and Activity, with one Save bar for edits. A paused agent doesn't chat, answer on Telegram or run tasks.
@@ -158,7 +159,7 @@ src/
   preload/     safe bridge exposing window.tyslin to the UI
   renderer/    React UI
     components/  TitleBar, Sidebar (icon rail and chat panel), TitleBar with OrgSwitcher, StatusBar, avatars, icons, dialogs
-    pages/       Home (with components/Activity, the former Dashboard), Agents (AgentsHub: list, cards, org chart), AgentPage, Assistants list and editor, Chat, Tasks, Connectors, Skills, Settings
+    pages/       Home (with components/Activity, the former Dashboard), Agents (AgentsHub: tree list, org chart; Assistants is a list in AgentsPage), AgentPage, Assistants list and editor, Chat, Tasks, Connectors, Skills, Settings
                  (Models, Agent engines, Agents, Appearance, Account, About & updates), ComingSoon placeholders
   shared/      types shared by all three, plus diff.ts (hunk split and apply, used by main and UI)
 resources/     app icon and brand files

@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useListed } from '../currentProject'
+import { TEAM_TEMPLATES } from '@shared/teams'
+
+const TEAM_NAMES: Record<string, string> = Object.fromEntries(TEAM_TEMPLATES.map((t) => [t.id, t.name]))
 import type { Agent, AgentStatus, Project } from '@shared/types'
 import { useAgentStatuses } from '../agentStatus'
 import { Avatar } from '../components/Avatar'
@@ -8,7 +11,7 @@ import { OrgChart } from '../components/OrgChart'
 import { RunsOnBadge, runsOnLabel } from '../components/RunsOnBadge'
 import { StatusPill } from '../components/StatusPill'
 
-type View = 'list' | 'cards' | 'org'
+type View = 'list' | 'org'
 type Tab = 'all' | 'working' | 'setup' | 'scheduled'
 
 interface Props {
@@ -43,7 +46,15 @@ const TABS: [Tab, string, (s?: AgentStatus) => boolean][] = [
 /** All agents: status at a glance, as a list, cards or the per-project org chart. */
 export function AgentsHub({ agents, projects, you, onOpen, onChat, onNew, onNewProject, onChanged }: Props): JSX.Element {
   const statuses = useAgentStatuses()
-  const [view, setView] = useState<View>(() => { try { return (localStorage.getItem('agents:view') as View) || 'list' } catch { return 'list' } })
+  // List by default; the org chart when picked. (Cards were removed.)
+  const [view, setView] = useState<View>(() => { try { return localStorage.getItem('agents:view') === 'org' ? 'org' : 'list' } catch { return 'list' } })
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem('agents:collapsed') || '[]') as string[]) } catch { return new Set() } })
+  const toggle = (id: string): void => setCollapsed((c) => {
+    const n = new Set(c)
+    if (n.has(id)) n.delete(id); else n.add(id)
+    try { localStorage.setItem('agents:collapsed', JSON.stringify([...n])) } catch { /* not kept */ }
+    return n
+  })
   const [tab, setTab] = useState<Tab>('all')
   const [q, setQ] = useState('')
   const pick = (v: View): void => { setView(v); try { localStorage.setItem('agents:view', v) } catch { /* not saved */ } }
@@ -51,13 +62,30 @@ export function AgentsHub({ agents, projects, you, onOpen, onChat, onNew, onNewP
   // Projects are workspaces: the list shows the selected project's agents (and Builder).
   const listed = useListed()
   const list = agents.filter((a) => a.kind === 'agent' && listed(a))
-  const projectName = (a: Agent): string => (a.isMascot ? 'Every project' : projects.find((p) => p.id === a.projectId)?.name ?? '—')
   const shown = useMemo(() => {
     const f = TABS.find((t) => t[0] === tab)![2]
     return list
       .filter((a) => f(statuses.get(a.id)) && (!q || (a.name + ' ' + a.description).toLowerCase().includes(q.toLowerCase())))
       .sort((x, y) => Number(y.isMascot) - Number(x.isMascot) || Number(y.pinned) - Number(x.pinned))
   }, [list, tab, q, statuses])
+
+  /** Rows for the list: each lead with its reports underneath (collapsible); flat while searching or filtering. */
+  const rows = useMemo(() => {
+    const flat = tab !== 'all' || q.trim() !== ''
+    if (flat) return shown.map((a) => ({ a, depth: 0, kids: 0, teamName: '' }))
+    const ids = new Set(shown.map((a) => a.id))
+    const kidsOf = (id: string): Agent[] => shown.filter((x) => x.leadId === id)
+    const out: { a: Agent; depth: number; kids: number; teamName: string }[] = []
+    const walk = (a: Agent, depth: number): void => {
+      const kids = kidsOf(a.id)
+      // A department team's lead shows the team's name.
+      const teamName = a.team && kids.some((k) => k.team === a.team) ? `${TEAM_NAMES[a.team] ?? a.team} team` : ''
+      out.push({ a, depth, kids: kids.length, teamName })
+      if (kids.length && !collapsed.has(a.id)) for (const k of kids) walk(k, depth + 1)
+    }
+    for (const a of shown.filter((x) => !x.leadId || !ids.has(x.leadId))) walk(a, 0)
+    return out
+  }, [shown, tab, q, collapsed])
 
   const togglePin = async (a: Agent): Promise<void> => {
     await window.tyslin.agents.save({ ...a, pinned: !a.pinned })
@@ -81,7 +109,7 @@ export function AgentsHub({ agents, projects, you, onOpen, onChat, onNew, onNewP
             </label>
           )}
           <div className="seg" role="group" aria-label="View">
-            {([['list', 'List', 'filter'], ['cards', 'Cards', 'grid'], ['org', 'Org chart', 'workflow']] as const).map(([id, label, icon]) => (
+            {([['list', 'List', 'filter'], ['org', 'Org chart', 'workflow']] as const).map(([id, label, icon]) => (
               <button key={id} type="button" className={view === id ? 'on' : ''} aria-pressed={view === id} onClick={() => pick(id)}>
                 <Icon name={icon} size={14} /> {label}
               </button>
@@ -103,61 +131,44 @@ export function AgentsHub({ agents, projects, you, onOpen, onChat, onNew, onNewP
             ))}
           </div>
 
-          {view === 'list' ? (
-            <div className="agent-table" role="table" aria-label="Agents">
-              <div className="at-row at-head" role="row">
-                <span role="columnheader"><span className="sr-only">Pinned</span></span><span role="columnheader">Agent</span><span role="columnheader">Runs on</span>
-                <span role="columnheader">Project</span><span role="columnheader">Last active</span><span role="columnheader">Tasks</span><span role="columnheader">Status</span>
-              </div>
-              {shown.map((a) => {
-                const st = statuses.get(a.id)
-                return (
-                  <div key={a.id} className="at-row" role="row">
-                    <span role="cell">
-                      {!a.isMascot && (
-                        <button type="button" className={'pin' + (a.pinned ? ' on' : '')} aria-pressed={a.pinned} aria-label={a.pinned ? `Unpin ${a.name}` : `Pin ${a.name}`} onClick={() => void togglePin(a)}>
-                          <Icon name="star" size={15} />
-                        </button>
-                      )}
-                    </span>
-                    <button type="button" role="cell" className="at-who" onClick={() => onOpen(a)}>
-                      <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={34} />
-                      <span><strong>{a.name}</strong><span>{a.description}</span></span>
+          <div className="agent-table" role="treegrid" aria-label="Agents">
+            <div className="at-row at-head" role="row">
+              <span role="columnheader"><span className="sr-only">Pinned</span></span><span role="columnheader">Agent</span><span role="columnheader">Runs on</span>
+              <span role="columnheader">Last active</span><span role="columnheader">Tasks</span><span role="columnheader">Status</span>
+            </div>
+            {rows.map(({ a, depth, kids, teamName }) => {
+              const st = statuses.get(a.id)
+              const open = !collapsed.has(a.id)
+              return (
+                <div key={a.id} className={'at-row' + (depth ? ' at-child' : '') + (kids ? ' at-lead' : '')} role="row" aria-level={depth + 1} aria-expanded={kids ? open : undefined}>
+                  <span role="cell">
+                    <button type="button" className={'pin' + (a.pinned ? ' on' : '')} aria-pressed={a.pinned} aria-label={a.pinned ? `Unpin ${a.name}` : `Pin ${a.name}`} onClick={() => void togglePin(a)}>
+                      <Icon name="star" size={15} />
                     </button>
-                    <span role="cell" className="at-runs"><RunsOnBadge agent={a} size={20} />{a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : runsOnLabel(a)}</span>
-                    <span role="cell" className="at-muted">{projectName(a)}</span>
-                    <span role="cell" className="at-muted">{ago(st?.lastActive ?? null)}</span>
-                    <span role="cell" className="mono at-muted">{st?.tasks ?? 0}</span>
-                    <span role="cell"><StatusPill status={st} /></span>
-                  </div>
-                )
-              })}
-              {shown.length === 0 && <p className="hint" style={{ padding: 16 }}>No agents match.</p>}
-            </div>
-          ) : (
-            <div className="grid">
-              {shown.map((a) => (
-                <article key={a.id} className="card">
-                  <div className="card-top">
-                    <div className="avatar-tile"><Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} /></div>
-                    <StatusPill status={statuses.get(a.id)} />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <h2>{a.name}</h2>
-                    <p>{a.description}</p>
-                  </div>
-                  <div className="card-foot">
-                    <span className="runs-on-line"><RunsOnBadge agent={a} /><span className="mono">{projectName(a)}</span></span>
-                    <div className="row" style={{ flexWrap: 'nowrap', gap: 6 }}>
-                      <button type="button" className="btn btn-sm" onClick={() => onOpen(a)}>Open</button>
-                      <button type="button" className="btn btn-sm btn-lime" onClick={() => onChat(a)}>Chat</button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-              <button type="button" className="add-card" onClick={onNew}><Icon name="plus" size={28} />Build a new agent</button>
-            </div>
-          )}
+                  </span>
+                  <span role="cell" className="at-tree" style={{ paddingLeft: depth * 28 }}>
+                    {kids ? (
+                      <button type="button" className={'at-caret' + (open ? ' open' : '')} aria-label={`${open ? 'Collapse' : 'Expand'} ${a.name}'s team`} onClick={() => toggle(a.id)}>
+                        <Icon name="arrowDown" size={12} />
+                      </button>
+                    ) : depth ? <span className="at-branch" aria-hidden="true" /> : <span className="at-caret-space" aria-hidden="true" />}
+                    <button type="button" className="at-who" onClick={() => onOpen(a)}>
+                      <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={34} />
+                      <span>
+                        <strong>{a.name}{teamName && <em className="at-team">{teamName}</em>}{kids ? <em className="at-count">{kids} {kids === 1 ? 'report' : 'reports'}</em> : null}</strong>
+                        <span>{a.description}</span>
+                      </span>
+                    </button>
+                  </span>
+                  <span role="cell" className="at-runs"><RunsOnBadge agent={a} size={20} />{a.engine === 'builtin' ? `${runsOnLabel(a)} · ${a.model}` : runsOnLabel(a)}</span>
+                  <span role="cell" className="at-muted">{ago(st?.lastActive ?? null)}</span>
+                  <span role="cell" className="mono at-muted">{st?.tasks ?? 0}</span>
+                  <span role="cell"><StatusPill status={st} /></span>
+                </div>
+              )
+            })}
+            {rows.length === 0 && <p className="hint" style={{ padding: 16 }}>{list.length ? 'No agents match.' : 'No agents in this project yet. Use New agent to add a ready-made one, a team or your own.'}</p>}
+          </div>
         </>
       )}
     </div>
