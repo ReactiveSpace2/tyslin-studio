@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { Agent, Project } from '@shared/types'
 import type { Route } from '../App'
 import mark from '../assets/logo-mark.png'
-import { ZoomControl } from './ZoomControl'
 import { GitHubStars } from './GitHubStars'
 import { OrgSwitcher } from './OrgSwitcher'
 import { ProjectSwitcher } from './ProjectSwitcher'
@@ -16,6 +15,7 @@ interface Props {
   onNewOrg: () => void
   onNewProject: () => void
   onOpenProjectChats: () => void
+  onHome: () => void
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
@@ -37,8 +37,8 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
   return TITLES[route.name] ?? ''
 }
 
-/** The window's title bar: Tyslin mark and wordmark, then the organization and project switchers and zoom. Empty space drags the window. */
-export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats }: Props): JSX.Element {
+/** The window's title bar: Organization / Project at the left, the Tyslin logo in the middle (opens Home) with the GitHub stars. Empty space drags the window. */
+export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats, onHome }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
 
@@ -48,18 +48,20 @@ export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOp
 
   return (
     <header className={'titlebar' + (mac ? ' mac' : '')}>
-      <div className="titlebar-side">
-        <img className="titlebar-logo" src={mark} alt="" />
-        <img className="titlebar-wordmark light-only" src={wordmarkBlack} alt="Tyslin" />
-        <img className="titlebar-wordmark dark-only" src={wordmarkWhite} alt="Tyslin" />
-        <GitHubStars compact />
-      </div>
-      <div className="titlebar-main">
+      <div className="titlebar-left">
         <OrgSwitcher onNewOrg={onNewOrg} />
         <span className="titlebar-slash" aria-hidden="true">/</span>
         <ProjectSwitcher projects={projects} onNewProject={onNewProject} onOpenChats={onOpenProjectChats} />
-        <ZoomControl compact />
       </div>
+      <div className="titlebar-center">
+        <button type="button" className={'titlebar-home' + (route.name === 'home' ? ' on' : '')} onClick={onHome} aria-label="Home" title="Home" aria-current={route.name === 'home' ? 'page' : undefined}>
+          <img className="titlebar-logo" src={mark} alt="" />
+          <img className="titlebar-wordmark light-only" src={wordmarkBlack} alt="" />
+          <img className="titlebar-wordmark dark-only" src={wordmarkWhite} alt="" />
+        </button>
+        <GitHubStars compact />
+      </div>
+      <div className="titlebar-right" />
     </header>
   )
 }

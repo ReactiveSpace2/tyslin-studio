@@ -152,6 +152,7 @@ export default function App(): JSX.Element {
         projects={projects}
         onNewOrg={() => setNewOrg(true)}
         onNewProject={() => setNewProject(true)}
+        onHome={() => setRoute({ name: 'home' })}
         onOpenProjectChats={() => {
           // The selected project's chats, in the projects side panel (its latest chat, or Builder there).
           const pid = currentProject ?? projects[0]?.id

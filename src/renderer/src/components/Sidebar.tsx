@@ -136,7 +136,6 @@ export function Sidebar(props: Props): JSX.Element {
           as small headings when menu labels are on, and in every button's tooltip. Projects live in the
           title bar's project switcher. */}
       <nav className="rail" aria-label="Main">
-        {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }), 'Overview')}
         {group('Team')}
         {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'), 'Team')}
         {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'), 'Team')}

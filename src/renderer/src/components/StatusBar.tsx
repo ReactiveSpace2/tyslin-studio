@@ -6,6 +6,7 @@ import type { Route } from '../App'
 import { updateTask, useTasks } from '../activity'
 import { Icon } from './Icon'
 import { useGDrive } from './GoogleDrive'
+import { ZoomControl } from './ZoomControl'
 
 interface Props {
   route: Route
@@ -49,7 +50,7 @@ const elapsed = (from: number, now: number): string => {
 }
 
 /**
- * Bottom bar: everything running (replies, installs,
+ * Bottom bar: Drive and the zoom slider at the left, then everything running (replies, installs,
  * update downloads) with a list on click, file changes waiting for review, the default model (and whether its key is saved),
  * and the app version or a pending update. Everything here is live.
  */
@@ -162,6 +163,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
           Drive
           {gd?.connected && <span className={'status-sync' + (gd.syncing ? ' busy' : gd.lastError ? ' bad' : '')} aria-hidden="true" />}
         </button>
+        <ZoomControl compact />
         {items.length > 0 && (
           <div className="running" ref={menuRef}>
             <button type="button" className="status-item status-btn status-busy" aria-haspopup="dialog" aria-expanded={open}
