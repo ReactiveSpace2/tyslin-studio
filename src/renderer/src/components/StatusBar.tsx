@@ -6,6 +6,7 @@ import type { Route } from '../App'
 import { updateTask, useTasks } from '../activity'
 import { Icon } from './Icon'
 import { OrgSwitcher } from './OrgSwitcher'
+import { useGDrive } from './GoogleDrive'
 
 interface Props {
   route: Route
@@ -56,6 +57,10 @@ const elapsed = (from: number, now: number): string => {
  */
 export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onNewOrg }: Props): JSX.Element {
   const dm = useDefaultModel()
+  const gd = useGDrive()
+  const gdStart = useRef<number | null>(null)
+  if (gd?.syncing && gdStart.current === null) gdStart.current = Date.now()
+  if (!gd?.syncing) gdStart.current = null
   const [pending, setPending] = useState(0)
   const [update, setUpdate] = useState<UpdateStatus | null>(null)
   const [version, setVersion] = useState('')
@@ -122,6 +127,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onN
       return { id: r.runId, title: a?.name ?? 'Agent', detail: r.step, startedAt: r.startedAt, run: r }
     }),
     ...tasks.map((t) => ({ id: t.id, title: t.title, detail: t.detail ?? 'Working', startedAt: t.startedAt })),
+    ...(gd?.syncing ? [{ id: 'gdrive', title: 'Google Drive', detail: `Syncing ${gd.current ?? ''}`, startedAt: gdStart.current ?? now }] : []),
     ...(update?.state === 'downloading'
       ? [{ id: 'update', title: `Downloading v${update.version ?? ''}`, detail: 'App update', startedAt: now, percent: update.percent ?? 0 }]
       : [])

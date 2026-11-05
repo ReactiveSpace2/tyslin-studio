@@ -20,7 +20,7 @@ interface Props {
   onDelete: (f: StudioFile) => void
 }
 
-const ICON: Record<StudioKind, IconName> = { mindmap: 'mindmap', automation: 'workflow', run: 'workflow', canvas: 'canvas', document: 'file', svg: 'art', png: 'art' }
+const ICON: Record<StudioKind, IconName> = { mindmap: 'mindmap', automation: 'workflow', run: 'workflow', canvas: 'canvas', board: 'kanban', document: 'file', svg: 'art', png: 'art' }
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 

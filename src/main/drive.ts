@@ -34,6 +34,7 @@ const toRel = (folder: string, abs: string): string => relative(folder, abs).spl
 function kindOf(name: string, isDir: boolean): DriveKind {
   if (isDir) return 'folder'
   if (name.endsWith('.mindmap.json')) return 'mindmap'
+  if (name.endsWith('.board.json')) return 'board'
   if (name.endsWith('.automation.json')) return 'automation'
   if (name.endsWith('.canvas.json')) return 'canvas'
   const ext = extname(name).toLowerCase()

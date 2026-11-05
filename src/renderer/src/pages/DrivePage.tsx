@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DriveEntry, DriveKind, DriveListing, DrivePreview, Project } from '@shared/types'
+import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 
 type IconName = Parameters<typeof Icon>[0]['name']
@@ -8,11 +9,11 @@ interface Props {
   projects: Project[]
   onNewProject: () => void
   /** Open a mind map, automation or Canvas design in its own screen. */
-  onOpenIn: (screen: 'mindmap' | 'automation' | 'canvas', projectId: string, path: string) => void
+  onOpenIn: (screen: 'mindmap' | 'automation' | 'canvas' | 'kanban', projectId: string, path: string) => void
 }
 
-const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', automation: 'workflow', canvas: 'canvas', image: 'art', text: 'file', file: 'file' }
-const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', automation: 'Automation', canvas: 'Canvas design', image: 'Image', text: 'Text', file: 'File' }
+const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', automation: 'workflow', canvas: 'canvas', board: 'kanban', image: 'art', text: 'file', file: 'file' }
+const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', automation: 'Automation', canvas: 'Canvas design', board: 'Kanban board', image: 'Image', text: 'Text', file: 'File' }
 const size = (n: number): string => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`)
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
@@ -24,6 +25,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Element {
   const [defaultId, setDefaultId] = useState<string | null>(null)
   const [defaultName, setDefaultName] = useState('Default project')
+  const gd = useGDrive()
   const [projectId, setProjectId] = useState<string | null>(null)
   const [dir, setDir] = useState('')
   const [listing, setListing] = useState<DriveListing | null>(null)
@@ -67,6 +69,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     const pid = listing?.projectId
     if (!pid) return
     if (e.kind === 'mindmap') return onOpenIn('mindmap', pid, e.path)
+    if (e.kind === 'board') return onOpenIn('kanban', pid, e.path)
     if (e.kind === 'automation') return onOpenIn('automation', pid, e.path)
     if (e.kind === 'canvas') return onOpenIn('canvas', pid, e.path)
     void window.tyslin.drive.open(projectId, e.path)
@@ -104,9 +107,11 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
           <button key={r.id ?? 'default'} type="button" className={'panel-item panel-agent' + (projectId === r.id ? ' active' : '')} aria-current={projectId === r.id ? 'page' : undefined}
             title={r.name} onClick={() => { setProjectId(r.id); go('') }}>
             <span className="panel-folder"><Icon name={r.id === null ? 'drive' : 'folder'} /></span>
-            <span className="panel-label">{r.name}</span>
+            <span className="panel-label">{r.name}{syncNote(gd, r.id, defaultId) && <small className="gd-row">{syncNote(gd, r.id, defaultId)}</small>}</span>
           </button>
         ))}
+        <div style={{ marginTop: 'auto' }} />
+        <GoogleDriveCard />
         <p className="hint panel-note">Each project's folder on this computer. Mind maps, automations and Canvas designs are saved here too.</p>
       </nav>
 
@@ -172,9 +177,9 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
             </div>
             <div className="row" style={{ gap: 6 }}>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => openEntry(sel)}>
-                {sel.isDir ? 'Open folder' : sel.kind === 'mindmap' ? 'Open in Mind mapper' : sel.kind === 'automation' ? 'Open in Automation' : sel.kind === 'canvas' ? 'Open in Canvas' : 'Open'}
+                {sel.isDir ? 'Open folder' : sel.kind === 'mindmap' ? 'Open in Mind mapper' : sel.kind === 'board' ? 'Open in Kanban' : sel.kind === 'automation' ? 'Open in Automation' : sel.kind === 'canvas' ? 'Open in Canvas' : 'Open'}
               </button>
-              {!sel.isDir && ['mindmap', 'automation', 'canvas'].includes(sel.kind) && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
+              {!sel.isDir && ['mindmap', 'automation', 'canvas', 'board'].includes(sel.kind) && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
               <button type="button" className="btn btn-sm" onClick={() => setNaming({ mode: 'rename', value: sel.name })}>Rename</button>
               <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.reveal(projectId, sel.path)}>Show in folder</button>
               <button type="button" className="btn btn-sm" onClick={() => {

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AutomationProgress, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { AutomationProgress, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -121,6 +121,19 @@ const api: TyslinApi = {
     linkCode: () => ipcRenderer.invoke('telegram:linkCode'),
     unlink: (id) => ipcRenderer.invoke('telegram:unlink', id),
     setNotify: (p) => ipcRenderer.invoke('telegram:setNotify', p)
+  },
+  gdrive: {
+    status: () => ipcRenderer.invoke('gdrive:status'),
+    connect: () => ipcRenderer.invoke('gdrive:connect'),
+    disconnect: () => ipcRenderer.invoke('gdrive:disconnect'),
+    sync: () => ipcRenderer.invoke('gdrive:sync'),
+    setAuto: (on) => ipcRenderer.invoke('gdrive:setAuto', on),
+    openFolder: () => ipcRenderer.invoke('gdrive:openFolder'),
+    onStatus: (cb) => {
+      const fn = (_e: unknown, s: GDriveStatus): void => cb(s)
+      ipcRenderer.on('gdrive:status', fn)
+      return () => ipcRenderer.removeListener('gdrive:status', fn)
+    }
   },
   onboarding: {
     status: () => ipcRenderer.invoke('onboarding:status'),

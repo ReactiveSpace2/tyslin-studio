@@ -951,3 +951,55 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .au-help .hint { margin: 0; line-height: 1.5; }
 .au-editor .seg { display: flex; }
 .au-editor .seg button { flex: 1; justify-content: center; }
+
+/* Kanban (pages/KanbanPage.tsx) */
+.kb-search { width: 200px; height: 36px; }
+.kb-board { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 12px; padding: 16px; overflow: auto; background: var(--panel); }
+.kb-col { flex: 0 0 280px; max-height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--parchment); }
+.kb-col-head { display: flex; align-items: center; gap: 6px; cursor: grab; }
+.kb-col-title { flex: 1; min-width: 0; height: 32px; padding: 0 6px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; }
+.kb-col-title:hover { border-color: var(--line); }
+.kb-col-title:focus { border-color: var(--green); outline: none; background: var(--card); }
+.kb-count { font-size: 11px; color: var(--muted); padding: 2px 7px; border-radius: 999px; background: var(--panel); }
+.kb-col-del { width: 28px; height: 28px; opacity: 0; }
+.kb-col-head:hover .kb-col-del, .kb-col-del:focus-visible { opacity: 1; }
+.kb-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 8px; }
+.kb-card { width: 100%; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); text-align: left; cursor: grab; }
+.kb-card:hover { border-color: var(--muted); }
+.kb-card.on { border-color: var(--ink); box-shadow: 0 0 0 3px var(--lime-soft); }
+.kb-card strong { font-size: 13.5px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+.kb-labels { display: flex; flex-wrap: wrap; gap: 4px; }
+.kb-label { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #0F0F0D; }
+.kb-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11px; color: var(--muted); }
+.kb-meta span { display: inline-flex; align-items: center; gap: 4px; }
+.kb-late { color: var(--danger); }
+.kb-running { color: var(--green); font-weight: 600; }
+.kb-done { color: var(--green); }
+.kb-drop { height: 4px; border-radius: 4px; background: var(--green); margin: -2px 0 4px; list-style: none; }
+.kb-add { display: flex; flex-direction: column; gap: 6px; }
+.kb-add-btn { display: flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 8px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: 13px; cursor: pointer; }
+.kb-add-btn:hover { background: var(--panel); color: var(--ink); }
+.kb-new-col { flex-basis: 220px; min-height: 52px; flex-direction: row; align-items: center; justify-content: center; border-style: dashed; color: var(--muted); font-size: 13px; cursor: pointer; }
+.kb-new-col:hover { color: var(--ink); border-color: var(--muted); }
+.kb-side > * { flex: none; }
+.kb-title-edit { width: 100%; border: 1px solid transparent; border-radius: 8px; background: none; padding: 4px 6px; color: var(--ink); font: inherit; font-size: 18px; font-weight: 600; resize: none; }
+.kb-title-edit:focus { border-color: var(--green); outline: none; background: var(--card); }
+.kb-label-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.kb-label-btn { min-height: 28px; border: 1.5px solid var(--line); background: var(--card); cursor: pointer; color: var(--ink); }
+.kb-label-btn.on { color: #0F0F0D; }
+
+/* Google Drive sync card (components/GoogleDrive.tsx) */
+.gd-card { display: flex; flex-direction: column; gap: 8px; margin: 8px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); flex: none; }
+.gd-card .hint { margin: 0; line-height: 1.45; }
+.gd-head { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.gd-ic { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: var(--panel); }
+.gd-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-left: auto; }
+.gd-dot.busy { background: var(--lime); animation: au-pulse 1.2s ease-in-out infinite; }
+.gd-dot.bad { background: var(--danger); }
+.gd-line { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gd-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.gd-auto { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.gd-auto input { accent-color: var(--green); }
+.gd-off { align-self: flex-start; font-size: 12px; }
+.gd-row { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+.kb-side pre, .au-output pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }

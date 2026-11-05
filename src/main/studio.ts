@@ -16,6 +16,7 @@ const KINDS: Record<StudioKind, { dir: string; ext: string }> = {
   automation: { dir: 'automations', ext: '.automation.json' },
   run: { dir: join('automations', 'runs'), ext: '.md' },
   canvas: { dir: 'canvas', ext: '.canvas.json' },
+  board: { dir: 'boards', ext: '.board.json' },
   document: { dir: 'documents', ext: '.md' },
   svg: { dir: 'exports', ext: '.svg' },
   png: { dir: 'exports', ext: '.png' }

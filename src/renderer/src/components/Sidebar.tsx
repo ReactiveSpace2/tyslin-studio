@@ -140,6 +140,7 @@ export function Sidebar(props: Props): JSX.Element {
         {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }))}
         {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }))}
         {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }))}
+        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }))}
         <span className="rail-sep" aria-hidden="true" />
         {railBtn('Projects', 'folder', section === 'projects', openProjects)}
         <div className="rail-foot">

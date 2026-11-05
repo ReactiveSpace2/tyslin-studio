@@ -24,7 +24,7 @@ export const DEFAULT_ORG = 'default'
 
 /** Settings shared by every organization on this computer. Everything else is per organization. */
 const GLOBAL_SETTING = (key: string): boolean =>
-  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') || key.startsWith('telegram:') ||
+  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') || key.startsWith('telegram:') || key.startsWith('gdrive:') ||
   key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom' ||
   key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent' ||
   key === 'pref:defaultProvider' || key === 'pref:defaultModel' || key === 'onboarded'
@@ -164,6 +164,12 @@ function migrate(): void {
   addColumn('messages', 'attachments', "TEXT NOT NULL DEFAULT '[]'")
   addColumn('messages', 'context', "TEXT NOT NULL DEFAULT ''")
   // Scheduled tasks (Tasks screen); run by scheduler.ts while the app is open.
+  // Google Drive sync state per project: the last synced copy of each file (md5, size, mtime, Drive id).
+  db.exec(`CREATE TABLE IF NOT EXISTS gsync_files (
+    project_id TEXT NOT NULL, path TEXT NOT NULL, md5 TEXT NOT NULL, size INTEGER NOT NULL, mtime REAL NOT NULL, remote_id TEXT NOT NULL,
+    PRIMARY KEY (project_id, path))`)
+  db.exec(`CREATE TABLE IF NOT EXISTS gsync_projects (
+    project_id TEXT PRIMARY KEY, folder_id TEXT, last_sync INTEGER, last_error TEXT NOT NULL DEFAULT '', files INTEGER NOT NULL DEFAULT 0)`)
   db.exec(`CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, prompt TEXT NOT NULL,
     agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
@@ -712,4 +718,37 @@ export function markTaskRun(id: string, fields: { lastRunAt?: number; lastStatus
 
 export function setSessionTitle(id: string, title: string): void {
   db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run(title.slice(0, 80), id)
+}
+
+// ---------- Google Drive sync state ----------
+export interface SyncedFile { path: string; md5: string; size: number; mtime: number; remoteId: string }
+
+export function gsyncFiles(projectId: string): Map<string, SyncedFile> {
+  const rows = db.prepare('SELECT path, md5, size, mtime, remote_id AS remoteId FROM gsync_files WHERE project_id = ?').all(projectId) as SyncedFile[]
+  return new Map(rows.map((r) => [r.path, r]))
+}
+
+export function gsyncSetFile(projectId: string, f: SyncedFile | { path: string; remove: true }): void {
+  if ('remove' in f) db.prepare('DELETE FROM gsync_files WHERE project_id = ? AND path = ?').run(projectId, f.path)
+  else db.prepare(`INSERT INTO gsync_files (project_id, path, md5, size, mtime, remote_id) VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(project_id, path) DO UPDATE SET md5 = excluded.md5, size = excluded.size, mtime = excluded.mtime, remote_id = excluded.remote_id`)
+    .run(projectId, f.path, f.md5, f.size, f.mtime, f.remoteId)
+}
+
+export interface SyncedProject { projectId: string; folderId: string | null; lastSync: number | null; lastError: string; files: number }
+
+export function gsyncProject(projectId: string): SyncedProject {
+  const r = db.prepare('SELECT project_id AS projectId, folder_id AS folderId, last_sync AS lastSync, last_error AS lastError, files FROM gsync_projects WHERE project_id = ?').get(projectId) as SyncedProject | undefined
+  return r ?? { projectId, folderId: null, lastSync: null, lastError: '', files: 0 }
+}
+
+export function gsyncSetProject(p: SyncedProject): void {
+  db.prepare(`INSERT INTO gsync_projects (project_id, folder_id, last_sync, last_error, files) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(project_id) DO UPDATE SET folder_id = excluded.folder_id, last_sync = excluded.last_sync, last_error = excluded.last_error, files = excluded.files`)
+    .run(p.projectId, p.folderId, p.lastSync, p.lastError, p.files)
+}
+
+/** Forgets all sync state (after disconnecting Google Drive), so a new connection starts clean. */
+export function gsyncReset(): void {
+  db.exec('DELETE FROM gsync_files; DELETE FROM gsync_projects')
 }

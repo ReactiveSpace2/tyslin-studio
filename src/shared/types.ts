@@ -97,6 +97,35 @@ export interface Agent {
 type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
+/** Kanban: columns of cards (boards/<name>.board.json). A card can be given to an agent and run. */
+export interface KanbanCard {
+  id: string
+  title: string
+  notes: string
+  /** Label ids from the board's labels. */
+  labels: string[]
+  /** YYYY-MM-DD. */
+  due?: string
+  /** An agent, an assistant or 'default' (the default model). */
+  agentId?: string
+  /** The agent's last reply for this card, and its chat. */
+  result?: string
+  sessionId?: string
+  createdAt: number
+}
+
+export interface KanbanColumn {
+  id: string
+  title: string
+  cards: KanbanCard[]
+}
+
+export interface KanbanDoc {
+  version: 1
+  columns: KanbanColumn[]
+  labels: { id: string; name: string; color: OrgColor }[]
+}
+
 /** Canvas: a design board of frames, shapes, text and lines (canvas/<name>.canvas.json). */
 export type CanvasElType = 'frame' | 'rect' | 'ellipse' | 'text' | 'line'
 
@@ -132,7 +161,7 @@ export interface CanvasDoc {
 }
 
 /** Files made on the Mind mapper, Automation and Canvas screens (a run is an automation's log). */
-export type StudioKind = 'mindmap' | 'automation' | 'run' | 'canvas' | 'document' | 'svg' | 'png'
+export type StudioKind = 'mindmap' | 'automation' | 'run' | 'canvas' | 'board' | 'document' | 'svg' | 'png'
 
 export interface StudioFile {
   /** File name without the kind's extension. */
@@ -216,7 +245,7 @@ export interface AskResult {
   sessionId?: string
 }
 
-export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'image' | 'text' | 'file'
+export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'board' | 'image' | 'text' | 'file'
 
 export interface DriveEntry {
   name: string
@@ -424,6 +453,24 @@ export interface DefaultModel {
   ready: boolean
   /** The current organization's Studio assistant, which runs "Default model" requests. */
   assistantId: string | null
+}
+
+/** Google Drive sync of the current organization's project folders. */
+export interface GDriveStatus {
+  /** This build has a Google client (needed to connect). */
+  configured: boolean
+  connected: boolean
+  email: string
+  auto: boolean
+  autoMinutes: number
+  syncing: boolean
+  /** The project being synced now. */
+  current?: string
+  lastSync: number | null
+  lastError: string
+  /** The organization's folder in Google Drive. */
+  folderUrl: string
+  projects: { id: string; name: string; lastSync: number | null; files: number; error: string }[]
 }
 
 /** First-run setup, shown once per computer after sign-in. */
@@ -753,6 +800,16 @@ export interface TyslinApi {
     linkCode(): Promise<TelegramStatus>
     unlink(chatId: number): Promise<TelegramStatus>
     setNotify(p: Partial<TelegramNotify>): Promise<TelegramStatus>
+  }
+  gdrive: {
+    status(): Promise<GDriveStatus>
+    /** Opens Google in the browser to grant Drive access (drive.file), then syncs. */
+    connect(): Promise<GDriveStatus>
+    disconnect(): Promise<GDriveStatus>
+    sync(): Promise<GDriveStatus>
+    setAuto(on: boolean): Promise<GDriveStatus>
+    openFolder(): Promise<void>
+    onStatus(cb: (s: GDriveStatus) => void): () => void
   }
   onboarding: {
     status(): Promise<OnboardingStatus>

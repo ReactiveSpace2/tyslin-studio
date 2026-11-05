@@ -2,6 +2,7 @@ import { createServer, type Server } from 'http'
 import { createHash, randomBytes } from 'crypto'
 import { shell } from 'electron'
 import { getSetting, setSetting } from './db'
+import { getSecret, setSecret } from './secrets'
 import type { Account, AuthStatus } from '@shared/types'
 
 /**
@@ -52,7 +53,7 @@ export async function signIn(): Promise<AuthStatus> {
   cancelSignIn()
   const verifier = b64url(randomBytes(32))
   const state = b64url(randomBytes(16))
-  const { code, redirectUri } = await waitForCode(verifier, state)
+  const { code, redirectUri } = await waitForCode(verifier, state, { scope: 'openid email profile', prompt: 'select_account' })
 
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -82,7 +83,7 @@ export async function signIn(): Promise<AuthStatus> {
 }
 
 /** Starts the loopback server, opens Google in the browser, and waits for the redirect. */
-function waitForCode(verifier: string, state: string): Promise<{ code: string; redirectUri: string }> {
+function waitForCode(verifier: string, state: string, extra: Record<string, string>): Promise<{ code: string; redirectUri: string }> {
   return new Promise((resolve, reject) => {
     let redirectUri = ''
     let timer: NodeJS.Timeout | undefined
@@ -114,14 +115,79 @@ function waitForCode(verifier: string, state: string): Promise<{ code: string; r
       if (!addr || typeof addr === 'string') return finish('Could not start sign-in on this computer.')
       redirectUri = `http://127.0.0.1:${addr.port}`
       const params = new URLSearchParams({
-        client_id: CLIENT_ID, redirect_uri: redirectUri, response_type: 'code', scope: 'openid email profile',
+        client_id: CLIENT_ID, redirect_uri: redirectUri, response_type: 'code',
         code_challenge: b64url(createHash('sha256').update(verifier).digest()), code_challenge_method: 'S256',
-        state, prompt: 'select_account'
+        state, ...extra
       })
       timer = setTimeout(() => finish('Sign-in timed out. Try again.'), TIMEOUT_MS)
       void shell.openExternal(`${AUTH_URL}?${params}`).catch(() => finish('Could not open your browser.'))
     })
   })
+}
+
+/**
+ * Google Drive access for project sync. Asks only for drive.file: Tyslin can see and change the files it
+ * created in Drive and nothing else. The refresh token is kept encrypted (secret "gdrive"), the email in
+ * the global setting gdrive:account.
+ */
+export const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
+let driveToken: { value: string; expires: number } | null = null
+const tokenUrl = (): string => process.env.TYSLIN_GOOGLE_TOKEN_URL || TOKEN_URL
+
+export async function connectDrive(): Promise<string> {
+  if (!CLIENT_ID) throw new Error('Google sign-in is not set up in this build, so Google Drive can\'t be connected.')
+  cancelSignIn()
+  const verifier = b64url(randomBytes(32))
+  const state = b64url(randomBytes(16))
+  const { code, redirectUri } = await waitForCode(verifier, state, { scope: `openid email ${DRIVE_SCOPE}`, access_type: 'offline', prompt: 'consent' })
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ code, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, code_verifier: verifier, redirect_uri: redirectUri, grant_type: 'authorization_code' })
+  })
+  if (!res.ok) throw new Error(`Google Drive could not be connected (${res.status}).`)
+  const t = (await res.json()) as { access_token?: string; refresh_token?: string; expires_in?: number; id_token?: string; scope?: string }
+  if (!t.refresh_token) throw new Error('Google did not grant offline access. Try connecting again.')
+  if (t.scope && !t.scope.includes(DRIVE_SCOPE)) throw new Error('Google Drive access was not granted. Tick the Drive box on Google\'s page and try again.')
+  const claims = JSON.parse(Buffer.from((t.id_token ?? '').split('.')[1] ?? '', 'base64url').toString('utf8') || '{}') as { email?: string }
+  setSecret('gdrive', t.refresh_token)
+  setSetting('gdrive:account', claims.email ?? '')
+  if (t.access_token) driveToken = { value: t.access_token, expires: Date.now() + ((t.expires_in ?? 3600) - 60) * 1000 }
+  return claims.email ?? ''
+}
+
+export function driveConnected(): boolean {
+  return !!getSecret('gdrive')
+}
+
+/** A fresh access token for Drive calls (refreshed with the stored refresh token). */
+export async function driveAccessToken(): Promise<string> {
+  if (driveToken && driveToken.expires > Date.now()) return driveToken.value
+  const refresh = getSecret('gdrive')
+  if (!refresh) throw new Error('Google Drive is not connected.')
+  const res = await fetch(tokenUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, refresh_token: refresh, grant_type: 'refresh_token' })
+  })
+  if (res.status === 400 || res.status === 401) {
+    // Access was removed in the Google account (or the token expired): connect again.
+    disconnectDrive(false)
+    throw new Error('Google Drive access has ended. Connect Google Drive again.')
+  }
+  if (!res.ok) throw new Error(`Google Drive sign-in failed (${res.status}).`)
+  const t = (await res.json()) as { access_token: string; expires_in?: number }
+  driveToken = { value: t.access_token, expires: Date.now() + ((t.expires_in ?? 3600) - 60) * 1000 }
+  return t.access_token
+}
+
+/** Forgets the Drive connection; with revoke, also tells Google to drop the grant. */
+export function disconnectDrive(revoke = true): void {
+  const refresh = getSecret('gdrive')
+  if (revoke && refresh) void fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(refresh)}`, { method: 'POST' }).catch(() => {})
+  setSecret('gdrive', '')
+  setSetting('gdrive:account', '')
+  driveToken = null
 }
 
 /** The page the browser shows after Google sends the user back. */

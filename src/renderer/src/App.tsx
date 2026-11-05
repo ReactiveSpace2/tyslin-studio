@@ -18,6 +18,7 @@ import { AgentPage } from './pages/AgentPage'
 import { ConnectorsPage } from './pages/ConnectorsPage'
 import { MindMapPage } from './pages/MindMapPage'
 import { AutomationPage } from './pages/AutomationPage'
+import { KanbanPage } from './pages/KanbanPage'
 import { CanvasPage } from './pages/CanvasPage'
 import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
@@ -42,6 +43,7 @@ export type Route =
   | { name: 'automation'; open?: { projectId: string; path: string } }
   | { name: 'canvas'; open?: { projectId: string; path: string } }
   | { name: 'mindmap'; open?: { projectId: string; path: string } }
+  | { name: 'kanban'; open?: { projectId: string; path: string } }
   | { name: 'drive' }
   | { name: 'knowledge' }
   | { name: 'connectors' }
@@ -242,6 +244,7 @@ export default function App(): JSX.Element {
         )}
         {route.name === 'automation' && <AutomationPage key={route.open?.path ?? 'automation'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'canvas' && <CanvasPage key={route.open?.path ?? 'canvas'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'kanban' && <KanbanPage key={route.open?.path ?? 'kanban'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'mindmap' && <MindMapPage key={route.open?.path ?? 'mindmap'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => setRoute({ name: screen, open: { projectId, path } } as Route)} />}
         {route.name === 'knowledge' && (

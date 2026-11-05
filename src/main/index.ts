@@ -14,7 +14,8 @@ import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations, stopAutomation } from './automation'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
-import { authStatus, cancelSignIn, signIn, signOut } from './auth'
+import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
+import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
@@ -443,6 +444,24 @@ function registerIpc(): void {
     return next
   })
 
+  ipcMain.handle('gdrive:status', () => gdriveStatus())
+  ipcMain.handle('gdrive:connect', async () => {
+    await connectDrive()
+    win?.webContents.send('gdrive:status', gdriveStatus())
+    void syncAll().catch(() => {})
+    return gdriveStatus()
+  })
+  ipcMain.handle('gdrive:disconnect', () => {
+    disconnectDrive()
+    resetSyncState()
+    const s = gdriveStatus()
+    win?.webContents.send('gdrive:status', s)
+    return s
+  })
+  ipcMain.handle('gdrive:sync', () => syncAll())
+  ipcMain.handle('gdrive:setAuto', (_e, on: boolean) => { const s = setAutoSync(!!on); win?.webContents.send('gdrive:status', s); return s })
+  ipcMain.handle('gdrive:openFolder', () => { const url = gdriveStatus().folderUrl; if (url) void shell.openExternal(url) })
+
   ipcMain.handle('onboarding:status', (): OnboardingStatus => ({
     needed: db.getSetting('onboarded') !== '1',
     orgName: db.currentOrg().name,
@@ -536,6 +555,7 @@ app.whenReady().then(() => {
   createWindow()
   startScheduler()
   void initTelegram({ startRun: (sid, text) => startRun(sid, text), resolveChange, answerPermission })
+  initGDrive((s) => { win?.webContents.send('gdrive:status', s) })
   // With the System theme, keep the window buttons and background in step when the OS switches.
   nativeTheme.on('updated', () => {
     win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)

@@ -40,6 +40,9 @@ const PATHS = {
   stop: <rect x="4" y="4" width="8" height="8" rx="1.5" />,
   // Same stroke GitHub mark as the landing site (tyslin-web/components/Icons.tsx), drawn on a 24 px grid.
   github: <g transform="scale(0.6667)" strokeWidth="2.4"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></g>,
+  kanban: <><rect x="1.5" y="2.5" width="3.75" height="11" rx="1" /><rect x="6.25" y="2.5" width="3.5" height="7" rx="1" /><rect x="10.75" y="2.5" width="3.75" height="9" rx="1" /></>,
+  cloud: <path d="M4.5 12.5a3 3 0 0 1-.3-6 4.3 4.3 0 0 1 8.2.9 2.6 2.6 0 0 1-.4 5.1z" />,
+  sync: <><path d="M13 6.5A5.2 5.2 0 0 0 3.6 5M3 9.5a5.2 5.2 0 0 0 9.4 1.5" /><path d="M3.5 2.5V5H6M12.5 13.5V11H10" /></>,
   cursor: <path d="M3.5 2.5 12 8.2l-3.9.8 2.2 4.3-1.6.8-2.2-4.3L3.5 12.6z" />,
   frame: <path d="M5 1.5v13M11 1.5v13M1.5 5h13M1.5 11h13" />,
   square: <rect x="2.5" y="2.5" width="11" height="11" rx="1" />,
