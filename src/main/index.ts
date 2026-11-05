@@ -15,13 +15,14 @@ import { defaultProject, defaultProjectFolder, defaultProjectName, setDefaultPro
 import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations, stopAutomation } from './automation'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
+import { createTeam, ensureDefaultTeam, teamsStatus } from './teams'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, TeamCreateInput, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -203,7 +204,7 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
   const started = Date.now()
   const agent: Agent = {
     id: 'test', createdAt: started, updatedAt: started, projectId: null, leadId: null, pinned: false, paused: false,
-    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input
+    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input, team: input.team ?? ''
   }
   try {
     const problem = setupProblem(agent)
@@ -310,6 +311,8 @@ function registerIpc(): void {
   ipcMain.handle('agents:list', () => {
     // Every organization has a Studio assistant on the default model (per computer); it catches up here.
     studioAssistant()
+    // Fresh installs and new organizations: Atlas and the Engineering team in the Default project, once.
+    ensureDefaultTeam()
     return db.listAgents()
   })
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
@@ -444,6 +447,12 @@ function registerIpc(): void {
     return next
   })
 
+  ipcMain.handle('teams:status', () => teamsStatus())
+  ipcMain.handle('teams:create', (_e, input: TeamCreateInput) => {
+    const r = createTeam(input)
+    win?.webContents.send('tasks:changed')
+    return r
+  })
   ipcMain.handle('gdrive:status', () => gdriveStatus())
   ipcMain.handle('gdrive:connect', async () => {
     await connectDrive()

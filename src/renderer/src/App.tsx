@@ -22,11 +22,13 @@ import { KanbanPage } from './pages/KanbanPage'
 import { CanvasPage } from './pages/CanvasPage'
 import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
+import { NewAgentModal } from './components/NewAgentModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
 import { Onboarding } from './components/Onboarding'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
+import { initCurrentProject, setCurrentProject, useCurrentProject } from './currentProject'
 import { UpdateNotice } from './components/UpdateNotice'
 import { ComingSoon } from './pages/ComingSoon'
 
@@ -76,12 +78,13 @@ export default function App(): JSX.Element {
     const pid = !sessionId && projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
     setRoute({ name: 'chat', agentId, projectId: pid, sessionId, via })
   }
-  const [creating, setCreating] = useState(false)
+  /** New agent: 'choose' asks one agent or a team; 'single' is the six-step wizard. */
+  const [creating, setCreating] = useState<false | 'choose' | 'single'>(false)
   const you = auth?.account?.name?.split(' ')[0] || 'You'
   // "New agent" from anywhere (Home, the side panel) opens the step-by-step dialog over the agents list.
   useEffect(() => {
     if (route.name === 'editor' && route.kind === 'agent' && !route.agentId) {
-      setCreating(true)
+      setCreating('choose')
       setRoute({ name: 'agents', kind: 'agent' })
     }
   }, [route])
@@ -112,6 +115,10 @@ export default function App(): JSX.Element {
     }
     setRoute({ name: area } as Route)
   }
+
+  // The project picked in the title bar (needs setup done, so the Default project gets its chosen name).
+  const [currentProject] = useCurrentProject()
+  useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
 
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
   if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
@@ -145,6 +152,8 @@ export default function App(): JSX.Element {
         route={route}
         agents={agents}
         projects={projects}
+        onNewOrg={() => setNewOrg(true)}
+        onNewProject={() => setNewProject(true)}
       />
       <div className="app-body">
       <Sidebar
@@ -174,7 +183,7 @@ export default function App(): JSX.Element {
             you={you}
             onOpen={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })}
             onChat={(a) => openChat(a.id, null, sessions.find((s) => s.agentId === a.id)?.id)}
-            onNew={() => setCreating(true)}
+            onNew={() => setCreating('choose')}
             onNewProject={() => setNewProject(true)}
             onChanged={() => void refresh()}
           />
@@ -242,11 +251,11 @@ export default function App(): JSX.Element {
         {route.name === 'videos' && (
           <ComingSoon title="Videos" icon="video" text="Make and edit short videos with your agents: describe the clip, pick a model that makes video, and keep the results with your projects." />
         )}
-        {route.name === 'automation' && <AutomationPage key={route.open?.path ?? 'automation'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'canvas' && <CanvasPage key={route.open?.path ?? 'canvas'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'kanban' && <KanbanPage key={route.open?.path ?? 'kanban'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'mindmap' && <MindMapPage key={route.open?.path ?? 'mindmap'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => setRoute({ name: screen, open: { projectId, path } } as Route)} />}
+        {route.name === 'automation' && <AutomationPage key={`${currentProject}:${route.open?.path ?? 'automation'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'canvas' && <CanvasPage key={`${currentProject}:${route.open?.path ?? 'canvas'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${route.open?.path ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'mindmap' && <MindMapPage key={`${currentProject}:${route.open?.path ?? 'mindmap'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => { setCurrentProject(projectId); setRoute({ name: screen, open: { projectId, path } } as Route) }} />}
         {route.name === 'knowledge' && (
           <ComingSoon title="Knowledge base" icon="knowledge" text="Collect documents, notes and links your agents and assistants can search, so their answers come from your own material." />
         )}
@@ -257,11 +266,20 @@ export default function App(): JSX.Element {
         {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
       </main>
       </div>
-      <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onOpenChat={openChat} onNewOrg={() => setNewOrg(true)} />
+      <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onOpenChat={openChat} />
       <div className="update-float">
         <UpdateNotice />
       </div>
-      {creating && (
+      {creating === 'choose' && (
+        <NewAgentModal
+          projects={projects}
+          onClose={() => setCreating(false)}
+          onSingle={() => setCreating('single')}
+          onAskBuilder={() => { setCreating(false); const b = agents.find((x) => x.isMascot); if (b) openChat(b.id, null) }}
+          onCreated={() => { setCreating(false); void refresh(); setRoute({ name: 'agents', kind: 'agent' }) }}
+        />
+      )}
+      {creating === 'single' && (
         <CreateAgentModal
           agents={agents}
           projects={projects}
@@ -279,6 +297,7 @@ export default function App(): JSX.Element {
           onClose={() => setNewProject(false)}
           onCreated={async (p) => {
             setNewProject(false)
+            setCurrentProject(p.id)
             await refresh()
             if (builder) setRoute({ name: 'chat', agentId: builder.id, projectId: p.id })
           }}

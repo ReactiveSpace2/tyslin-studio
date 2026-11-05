@@ -89,12 +89,14 @@ export interface Agent {
   channels: { telegram: boolean }
   /** A mascot head from shared/heads.ts; null = the simple robot shape (shape + tone). */
   head: string | null
+  /** The department team it was created for (shared/teams.ts), '' if none. */
+  team: string
   createdAt: number
   updatedAt: number
 }
 
 /** Fields added after v0.4 are optional on input; saving keeps the stored value when they're missing. */
-type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head'
+type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head' | 'team'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
 /** Kanban: columns of cards (boards/<name>.board.json). A card can be given to an agent and run. */
@@ -455,6 +457,33 @@ export interface DefaultModel {
   assistantId: string | null
 }
 
+/** Creating a department team (shared/teams.ts). */
+export interface TeamCreateInput {
+  templateId: string
+  /** An existing project with a folder; leave out to make a new project folder. */
+  projectId?: string | null
+  newProjectName?: string
+  /** Turn on the lead's scheduled task. Default true. */
+  onTheirOwn?: boolean
+  /** File changes wait for review. Default true. */
+  askBeforeWrite?: boolean
+  /** The lead answers on Telegram. */
+  telegramLead?: boolean
+}
+
+export interface TeamCreateResult {
+  projectId: string
+  projectName: string
+  agentIds: string[]
+  leadId: string | null
+  taskId?: string
+}
+
+export interface TeamsStatus {
+  /** Each template and the projects that already have it. */
+  teams: { id: string; projects: string[] }[]
+}
+
 /** Google Drive sync of the current organization's project folders. */
 export interface GDriveStatus {
   /** This build has a Google client (needed to connect). */
@@ -800,6 +829,10 @@ export interface TyslinApi {
     linkCode(): Promise<TelegramStatus>
     unlink(chatId: number): Promise<TelegramStatus>
     setNotify(p: Partial<TelegramNotify>): Promise<TelegramStatus>
+  }
+  teams: {
+    status(): Promise<TeamsStatus>
+    create(input: TeamCreateInput): Promise<TeamCreateResult>
   }
   gdrive: {
     status(): Promise<GDriveStatus>

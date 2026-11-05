@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DriveEntry, DriveKind, DriveListing, DrivePreview, Project } from '@shared/types'
+import { useCurrentProject } from '../currentProject'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 
@@ -26,7 +27,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
   const [defaultId, setDefaultId] = useState<string | null>(null)
   const [defaultName, setDefaultName] = useState('Default project')
   const gd = useGDrive()
-  const [projectId, setProjectId] = useState<string | null>(null)
+  const [projectId, setProjectId] = useCurrentProject()
   const [dir, setDir] = useState('')
   const [listing, setListing] = useState<DriveListing | null>(null)
   const [sel, setSel] = useState<DriveEntry | null>(null)
@@ -50,7 +51,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     if (sel && !sel.isDir) void window.tyslin.drive.preview(projectId, sel.path).then(setPreview).catch(() => setPreview({ kind: 'none', note: 'Could not read this file.' }))
   }, [sel?.path])
 
-  const roots = [{ id: null as string | null, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
+  const roots = [{ id: defaultId, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
   const crumbs = dir ? dir.split('/') : []
   const shown = useMemo(() => {
     const list = (listing?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase()))
@@ -105,8 +106,8 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
         <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> Link a folder</button>
         {roots.map((r) => (
           <button key={r.id ?? 'default'} type="button" className={'panel-item panel-agent' + (projectId === r.id ? ' active' : '')} aria-current={projectId === r.id ? 'page' : undefined}
-            title={r.name} onClick={() => { setProjectId(r.id); go('') }}>
-            <span className="panel-folder"><Icon name={r.id === null ? 'drive' : 'folder'} /></span>
+            title={r.name} onClick={() => { if (r.id) setProjectId(r.id); go('') }}>
+            <span className="panel-folder"><Icon name={r.id === defaultId ? 'drive' : 'folder'} /></span>
             <span className="panel-label">{r.name}{syncNote(gd, r.id, defaultId) && <small className="gd-row">{syncNote(gd, r.id, defaultId)}</small>}</span>
           </button>
         ))}

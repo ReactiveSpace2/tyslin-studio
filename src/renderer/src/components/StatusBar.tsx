@@ -5,7 +5,6 @@ import { modelLabel, refreshDefaultModel, useDefaultModel } from '../defaultMode
 import type { Route } from '../App'
 import { updateTask, useTasks } from '../activity'
 import { Icon } from './Icon'
-import { OrgSwitcher } from './OrgSwitcher'
 import { useGDrive } from './GoogleDrive'
 
 interface Props {
@@ -14,7 +13,6 @@ interface Props {
   sessions: Session[]
   onNavigate: (r: Route) => void
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
-  onNewOrg: () => void
 }
 
 /** A reply in progress and what it is doing right now, from the run-event stream. */
@@ -51,11 +49,11 @@ const elapsed = (from: number, now: number): string => {
 }
 
 /**
- * Bottom bar: organization switcher, where data lives, everything running (replies, installs,
+ * Bottom bar: everything running (replies, installs,
  * update downloads) with a list on click, file changes waiting for review, the default model (and whether its key is saved),
  * and the app version or a pending update. Everything here is live.
  */
-export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onNewOrg }: Props): JSX.Element {
+export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: Props): JSX.Element {
   const dm = useDefaultModel()
   const gd = useGDrive()
   const gdStart = useRef<number | null>(null)
@@ -158,10 +156,6 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat, onN
   return (
     <footer className="statusbar" aria-label="Status">
       <div className="statusbar-group">
-        <OrgSwitcher onNewOrg={onNewOrg} />
-        <span className="status-item" title="Agents, chats and keys are stored on this computer">
-          <span className="status-dot" aria-hidden="true" /> Local
-        </span>
         {items.length > 0 && (
           <div className="running" ref={menuRef}>
             <button type="button" className="status-item status-btn status-busy" aria-haspopup="dialog" aria-expanded={open}

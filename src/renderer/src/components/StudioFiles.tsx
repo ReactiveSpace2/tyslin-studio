@@ -11,7 +11,6 @@ interface Props {
   projects: Project[]
   /** null = the Default project. */
   projectId: string | null
-  onProject: (id: string | null) => void
   selected: string | null
   onSelect: (f: StudioFile | null) => void
   /** Bump to reload the list (after a save or a new file). */
@@ -51,7 +50,7 @@ function NameForm({ onDone, onCancel, className }: { onDone: (name: string) => v
  * Left panel of the Mind mapper, Automation and Canvas screens, in the same style as the assistants panel:
  * New, All, then the files. Which project they live in (the Default project when none is chosen) sits at the bottom.
  */
-export function StudioFiles({ kind, title, newLabel, allLabel, projects, projectId, onProject, selected, onSelect, refreshKey, onNew, onDelete }: Props): JSX.Element {
+export function StudioFiles({ kind, title, newLabel, allLabel, projects, projectId, selected, onSelect, refreshKey, onNew, onDelete }: Props): JSX.Element {
   const { files, error } = useStudioList(kind, projectId, refreshKey)
   const [naming, setNaming] = useState(false)
 
@@ -76,26 +75,20 @@ export function StudioFiles({ kind, title, newLabel, allLabel, projects, project
         </div>
       ))}
       {error && <p className="hint account-error panel-note" role="alert">{error}</p>}
-      <ProjectPicker projects={projects} projectId={projectId} onProject={(id) => { onProject(id); onSelect(null) }} />
+      <ProjectFoot projects={projects} projectId={projectId} />
     </nav>
   )
 }
 
-/** The project picker at the foot of a studio panel ('' = the Default project), with a button to show its folder. */
-export function ProjectPicker({ projects, projectId, onProject }: { projects: Project[]; projectId: string | null; onProject: (id: string | null) => void }): JSX.Element {
-  const [def, setDef] = useState<{ id: string; name: string } | null>(null)
-  useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => setDef({ id: p.id, name: p.name })) }, [])
-  const defaultId = def?.id ?? null
-  const others = projects.filter((p) => p.folder && p.id !== defaultId)
+/** The foot of a studio panel: which project the files are in (picked in the title bar) and its folder. */
+export function ProjectFoot({ projects, projectId }: { projects: Project[]; projectId: string | null }): JSX.Element {
+  const name = projects.find((p) => p.id === projectId)?.name ?? 'Default project'
   return (
     <div className="panel-foot">
-      <label className="panel-project">
+      <div className="panel-project">
         <span className="label">Project</span>
-        <select className="select" value={projectId && projectId !== defaultId ? projectId : ''} onChange={(e) => onProject(e.target.value || null)}>
-          <option value="">{def ? `${def.name} (default)` : 'Default project'}</option>
-          {others.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </label>
+        <span className="panel-project-name" title="Change the project in the title bar">{name}</span>
+      </div>
       <button type="button" className="btn icon-btn" aria-label="Show the project folder" title="Show the project folder" onClick={() => void window.tyslin.studio.reveal(projectId)}>
         <Icon name="folder" size={15} />
       </button>

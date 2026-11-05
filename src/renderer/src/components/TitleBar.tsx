@@ -4,6 +4,8 @@ import type { Route } from '../App'
 import mark from '../assets/logo-mark.png'
 import { ZoomControl } from './ZoomControl'
 import { GitHubStars } from './GitHubStars'
+import { OrgSwitcher } from './OrgSwitcher'
+import { ProjectSwitcher } from './ProjectSwitcher'
 import wordmarkBlack from '../assets/wordmark-black.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 
@@ -11,6 +13,8 @@ interface Props {
   route: Route
   agents: Agent[]
   projects: Project[]
+  onNewOrg: () => void
+  onNewProject: () => void
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
@@ -32,8 +36,8 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
   return TITLES[route.name] ?? ''
 }
 
-/** The window's title bar: Tyslin mark and wordmark, then the current screen's name. Empty space drags the window. */
-export function TitleBar({ route, agents, projects }: Props): JSX.Element {
+/** The window's title bar: Tyslin mark and wordmark, the current screen's name, the organization switcher and zoom. Empty space drags the window. */
+export function TitleBar({ route, agents, projects, onNewOrg, onNewProject }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
 
@@ -47,6 +51,13 @@ export function TitleBar({ route, agents, projects }: Props): JSX.Element {
       </div>
       <div className="titlebar-main">
         <span className="titlebar-title">{titleFor(route, agents, projects)}</span>
+        <span className="titlebar-sep" aria-hidden="true" />
+        <OrgSwitcher onNewOrg={onNewOrg} />
+        <span className="titlebar-slash" aria-hidden="true">/</span>
+        <ProjectSwitcher projects={projects} onNewProject={onNewProject} />
+        <span className="status-item titlebar-local" title="Agents, chats and keys are stored on this computer">
+          <span className="status-dot" aria-hidden="true" /> Local
+        </span>
         <ZoomControl compact />
       </div>
     </header>

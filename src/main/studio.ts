@@ -44,6 +44,16 @@ function createDefault(name: string): Project {
   return p
 }
 
+/** A new project with its own folder under Documents/Tyslin Studio/<org>/ ("Support", "Support 2", ...). */
+export function createProjectFolder(name: string): Project {
+  const base = join(app.getPath('documents'), 'Tyslin Studio', safeName(db.currentOrg().name))
+  let folderName = safeName(name)
+  for (let i = 2; existsSync(join(base, folderName)); i++) folderName = `${safeName(name)} ${i}`
+  const folder = join(base, folderName)
+  mkdirSync(folder, { recursive: true })
+  return db.createProject(folderName, folder)
+}
+
 /** The Default project's folder, or null when it hasn't been created yet. */
 export function defaultProjectFolder(): string | null {
   const id = db.getSetting('project:default')

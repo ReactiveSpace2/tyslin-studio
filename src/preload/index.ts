@@ -122,6 +122,10 @@ const api: TyslinApi = {
     unlink: (id) => ipcRenderer.invoke('telegram:unlink', id),
     setNotify: (p) => ipcRenderer.invoke('telegram:setNotify', p)
   },
+  teams: {
+    status: () => ipcRenderer.invoke('teams:status'),
+    create: (input) => ipcRenderer.invoke('teams:create', input)
+  },
   gdrive: {
     status: () => ipcRenderer.invoke('gdrive:status'),
     connect: () => ipcRenderer.invoke('gdrive:connect'),

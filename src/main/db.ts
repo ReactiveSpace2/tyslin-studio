@@ -150,6 +150,7 @@ function migrate(): void {
   addColumn('agents', 'last_run_at', 'INTEGER')
   addColumn('agents', 'last_error', "TEXT NOT NULL DEFAULT ''")
   addColumn('agents', 'head', 'TEXT')
+  addColumn('agents', 'team', "TEXT NOT NULL DEFAULT ''")
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
   // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
@@ -201,6 +202,9 @@ function seed(): void {
       for (const name of RETIRED_AGENTS) retire.run(name)
     }
     const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
+    // A brand-new database (fresh install or new organization) gets Atlas and the Engineering team in its
+    // Default project once setup is done (main/teams.ts ensureDefaultTeam). Existing ones are left alone.
+    if (version === 0 && names.size === 0) setSetting('seed:defaultTeam', 'pending')
     const hasMascot = !!db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()
     for (const a of BUILT_IN_AGENTS) {
       if (names.has(a.name) || (a.isMascot && hasMascot)) continue
@@ -244,7 +248,7 @@ type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
   provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; kind: string; is_mascot: number
   project_id: string | null; lead_id: string | null; pinned: number; paused: number; tools: string; channels: string
-  last_run_at: number | null; last_error: string; head: string | null
+  last_run_at: number | null; last_error: string; head: string | null; team: string
   created_at: number; updated_at: number
 }
 
@@ -259,6 +263,7 @@ const toAgent = (r: AgentRow): Agent => ({
   projectId: r.project_id, leadId: r.lead_id, pinned: !!r.pinned, paused: !!r.paused,
   tools: parseJson(r.tools, { read: true, write: true }), channels: parseJson(r.channels, { telegram: false }),
   head: r.head && HEAD_IDS.includes(r.head) ? r.head : null,
+  team: r.team ?? '',
   createdAt: r.created_at, updatedAt: r.updated_at
 })
 
@@ -318,6 +323,16 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
     JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
     projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, now, now)
   return getAgent(id)!
+}
+
+/** Marks an agent as part of a department team. */
+export function setAgentTeam(id: string, team: string): void {
+  db.prepare('UPDATE agents SET team = ? WHERE id = ?').run(team, id)
+}
+
+/** Teams that exist: the template id, its lead's project. */
+export function teamsInUse(): { team: string; projectId: string | null }[] {
+  return db.prepare("SELECT team, MIN(project_id) AS projectId FROM agents WHERE team != '' GROUP BY team, project_id").all() as { team: string; projectId: string | null }[]
 }
 
 /** Records how an agent's latest run ended, for its status ("Last run failed"). */

@@ -7,8 +7,8 @@ const initial = (name: string): string => name.trim().slice(0, 1).toUpperCase() 
 const tile = (o?: Organization): CSSProperties => ({ background: ORG_COLORS[o?.color ?? 'lime'].fill, color: '#0F0F0D' })
 
 /**
- * Organization switcher (bottom left of the status bar). The menu opens upward. Switching reopens
- * the app inside the other organization, so every screen starts fresh.
+ * Organization switcher (in the title bar, after the screen name). The menu opens downward. Switching
+ * reopens the app inside the other organization, so every screen starts fresh.
  */
 export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element {
   const [open, setOpen] = useState(false)
@@ -60,7 +60,7 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
         <Icon name="updown" size={12} />
       </button>
       {open && (
-        <div className="switch-menu up" role="menu" aria-label="Organizations">
+        <div className="switch-menu" role="menu" aria-label="Organizations">
           <span className="section-label">Organizations</span>
           {orgs.map((o) => (
             <button key={o.id} type="button" role="menuitemradio" aria-checked={o.current} onClick={() => void switchTo(o)}>
@@ -75,7 +75,7 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
           </button>
         </div>
       )}
-      {error && <span className="switch-error up" role="alert">{error}</span>}
+      {error && <span className="switch-error" role="alert">{error}</span>}
     </div>
   )
 }

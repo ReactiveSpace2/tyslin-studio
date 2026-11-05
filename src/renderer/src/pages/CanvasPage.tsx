@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCurrentProject } from '../currentProject'
 import type { Agent, CanvasDoc, CanvasEl, CanvasElType, Project, StudioFile } from '@shared/types'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { Icon, type IconName } from '../components/Icon'
@@ -44,7 +45,8 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
  * canvas/<name>.canvas.json in the project folder (the Default project when none is chosen).
  */
 export function CanvasPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
-  const [projectId, setProjectId] = useState<string | null>(null)
+  // The project picked in the title bar; App remounts this screen when it changes.
+  const [projectId] = useCurrentProject()
   const [file, setFile] = useState<StudioFile | null>(null)
   const [doc, setDoc] = useState<CanvasDoc | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -149,7 +151,6 @@ export function CanvasPage({ agents, projects, onOpenChat, initial }: Props): JS
   }
   useEffect(() => {
     if (!initial) return
-    setProjectId(initial.projectId)
     const name = initial.path.split('/').pop()!.replace(/\.canvas\.json$/, '')
     void open({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
@@ -559,7 +560,7 @@ export function CanvasPage({ agents, projects, onOpenChat, initial }: Props): JS
   return (
     <div className="studio">
       <StudioFiles kind="canvas" title="Canvas" newLabel="New design" allLabel="All designs" projects={projects} projectId={projectId}
-        onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
+        selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!doc ? (

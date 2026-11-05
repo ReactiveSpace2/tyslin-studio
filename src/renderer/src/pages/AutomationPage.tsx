@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCurrentProject } from '../currentProject'
 import type { Agent, AutoEdge, AutoNode, AutoNodeType, AutomationDoc, AutomationProgress, Project, StudioFile } from '@shared/types'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { WEEKDAY_NAMES } from '@shared/schedule'
@@ -79,7 +80,8 @@ type Drag =
 /** Automation: build flows of triggers, AI agents and actions on a board, like n8n. */
 export function AutomationPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
   const dm = useDefaultModel()
-  const [projectId, setProjectId] = useState<string | null>(null)
+  // The project picked in the title bar; App remounts this screen when it changes.
+  const [projectId] = useCurrentProject()
   const [file, setFile] = useState<StudioFile | null>(null)
   const [doc, setDoc] = useState<AutomationDoc | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -153,7 +155,6 @@ export function AutomationPage({ agents, projects, onOpenChat, initial }: Props)
   }
   useEffect(() => {
     if (!initial) return
-    setProjectId(initial.projectId)
     const name = initial.path.split('/').pop()!.replace(/\.automation\.json$/, '')
     void open({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
@@ -395,7 +396,7 @@ export function AutomationPage({ agents, projects, onOpenChat, initial }: Props)
   return (
     <div className="studio">
       <StudioFiles kind="automation" title="Automation" newLabel="New automation" allLabel="All automations" projects={projects} projectId={projectId}
-        onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
+        selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!doc ? (

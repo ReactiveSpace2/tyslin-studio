@@ -1,3 +1,4 @@
+import { useCurrentProject } from '../currentProject'
 import { useEffect, useRef, useState } from 'react'
 import type { Agent, KanbanCard, KanbanColumn, KanbanDoc, OrgColor, Project, StudioFile } from '@shared/types'
 import { ORG_COLORS } from '@shared/types'
@@ -45,7 +46,8 @@ type DragItem = { kind: 'card'; cardId: string; from: string } | { kind: 'column
 /** Kanban: boards of columns and cards in the project folder. Cards can be given to an agent and run. */
 export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
   const dm = useDefaultModel()
-  const [projectId, setProjectId] = useState<string | null>(null)
+  // The project picked in the title bar; App remounts this screen when it changes.
+  const [projectId] = useCurrentProject()
   const [file, setFile] = useState<StudioFile | null>(null)
   const [doc, setDoc] = useState<KanbanDoc | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -78,7 +80,6 @@ export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JS
   }
   useEffect(() => {
     if (!initial) return
-    setProjectId(initial.projectId)
     const name = initial.path.split('/').pop()!.replace(/\.board\.json$/, '')
     void openFile({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
@@ -180,7 +181,7 @@ export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JS
   return (
     <div className="studio">
       <StudioFiles kind="board" title="Kanban" newLabel="New board" allLabel="All boards" projects={projects} projectId={projectId}
-        onProject={(id) => { setProjectId(id); void openFile(null) }} selected={file?.path ?? null} onSelect={(f) => void openFile(f)} refreshKey={refresh}
+        selected={file?.path ?? null} onSelect={(f) => void openFile(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void openFile(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!doc ? (

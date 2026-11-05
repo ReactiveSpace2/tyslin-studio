@@ -1,3 +1,4 @@
+import { useCurrentProject } from '../currentProject'
 import { useState } from 'react'
 import type { Agent, AgentStatus, Project } from '@shared/types'
 import { STATUS_LABEL } from '../agentStatus'
@@ -24,7 +25,8 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
  * Each agent works in one project; Builder helps everywhere and stays off the charts.
  */
 export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, onNewProject }: Props): JSX.Element {
-  const [projectId, setProjectId] = useState<string | null>(projects[0]?.id ?? null)
+  // The tab follows the project picked in the title bar, and picking a tab changes it there too.
+  const [projectId, setProjectId] = useCurrentProject()
   const [over, setOver] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [error, setError] = useState<string | null>(null)

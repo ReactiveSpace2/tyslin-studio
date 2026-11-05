@@ -1,3 +1,4 @@
+import { useCurrentProject } from '../currentProject'
 import { useEffect, useRef, useState } from 'react'
 import type { Agent, MindMapDoc, MindNode, Project, StudioFile } from '@shared/types'
 import { Icon } from '../components/Icon'
@@ -45,7 +46,8 @@ const clone = (n: MindNode): MindNode => JSON.parse(JSON.stringify(n))
 
 /** Mind mapper: a map per file, edited by keyboard or mouse, grown by an agent on request. */
 export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
-  const [projectId, setProjectId] = useState<string | null>(null)
+  // The project picked in the title bar; App remounts this screen when it changes.
+  const [projectId] = useCurrentProject()
   const [file, setFile] = useState<StudioFile | null>(null)
   const [root, setRoot] = useState<MindNode | null>(null)
   const [dirty, setDirty] = useState(false)
@@ -74,7 +76,6 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
   }
   useEffect(() => {
     if (!initial) return
-    setProjectId(initial.projectId)
     const name = initial.path.split('/').pop()!.replace(/\.(mindmap\.json|md)$/, '')
     void open({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
@@ -188,7 +189,7 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
   return (
     <div className="studio">
       <StudioFiles kind="mindmap" title="Mind mapper" newLabel="New mind map" allLabel="All mind maps" projects={projects} projectId={projectId}
-        onProject={(id) => { setProjectId(id); void open(null) }} selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
+        selected={file?.path ?? null} onSelect={(f) => void open(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void open(null); setRefresh((r) => r + 1) }} />
       <div className="studio-main">
         {!root ? (
