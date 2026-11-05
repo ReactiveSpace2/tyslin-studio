@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Agent, ClaudeSkill, Skill, SkillInput, SkillPack, SkillPackSearch } from '@shared/types'
 import { Icon } from '../components/Icon'
+import { track } from '../activity'
 
 const BLANK: SkillInput = { name: '', description: '', body: '' }
 
@@ -308,7 +309,7 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
     if (pack.installed && !window.confirm(`Update ${pack.name}? Edits you made to its skills will be replaced.`)) return
     setBusyPack(pack.id)
     try {
-      const r = await window.tyslin.skillPacks.install(pack.id)
+      const r = await track(`pack:${pack.id}`, `${pack.installed ? 'Updating' : 'Installing'} ${pack.name}`, () => window.tyslin.skillPacks.install(pack.id))
       const parts = [r.added && `${r.added} added`, r.updated && `${r.updated} updated`, r.removed && `${r.removed} removed`].filter(Boolean)
       setNotice({ text: `${pack.installed ? 'Updated' : 'Installed'} ${pack.name}${parts.length ? `: ${parts.join(', ')}` : ''}.`, skipped: r.skipped })
       await refreshPacks(r.pack)
@@ -328,7 +329,7 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
     if (!window.confirm(`Uninstall ${pack.name} and delete its ${plural(names.size, 'skill')}?${who}`)) return
     setBusyPack(pack.id)
     try {
-      await window.tyslin.skillPacks.uninstall(pack.id)
+      await track(`pack:${pack.id}`, `Uninstalling ${pack.name}`, () => window.tyslin.skillPacks.uninstall(pack.id))
       await refreshPacks({ ...pack, installed: false, skillCount: 0, updateAvailable: false })
       setNotice({ text: `Uninstalled ${pack.name}.`, skipped: [] })
       await load()

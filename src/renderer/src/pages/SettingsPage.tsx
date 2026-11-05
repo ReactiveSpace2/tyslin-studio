@@ -4,6 +4,7 @@ import stacked from '../assets/logo-stacked.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 import { AccountBox } from '../components/AccountBox'
+import { track } from '../activity'
 
 export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
@@ -218,7 +219,7 @@ function EngineCard({ engine, onChange }: { engine: EngineStatus; onChange: (e: 
     setLog('')
     setInstallError(null)
     setInstall('running')
-    const r = await window.tyslin.engines.install(engine.id)
+    const r = await track(`engine:${engine.id}`, `Installing ${engine.name}`, () => window.tyslin.engines.install(engine.id))
     onChange(r.status)
     if (!r.ok) setInstallError(r.error ?? 'The install failed.')
     else if (!r.status.resolvedPath) setInstallError(`The installer finished, but Tyslin can't find ${engine.name} yet. Restart Tyslin, or set its full path in the Command field below.`)

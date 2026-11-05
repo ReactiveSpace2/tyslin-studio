@@ -180,7 +180,7 @@ export default function App(): JSX.Element {
         {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
       </main>
       </div>
-      <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onNewOrg={() => setNewOrg(true)} />
+      <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onOpenChat={openChat} onNewOrg={() => setNewOrg(true)} />
       <div className="update-float">
         <UpdateNotice />
       </div>
