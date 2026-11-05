@@ -247,7 +247,7 @@ export interface AskResult {
   sessionId?: string
 }
 
-export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'board' | 'image' | 'text' | 'file'
+export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'board' | 'image' | 'text' | 'pdf' | 'archive' | 'file'
 
 export interface DriveEntry {
   name: string
@@ -726,6 +726,10 @@ export interface TyslinApi {
     list(): Promise<Project[]>
     create(name: string, folder: string | null): Promise<Project>
     pickFolder(): Promise<string | null>
+    /** A new project with a new folder under Documents/Tyslin Studio/<organization>/. */
+    createWithFolder(name: string): Promise<Project>
+    /** Where createWithFolder would put the folder. */
+    newFolderPath(name: string): Promise<string>
     rename(id: string, name: string): Promise<void>
     /** Deletes the project with its agents, assistants, chats and tasks (files stay on disk). Not the Default project. */
     remove(id: string): Promise<{ agents: number }>

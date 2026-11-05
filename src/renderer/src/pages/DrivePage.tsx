@@ -13,15 +13,16 @@ interface Props {
   onOpenIn: (screen: 'mindmap' | 'automation' | 'canvas' | 'kanban', projectId: string, path: string) => void
 }
 
-const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', automation: 'workflow', canvas: 'canvas', board: 'kanban', image: 'art', text: 'file', file: 'file' }
-const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', automation: 'Automation', canvas: 'Canvas design', board: 'Kanban board', image: 'Image', text: 'Text', file: 'File' }
+const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', automation: 'workflow', canvas: 'canvas', board: 'kanban', image: 'art', text: 'file', pdf: 'file', archive: 'folder', file: 'file' }
+const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', automation: 'Automation', canvas: 'Canvas design', board: 'Kanban board', image: 'Image', text: 'Text', pdf: 'PDF', archive: 'Archive', file: 'File' }
 const size = (n: number): string => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`)
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 /**
- * Drive: browse each project's folder like a file manager. Mind maps, automations, run logs and
- * Canvas documents are here as ordinary files; drop files from the desktop to add them.
+ * Drive: browse each project's folder like a file manager: documents, images, PDFs, archives and
+ * what agents generate. Tyslin's app data (boards, mind maps, designs, automations) shows only with
+ * "Show hidden files". Drop files from the desktop to add them.
  */
 export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Element {
   const [defaultId, setDefaultId] = useState<string | null>(null)
@@ -103,7 +104,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
   return (
     <div className="drive">
       <nav className="panel studio-panel" aria-label="Drive">
-        <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> Link a folder</button>
+        <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> New project</button>
         {roots.map((r) => (
           <button key={r.id ?? 'default'} type="button" className={'panel-item panel-agent' + (projectId === r.id ? ' active' : '')} aria-current={projectId === r.id ? 'page' : undefined}
             title={r.name} onClick={() => { if (r.id) setProjectId(r.id); go('') }}>
@@ -113,7 +114,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
         ))}
         <div style={{ marginTop: 'auto' }} />
         <GoogleDriveCard />
-        <p className="hint panel-note">Each project's folder on this computer. Mind maps, automations and Canvas designs are saved here too.</p>
+        <p className="hint panel-note">Each project's folder on this computer: documents, images, PDFs, archives and what your agents make. Boards, mind maps, designs and automations open in their own screens.</p>
       </nav>
 
       <section className="dv-main" {...dropProps('main', dir)} aria-label="Files">

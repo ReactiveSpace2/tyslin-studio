@@ -31,6 +31,11 @@ function inside(folder: string, rel: string, allowRoot = false): string {
 
 const toRel = (folder: string, abs: string): string => relative(folder, abs).split(sep).join('/')
 
+const ARCHIVE = new Set(['.zip', '.tar', '.gz', '.tgz', '.7z', '.rar', '.bz2', '.xz'])
+/** App data: shown in Kanban, Mind mapper, Canvas and Automation, not in Drive (unless hidden files are shown). */
+const APP_KINDS = new Set<DriveKind>(['mindmap', 'board', 'automation', 'canvas'])
+const APP_DIRS = new Set(['boards', 'mindmaps', 'canvas', 'automations', 'workflows'])
+
 function kindOf(name: string, isDir: boolean): DriveKind {
   if (isDir) return 'folder'
   if (name.endsWith('.mindmap.json')) return 'mindmap'
@@ -39,6 +44,8 @@ function kindOf(name: string, isDir: boolean): DriveKind {
   if (name.endsWith('.canvas.json')) return 'canvas'
   const ext = extname(name).toLowerCase()
   if (IMAGE.has(ext)) return 'image'
+  if (ext === '.pdf') return 'pdf'
+  if (ARCHIVE.has(ext) || name.toLowerCase().endsWith('.tar.gz')) return 'archive'
   if (TEXT.has(ext) || !ext) return 'text'
   return 'file'
 }
@@ -47,12 +54,16 @@ export function driveList(projectId: string | null, dir: string, showHidden = fa
   const { folder, projectId: id } = root(projectId)
   const abs = inside(folder, dir, true)
   const entries: DriveEntry[] = []
+  const atRoot = abs === folder
   for (const name of readdirSync(abs)) {
     if (name === '.git' || (!showHidden && name.startsWith('.'))) continue
+    // Drive shows real files: Tyslin's own app data (boards, maps, designs, automations) stays in their screens.
+    if (!showHidden && atRoot && APP_DIRS.has(name)) continue
     try {
       const st = statSync(join(abs, name))
       const isDir = st.isDirectory()
       const kind = kindOf(name, isDir)
+      if (!showHidden && APP_KINDS.has(kind)) continue
       entries.push({ name, path: toRel(folder, join(abs, name)), isDir, kind, size: isDir ? 0 : st.size, updatedAt: st.mtimeMs })
     } catch { /* unreadable entry: skip */ }
   }

@@ -1159,3 +1159,10 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 }
 :root[data-theme="dark"] .watermarked { --card: rgba(31, 31, 28, 0.82); }
 :root[data-theme="dark"] .page-watermark { opacity: 0.17; }
+
+/* New project: folder choice */
+.np-folder { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.np-choice { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-height: 44px; }
+.np-choice:has(input:checked) { border-color: var(--green); background: var(--lime-soft); }
+.np-choice > span { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.np-choice input { accent-color: var(--green); }

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
-import { readFileSync, statSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
 import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
@@ -12,7 +12,7 @@ import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview,
 import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant } from './defaultModel'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { inWorkspace } from '@shared/scope'
-import { defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
+import { createProjectFolder, newProjectFolderPath, defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations, stopAutomation } from './automation'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
@@ -344,7 +344,20 @@ function registerIpc(): void {
   ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
   ipcMain.handle('projects:list', () => db.listProjects())
-  ipcMain.handle('projects:create', (_e, name: string, folder: string | null) => db.createProject(name, folder))
+  // Every project has a real folder: an existing one the user picked, or a new one Tyslin makes.
+  ipcMain.handle('projects:create', (_e, name: string, folder: string | null) => {
+    const clean = String(name ?? '').trim()
+    if (!clean) throw new Error('Give the project a name.')
+    if (!folder) throw new Error('Pick a folder for the project, or let Tyslin create one.')
+    if (!existsSync(folder) || !statSync(folder).isDirectory()) throw new Error('That folder no longer exists. Pick another one.')
+    return db.createProject(clean, folder)
+  })
+  ipcMain.handle('projects:createWithFolder', (_e, name: string) => {
+    const clean = String(name ?? '').trim()
+    if (!clean) throw new Error('Give the project a name.')
+    return createProjectFolder(clean)
+  })
+  ipcMain.handle('projects:newFolderPath', (_e, name: string) => newProjectFolderPath(String(name ?? '')))
   ipcMain.handle('projects:rename', (_e, id: string, name: string) => db.renameProjectChecked(id, String(name ?? '')))
   ipcMain.handle('projects:remove', (_e, id: string) => {
     const def = db.getSetting('project:default')

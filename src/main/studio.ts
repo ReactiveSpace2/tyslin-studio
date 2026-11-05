@@ -1,6 +1,6 @@
 import { app, shell } from 'electron'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'path'
 import type { Project, StudioFile, StudioKind } from '@shared/types'
 import * as db from './db'
 
@@ -45,13 +45,18 @@ function createDefault(name: string): Project {
 }
 
 /** A new project with its own folder under Documents/Tyslin Studio/<org>/ ("Support", "Support 2", ...). */
-export function createProjectFolder(name: string): Project {
+/** Where a new project's own folder would go ("Name", or "Name 2" when taken), for the New project dialog. */
+export function newProjectFolderPath(name: string): string {
   const base = join(app.getPath('documents'), 'Tyslin Studio', safeName(db.currentOrg().name))
-  let folderName = safeName(name)
-  for (let i = 2; existsSync(join(base, folderName)); i++) folderName = `${safeName(name)} ${i}`
-  const folder = join(base, folderName)
+  let folderName = safeName(name || 'New project')
+  for (let i = 2; existsSync(join(base, folderName)); i++) folderName = `${safeName(name || 'New project')} ${i}`
+  return join(base, folderName)
+}
+
+export function createProjectFolder(name: string): Project {
+  const folder = newProjectFolderPath(name)
   mkdirSync(folder, { recursive: true })
-  return db.createProject(folderName, folder)
+  return db.createProject(basename(folder), folder)
 }
 
 /** The Default project's folder, or null when it hasn't been created yet. */
