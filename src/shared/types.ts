@@ -97,8 +97,42 @@ export interface Agent {
 type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
-/** Files made on the Mind mapper, Workflows and Canvas screens (a run is a workflow's log). */
-export type StudioKind = 'mindmap' | 'workflow' | 'run' | 'canvas'
+/** Canvas: a design board of frames, shapes, text and lines (canvas/<name>.canvas.json). */
+export type CanvasElType = 'frame' | 'rect' | 'ellipse' | 'text' | 'line'
+
+export interface CanvasEl {
+  id: string
+  type: CanvasElType
+  /** Frames show it above them; other layers use it in the layer list. */
+  name?: string
+  /** Lines run from (x, y) to (x + w, y + h), so w and h may be negative. */
+  x: number
+  y: number
+  w: number
+  h: number
+  /** CSS colour or 'none'. */
+  fill: string
+  stroke: string
+  strokeWidth: number
+  radius: number
+  opacity: number
+  text?: string
+  fontSize?: number
+  fontWeight?: number
+  /** Text colour. */
+  color?: string
+  align?: 'left' | 'center' | 'right'
+  /** Lines: arrow head at the end. */
+  arrow?: boolean
+}
+
+export interface CanvasDoc {
+  version: 2
+  elements: CanvasEl[]
+}
+
+/** Files made on the Mind mapper, Automation and Canvas screens (a run is an automation's log). */
+export type StudioKind = 'mindmap' | 'automation' | 'run' | 'canvas' | 'document' | 'svg' | 'png'
 
 export interface StudioFile {
   /** File name without the kind's extension. */
@@ -120,30 +154,57 @@ export interface MindMapDoc {
   root: MindNode
 }
 
-export interface WorkflowStep {
-  id: string
-  /** An agent or assistant. */
-  agentId: string
-  instruction: string
-}
-
+/** Old Workflows file (workflows/<name>.workflow.json); converted to an automation when Automation lists files. */
 export interface WorkflowDoc {
   version: 1
-  /** What the first step starts from. */
   brief: string
-  steps: WorkflowStep[]
+  steps: { id: string; agentId: string; instruction: string }[]
 }
 
-export interface WorkflowProgress {
+/**
+ * Automation: a graph of nodes, like n8n. Triggers start a run; each node gets the text the node before
+ * it produced ({{input}}) and passes its own output on. Saved as automations/<name>.automation.json.
+ */
+export type AutoNodeType = 'manual' | 'schedule' | 'agent' | 'http' | 'condition' | 'template' | 'file' | 'telegram' | 'wait'
+
+export interface AutoNode {
+  id: string
+  type: AutoNodeType
+  name: string
+  x: number
+  y: number
+  config: Record<string, string | number | boolean>
+}
+
+export interface AutoEdge {
+  id: string
+  from: string
+  /** 'out', or 'true'/'false' from an If node. */
+  port: 'out' | 'true' | 'false'
+  to: string
+}
+
+export interface AutomationDoc {
+  version: 1
+  /** Schedule triggers only fire while the automation is active (and Tyslin is open). */
+  active: boolean
+  nodes: AutoNode[]
+  edges: AutoEdge[]
+}
+
+export interface AutomationProgress {
   runId: string
-  /** The workflow file being run. */
+  /** The automation file being run. */
   path: string
-  /** Step index, or -1 for the whole run. */
-  step: number
+  projectId: string
+  trigger: 'manual' | 'schedule'
+  /** A node's state; absent with `finished` for the whole run. */
+  nodeId?: string
   status: 'running' | 'done' | 'failed' | 'stopped'
   output?: string
   error?: string
   sessionId?: string
+  finished?: boolean
   /** When the run ends: the Markdown log, relative to the project folder. */
   logPath?: string
 }
@@ -155,7 +216,7 @@ export interface AskResult {
   sessionId?: string
 }
 
-export type DriveKind = 'folder' | 'mindmap' | 'workflow' | 'canvas' | 'image' | 'text' | 'file'
+export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'image' | 'text' | 'file'
 
 export interface DriveEntry {
   name: string
@@ -350,7 +411,7 @@ export interface ProviderSettings {
   openaiKeySet: boolean
   geminiKeySet: boolean
   ollamaUrl: string
-  /** The model Mind mapper, Canvas and Workflows use when "Default model" is picked (shown in the status bar). */
+  /** The model Mind mapper, Canvas and Automation use when "Default model" is picked (shown in the status bar). */
   defaultModel: DefaultModel
 }
 
@@ -656,15 +717,16 @@ export interface TyslinApi {
     list(kind: StudioKind, projectId: string | null): Promise<{ project: Project; files: StudioFile[] }>
     read(projectId: string | null, path: string): Promise<string>
     /** Saves to `path`, or to a new free name for `kind` + `name`. */
-    write(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string): Promise<StudioFile>
+    write(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string, encoding?: 'utf8' | 'base64'): Promise<StudioFile>
     remove(projectId: string | null, path: string): Promise<void>
     /** Shows the file (or the project folder) in the system file manager. */
     reveal(projectId: string | null, path?: string): Promise<void>
     /** One message to an agent or assistant in a new chat titled `title`; resolves with its reply. */
     ask(agentId: string, projectId: string | null, prompt: string, title: string): Promise<AskResult>
-    runWorkflow(projectId: string | null, path: string): Promise<string>
-    stopWorkflow(runId: string): Promise<void>
-    onWorkflow(cb: (p: WorkflowProgress) => void): () => void
+    /** Runs an automation now from its triggers; returns the run id (progress arrives on onAutomation). */
+    runAutomation(projectId: string | null, path: string): Promise<string>
+    stopAutomation(runId: string): Promise<void>
+    onAutomation(cb: (p: AutomationProgress) => void): () => void
   }
   drive: {
     list(projectId: string | null, dir: string, showHidden?: boolean): Promise<DriveListing>

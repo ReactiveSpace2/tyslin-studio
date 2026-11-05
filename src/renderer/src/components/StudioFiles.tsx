@@ -6,7 +6,7 @@ interface Props {
   kind: StudioKind
   title: string
   newLabel: string
-  /** "All mind maps", "All workflows", ... */
+  /** "All mind maps", "All automations", ... */
   allLabel: string
   projects: Project[]
   /** null = the Default project. */
@@ -20,7 +20,7 @@ interface Props {
   onDelete: (f: StudioFile) => void
 }
 
-const ICON: Record<StudioKind, IconName> = { mindmap: 'mindmap', workflow: 'workflow', run: 'workflow', canvas: 'canvas' }
+const ICON: Record<StudioKind, IconName> = { mindmap: 'mindmap', automation: 'workflow', run: 'workflow', canvas: 'canvas', document: 'file', svg: 'art', png: 'art' }
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
@@ -48,7 +48,7 @@ function NameForm({ onDone, onCancel, className }: { onDone: (name: string) => v
 }
 
 /**
- * Left panel of the Mind mapper, Workflows and Canvas screens, in the same style as the assistants panel:
+ * Left panel of the Mind mapper, Automation and Canvas screens, in the same style as the assistants panel:
  * New, All, then the files. Which project they live in (the Default project when none is chosen) sits at the bottom.
  */
 export function StudioFiles({ kind, title, newLabel, allLabel, projects, projectId, onProject, selected, onSelect, refreshKey, onNew, onDelete }: Props): JSX.Element {
@@ -156,7 +156,7 @@ export function StudioOverview({ kind, title, intro, newLabel, projectId, refres
 export function useAutosave(value: string | null, dirty: boolean, save: (v: string) => Promise<void>, onSaved: () => void, delay = 700): 'idle' | 'saving' | 'saved' | 'error' {
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   useEffect(() => {
-    // Saved some other way (e.g. just before a workflow run): don't leave "Saving…" showing.
+    // Saved some other way (e.g. just before an automation run): don't leave "Saving…" showing.
     if (!dirty) { setState((s) => (s === 'saving' ? 'saved' : s)); return }
     if (value === null) return
     setState('saving')

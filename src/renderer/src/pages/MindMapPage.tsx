@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Agent, MindMapDoc, MindNode, Project, StudioFile } from '@shared/types'
 import { Icon } from '../components/Icon'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
-import { AgentSelect } from './WorkflowsPage'
+import { AgentSelect } from '../components/AgentSelect'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 
 interface Props {
@@ -75,7 +75,7 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
   useEffect(() => {
     if (!initial) return
     setProjectId(initial.projectId)
-    const name = initial.path.split('/').pop()!.replace(/\.(mindmap\.json|workflow\.json|md)$/, '')
+    const name = initial.path.split('/').pop()!.replace(/\.(mindmap\.json|md)$/, '')
     void open({ name, path: initial.path, updatedAt: Date.now() }, initial.projectId)
   }, [initial?.path])
   const create = async (name: string): Promise<void> => {
@@ -154,7 +154,7 @@ export function MindMapPage({ agents, projects, onOpenChat, initial }: Props): J
 
   const exportMd = async (): Promise<void> => {
     if (!root || !file) return
-    const f = await window.tyslin.studio.write(projectId, { kind: 'canvas', name: file.name }, toMarkdown(root))
+    const f = await window.tyslin.studio.write(projectId, { kind: 'document', name: file.name }, toMarkdown(root))
     await window.tyslin.studio.reveal(projectId, f.path)
   }
 

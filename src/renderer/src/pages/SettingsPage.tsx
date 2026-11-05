@@ -194,7 +194,7 @@ function ModelsTab(): JSX.Element {
       <section className="box" aria-labelledby="default-h">
         <div className="box-head">
           <h2 id="default-h">Default model</h2>
-          <p className="hint">Mind mapper, Canvas and Workflows use it when you pick "Default model", through the Studio assistant. It shows in the status bar.</p>
+          <p className="hint">Mind mapper, Canvas and Automation use it when you pick "Default model", through the Studio assistant. It shows in the status bar.</p>
         </div>
         {pick && <DefaultModelPicker settings={s} value={pick} onChange={setPick} />}
         <div className="row" style={{ gap: 10 }}>

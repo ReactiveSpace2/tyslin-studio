@@ -8,7 +8,7 @@ import { Icon } from '../components/Icon'
 import { Mark, MARKS, type MarkKey } from '../components/RunsOnBadge'
 
 export type StudioArea = 'agents' | 'assistants' | 'tasks' | 'projects' | 'skills'
-  | 'art' | 'videos' | 'workflows' | 'canvas' | 'mindmap' | 'drive' | 'knowledge' | 'connectors'
+  | 'art' | 'videos' | 'automation' | 'canvas' | 'mindmap' | 'drive' | 'knowledge' | 'connectors'
 
 interface Props {
   agentCount: number
@@ -28,8 +28,8 @@ const READY_AREAS: [StudioArea, IconName, string, string][] = [
   ['tasks', 'clock', 'Tasks', 'Prompts that run on a schedule'],
   ['projects', 'folder', 'Projects', 'Folders on disk your agents work in'],
   ['skills', 'skills', 'Skills', 'Reusable instructions for any agent'],
-  ['workflows', 'workflow', 'Workflows', 'Chain agents into steps'],
-  ['canvas', 'canvas', 'Canvas', 'Draft documents with an agent'],
+  ['automation', 'workflow', 'Automation', 'Flows of triggers, agents and actions'],
+  ['canvas', 'canvas', 'Canvas', 'Design screens by hand or from a prompt'],
   ['mindmap', 'mindmap', 'Mind mapper', 'Maps you grow with an agent'],
   ['drive', 'drive', 'Drive', 'Every project folder, browsable'],
   ['connectors', 'connectors', 'Connectors', 'Telegram today; more channels soon']

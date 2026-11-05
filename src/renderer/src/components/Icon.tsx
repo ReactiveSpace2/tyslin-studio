@@ -40,6 +40,18 @@ const PATHS = {
   stop: <rect x="4" y="4" width="8" height="8" rx="1.5" />,
   // Same stroke GitHub mark as the landing site (tyslin-web/components/Icons.tsx), drawn on a 24 px grid.
   github: <g transform="scale(0.6667)" strokeWidth="2.4"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21" /></g>,
+  cursor: <path d="M3.5 2.5 12 8.2l-3.9.8 2.2 4.3-1.6.8-2.2-4.3L3.5 12.6z" />,
+  frame: <path d="M5 1.5v13M11 1.5v13M1.5 5h13M1.5 11h13" />,
+  square: <rect x="2.5" y="2.5" width="11" height="11" rx="1" />,
+  circle: <circle cx="8" cy="8" r="5.75" />,
+  type: <><path d="M3 4V2.5h10V4" /><path d="M8 2.5v11M6 13.5h4" /></>,
+  line: <path d="M3 13 13 3" />,
+  hand: <><path d="M5.5 8V3.5a1 1 0 0 1 2 0V7" /><path d="M7.5 7V2.5a1 1 0 0 1 2 0V7" /><path d="M9.5 7V3.5a1 1 0 0 1 2 0V9.5a4.5 4.5 0 0 1-4.5 4.5h-.5A4.5 4.5 0 0 1 3 11.2L1.9 8.8a1 1 0 0 1 1.7-1L5.5 10" /></>,
+  undo: <><path d="M5 3 2 6l3 3" /><path d="M2 6h7.5a4 4 0 0 1 0 8H7" /></>,
+  redo: <><path d="m11 3 3 3-3 3" /><path d="M14 6H6.5a4 4 0 0 0 0 8H9" /></>,
+  download: <><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5" /><path d="M2.5 11.5V14h11v-2.5" /></>,
+  sparkle: <path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6z" />,
+  layers: <><path d="M8 2 14 5 8 8 2 5z" /><path d="m2 8 6 3 6-3M2 11l6 3 6-3" /></>,
   warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
 } as const
 

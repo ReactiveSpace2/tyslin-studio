@@ -15,7 +15,7 @@ export const PROVIDER_NAME: Record<ProviderId, string> = { anthropic: 'Claude', 
 export const PROVIDER_ORDER: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
 
 /**
- * Agent id that stands for "the default model" in Mind mapper, Canvas and Workflows.
+ * Agent id that stands for "the default model" in Mind mapper, Canvas and Automation.
  * Main runs it through the organization's built-in Studio assistant, whose model follows the default.
  */
 export const DEFAULT_MODEL_AGENT = 'default'

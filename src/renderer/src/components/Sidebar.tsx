@@ -22,7 +22,7 @@ const SECTION_KIND: Record<Exclude<Section, 'projects'>, AgentKind> = { agents: 
 const kindSection = (k: AgentKind): Section => (k === 'assistant' ? 'assistants' : 'agents')
 
 /**
- * Icon rail (Home, Dashboard, Agents, Assistants, Tasks, Art, Videos, Workflows, Canvas, Mind mapper, Projects; Drive, Knowledge base, Connectors, Skills, Settings at the
+ * Icon rail (Home, Dashboard, Agents, Assistants, Tasks, Art, Videos, Automation, Canvas, Mind mapper, Projects; Drive, Knowledge base, Connectors, Skills, Settings at the
  * bottom) plus a panel listing agents, assistants or projects with their recent chats.
  */
 export function Sidebar(props: Props): JSX.Element {
@@ -137,7 +137,7 @@ export function Sidebar(props: Props): JSX.Element {
         {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }))}
         {railBtn('Art', 'art', route.name === 'art', () => onNavigate({ name: 'art' }))}
         {railBtn('Videos', 'video', route.name === 'videos', () => onNavigate({ name: 'videos' }))}
-        {railBtn('Workflows', 'workflow', route.name === 'workflows', () => onNavigate({ name: 'workflows' }))}
+        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }))}
         {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }))}
         {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }))}
         <span className="rail-sep" aria-hidden="true" />

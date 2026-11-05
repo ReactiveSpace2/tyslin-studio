@@ -5,7 +5,7 @@ import { getSecret } from './secrets'
 
 /**
  * The default model: chosen during onboarding or in Settings → Models, kept per computer, shown in the
- * status bar. Mind mapper, Canvas and Workflows use it when "Default model" is picked, through each
+ * status bar. Mind mapper, Canvas and Automation use it when "Default model" is picked, through each
  * organization's built-in Studio assistant (a normal assistant, so chats, the status bar and Stop all work).
  */
 
@@ -40,8 +40,8 @@ export function studioAssistant(): Agent {
   const a = db.saveAgent({
     kind: 'assistant',
     name: 'Studio',
-    description: 'Runs on your default model. Mind mapper, Canvas and Workflows use it when you pick "Default model".',
-    instructions: `You help with mind maps, documents and workflow steps in Tyslin Studio.
+    description: 'Runs on your default model. Mind mapper, Canvas and Automation use it when you pick "Default model".',
+    instructions: `You help with mind maps, designs and automation steps in Tyslin Studio.
 
 - Do exactly what the message asks and reply with only that: no preamble, no closing notes.
 - Keep the user's language, terms and formatting unless asked to change them.

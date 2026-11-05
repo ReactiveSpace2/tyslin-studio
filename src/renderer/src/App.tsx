@@ -17,7 +17,7 @@ import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
 import { ConnectorsPage } from './pages/ConnectorsPage'
 import { MindMapPage } from './pages/MindMapPage'
-import { WorkflowsPage } from './pages/WorkflowsPage'
+import { AutomationPage } from './pages/AutomationPage'
 import { CanvasPage } from './pages/CanvasPage'
 import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
@@ -39,7 +39,7 @@ export type Route =
   | { name: 'skills' }
   | { name: 'art' }
   | { name: 'videos' }
-  | { name: 'workflows'; open?: { projectId: string; path: string } }
+  | { name: 'automation'; open?: { projectId: string; path: string } }
   | { name: 'canvas'; open?: { projectId: string; path: string } }
   | { name: 'mindmap'; open?: { projectId: string; path: string } }
   | { name: 'drive' }
@@ -68,7 +68,7 @@ export default function App(): JSX.Element {
   const openChat = (agentId: string, projectId: string | null, sessionId?: string, via?: 'projects'): void => {
     // "Default model" chats belong to the Studio assistant.
     if (agentId === DEFAULT_MODEL_AGENT) agentId = getDefaultModel()?.assistantId ?? agentId
-    // Chats started elsewhere (Mind mapper, Canvas, Workflows, tasks) show up in the side panel straight away.
+    // Chats started elsewhere (Mind mapper, Canvas, Automation, tasks) show up in the side panel straight away.
     void refreshSessions()
     const a = agents.find((x) => x.id === agentId)
     const pid = !sessionId && projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
@@ -240,7 +240,7 @@ export default function App(): JSX.Element {
         {route.name === 'videos' && (
           <ComingSoon title="Videos" icon="video" text="Make and edit short videos with your agents: describe the clip, pick a model that makes video, and keep the results with your projects." />
         )}
-        {route.name === 'workflows' && <WorkflowsPage key={route.open?.path ?? 'workflows'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'automation' && <AutomationPage key={route.open?.path ?? 'automation'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'canvas' && <CanvasPage key={route.open?.path ?? 'canvas'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'mindmap' && <MindMapPage key={route.open?.path ?? 'mindmap'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => setRoute({ name: screen, open: { projectId, path } } as Route)} />}

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { InstallOutput, RunEvent, TyslinApi, UpdateStatus, WorkflowProgress } from '@shared/types'
+import type { AutomationProgress, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -90,16 +90,16 @@ const api: TyslinApi = {
     defaultProject: () => ipcRenderer.invoke('studio:defaultProject'),
     list: (kind, projectId) => ipcRenderer.invoke('studio:list', kind, projectId),
     read: (projectId, path) => ipcRenderer.invoke('studio:read', projectId, path),
-    write: (projectId, target, content) => ipcRenderer.invoke('studio:write', projectId, target, content),
+    write: (projectId, target, content, encoding) => ipcRenderer.invoke('studio:write', projectId, target, content, encoding),
     remove: (projectId, path) => ipcRenderer.invoke('studio:remove', projectId, path),
     reveal: (projectId, path) => ipcRenderer.invoke('studio:reveal', projectId, path),
     ask: (agentId, projectId, prompt, title) => ipcRenderer.invoke('studio:ask', agentId, projectId, prompt, title),
-    runWorkflow: (projectId, path) => ipcRenderer.invoke('studio:runWorkflow', projectId, path),
-    stopWorkflow: (runId) => ipcRenderer.invoke('studio:stopWorkflow', runId),
-    onWorkflow: (cb) => {
-      const fn = (_e: unknown, p: WorkflowProgress): void => cb(p)
-      ipcRenderer.on('workflow:progress', fn)
-      return () => ipcRenderer.removeListener('workflow:progress', fn)
+    runAutomation: (projectId, path) => ipcRenderer.invoke('studio:runAutomation', projectId, path),
+    stopAutomation: (runId) => ipcRenderer.invoke('studio:stopAutomation', runId),
+    onAutomation: (cb) => {
+      const fn = (_e: unknown, p: AutomationProgress): void => cb(p)
+      ipcRenderer.on('automation:progress', fn)
+      return () => ipcRenderer.removeListener('automation:progress', fn)
     }
   },
   drive: {

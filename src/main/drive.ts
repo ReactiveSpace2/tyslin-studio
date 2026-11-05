@@ -6,7 +6,7 @@ import { projectFor } from './studio'
 
 /**
  * Drive: a file browser over each project's folder (the Default project when none is chosen).
- * Mind maps, workflows, run logs and Canvas documents live here too, as ordinary files.
+ * Mind maps, automations, run logs and Canvas designs live here too, as ordinary files.
  * Every path is resolved inside the project folder; nothing outside it can be read or changed.
  */
 
@@ -34,7 +34,8 @@ const toRel = (folder: string, abs: string): string => relative(folder, abs).spl
 function kindOf(name: string, isDir: boolean): DriveKind {
   if (isDir) return 'folder'
   if (name.endsWith('.mindmap.json')) return 'mindmap'
-  if (name.endsWith('.workflow.json')) return 'workflow'
+  if (name.endsWith('.automation.json')) return 'automation'
+  if (name.endsWith('.canvas.json')) return 'canvas'
   const ext = extname(name).toLowerCase()
   if (IMAGE.has(ext)) return 'image'
   if (TEXT.has(ext) || !ext) return 'text'
@@ -50,9 +51,7 @@ export function driveList(projectId: string | null, dir: string, showHidden = fa
     try {
       const st = statSync(join(abs, name))
       const isDir = st.isDirectory()
-      let kind = kindOf(name, isDir)
-      // Canvas documents are the Markdown files in canvas/.
-      if (kind === 'text' && name.endsWith('.md') && toRel(folder, abs) === 'canvas') kind = 'canvas'
+      const kind = kindOf(name, isDir)
       entries.push({ name, path: toRel(folder, join(abs, name)), isDir, kind, size: isDir ? 0 : st.size, updatedAt: st.mtimeMs })
     } catch { /* unreadable entry: skip */ }
   }

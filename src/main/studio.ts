@@ -5,7 +5,7 @@ import type { Project, StudioFile, StudioKind } from '@shared/types'
 import * as db from './db'
 
 /**
- * Files made on the Mind mapper, Workflows and Canvas screens. They are ordinary files in the
+ * Files made on the Mind mapper, Automation and Canvas screens. They are ordinary files in the
  * project's folder, so they can be read, edited and committed outside Tyslin. With no project
  * chosen they go to the organization's Default project (a real folder under Documents).
  * These are the user's own documents saved by the app, not agent edits, so they skip the diff review.
@@ -13,9 +13,12 @@ import * as db from './db'
 
 const KINDS: Record<StudioKind, { dir: string; ext: string }> = {
   mindmap: { dir: 'mindmaps', ext: '.mindmap.json' },
-  workflow: { dir: 'workflows', ext: '.workflow.json' },
-  run: { dir: join('workflows', 'runs'), ext: '.md' },
-  canvas: { dir: 'canvas', ext: '.md' }
+  automation: { dir: 'automations', ext: '.automation.json' },
+  run: { dir: join('automations', 'runs'), ext: '.md' },
+  canvas: { dir: 'canvas', ext: '.canvas.json' },
+  document: { dir: 'documents', ext: '.md' },
+  svg: { dir: 'exports', ext: '.svg' },
+  png: { dir: 'exports', ext: '.png' }
 }
 
 const safeName = (s: string): string => s.replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled'
@@ -105,7 +108,8 @@ export function readStudioFile(projectId: string | null, path: string): string {
 }
 
 /** Writes a file; with `name` instead of a path, picks a free file name for that kind. */
-export function writeStudioFile(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string): StudioFile {
+/** Saves text, or binary data given as base64 (PNG exports). */
+export function writeStudioFile(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string, encoding: 'utf8' | 'base64' = 'utf8'): StudioFile {
   const project = projectFor(projectId)
   let rel = target.path
   if (!rel) {
@@ -116,7 +120,7 @@ export function writeStudioFile(projectId: string | null, target: { path?: strin
   }
   const abs = inside(project.folder!, rel)
   mkdirSync(dirname(abs), { recursive: true })
-  writeFileSync(abs, content, 'utf8')
+  writeFileSync(abs, encoding === 'base64' ? Buffer.from(content, 'base64') : content, encoding === 'base64' ? undefined : 'utf8')
   const name = rel.split(/[\\/]/).pop()!
   const ext = Object.values(KINDS).find((k) => name.endsWith(k.ext))?.ext ?? ''
   return { name: name.slice(0, name.length - ext.length), path: rel.split(sep).join('/'), updatedAt: Date.now() }

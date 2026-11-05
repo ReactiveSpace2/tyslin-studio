@@ -199,6 +199,16 @@ export function onRunEvent(e: RunEvent): void {
   }
 }
 
+/** Sends a message to every linked chat (Automation's Telegram node). Returns how many got it. */
+export async function sendToLinkedChats(text: string): Promise<number> {
+  if (!token()) throw new Error('Telegram is not connected. Add your bot in Connectors first.')
+  const targets = links()
+  if (!targets.length) throw new Error('No Telegram chat is linked yet. Link one in Connectors.')
+  const body = text.trim() || '(empty message)'
+  for (const l of targets) await send(l.chatId, body.slice(0, 4000))
+  return targets.length
+}
+
 /** A scheduled task finished: tell linked chats, if they asked for results or failures. */
 export function notifyTask(taskName: string, agentName: string, ok: boolean, error: string, sessionId: string): void {
   if (!polling) return

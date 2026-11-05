@@ -93,7 +93,7 @@ export function Onboarding({ firstName, onDone }: { firstName?: string; onDone: 
         {step === 1 && (
           <section className="onboard-body">
             <h1 id="onboard-h">Name your default project</h1>
-            <p className="hint">Mind maps, workflows, Canvas documents and Drive files go here when no other project is chosen.</p>
+            <p className="hint">Mind maps, automations, Canvas designs and Drive files go here when no other project is chosen.</p>
             <div className="field">
               <label htmlFor="ob-project">Project name</label>
               <input id="ob-project" className="input" autoFocus maxLength={80} value={project} onChange={(e) => setProject(e.target.value)} placeholder="e.g. Launch" />
@@ -112,7 +112,7 @@ export function Onboarding({ firstName, onDone }: { firstName?: string; onDone: 
             <p className="hint">Add a key for each provider you use. Keys are encrypted on this computer and only ever go to their own provider.</p>
             <ModelKeys settings={settings} onSaved={keySaved} />
             <h2 className="onboard-sub">Default model</h2>
-            <p className="hint">Used by Mind mapper, Canvas and Workflows, and shown in the status bar. You can change it any time in Settings → Models.</p>
+            <p className="hint">Used by Mind mapper, Canvas and Automation, and shown in the status bar. You can change it any time in Settings → Models.</p>
             <DefaultModelPicker settings={settings} value={pick} onChange={setPick} idPrefix="ob-dm" />
             {!anyKey && pick.provider !== 'ollama' && <p className="hint">No key yet? You can finish now and add one later in Settings → Models.</p>}
           </section>

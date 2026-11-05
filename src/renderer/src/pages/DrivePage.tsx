@@ -7,18 +7,18 @@ type IconName = Parameters<typeof Icon>[0]['name']
 interface Props {
   projects: Project[]
   onNewProject: () => void
-  /** Open a mind map, workflow or Canvas document in its own screen. */
-  onOpenIn: (screen: 'mindmap' | 'workflows' | 'canvas', projectId: string, path: string) => void
+  /** Open a mind map, automation or Canvas design in its own screen. */
+  onOpenIn: (screen: 'mindmap' | 'automation' | 'canvas', projectId: string, path: string) => void
 }
 
-const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', workflow: 'workflow', canvas: 'canvas', image: 'art', text: 'file', file: 'file' }
-const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', workflow: 'Workflow', canvas: 'Canvas document', image: 'Image', text: 'Text', file: 'File' }
+const ICON: Record<DriveKind, IconName> = { folder: 'folder', mindmap: 'mindmap', automation: 'workflow', canvas: 'canvas', image: 'art', text: 'file', file: 'file' }
+const LABEL: Record<DriveKind, string> = { folder: 'Folder', mindmap: 'Mind map', automation: 'Automation', canvas: 'Canvas design', image: 'Image', text: 'Text', file: 'File' }
 const size = (n: number): string => (n < 1024 ? `${n} B` : n < 1024 ** 2 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 ** 2).toFixed(1)} MB`)
 const when = (t: number): string => new Date(t).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 /**
- * Drive: browse each project's folder like a file manager. Mind maps, workflows, run logs and
+ * Drive: browse each project's folder like a file manager. Mind maps, automations, run logs and
  * Canvas documents are here as ordinary files; drop files from the desktop to add them.
  */
 export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Element {
@@ -67,7 +67,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     const pid = listing?.projectId
     if (!pid) return
     if (e.kind === 'mindmap') return onOpenIn('mindmap', pid, e.path)
-    if (e.kind === 'workflow') return onOpenIn('workflows', pid, e.path)
+    if (e.kind === 'automation') return onOpenIn('automation', pid, e.path)
     if (e.kind === 'canvas') return onOpenIn('canvas', pid, e.path)
     void window.tyslin.drive.open(projectId, e.path)
   }
@@ -107,7 +107,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
             <span className="panel-label">{r.name}</span>
           </button>
         ))}
-        <p className="hint panel-note">Each project's folder on this computer. Mind maps, workflows and Canvas documents are saved here too.</p>
+        <p className="hint panel-note">Each project's folder on this computer. Mind maps, automations and Canvas designs are saved here too.</p>
       </nav>
 
       <section className="dv-main" {...dropProps('main', dir)} aria-label="Files">
@@ -172,9 +172,9 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
             </div>
             <div className="row" style={{ gap: 6 }}>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => openEntry(sel)}>
-                {sel.isDir ? 'Open folder' : sel.kind === 'mindmap' ? 'Open in Mind mapper' : sel.kind === 'workflow' ? 'Open in Workflows' : sel.kind === 'canvas' ? 'Open in Canvas' : 'Open'}
+                {sel.isDir ? 'Open folder' : sel.kind === 'mindmap' ? 'Open in Mind mapper' : sel.kind === 'automation' ? 'Open in Automation' : sel.kind === 'canvas' ? 'Open in Canvas' : 'Open'}
               </button>
-              {!sel.isDir && ['mindmap', 'workflow', 'canvas'].includes(sel.kind) && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
+              {!sel.isDir && ['mindmap', 'automation', 'canvas'].includes(sel.kind) && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
               <button type="button" className="btn btn-sm" onClick={() => setNaming({ mode: 'rename', value: sel.name })}>Rename</button>
               <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.reveal(projectId, sel.path)}>Show in folder</button>
               <button type="button" className="btn btn-sm" onClick={() => {
