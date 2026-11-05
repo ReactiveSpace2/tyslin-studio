@@ -16,7 +16,7 @@ Tyslin Studio is an open-source desktop studio for building and working with AI 
 
 Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database (one per organization), and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
 
-> **Status: beta (v0.4.0).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
+> **Status: beta (v0.4.1).** Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
 
 ## What works today
 
