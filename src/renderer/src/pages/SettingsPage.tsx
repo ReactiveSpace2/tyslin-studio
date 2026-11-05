@@ -172,6 +172,49 @@ function AppearanceTab(): JSX.Element {
   )
 }
 
+/** Settings → About: wipe everything and start like a fresh install, after typing RESET. */
+function ResetBox(): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const go = async (): Promise<void> => {
+    setBusy(true); setError(null)
+    try { await window.tyslin.app.reset() } catch (e) { setError(e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e)); setBusy(false) }
+  }
+  return (
+    <section className="box reset-box" aria-labelledby="reset-h">
+      <div className="box-head">
+        <h2 id="reset-h">Reset Tyslin Studio</h2>
+        <p className="hint">Start again as if Tyslin were just installed. Every organization, project, agent, team, chat, task, board, mind map, design and automation is removed, along with your keys and sign-in. The built-in agents and the Engineering team come back after setup.</p>
+      </div>
+      <div className="row">
+        <button type="button" className="btn btn-danger" onClick={() => { setOpen(true); setTyped('') }}>Reset…</button>
+      </div>
+      {open && (
+        <div className="backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) setOpen(false) }}>
+          <div className="modal reset-modal" role="alertdialog" aria-modal="true" aria-labelledby="reset-t" aria-describedby="reset-d">
+            <h2 id="reset-t">Reset everything?</h2>
+            <div id="reset-d" className="reset-list">
+              <p><strong>Deleted from this computer:</strong> all organizations and their agents, teams, projects, chats, tasks and skills you added; API keys, Telegram and Google Drive connections; your sign-in.</p>
+              <p><strong>Moved to the Trash</strong> (you can restore them): the Documents/Tyslin Studio folder with its boards, mind maps, designs and automations, and the same Tyslin folders inside project folders you linked. Your other files stay where they are.</p>
+              <p><strong>Then</strong> Tyslin closes and opens again: sign in, name your organization and project, and pick your provider and model.</p>
+            </div>
+            <label className="field"><span className="label">Type RESET to confirm</span>
+              <input className="input mono" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} disabled={busy} autoComplete="off" />
+            </label>
+            {error && <p className="hint account-error" role="alert">{error}</p>}
+            <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+              <button type="button" className="btn btn-danger" disabled={typed.trim() !== 'RESET' || busy} onClick={() => void go()}>{busy ? 'Resetting…' : 'Reset and restart'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function ModelsTab(): JSX.Element {
   const [s, setS] = useState<ProviderSettings | null>(null)
   const [ollama, setOllama] = useState('')
@@ -459,6 +502,7 @@ function AboutTab(): JSX.Element {
           <button type="button" className="btn" onClick={() => void window.tyslin.app.openDataFolder()}>Open folder</button>
         </div>
       </section>
+      <ResetBox />
       <section className="box about" aria-label="About">
         <img src={stacked} alt="Tyslin" className="light-only" />
         <span className="dark-only about-dark-logo">

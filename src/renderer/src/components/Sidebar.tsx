@@ -151,7 +151,6 @@ export function Sidebar(props: Props): JSX.Element {
         {railBtn('Videos', 'video', route.name === 'videos', () => onNavigate({ name: 'videos' }), 'Create')}
         <div className="rail-foot">
           {group('Resources')}
-          {railBtn('Drive', 'drive', route.name === 'drive', () => onNavigate({ name: 'drive' }), 'Resources')}
           {railBtn('Knowledge base', 'knowledge', route.name === 'knowledge', () => onNavigate({ name: 'knowledge' }), 'Resources')}
           {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }), 'Resources')}
           {group('Setup')}

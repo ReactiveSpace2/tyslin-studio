@@ -160,7 +160,8 @@ const api: TyslinApi = {
     info: () => ipcRenderer.invoke('app:info'),
     dashboard: () => ipcRenderer.invoke('app:dashboard'),
     stars: () => ipcRenderer.invoke('app:stars'),
-    openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')
+    openDataFolder: () => ipcRenderer.invoke('app:openDataFolder'),
+    reset: () => ipcRenderer.invoke('app:reset')
   },
   updates: {
     status: () => ipcRenderer.invoke('updates:status'),

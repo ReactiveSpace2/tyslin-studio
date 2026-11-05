@@ -767,3 +767,23 @@ export function gsyncSetProject(p: SyncedProject): void {
 export function gsyncReset(): void {
   db.exec('DELETE FROM gsync_files; DELETE FROM gsync_projects')
 }
+
+// ---------- Reset ----------
+/** Every project folder in every organization (for the full reset). */
+export function allProjectFolders(): string[] {
+  const out: string[] = []
+  for (const o of home.prepare('SELECT id FROM orgs').all() as { id: string }[]) {
+    try {
+      const d = o.id === DEFAULT_ORG ? home : new Database(orgFile(o.id), { readonly: true, fileMustExist: true })
+      for (const r of d.prepare('SELECT folder FROM projects WHERE folder IS NOT NULL').all() as { folder: string }[]) out.push(r.folder)
+      if (d !== home) d.close()
+    } catch { /* an unreadable organization: its files are removed with the data folder */ }
+  }
+  return [...new Set(out)]
+}
+
+/** Closes every open database (before the data files are removed). */
+export function closeAll(): void {
+  if (db && db !== home) db.close()
+  home?.close()
+}

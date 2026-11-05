@@ -156,6 +156,12 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
   return (
     <footer className="statusbar" aria-label="Status">
       <div className="statusbar-group">
+        <button type="button" className={'status-item status-btn' + (route.name === 'drive' ? ' on' : '')} onClick={() => onNavigate({ name: 'drive' })}
+          title={gd?.connected ? `Drive: project files${gd.syncing ? ', syncing with Google Drive' : gd.lastError ? `, Google Drive: ${gd.lastError}` : ', synced with Google Drive'}` : 'Drive: your project files'}>
+          <Icon name="drive" size={12} />
+          Drive
+          {gd?.connected && <span className={'status-sync' + (gd.syncing ? ' busy' : gd.lastError ? ' bad' : '')} aria-hidden="true" />}
+        </button>
         {items.length > 0 && (
           <div className="running" ref={menuRef}>
             <button type="button" className="status-item status-btn status-busy" aria-haspopup="dialog" aria-expanded={open}

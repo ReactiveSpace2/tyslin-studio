@@ -50,6 +50,8 @@ export function ModelKeys({ settings, onSaved }: { settings: ProviderSettings | 
   )
 }
 
+const OTHER = '__other__'
+
 /** Provider and model for the default model. Providers without a key are marked; Ollama needs none. */
 export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' }: {
   settings: ProviderSettings | null
@@ -58,6 +60,7 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   idPrefix?: string
 }): JSX.Element {
   const providers: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
+  const known = MODEL_SUGGESTIONS[value.provider].includes(value.model)
   return (
     <div className="dm-picker">
       <div className="field">
@@ -71,9 +74,15 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
       </div>
       <div className="field">
         <label htmlFor={idPrefix + '-model'}>Model</label>
-        <input id={idPrefix + '-model'} className="input mono" list={idPrefix + '-models'} value={value.model} spellCheck={false}
-          onChange={(e) => onChange({ ...value, model: e.target.value })} />
-        <datalist id={idPrefix + '-models'}>{MODEL_SUGGESTIONS[value.provider].map((m) => <option key={m} value={m} />)}</datalist>
+        <select id={idPrefix + '-model'} className="select mono" value={known ? value.model : OTHER}
+          onChange={(e) => onChange({ ...value, model: e.target.value === OTHER ? '' : e.target.value })}>
+          {MODEL_SUGGESTIONS[value.provider].map((m) => <option key={m} value={m}>{m}</option>)}
+          <option value={OTHER}>Other model…</option>
+        </select>
+        {!known && (
+          <input className="input mono" aria-label="Model name" placeholder="Model name, e.g. gpt-4.1" value={value.model} spellCheck={false}
+            onChange={(e) => onChange({ ...value, model: e.target.value })} autoFocus />
+        )}
       </div>
       {!hasKey(settings, value.provider) && <p className="hint account-error dm-note">Add a {PROVIDER_NAME[value.provider]} key above, or this model can't answer.</p>}
     </div>

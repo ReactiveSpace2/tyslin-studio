@@ -37,10 +37,14 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
   return TITLES[route.name] ?? ''
 }
 
-/** The window's title bar: Tyslin mark and wordmark, the current screen's name, the organization switcher and zoom. Empty space drags the window. */
+/** The window's title bar: Tyslin mark and wordmark, then the organization and project switchers and zoom. Empty space drags the window. */
 export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
+
+  // The screen's name is no longer shown in the bar; it stays the window title for screen readers and the taskbar.
+  const title = titleFor(route, agents, projects)
+  useEffect(() => { document.title = title ? `${title} · Tyslin Studio` : 'Tyslin Studio' }, [title])
 
   return (
     <header className={'titlebar' + (mac ? ' mac' : '')}>
@@ -51,14 +55,9 @@ export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOp
         <GitHubStars compact />
       </div>
       <div className="titlebar-main">
-        <span className="titlebar-title">{titleFor(route, agents, projects)}</span>
-        <span className="titlebar-sep" aria-hidden="true" />
         <OrgSwitcher onNewOrg={onNewOrg} />
         <span className="titlebar-slash" aria-hidden="true">/</span>
         <ProjectSwitcher projects={projects} onNewProject={onNewProject} onOpenChats={onOpenProjectChats} />
-        <span className="status-item titlebar-local" title="Agents, chats and keys are stored on this computer">
-          <span className="status-dot" aria-hidden="true" /> Local
-        </span>
         <ZoomControl compact />
       </div>
     </header>

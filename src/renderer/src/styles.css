@@ -1070,3 +1070,18 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .nt-toggles input { width: 18px; height: 18px; accent-color: var(--green); }
 .nt-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--line); background: var(--parchment); }
 .nt-foot .hint { margin: 0; }
+
+/* Reset (Settings → About) and Drive in the status bar */
+.btn-danger { border-color: var(--danger); color: var(--danger); background: var(--card); font-weight: 600; }
+.btn-danger:hover:not(:disabled) { background: var(--danger-soft); }
+.reset-box { border-color: var(--danger-soft); }
+.modal.reset-modal { width: 560px; }
+.reset-modal h2 { margin: 0; font-size: 20px; }
+.reset-list { display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; line-height: 1.55; color: var(--muted); }
+.reset-list p { margin: 0; }
+.reset-list strong { color: var(--ink); }
+.status-btn.on { background: var(--card); color: var(--ink); }
+.status-sync { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.status-sync.busy { background: var(--lime); animation: au-pulse 1.2s ease-in-out infinite; }
+.status-sync.bad { background: var(--danger); }
+.dm-picker .field .input { margin-top: 6px; }

@@ -16,6 +16,7 @@ import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { createTeam, ensureDefaultTeam, teamsStatus } from './teams'
+import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
@@ -165,8 +166,9 @@ function startScheduler(): void {
   const autoTick = (): void => {
     try { runDueAutomations(Date.now(), (projectId, path) => { startAutomation(projectId, path, 'schedule') }) } catch { /* next tick */ }
   }
-  setTimeout(() => { tick(); autoTick() }, 5000)
-  setInterval(() => { tick(); autoTick() }, 30_000)
+  const both = (): void => { if (!resetting) { tick(); autoTick() } }
+  setTimeout(both, 5000)
+  setInterval(both, 30_000)
 }
 
 const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' }
@@ -548,6 +550,13 @@ function registerIpc(): void {
     platform: `${process.platform} ${process.arch}`,
     dataPath: app.getPath('userData')
   }))
+  ipcMain.handle('app:reset', async () => {
+    // Revoke the Google Drive grant while its token is still readable; then stop replies and wipe.
+    try { disconnectDrive(true) } catch { /* not connected */ }
+    await resetEverything(() => {
+      for (const r of activeRuns.values()) r.controller.abort()
+    })
+  })
   ipcMain.handle('app:openDataFolder', () => shell.openPath(app.getPath('userData')).then(() => undefined))
 
   ipcMain.handle('updates:status', () => getUpdateStatus())

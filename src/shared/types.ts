@@ -871,6 +871,8 @@ export interface TyslinApi {
     /** GitHub stars for Tyslin's repo (null when GitHub couldn't be reached), and the repo URL. */
     stars(): Promise<{ count: number | null; url: string }>
     openDataFolder(): Promise<void>
+    /** Deletes all app data, moves Tyslin's files to the Trash, then restarts as a fresh install. */
+    reset(): Promise<void>
   }
   updates: {
     status(): Promise<UpdateStatus>
