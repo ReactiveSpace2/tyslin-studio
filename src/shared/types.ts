@@ -710,6 +710,9 @@ export interface TyslinApi {
     list(): Promise<Project[]>
     create(name: string, folder: string | null): Promise<Project>
     pickFolder(): Promise<string | null>
+    rename(id: string, name: string): Promise<void>
+    /** Deletes the project with its agents, assistants, chats and tasks (files stay on disk). Not the Default project. */
+    remove(id: string): Promise<{ agents: number }>
     files(projectId: string): Promise<string[]>
   }
   attachments: {

@@ -14,6 +14,8 @@ const api: TyslinApi = {
     list: () => ipcRenderer.invoke('projects:list'),
     create: (name, folder) => ipcRenderer.invoke('projects:create', name, folder),
     pickFolder: () => ipcRenderer.invoke('projects:pickFolder'),
+    rename: (id, name) => ipcRenderer.invoke('projects:rename', id, name),
+    remove: (id) => ipcRenderer.invoke('projects:remove', id),
     files: (id) => ipcRenderer.invoke('projects:files', id)
   },
   attachments: {

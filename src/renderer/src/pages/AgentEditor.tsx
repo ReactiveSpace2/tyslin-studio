@@ -6,6 +6,7 @@ import { Icon } from '../components/Icon'
 import { HeadPicker } from '../components/HeadPicker'
 import { MODEL_SUGGESTIONS } from '@shared/models'
 import { getDefaultModel } from '../defaultModel'
+import { getCurrentProject } from '../currentProject'
 
 /** Kept here too for older imports; the list lives in shared/models.ts. */
 export { MODEL_SUGGESTIONS }
@@ -45,7 +46,8 @@ export function AgentEditor({ kind, agentId, onDone, onCancel }: Props): JSX.Ele
   const save = async (): Promise<void> => {
     if (!form.name.trim()) return
     setSaving(true)
-    const saved = await window.tyslin.agents.save({ ...form, name: form.name.trim() })
+    // New ones belong to the project picked in the title bar.
+    const saved = await window.tyslin.agents.save({ ...form, name: form.name.trim(), projectId: form.id ? form.projectId : getCurrentProject() })
     setSaving(false)
     onDone(saved)
   }

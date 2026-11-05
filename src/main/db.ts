@@ -284,9 +284,11 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const input = kind === 'assistant'
     ? { ...raw, engine: 'builtin' as const, schedule: 'manual', writeMode: 'ask' as const, isMascot: false }
     : raw
-  // Extras: keep what's stored when not given. Assistants and Builder (the mascot) never join a project.
-  const inProject = kind === 'agent' && !(existing?.isMascot ?? input.isMascot)
-  const projectId = !inProject ? null : input.projectId !== undefined ? input.projectId : existing?.projectId ?? null
+  // Extras: keep what's stored when not given. Builder (the mascot) never joins a project. An assistant's
+  // project is only its workspace (where it shows up); it never works in the folder and has no lead.
+  const mascot = existing?.isMascot ?? input.isMascot
+  const inProject = kind === 'agent' && !mascot
+  const projectId = mascot ? null : input.projectId !== undefined ? input.projectId : existing?.projectId ?? null
   if (projectId && !getProject(projectId)) throw new Error('That project no longer exists.')
   let leadId = !inProject ? null : input.leadId !== undefined ? input.leadId : existing?.leadId ?? null
   // A lead must be another agent in the same project, and not one of this agent's own team (no loops).
@@ -354,6 +356,28 @@ export function agentStats(): Map<string, { lastError: string; lastActive: numbe
 export function removeAgent(id: string): void {
   db.prepare('UPDATE agents SET lead_id = NULL WHERE lead_id = ?').run(id)
   db.prepare('DELETE FROM agents WHERE id = ? AND is_mascot = 0').run(id)
+}
+
+export function renameProjectChecked(id: string, name: string): void {
+  if (!getProject(id)) throw new Error('That project no longer exists.')
+  renameProject(id, name)
+}
+
+/**
+ * Deletes a project and everything that works in it: its agents and assistants (with their chats and tasks).
+ * Files in its folder stay on disk. The Default project can't be deleted.
+ */
+export function removeProject(id: string, defaultId: string | null): { agents: number } {
+  if (id === defaultId) throw new Error("The Default project can't be deleted.")
+  if (!getProject(id)) throw new Error('That project no longer exists.')
+  const members = (db.prepare('SELECT id FROM agents WHERE project_id = ? AND is_mascot = 0').all(id) as { id: string }[]).map((r) => r.id)
+  db.transaction(() => {
+    for (const a of members) removeAgent(a)
+    db.prepare('DELETE FROM gsync_files WHERE project_id = ?').run(id)
+    db.prepare('DELETE FROM gsync_projects WHERE project_id = ?').run(id)
+    db.prepare('DELETE FROM projects WHERE id = ?').run(id)
+  })()
+  return { agents: members.length }
 }
 
 export function listProjects(): Project[] {

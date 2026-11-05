@@ -27,7 +27,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { Onboarding } from './components/Onboarding'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
-import { initCurrentProject, setCurrentProject, useCurrentProject } from './currentProject'
+import { initCurrentProject, setCurrentProject, useCurrentProject, useInWorkspace } from './currentProject'
 import { UpdateNotice } from './components/UpdateNotice'
 import { ComingSoon } from './pages/ComingSoon'
 
@@ -116,7 +116,17 @@ export default function App(): JSX.Element {
 
   // The project picked in the title bar (needs setup done, so the Default project gets its chosen name).
   const [currentProject] = useCurrentProject()
+  // Part of the studio screens' key, so a rename shows straight away.
+  const projectName = projects.find((p) => p.id === currentProject)?.name ?? ''
   useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
+
+  // Projects are workspaces: switching project leaves a chat or page of an agent that isn't in the new one.
+  const inWs = useInWorkspace()
+  useEffect(() => {
+    const id = route.name === 'chat' || route.name === 'editor' ? route.agentId : undefined
+    const a = id ? agents.find((x) => x.id === id) : undefined
+    if (a && !inWs(a)) setRoute({ name: 'agents', kind: a.kind })
+  }, [currentProject])
 
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
   if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
@@ -153,6 +163,7 @@ export default function App(): JSX.Element {
         onNewOrg={() => setNewOrg(true)}
         onNewProject={() => setNewProject(true)}
         onHome={() => setRoute({ name: 'home' })}
+        onProjectsChanged={() => { void refresh(); void refreshSessions() }}
         onOpenProjectChats={() => {
           // The selected project's chats, in the projects side panel (its latest chat, or Builder there).
           const pid = currentProject ?? projects[0]?.id
@@ -260,10 +271,10 @@ export default function App(): JSX.Element {
         {route.name === 'videos' && (
           <ComingSoon title="Videos" icon="video" text="Make and edit short videos with your agents: describe the clip, pick a model that makes video, and keep the results with your projects." />
         )}
-        {route.name === 'automation' && <AutomationPage key={`${currentProject}:${route.open?.path ?? 'automation'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'canvas' && <CanvasPage key={`${currentProject}:${route.open?.path ?? 'canvas'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${route.open?.path ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'mindmap' && <MindMapPage key={`${currentProject}:${route.open?.path ?? 'mindmap'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'automation' && <AutomationPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'automation'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'canvas' && <CanvasPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'canvas'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'mindmap' && <MindMapPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'mindmap'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => { setCurrentProject(projectId); setRoute({ name: screen, open: { projectId, path } } as Route) }} />}
         {route.name === 'knowledge' && (
           <ComingSoon title="Knowledge base" icon="knowledge" text="Collect documents, notes and links your agents and assistants can search, so their answers come from your own material." />

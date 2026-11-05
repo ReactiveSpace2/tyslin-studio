@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Agent, AgentInput, AgentTestResult, EngineStatus, ExternalEngineId, Project, ProviderId, ProviderSettings, Shape, Skill, Tone } from '@shared/types'
 import { MODEL_SUGGESTIONS } from '../pages/AgentEditor'
 import { getDefaultModel } from '../defaultModel'
+import { getCurrentProject } from '../currentProject'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
 import { Mark, MARKS } from './RunsOnBadge'
@@ -35,7 +36,7 @@ export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat,
     // New agents start on the default model.
     provider: getDefaultModel()?.provider ?? 'anthropic', model: getDefaultModel()?.model ?? 'claude-sonnet-5-5',
     skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false,
-    projectId: null, leadId: null, tools: { read: true, write: true }, channels: { telegram: false }, head: 'smile'
+    projectId: getCurrentProject(), leadId: null, tools: { read: true, write: true }, channels: { telegram: false }, head: 'smile'
   })
   const [keys, setKeys] = useState<ProviderSettings | null>(null)
   const [engines, setEngines] = useState<EngineStatus[]>([])

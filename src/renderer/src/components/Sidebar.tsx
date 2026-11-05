@@ -1,3 +1,4 @@
+import { useInWorkspace } from '../currentProject'
 import type { Agent, AgentKind, Project, Session } from '@shared/types'
 import type { Route } from '../App'
 import { Avatar } from './Avatar'
@@ -92,6 +93,7 @@ export function Sidebar(props: Props): JSX.Element {
     )
   }
 
+  const inWs = useInWorkspace()
   const kindPanel = (sec: 'agents' | 'assistants'): JSX.Element => {
     const kind = SECTION_KIND[sec]
     const noun = kind === 'agent' ? 'agent' : 'assistant'
@@ -109,7 +111,7 @@ export function Sidebar(props: Props): JSX.Element {
         >
           <Icon name="grid" size={14} /> All {noun}s
         </button>
-        {agents.filter((a) => a.kind === kind).map((a) => {
+        {agents.filter((a) => a.kind === kind && inWs(a)).map((a) => {
           const chats = sessions.filter((s) => s.agentId === a.id).slice(0, CHATS_PER_ITEM)
           const here = (route.name === 'chat' && route.agentId === a.id && route.via !== 'projects') || (route.name === 'editor' && route.agentId === a.id)
           return (

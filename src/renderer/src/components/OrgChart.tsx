@@ -25,12 +25,12 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
  * Each agent works in one project; Builder helps everywhere and stays off the charts.
  */
 export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, onNewProject }: Props): JSX.Element {
-  // The tab follows the project picked in the title bar, and picking a tab changes it there too.
-  const [projectId, setProjectId] = useCurrentProject()
+  // The chart is the project picked in the title bar.
+  const [projectId] = useCurrentProject()
   const [over, setOver] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
   const [error, setError] = useState<string | null>(null)
-  const project = projects.find((p) => p.id === projectId) ?? projects[0] ?? null
+  const project = projects.find((p) => p.id === projectId) ?? null
   const team = agents.filter((a) => a.kind === 'agent' && !a.isMascot && project && a.projectId === project.id)
   const tray = agents.filter((a) => a.kind === 'agent' && !a.isMascot && !a.projectId)
 
@@ -127,13 +127,7 @@ export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, o
   return (
     <div className="org">
       <div className="org-bar">
-        <div className="tabs" role="tablist" aria-label="Project">
-          {projects.map((p) => (
-            <button key={p.id} type="button" role="tab" aria-selected={p.id === project.id} className={p.id === project.id ? 'on' : ''} onClick={() => setProjectId(p.id)}>
-              <Icon name="folder" size={14} /> {p.name}
-            </button>
-          ))}
-        </div>
+        <span className="org-project"><Icon name="folder" size={14} /> {project.name}</span>
         <span className="hint">Drag an agent onto You or onto a lead. Drag it to the tray to take it off the project.</span>
       </div>
       {error && <p className="hint account-error" role="alert">{error}</p>}

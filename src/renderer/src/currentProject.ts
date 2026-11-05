@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { Agent } from '@shared/types'
+import { inWorkspace } from '@shared/scope'
+import { useDefaultModel } from './defaultModel'
 
 /**
  * The project picked in the title bar. Mind mapper, Automation, Canvas, Kanban, Drive and the Agents org chart
@@ -6,6 +9,7 @@ import { useEffect, useState } from 'react'
  * organization on this computer.
  */
 let current: string | null = null
+let defaultId: string | null = null
 let orgId = ''
 const subs = new Set<() => void>()
 const key = (): string => `tyslin:project:${orgId}`
@@ -15,9 +19,19 @@ export async function initCurrentProject(): Promise<string> {
   orgId = orgs.find((o) => o.current)?.id ?? 'default'
   let saved: string | null = null
   try { saved = localStorage.getItem(key()) } catch { /* storage off: use the default */ }
+  defaultId = def.id
   current = saved && projects.some((p) => p.id === saved) ? saved : def.id
   subs.forEach((f) => f())
   return current
+}
+
+export function getDefaultProjectId(): string | null {
+  return defaultId
+}
+
+/** After a project is deleted: back to the Default project. */
+export function forgetProject(id: string): void {
+  if (current === id && defaultId) setCurrentProject(defaultId)
 }
 
 export function getCurrentProject(): string | null {
@@ -39,4 +53,14 @@ export function useCurrentProject(): [string | null, (id: string) => void] {
     return () => { subs.delete(f) }
   }, [])
   return [current, setCurrentProject]
+}
+
+/**
+ * Whether an agent or assistant belongs to the selected project's workspace (shared/scope.ts).
+ * Lists, pickers and pages use it so another project's agents never show up.
+ */
+export function useInWorkspace(): (a: Agent) => boolean {
+  const [projectId] = useCurrentProject()
+  const dm = useDefaultModel()
+  return (a: Agent) => inWorkspace(a, projectId, defaultId, dm?.assistantId)
 }

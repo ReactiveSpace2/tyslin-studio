@@ -1,3 +1,4 @@
+import { useInWorkspace } from '../currentProject'
 import { useMemo, useState } from 'react'
 import type { Agent, AgentKind } from '@shared/types'
 import { Avatar } from '../components/Avatar'
@@ -29,7 +30,9 @@ export function AgentsPage({ kind, agents, onChat, onEdit, onNew }: Props): JSX.
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'local'>('all')
 
+  const inWs = useInWorkspace()
   const shown = useMemo(() => agents.filter((a) => {
+    if (!inWs(a)) return false
     if (q && !(a.name + ' ' + a.description).toLowerCase().includes(q.toLowerCase())) return false
     if (filter === 'scheduled') return a.schedule !== 'manual'
     if (filter === 'local') return a.provider === 'ollama'

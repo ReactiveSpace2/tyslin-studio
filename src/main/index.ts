@@ -11,6 +11,7 @@ import { testAcp } from './acp'
 import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
 import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant } from './defaultModel'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
+import { inWorkspace } from '@shared/scope'
 import { defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations, stopAutomation } from './automation'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
@@ -242,6 +243,11 @@ async function askAgent(agentId: string, projectId: string | null, prompt: strin
     // "Default model" runs through the organization's Studio assistant, which follows the default model.
     const agent = agentId === DEFAULT_MODEL_AGENT ? studioAssistant() : db.getAgent(agentId)
     if (!agent) throw new Error('Pick an agent or assistant.')
+    // Projects are workspaces: an agent or assistant only works in its own project.
+    const where = projectFor(projectId)
+    if (!inWorkspace(agent, where.id, db.getSetting('project:default'), db.getSetting('assistant:studio'))) {
+      throw new Error(`${agent.name} belongs to another project. Pick one from ${where.name}.`)
+    }
     const project = agent.kind === 'agent' ? projectFor(projectId) : null
     const s = db.createSession(agent.id, project?.id ?? null)
     onSession?.(s.id)
@@ -336,6 +342,13 @@ function registerIpc(): void {
 
   ipcMain.handle('projects:list', () => db.listProjects())
   ipcMain.handle('projects:create', (_e, name: string, folder: string | null) => db.createProject(name, folder))
+  ipcMain.handle('projects:rename', (_e, id: string, name: string) => db.renameProjectChecked(id, String(name ?? '')))
+  ipcMain.handle('projects:remove', (_e, id: string) => {
+    const def = db.getSetting('project:default')
+    // Stop anything still replying in that project first.
+    for (const [sid, r] of activeRuns) { if (db.getSession(sid)?.projectId === id) r.controller.abort() }
+    return db.removeProject(id, def)
+  })
   ipcMain.handle('projects:pickFolder', async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] })
     return r.canceled ? null : r.filePaths[0]

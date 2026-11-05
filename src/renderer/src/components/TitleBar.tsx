@@ -16,6 +16,7 @@ interface Props {
   onNewProject: () => void
   onOpenProjectChats: () => void
   onHome: () => void
+  onProjectsChanged: () => void
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
@@ -38,7 +39,7 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
 }
 
 /** The window's title bar: Organization / Project at the left, the Tyslin logo in the middle (opens Home) with the GitHub stars. Empty space drags the window. */
-export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats, onHome }: Props): JSX.Element {
+export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats, onHome, onProjectsChanged }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
 
@@ -51,7 +52,7 @@ export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOp
       <div className="titlebar-left">
         <OrgSwitcher onNewOrg={onNewOrg} />
         <span className="titlebar-slash" aria-hidden="true">/</span>
-        <ProjectSwitcher projects={projects} onNewProject={onNewProject} onOpenChats={onOpenProjectChats} />
+        <ProjectSwitcher projects={projects} agents={agents} onNewProject={onNewProject} onOpenChats={onOpenProjectChats} onChanged={onProjectsChanged} />
       </div>
       <div className="titlebar-center">
         <button type="button" className={'titlebar-home' + (route.name === 'home' ? ' on' : '')} onClick={onHome} aria-label="Home" title="Home" aria-current={route.name === 'home' ? 'page' : undefined}>

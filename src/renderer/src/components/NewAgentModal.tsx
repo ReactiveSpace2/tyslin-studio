@@ -4,6 +4,7 @@ import { TEAM_TEMPLATES, type TeamTemplate } from '@shared/teams'
 import { describeSchedule } from '@shared/schedule'
 import { HEAD_SRC } from '../heads'
 import { modelLabel, useDefaultModel } from '../defaultModel'
+import { getCurrentProject } from '../currentProject'
 import { Icon } from './Icon'
 
 interface Props {
@@ -50,7 +51,9 @@ export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCre
   const folderProjects = projects.filter((p) => p.folder)
 
   const review = (t: TeamTemplate): void => {
-    setPick(t); setNewName(t.name); setProjectId(''); setError(null); setStep('review')
+    // Teams go into the selected project when it has a folder; otherwise a new project folder.
+    const cur = projects.find((p) => p.id === getCurrentProject() && p.folder)
+    setPick(t); setNewName(t.name); setProjectId(cur?.id ?? ''); setError(null); setStep('review')
   }
   const create = async (): Promise<void> => {
     if (!pick) return

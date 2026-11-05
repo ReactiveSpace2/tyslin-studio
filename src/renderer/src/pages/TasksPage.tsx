@@ -1,3 +1,4 @@
+import { useInWorkspace } from '../currentProject'
 import { useEffect, useMemo, useState } from 'react'
 import type { Agent, Project, ScheduledTask, TaskInput, TaskSchedule } from '@shared/types'
 import { describeSchedule, WEEKDAY_NAMES } from '@shared/schedule'
@@ -32,6 +33,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 function TaskEditor({ initial, agents, projects, onClose, onSaved }: {
   initial: TaskInput; agents: Agent[]; projects: Project[]; onClose: () => void; onSaved: () => void
 }): JSX.Element {
+  const inWs = useInWorkspace()
   const [form, setForm] = useState<TaskInput>(initial)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -63,8 +65,8 @@ function TaskEditor({ initial, agents, projects, onClose, onSaved }: {
           <div className="field">
             <label htmlFor="t-agent">Agent or assistant</label>
             <select id="t-agent" className="select" value={form.agentId} onChange={(e) => set('agentId', e.target.value)}>
-              <optgroup label="Agents">{agents.filter((a) => a.kind === 'agent').map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
-              <optgroup label="Assistants">{agents.filter((a) => a.kind === 'assistant').map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
+              <optgroup label="Agents">{agents.filter((a) => a.kind === 'agent' && inWs(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
+              <optgroup label="Assistants">{agents.filter((a) => a.kind === 'assistant' && inWs(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
             </select>
           </div>
           <div className="field">
@@ -139,6 +141,7 @@ function TemplateList({ onPick }: { onPick: (t: TaskTemplate) => void }): JSX.El
 
 /** Scheduled tasks: prompts an agent or assistant runs on a schedule, each run in a new chat. */
 export function TasksPage({ agents, projects, onOpenChat, newFor }: Props): JSX.Element {
+  const inWs = useInWorkspace()
   const [tasks, setTasks] = useState<ScheduledTask[] | null>(null)
   const [tab, setTab] = useState<'yours' | 'templates'>('yours')
   const [q, setQ] = useState('')
@@ -164,6 +167,8 @@ export function TasksPage({ agents, projects, onOpenChat, newFor }: Props): JSX.
 
   const shown = useMemo(() => {
     const list = (tasks ?? []).filter((t) => {
+      const a = agents.find((x) => x.id === t.agentId)
+      if (!a || !inWs(a)) return false
       if (filter === 'active' && !t.enabled) return false
       if (filter === 'paused' && t.enabled) return false
       return !q || (t.name + ' ' + t.prompt).toLowerCase().includes(q.toLowerCase())
