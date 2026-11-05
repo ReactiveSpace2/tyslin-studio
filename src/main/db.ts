@@ -1,24 +1,92 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
+import { mkdirSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
-import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
+import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
+/**
+ * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
+ * agent settings never mix. The default organization ("Tyslin") is the original tyslin.db, which is
+ * also the home database: it lists the organizations and keeps what belongs to this computer rather
+ * than to one organization (see GLOBAL_SETTING).
+ */
+let home: Database.Database
+/** The current organization's database. Every query below uses it. */
 let db: Database.Database
 
-export function openDb(): Database.Database {
-  const file = join(app.getPath('userData'), 'tyslin.db')
-  db = new Database(file)
-  db.pragma('journal_mode = WAL')
-  db.pragma('foreign_keys = ON')
+export const DEFAULT_ORG = 'default'
+
+/** Settings shared by every organization on this computer. Everything else is per organization. */
+const GLOBAL_SETTING = (key: string): boolean =>
+  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') ||
+  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme'
+
+const orgFile = (id: string): string =>
+  id === DEFAULT_ORG ? join(app.getPath('userData'), 'tyslin.db') : join(app.getPath('userData'), 'orgs', `${id}.db`)
+
+/** Opens an organization's database, bringing its schema up to date and adding the built-ins it is missing. */
+function openOrgDb(id: string): Database.Database {
+  if (id !== DEFAULT_ORG) mkdirSync(join(app.getPath('userData'), 'orgs'), { recursive: true })
+  const d = new Database(orgFile(id))
+  d.pragma('journal_mode = WAL')
+  d.pragma('foreign_keys = ON')
+  db = d
+  if (id === DEFAULT_ORG) home = d
   migrate()
   seed()
   seedAssistants()
   seedSkills()
+  return d
+}
+
+export function openDb(): Database.Database {
+  openOrgDb(DEFAULT_ORG)
+  home.exec('CREATE TABLE IF NOT EXISTS orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)')
+  home.prepare('INSERT OR IGNORE INTO orgs (id, name, created_at) VALUES (?, ?, ?)').run(DEFAULT_ORG, 'Tyslin', Date.now())
+  const current = getSetting('org:current')
+  if (current && current !== DEFAULT_ORG && home.prepare('SELECT 1 FROM orgs WHERE id = ?').get(current)) openOrgDb(current)
   return db
+}
+
+export function listOrgs(): Organization[] {
+  const current = getSetting('org:current') || DEFAULT_ORG
+  return (home.prepare('SELECT id, name, created_at AS createdAt FROM orgs ORDER BY id = ? DESC, created_at').all(DEFAULT_ORG) as Omit<Organization, 'current'>[])
+    .map((o) => ({ ...o, current: o.id === current }))
+}
+
+export function currentOrg(): Organization {
+  return listOrgs().find((o) => o.current) ?? listOrgs()[0]
+}
+
+/** Creates an organization with its own empty database (plus the built-in agents, assistants and skills). */
+export function createOrg(name: string): Organization {
+  const clean = name.trim().slice(0, 60)
+  if (!clean) throw new Error('Give the organization a name.')
+  const id = randomUUID()
+  home.prepare('INSERT INTO orgs (id, name, created_at) VALUES (?, ?, ?)').run(id, clean, Date.now())
+  const prev = db
+  openOrgDb(id).close()
+  db = prev
+  return listOrgs().find((o) => o.id === id)!
+}
+
+export function renameOrg(id: string, name: string): void {
+  const clean = name.trim().slice(0, 60)
+  if (!clean) throw new Error('Give the organization a name.')
+  home.prepare('UPDATE orgs SET name = ? WHERE id = ?').run(clean, id)
+}
+
+/** Makes another organization current. The caller makes sure nothing is running first. */
+export function switchOrg(id: string): void {
+  if (!home.prepare('SELECT 1 FROM orgs WHERE id = ?').get(id)) throw new Error('That organization no longer exists.')
+  if (db !== home) db.close()
+  if (id === DEFAULT_ORG) db = home
+  else openOrgDb(id)
+  setSetting('org:current', id)
 }
 
 function migrate(): void {
@@ -376,12 +444,12 @@ export function removePack(packId: string): void {
 }
 
 export function getSetting(key: string): string | null {
-  const r = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  const r = (GLOBAL_SETTING(key) ? home : db).prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
   return r?.value ?? null
 }
 
 export function setSetting(key: string, value: string): void {
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value)
+  ;(GLOBAL_SETTING(key) ? home : db).prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value)
 }
 
 const CHANGE_COLS = `id, run_id AS runId, session_id AS sessionId, tool_call_id AS toolCallId, file_path AS filePath,
@@ -425,4 +493,38 @@ export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
   if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
   return getPrefs()
+}
+
+const DAY = 24 * 60 * 60 * 1000
+const localDay = (t: number): string => {
+  const d = new Date(t)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** Counts for the Dashboard. Only the user's own messages count as activity. */
+export function dashboardStats(now = Date.now()): DashboardStats {
+  const weekAgo = now - 7 * DAY
+  const count = (sql: string, ...args: unknown[]): number => (db.prepare(sql).get(...args) as { n: number }).n
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const since = today.getTime() - 13 * DAY
+  const daily = Array.from({ length: 14 }, (_, i) => ({ day: localDay(since + i * DAY + DAY / 2), count: 0 }))
+  const byDay = new Map(daily.map((d) => [d.day, d]))
+  for (const r of db.prepare("SELECT created_at AS t FROM messages WHERE role = 'user' AND created_at >= ?").all(since) as { t: number }[]) {
+    const d = byDay.get(localDay(r.t))
+    if (d) d.count++
+  }
+  return {
+    chats: count('SELECT COUNT(*) AS n FROM sessions'),
+    messages: count("SELECT COUNT(*) AS n FROM messages WHERE role = 'user'"),
+    chatsThisWeek: count('SELECT COUNT(*) AS n FROM sessions WHERE created_at >= ?', weekAgo),
+    messagesThisWeek: count("SELECT COUNT(*) AS n FROM messages WHERE role = 'user' AND created_at >= ?", weekAgo),
+    pendingChanges: count("SELECT COUNT(*) AS n FROM pending_changes WHERE status = 'pending'"),
+    daily,
+    topAgents: db.prepare(`SELECT s.agent_id AS agentId, COUNT(*) AS messages FROM messages m JOIN sessions s ON s.id = m.session_id
+      WHERE m.role = 'user' AND m.created_at >= ? GROUP BY s.agent_id ORDER BY messages DESC LIMIT 5`).all(now - 30 * DAY) as DashboardStats['topAgents'],
+    reviews: db.prepare(`SELECT s.id AS sessionId, s.agent_id AS agentId, s.project_id AS projectId, s.title, COUNT(*) AS count
+      FROM pending_changes c JOIN sessions s ON s.id = c.session_id WHERE c.status = 'pending'
+      GROUP BY s.id ORDER BY MAX(c.created_at) DESC LIMIT 6`).all() as DashboardStats['reviews']
+  }
 }

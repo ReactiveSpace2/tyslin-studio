@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Agent, AgentKind, AuthStatus, Project, Session } from '@shared/types'
 import { Sidebar } from './components/Sidebar'
+import { TitleBar } from './components/TitleBar'
+import { NewOrgModal } from './components/NewOrgModal'
 import { AgentsPage } from './pages/AgentsPage'
 import { ChatPage } from './pages/ChatPage'
 import { AgentEditor } from './pages/AgentEditor'
 import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { HomePage, type StudioArea } from './pages/HomePage'
+import { DashboardPage } from './pages/DashboardPage'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
 import { UpdateNotice } from './components/UpdateNotice'
@@ -14,6 +17,7 @@ import { ComingSoon } from './pages/ComingSoon'
 
 export type Route =
   | { name: 'home' }
+  | { name: 'dashboard' }
   | { name: 'agents'; kind: AgentKind }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; kind: AgentKind; agentId?: string }
@@ -53,6 +57,7 @@ export default function App(): JSX.Element {
   }, [refresh, refreshSessions])
 
   const builder = agents.find((a) => a.isMascot) ?? agents[0]
+  const [newOrg, setNewOrg] = useState(false)
 
   /** Home's area tiles go where the matching sidebar button goes. */
   const openArea = (area: StudioArea): void => {
@@ -68,14 +73,26 @@ export default function App(): JSX.Element {
   }
 
   // Wait for the account check so the app never flashes before the sign-in screen.
-  if (!auth) return <div className="app" />
+  if (!auth) return <div className="app"><div className="titlebar" /></div>
   // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
   if (auth.configured && !auth.account) {
-    return <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
+    return (
+      <div className="app">
+        <div className="titlebar" />
+        <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
+      </div>
+    )
   }
 
   return (
     <div className="app">
+      <TitleBar
+        route={route}
+        agents={agents}
+        projects={projects}
+        onNewOrg={() => setNewOrg(true)}
+      />
+      <div className="app-body">
       <Sidebar
         route={route}
         agents={agents}
@@ -132,6 +149,9 @@ export default function App(): JSX.Element {
             onCancel={() => setRoute({ name: 'agents', kind: route.kind })}
           />
         )}
+        {route.name === 'dashboard' && (
+          <DashboardPage agents={agents} projects={projects} sessions={sessions} onOpenChat={openChat} />
+        )}
         {route.name === 'art' && (
           <ComingSoon title="Art" icon="art" text="Make images with your agents: pick a model that draws, describe what you need, and keep the results with your projects." />
         )}
@@ -159,9 +179,11 @@ export default function App(): JSX.Element {
         {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
         {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
       </main>
+      </div>
       <div className="update-float">
         <UpdateNotice />
       </div>
+      {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
       {newProject && (
         <NewProjectModal
           onClose={() => setNewProject(false)}

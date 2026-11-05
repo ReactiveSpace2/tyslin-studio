@@ -68,6 +68,12 @@ const api: TyslinApi = {
     prefs: () => ipcRenderer.invoke('settings:prefs'),
     setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p)
   },
+  orgs: {
+    list: () => ipcRenderer.invoke('orgs:list'),
+    create: (name: string) => ipcRenderer.invoke('orgs:create', name),
+    rename: (id: string, name: string) => ipcRenderer.invoke('orgs:rename', id, name),
+    switch: (id: string) => ipcRenderer.invoke('orgs:switch', id)
+  },
   auth: {
     status: () => ipcRenderer.invoke('auth:status'),
     signIn: () => ipcRenderer.invoke('auth:signIn'),
@@ -76,6 +82,7 @@ const api: TyslinApi = {
   },
   app: {
     info: () => ipcRenderer.invoke('app:info'),
+    dashboard: () => ipcRenderer.invoke('app:dashboard'),
     openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')
   },
   updates: {

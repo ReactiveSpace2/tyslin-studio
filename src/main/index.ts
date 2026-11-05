@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { readFileSync, statSync, writeFileSync } from 'fs'
@@ -22,14 +22,26 @@ const activeRuns = new Map<string, { runId: string; controller: AbortController 
 /** Page backgrounds, matching --parchment in styles.css, so the window doesn't flash before the UI paints. */
 const BACKGROUND = { light: '#FAFAF7', dark: '#121210' }
 
+/** Height of the app's own title bar (`.titlebar` in styles.css). */
+const TITLEBAR_HEIGHT = 44
+const isMac = process.platform === 'darwin'
+
+/** Window buttons drawn by the system over the right of the title bar on Windows and Linux, in theme colours. */
+const titleBarOverlay = (): Electron.TitleBarOverlayOptions => nativeTheme.shouldUseDarkColors
+  ? { color: BACKGROUND.dark, symbolColor: '#F3F3EE', height: TITLEBAR_HEIGHT }
+  : { color: BACKGROUND.light, symbolColor: '#0F0F0D', height: TITLEBAR_HEIGHT }
+
 /** Light, dark or the system setting. The renderer's CSS follows it through prefers-color-scheme. */
 function applyTheme(): void {
   nativeTheme.themeSource = db.getPrefs().theme
   win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)
+  if (win && !isMac) win.setTitleBarOverlay(titleBarOverlay())
 }
 
 function createWindow(): void {
   applyTheme()
+  // No File/Edit/View menu bar on Windows and Linux; the app draws its own title bar. macOS keeps its menu in the system bar.
+  if (!isMac) Menu.setApplicationMenu(null)
   win = new BrowserWindow({
     width: 1360,
     height: 880,
@@ -38,6 +50,8 @@ function createWindow(): void {
     title: 'Tyslin Studio',
     backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light,
     icon: join(__dirname, '../../resources/icon.png'),
+    titleBarStyle: 'hidden',
+    ...(isMac ? { trafficLightPosition: { x: 16, y: 15 } } : { titleBarOverlay: titleBarOverlay() }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -211,6 +225,14 @@ function registerIpc(): void {
   ipcMain.handle('auth:signIn', () => signIn())
   ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
   ipcMain.handle('auth:signOut', () => signOut())
+  ipcMain.handle('app:dashboard', () => db.dashboardStats())
+  ipcMain.handle('orgs:list', () => db.listOrgs())
+  ipcMain.handle('orgs:create', (_e, name: string) => db.createOrg(String(name ?? '')))
+  ipcMain.handle('orgs:rename', (_e, id: string, name: string) => db.renameOrg(id, String(name ?? '')))
+  ipcMain.handle('orgs:switch', (_e, id: string) => {
+    if (activeRuns.size) throw new Error('An agent is still replying. Stop it or wait, then switch.')
+    db.switchOrg(id)
+  })
   ipcMain.handle('app:info', (): AppInfo => ({
     version: app.getVersion(),
     electron: process.versions.electron,
@@ -231,6 +253,11 @@ app.whenReady().then(() => {
   db.expireStaleChanges()
   registerIpc()
   createWindow()
+  // With the System theme, keep the window buttons and background in step when the OS switches.
+  nativeTheme.on('updated', () => {
+    win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)
+    if (win && !isMac) win.setTitleBarOverlay(titleBarOverlay())
+  })
   initUpdater(win!)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

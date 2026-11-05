@@ -260,6 +260,34 @@ export interface PendingChange {
 }
 
 /** Workspace-wide defaults, edited in Settings → Agents. */
+/**
+ * A separate space with its own agents, assistants, projects, chats and skills (its own database file).
+ * Sign-in, API keys, agent engine paths and the theme are shared by all organizations on this computer.
+ */
+export interface Organization {
+  id: string
+  name: string
+  createdAt: number
+  current: boolean
+}
+
+/** Activity summary for the Dashboard, from the local database. */
+export interface DashboardStats {
+  chats: number
+  /** Messages you sent (not replies). */
+  messages: number
+  chatsThisWeek: number
+  messagesThisWeek: number
+  /** File changes waiting for your review, across all chats. */
+  pendingChanges: number
+  /** Messages you sent per local day, oldest first, last 14 days. `day` is YYYY-MM-DD. */
+  daily: { day: string; count: number }[]
+  /** Agents and assistants you messaged most in the last 30 days, most first. */
+  topAgents: { agentId: string; messages: number }[]
+  /** Chats with file changes waiting for review, newest first. */
+  reviews: { sessionId: string; agentId: string; projectId: string | null; title: string; count: number }[]
+}
+
 /** system follows the computer's light or dark setting. */
 export type Theme = 'system' | 'light' | 'dark'
 
@@ -382,6 +410,14 @@ export interface TyslinApi {
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
   }
+  orgs: {
+    list(): Promise<Organization[]>
+    /** Creates the organization; call `switch` to move into it. */
+    create(name: string): Promise<Organization>
+    rename(id: string, name: string): Promise<void>
+    /** Fails while a reply is still running. The renderer reloads afterwards. */
+    switch(id: string): Promise<void>
+  }
   auth: {
     status(): Promise<AuthStatus>
     /** Opens Google in the browser and resolves once the user has signed in there. */
@@ -391,6 +427,7 @@ export interface TyslinApi {
   }
   app: {
     info(): Promise<AppInfo>
+    dashboard(): Promise<DashboardStats>
     openDataFolder(): Promise<void>
   }
   updates: {
