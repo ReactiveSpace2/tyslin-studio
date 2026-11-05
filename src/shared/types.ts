@@ -75,11 +75,64 @@ export interface Agent {
   engine: EngineId
   writeMode: WriteMode
   isMascot: boolean
+  /** The one project an agent works in (agents only; null = no project yet). New chats use it. */
+  projectId: string | null
+  /** The agent it reports to in that project; null = reports to you. */
+  leadId: string | null
+  /** Pinned to the top of lists. */
+  pinned: boolean
+  /** Paused agents don't chat or run tasks. */
+  paused: boolean
+  /** File tools in the project folder. Write still goes through review unless writeMode is direct. */
+  tools: { read: boolean; write: boolean }
+  /** Chat channels this agent answers on. */
+  channels: { telegram: boolean }
+  /** A mascot head from shared/heads.ts; null = the simple robot shape (shape + tone). */
+  head: string | null
   createdAt: number
   updatedAt: number
 }
 
-export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt'>
+/** Fields added after v0.4 are optional on input; saving keeps the stored value when they're missing. */
+type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head'
+export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
+
+/** What linked Telegram chats are sent besides replies. */
+export interface TelegramNotify {
+  results: boolean
+  approvals: boolean
+  failures: boolean
+}
+
+export interface TelegramStatus {
+  /** A bot token is saved. */
+  connected: boolean
+  botName: string
+  linked: { chatId: number; name: string }[]
+  /** Polling Telegram for messages right now. */
+  running: boolean
+  error: string
+  notify: TelegramNotify
+  /** The open one-time link code, if any. */
+  linkCode: string | null
+}
+
+/** Live state for the agent lists and pages, worked out from keys, engines, runs and the last result. */
+export interface AgentStatus {
+  agentId: string
+  state: 'ready' | 'working' | 'setup' | 'failed' | 'paused'
+  /** Why, in a few words ("No Claude key", "Goose is not installed", the last error). */
+  reason: string
+  lastActive: number | null
+  tasks: number
+}
+
+export interface AgentTestResult {
+  ok: boolean
+  ms: number
+  /** The reply (built-in models) or the agent name and version (engines). */
+  detail: string
+}
 
 export interface Project {
   id: string
@@ -396,6 +449,9 @@ export interface TyslinApi {
     get(id: string): Promise<Agent | null>
     save(input: AgentInput & { id?: string }): Promise<Agent>
     remove(id: string): Promise<void>
+    statuses(): Promise<AgentStatus[]>
+    /** Sends one short message (built-in models) or runs the engine handshake. Works on unsaved drafts too. */
+    test(input: AgentInput): Promise<AgentTestResult>
   }
   projects: {
     list(): Promise<Project[]>
@@ -476,6 +532,15 @@ export interface TyslinApi {
     runNow(id: string): Promise<string>
     /** Fires when a task starts or finishes a run (scheduled or manual). */
     onChanged(cb: () => void): () => void
+  }
+  telegram: {
+    status(): Promise<TelegramStatus>
+    /** Checks the token with Telegram, then saves it encrypted; '' disconnects. */
+    setToken(token: string): Promise<TelegramStatus>
+    /** A one-time code to send as /start CODE from the account to link (10 minutes). */
+    linkCode(): Promise<TelegramStatus>
+    unlink(chatId: number): Promise<TelegramStatus>
+    setNotify(p: Partial<TelegramNotify>): Promise<TelegramStatus>
   }
   orgs: {
     list(): Promise<Organization[]>

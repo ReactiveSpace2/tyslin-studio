@@ -7,6 +7,7 @@ import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
+import { DEFAULT_HEADS, HEAD_IDS } from '@shared/heads'
 import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
 /**
@@ -23,7 +24,7 @@ export const DEFAULT_ORG = 'default'
 
 /** Settings shared by every organization on this computer. Everything else is per organization. */
 const GLOBAL_SETTING = (key: string): boolean =>
-  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') ||
+  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('org:') || key.startsWith('telegram:') ||
   key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom' ||
   key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent'
 
@@ -42,6 +43,7 @@ function openOrgDb(id: string): Database.Database {
   seed()
   seedAssistants()
   seedSkills()
+  seedHeads()
   return d
 }
 
@@ -137,6 +139,16 @@ function migrate(): void {
   addColumn('agents', 'write_mode', "TEXT NOT NULL DEFAULT 'ask'")
   addColumn('agents', 'engine', "TEXT NOT NULL DEFAULT 'builtin'")
   addColumn('agents', 'kind', "TEXT NOT NULL DEFAULT 'agent'")
+  // Agent pages and org chart (v0.5): one project per agent, a lead, pin/pause, file access, channels, last result.
+  addColumn('agents', 'project_id', 'TEXT')
+  addColumn('agents', 'lead_id', 'TEXT')
+  addColumn('agents', 'pinned', 'INTEGER NOT NULL DEFAULT 0')
+  addColumn('agents', 'paused', 'INTEGER NOT NULL DEFAULT 0')
+  addColumn('agents', 'tools', `TEXT NOT NULL DEFAULT '{"read":true,"write":true}'`)
+  addColumn('agents', 'channels', "TEXT NOT NULL DEFAULT '{}'")
+  addColumn('agents', 'last_run_at', 'INTEGER')
+  addColumn('agents', 'last_error', "TEXT NOT NULL DEFAULT ''")
+  addColumn('agents', 'head', 'TEXT')
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
   // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
@@ -201,6 +213,16 @@ function seedAssistants(): void {
   })()
 }
 
+/** Once per database: starter agents and assistants get their mascot heads, unless a head is already set. */
+function seedHeads(): void {
+  if (getSetting('seed:headsVersion') === '1') return
+  const set = db.prepare('UPDATE agents SET head = ? WHERE name = ? AND head IS NULL AND is_mascot = 0')
+  db.transaction(() => {
+    for (const [name, head] of Object.entries(DEFAULT_HEADS)) set.run(head, name)
+    setSetting('seed:headsVersion', '1')
+  })()
+}
+
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */
 function seedSkills(): void {
   if (Number(getSetting('seed:skillsVersion') ?? 0) >= SKILL_LIBRARY_VERSION) return
@@ -214,8 +236,12 @@ function seedSkills(): void {
 type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
   provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; kind: string; is_mascot: number
+  project_id: string | null; lead_id: string | null; pinned: number; paused: number; tools: string; channels: string
+  last_run_at: number | null; last_error: string; head: string | null
   created_at: number; updated_at: number
 }
+
+const parseJson = <T>(s: string, fallback: T): T => { try { return { ...fallback, ...JSON.parse(s) } } catch { return fallback } }
 
 const toAgent = (r: AgentRow): Agent => ({
   id: r.id, kind: r.kind === 'assistant' ? 'assistant' : 'agent', name: r.name, description: r.description, instructions: r.instructions,
@@ -223,6 +249,9 @@ const toAgent = (r: AgentRow): Agent => ({
   model: r.model, skills: JSON.parse(r.skills), schedule: r.schedule,
   engine: (r.engine || 'builtin') as Agent['engine'],
   writeMode: r.write_mode === 'direct' ? 'direct' : 'ask', isMascot: !!r.is_mascot,
+  projectId: r.project_id, leadId: r.lead_id, pinned: !!r.pinned, paused: !!r.paused,
+  tools: parseJson(r.tools, { read: true, write: true }), channels: parseJson(r.channels, { telegram: false }),
+  head: r.head && HEAD_IDS.includes(r.head) ? r.head : null,
   createdAt: r.created_at, updatedAt: r.updated_at
 })
 
@@ -243,22 +272,65 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const input = kind === 'assistant'
     ? { ...raw, engine: 'builtin' as const, schedule: 'manual', writeMode: 'ask' as const, isMascot: false }
     : raw
+  // Extras: keep what's stored when not given. Assistants and Builder (the mascot) never join a project.
+  const inProject = kind === 'agent' && !(existing?.isMascot ?? input.isMascot)
+  const projectId = !inProject ? null : input.projectId !== undefined ? input.projectId : existing?.projectId ?? null
+  if (projectId && !getProject(projectId)) throw new Error('That project no longer exists.')
+  let leadId = !inProject ? null : input.leadId !== undefined ? input.leadId : existing?.leadId ?? null
+  // A lead must be another agent in the same project, and not one of this agent's own team (no loops).
+  if (leadId) {
+    const lead = getAgent(leadId)
+    if (!lead || !projectId || lead.projectId !== projectId || lead.id === existing?.id) leadId = null
+    else if (existing) {
+      for (let a: Agent | null = lead, hops = 0; a && hops < 50; a = a.leadId ? getAgent(a.leadId) : null, hops++) {
+        if (a.id === existing.id) throw new Error(`${lead.name} reports to ${existing.name}, so it can't be ${existing.name}'s lead.`)
+      }
+    }
+  }
+  const pinned = input.pinned ?? existing?.pinned ?? false
+  const paused = input.paused ?? existing?.paused ?? false
+  const tools = input.tools ?? existing?.tools ?? { read: true, write: true }
+  const channels = input.channels ?? existing?.channels ?? { telegram: false }
+  const head = input.head !== undefined ? (input.head && HEAD_IDS.includes(input.head) ? input.head : null) : existing?.head ?? null
   if (existing) {
+    // Moving to another project: its team stays behind and reports to you.
+    if (existing.projectId !== projectId) db.prepare('UPDATE agents SET lead_id = NULL WHERE lead_id = ?').run(existing.id)
     db.prepare(`UPDATE agents SET name=?, description=?, instructions=?, shape=?, tone=?, provider=?, model=?,
-      skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, updated_at=? WHERE id=?`).run(
+      skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, project_id=?, lead_id=?, pinned=?, paused=?, tools=?, channels=?,
+      head=?, updated_at=? WHERE id=?`).run(
       input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
-      JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, existing.id)
+      JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
+      projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, now, existing.id)
     return getAgent(existing.id)!
   }
   const id = randomUUID()
   db.prepare(`INSERT INTO agents (id, kind, name, description, instructions, shape, tone, provider, model, skills,
-    schedule, engine, write_mode, is_mascot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    schedule, engine, write_mode, is_mascot, project_id, lead_id, pinned, paused, tools, channels, head, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id, kind, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
-    JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, now)
+    JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
+    projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, now, now)
   return getAgent(id)!
 }
 
+/** Records how an agent's latest run ended, for its status ("Last run failed"). */
+export function setAgentRunResult(id: string, error: string): void {
+  db.prepare('UPDATE agents SET last_run_at = ?, last_error = ? WHERE id = ?').run(Date.now(), error.slice(0, 300), id)
+}
+
+/** Last error, last chat activity and scheduled-task count per agent. */
+export function agentStats(): Map<string, { lastError: string; lastActive: number | null; tasks: number }> {
+  const out = new Map<string, { lastError: string; lastActive: number | null; tasks: number }>()
+  for (const r of db.prepare(`SELECT a.id, a.last_error AS lastError,
+      (SELECT MAX(updated_at) FROM sessions s WHERE s.agent_id = a.id) AS lastActive,
+      (SELECT COUNT(*) FROM tasks t WHERE t.agent_id = a.id) AS tasks FROM agents a`).all() as { id: string; lastError: string; lastActive: number | null; tasks: number }[]) {
+    out.set(r.id, { lastError: r.lastError, lastActive: r.lastActive, tasks: r.tasks })
+  }
+  return out
+}
+
 export function removeAgent(id: string): void {
+  db.prepare('UPDATE agents SET lead_id = NULL WHERE lead_id = ?').run(id)
   db.prepare('DELETE FROM agents WHERE id = ? AND is_mascot = 0').run(id)
 }
 

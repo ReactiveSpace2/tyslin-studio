@@ -8,13 +8,14 @@ import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
+import { initTelegram, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, signIn, signOut } from './auth'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { Agent, AgentStatus, AgentTestResult, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -81,6 +82,7 @@ function startRun(sessionId: string, text: string, attachments: ReturnType<typeo
   const agent = db.getAgent(session.agentId)
   if (!agent) throw new Error('Agent not found')
   if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
+  if (agent.paused) throw new Error(`${agent.name} is paused. Resume it on its page to chat or run tasks.`)
   db.addMessage(sessionId, 'user', text, attachments)
   const project = session.projectId && agent.kind === 'agent' ? db.getProject(session.projectId) : null
   const runId = randomUUID()
@@ -101,10 +103,13 @@ function startRun(sessionId: string, text: string, attachments: ReturnType<typeo
         signal: controller.signal
       })
       if (reply) db.addMessage(sessionId, 'assistant', reply)
+      db.setAgentRunResult(agent.id, '')
       send({ type: 'run_finished' })
       return { ok: true }
     } catch (err) {
       const message = controller.signal.aborted ? 'Stopped.' : err instanceof Error ? err.message : String(err)
+      // Stopping isn't a failure.
+      db.setAgentRunResult(agent.id, controller.signal.aborted ? '' : message)
       send({ type: 'run_error', error: message })
       return { ok: false, error: message }
     } finally {
@@ -132,6 +137,7 @@ function runTask(t: ScheduledTask, scheduled: boolean): string {
     void done.then((r) => {
       db.markTaskRun(t.id, { lastStatus: r.ok ? 'ok' : 'error', lastError: r.error ?? '' })
       win?.webContents.send('tasks:changed')
+      notifyTask(t.name, db.getAgent(t.agentId)?.name ?? 'Agent', r.ok, r.error ?? '', s.id)
     })
     return s.id
   } catch (err) {
@@ -150,6 +156,68 @@ function startScheduler(): void {
   }
   setTimeout(tick, 5000)
   setInterval(tick, 30_000)
+}
+
+const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' }
+
+/** Why an agent can't run right now, or '' when it can (missing key, engine not installed). */
+function setupProblem(a: Agent): string {
+  if (a.engine === 'builtin') {
+    if (a.provider === 'ollama') return ''
+    return getSecret(a.provider) ? '' : `No ${PROVIDER_NAMES[a.provider] ?? a.provider} key yet`
+  }
+  const e = engineStatus(a.engine)
+  if (a.engine === 'custom' && !e.command) return 'Custom engine has no command yet'
+  return e.resolvedPath ? '' : `${e.name} is not installed`
+}
+
+/** Status for every agent: working (a reply is running), paused, needs setup, last run failed, or ready. */
+function agentStatuses(): AgentStatus[] {
+  const stats = db.agentStats()
+  const busy = new Set([...activeRuns.keys()].map((sid) => db.getSession(sid)?.agentId).filter(Boolean) as string[])
+  return db.listAgents().map((a) => {
+    const st = stats.get(a.id)
+    const problem = setupProblem(a)
+    const [state, reason]: [AgentStatus['state'], string] =
+      busy.has(a.id) ? ['working', 'Replying now']
+        : a.paused ? ['paused', 'Paused']
+          : problem ? ['setup', problem]
+            : st?.lastError ? ['failed', st.lastError]
+              : ['ready', 'Ready']
+    return { agentId: a.id, state, reason, lastActive: st?.lastActive ?? null, tasks: st?.tasks ?? 0 }
+  })
+}
+
+/** One short message to the model, or the engine handshake, for a saved agent or a draft. 45 s limit. */
+async function testAgent(input: AgentInput): Promise<AgentTestResult> {
+  const started = Date.now()
+  const agent: Agent = {
+    id: 'test', createdAt: started, updatedAt: started, projectId: null, leadId: null, pinned: false, paused: false,
+    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input
+  }
+  try {
+    const problem = setupProblem(agent)
+    if (problem) throw new Error(problem)
+    if (agent.engine !== 'builtin') {
+      const r = await testAcp(engineStatus(agent.engine).name, engineLaunch(agent.engine, app.getPath('home')), app.getVersion())
+      if (!r.ok) throw new Error(r.error ?? 'The engine did not answer.')
+      return { ok: true, ms: Date.now() - started, detail: r.agent ?? 'Connected' }
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 45_000)
+    try {
+      const reply = await runtimeFor(agent).run({
+        runId: 'test-' + randomUUID(), sessionId: 'test', agent: { ...agent, instructions: '' }, skills: [], project: null,
+        history: [{ id: 'test', sessionId: 'test', role: 'user', content: 'Reply with one short sentence to confirm you are working.', createdAt: started, attachments: [], context: '' }],
+        emit: () => {}, signal: controller.signal
+      })
+      return { ok: true, ms: Date.now() - started, detail: reply.trim().slice(0, 200) || 'Replied' }
+    } finally {
+      clearTimeout(timer)
+    }
+  } catch (err) {
+    return { ok: false, ms: Date.now() - started, detail: err instanceof Error ? err.message : String(err) }
+  }
 }
 
 function createWindow(): void {
@@ -185,6 +253,7 @@ function createWindow(): void {
 
 function emit(e: RunEvent): void {
   win?.webContents.send('run-event', e)
+  onRunEvent(e)
 }
 
 function registerIpc(): void {
@@ -192,6 +261,8 @@ function registerIpc(): void {
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
   ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => db.saveAgent(input))
   ipcMain.handle('agents:remove', (_e, id: string) => db.removeAgent(id))
+  ipcMain.handle('agents:statuses', () => agentStatuses())
+  ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
   ipcMain.handle('projects:list', () => db.listProjects())
   ipcMain.handle('projects:create', (_e, name: string, folder: string | null) => db.createProject(name, folder))
@@ -318,6 +389,11 @@ function registerIpc(): void {
     if (!t) throw new Error('That task no longer exists.')
     return runTask(t, false)
   })
+  ipcMain.handle('telegram:status', () => telegramStatus())
+  ipcMain.handle('telegram:setToken', (_e, t: string) => setTelegramToken(String(t ?? '')))
+  ipcMain.handle('telegram:linkCode', () => newLinkCode())
+  ipcMain.handle('telegram:unlink', (_e, id: number) => unlinkChat(Number(id)))
+  ipcMain.handle('telegram:setNotify', (_e, p: Partial<TelegramNotify>) => setTelegramNotify(p))
   ipcMain.handle('orgs:list', () => db.listOrgs())
   ipcMain.handle('orgs:create', (_e, name: string, color?: OrgColor) => db.createOrg(String(name ?? ''), color))
   ipcMain.handle('orgs:setColor', (_e, id: string, color: OrgColor) => db.setOrgColor(id, color))
@@ -347,6 +423,7 @@ app.whenReady().then(() => {
   registerIpc()
   createWindow()
   startScheduler()
+  void initTelegram({ startRun: (sid, text) => startRun(sid, text), resolveChange, answerPermission })
   // With the System theme, keep the window buttons and background in step when the OS switches.
   nativeTheme.on('updated', () => {
     win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)

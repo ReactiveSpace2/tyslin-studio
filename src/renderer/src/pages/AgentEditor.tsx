@@ -3,8 +3,9 @@ import type { Agent, AgentInput, AgentKind, EngineId, EngineStatus, ProviderId, 
 import { ENGINE_NAMES } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { HeadPicker } from '../components/HeadPicker'
 
-const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
+export const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
   anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'],
   openai: ['gpt-4o', 'gpt-4o-mini'],
   gemini: ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
@@ -13,7 +14,7 @@ const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
 
 const BLANK: AgentInput = {
   kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
-  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false
+  provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false, head: 'smile'
 }
 
 interface Props {
@@ -182,28 +183,15 @@ export function AgentEditor({ kind, agentId, onDone, onCancel }: Props): JSX.Ele
         <aside className="editor-side" aria-label="Preview">
           <div className="preview">
             <span className="section-label" style={{ alignSelf: 'flex-start', padding: 0 }}>Preview</span>
-            <div className="preview-tile"><Avatar shape={form.shape} tone={form.tone} mascot={form.isMascot} size={132} /></div>
+            <div className="preview-tile"><Avatar shape={form.shape} tone={form.tone} head={form.head} mascot={form.isMascot} size={132} /></div>
             <h2>{form.name || `Your ${noun}`}</h2>
             <p>{form.description || 'A one-line description appears here.'}</p>
           </div>
           {!form.isMascot && (
-            <fieldset className="box" style={{ margin: 0 }}>
-              <legend className="label" style={{ padding: '0 6px', fontSize: 13, fontWeight: 600 }}>Character</legend>
-              <div className="picker">
-                {(['block', 'round', 'hex', 'pill'] as Shape[]).map((s) => (
-                  <button key={s} type="button" className={'pick' + (form.shape === s ? ' on' : '')} aria-pressed={form.shape === s} onClick={() => set('shape', s)}>
-                    <Avatar shape={s} tone={form.tone} size={30} />
-                  </button>
-                ))}
-              </div>
-              <div className="picker three">
-                {([['lime', '#7DB800'], ['ink', '#0F0F0D'], ['paper', '#FFFFFF']] as [Tone, string][]).map(([t, c]) => (
-                  <button key={t} type="button" className={'pick' + (form.tone === t ? ' on' : '')} aria-pressed={form.tone === t} onClick={() => set('tone', t)}>
-                    <span className="swatch" style={{ background: c }} />{t[0].toUpperCase() + t.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
+            <div className="box" style={{ margin: 0 }}>
+              <HeadPicker head={form.head ?? null} shape={form.shape} tone={form.tone}
+                onHead={(h) => set('head', h)} onShape={(v) => set('shape', v)} onTone={(v) => set('tone', v)} />
+            </div>
           )}
         </aside>
       </div>

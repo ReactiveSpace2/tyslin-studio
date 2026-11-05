@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { homedir } from 'os'
 import type { Agent, ExternalEngineId, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
-import { getPrefs, getSetting, type ModelMessage } from './db'
+import { getAgent, getPrefs, getProject, getSetting, listAgents, type ModelMessage } from './db'
 import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 import { runAcpTurn } from './acp'
@@ -42,6 +42,15 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   if (used.length) {
     parts.push('## Skills\n' + used.map((s) => `### ${s.name}\n${s.body}`).join('\n\n'))
   }
+  // Org chart: who this agent reports to and who it leads, in its project.
+  if (agent.kind === 'agent' && agent.projectId) {
+    const home = getProject(agent.projectId)
+    const lead = agent.leadId ? getAgent(agent.leadId) : null
+    const team = listAgents().filter((a) => a.leadId === agent.id && a.projectId === agent.projectId)
+    const lines = [`You report to ${lead ? `${lead.name} (${lead.description || 'agent'})` : 'the user, who is in charge'}.`]
+    if (team.length) lines.push(`You lead this team${home ? ` in ${home.name}` : ''}; plan work for them and say who should do what:\n` + team.map((a) => `- ${a.name}: ${a.description || 'agent'}`).join('\n'))
+    parts.push('## Team\n' + lines.join('\n'))
+  }
   if (project) {
     parts.push(`## Project\nYou are working in the project "${project.name}".`)
     if (project.folder) {
@@ -57,9 +66,10 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
 
 /** File tools are offered only when the project is linked to a folder. */
 function toolsFor(opts: RunOptions): { defs: ToolDef[]; ctx: ToolContext } | null {
-  if (!opts.project?.folder) return null
+  if (!opts.project?.folder || !opts.agent.tools.read) return null
   return {
-    defs: FILE_TOOLS,
+    // "Change project files" off: only the reading tools.
+    defs: opts.agent.tools.write ? FILE_TOOLS : FILE_TOOLS.filter((t) => t.name === 'list_files' || t.name === 'read_file'),
     ctx: { agent: opts.agent, project: opts.project, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit }
   }
 }
@@ -359,9 +369,10 @@ class AcpRuntime implements AgentRuntime {
     const { name } = engineStatus(this.engine)
     const folder = opts.project?.folder ?? null
     const launch = engineLaunch(this.engine, folder ?? homedir())
-    const files = folder
+    const access = folder && opts.agent.tools.read
       ? acpFileAccess({ agent: opts.agent, project: opts.project!, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit })
       : null
+    const files = access && { read: access.read, write: opts.agent.tools.write ? access.write : undefined }
 
     const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
       const permissionId = randomUUID()

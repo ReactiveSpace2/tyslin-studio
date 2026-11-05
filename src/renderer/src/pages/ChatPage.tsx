@@ -258,7 +258,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
       <section className="chat-col" aria-label="Conversation">
         <header className="chat-head">
           <div className="who">
-            <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={44} />
+            <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={44} />
             <div>
               <h2>{agent.name}</h2>
               <span className="sub">{agent.kind === 'assistant' ? 'Assistant' : project ? project.name : 'No project'} · <RunsOnBadge agent={agent} size={16} /> <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
@@ -277,7 +277,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           <div className="thread-inner">
             {messages.length === 0 && streaming === null && (
               <div className="empty" style={{ marginTop: 80 }}>
-                <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={120} />
+                <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={120} />
                 <h2>{agent.kind === 'assistant' ? 'Start a chat with' : 'Start working with'} {agent.name}</h2>
                 <p className="lead">{agent.description}</p>
               </div>
@@ -397,10 +397,14 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
       <aside className="context" aria-label="Context">
         {agent.kind === 'agent' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="section-label" style={{ padding: 0 }}>Project</span>
-          <select className="select" aria-label="Project" value={projectId ?? ''} onChange={(e) => onSwitch(agent.id, e.target.value || null)}>
-            <option value="">No project</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+          {agent.isMascot ? (
+            <select className="select" aria-label="Project" value={projectId ?? ''} onChange={(e) => onSwitch(agent.id, e.target.value || null)}>
+              <option value="">No project</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          ) : (
+            <span className="hint">{project ? project.name : 'No project yet'} · an agent works in one project; change it on its page.</span>
+          )}
           {project?.folder && <span className="path">{project.folder}</span>}
           {project?.folder && (
             <ul>

@@ -75,7 +75,7 @@ export function AgentsPage({ kind, agents, onChat, onEdit, onNew }: Props): JSX.
           <article key={a.id} className="card">
             <div className="card-top">
               <div className="avatar-tile">
-                <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} />
+                <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} />
               </div>
               {a.isMascot ? <span className="badge green">Built-in</span> : a.schedule !== 'manual' ? <span className="badge green">{a.schedule}</span> : null}
             </div>

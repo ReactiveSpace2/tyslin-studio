@@ -9,6 +9,8 @@ interface Props {
   agents: Agent[]
   projects: Project[]
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
+  /** Open "New task" for this agent straight away (from an agent page). */
+  newFor?: string
 }
 
 type Sort = 'next' | 'name' | 'created'
@@ -136,7 +138,7 @@ function TemplateList({ onPick }: { onPick: (t: TaskTemplate) => void }): JSX.El
 }
 
 /** Scheduled tasks: prompts an agent or assistant runs on a schedule, each run in a new chat. */
-export function TasksPage({ agents, projects, onOpenChat }: Props): JSX.Element {
+export function TasksPage({ agents, projects, onOpenChat, newFor }: Props): JSX.Element {
   const [tasks, setTasks] = useState<ScheduledTask[] | null>(null)
   const [tab, setTab] = useState<'yours' | 'templates'>('yours')
   const [q, setQ] = useState('')
@@ -148,6 +150,10 @@ export function TasksPage({ agents, projects, onOpenChat }: Props): JSX.Element 
 
   const load = (): void => { void window.tyslin.tasks.list().then(setTasks) }
   useEffect(() => { load(); return window.tyslin.tasks.onChanged(load) }, [])
+  useEffect(() => {
+    const a = newFor ? agents.find((x) => x.id === newFor) : undefined
+    if (a) setEditing({ name: '', prompt: '', agentId: a.id, projectId: a.kind === 'agent' ? a.projectId : null, schedule: { repeat: 'weekdays', time: '09:00' }, enabled: true })
+  }, [newFor])
 
   const fallback = agents.find((a) => a.isMascot) ?? agents[0]
   const blank = (): TaskInput => ({ name: '', prompt: '', agentId: fallback?.id ?? '', projectId: null, schedule: { repeat: 'weekdays', time: '09:00' }, enabled: true })
@@ -256,7 +262,7 @@ export function TasksPage({ agents, projects, onOpenChat }: Props): JSX.Element 
               const project = projects.find((p) => p.id === t.projectId)
               return (
                 <li key={t.id} className={'task-row' + (t.enabled ? '' : ' paused')}>
-                  {a && <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} size={36} />}
+                  {a && <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={36} />}
                   <div className="task-main">
                     <div className="task-name">
                       <strong>{t.name}</strong>

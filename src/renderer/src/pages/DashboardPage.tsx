@@ -95,7 +95,7 @@ export function DashboardPage({ agents, projects, sessions, onOpenChat }: Props)
     return (
       <li key={s.sessionId}>
         <button type="button" className="dash-row" onClick={() => onOpenChat(s.agentId, s.projectId, s.sessionId)}>
-          <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} size={28} />
+          <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={28} />
           <span className="dash-row-text">
             <strong>{s.title}</strong>
             <span>{a.name}{projectName(s.projectId) ? ` · ${projectName(s.projectId)}` : ''}</span>
@@ -170,7 +170,7 @@ export function DashboardPage({ agents, projects, sessions, onOpenChat }: Props)
                     return (
                       <li key={t.agentId}>
                         <button type="button" className="dash-row" onClick={() => onOpenChat(a.id, null)}>
-                          <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} size={28} />
+                          <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={28} />
                           <span className="dash-row-text">
                             <strong>{a.name}</strong>
                             <span className="dash-meter" aria-hidden="true"><span style={{ width: `${(t.messages / topMax) * 100}%` }} /></span>

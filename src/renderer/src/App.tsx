@@ -13,6 +13,10 @@ import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { HomePage, type StudioArea } from './pages/HomePage'
 import { DashboardPage } from './pages/DashboardPage'
 import { TasksPage } from './pages/TasksPage'
+import { AgentsHub } from './pages/AgentsHub'
+import { AgentPage } from './pages/AgentPage'
+import { ConnectorsPage } from './pages/ConnectorsPage'
+import { CreateAgentModal } from './components/CreateAgentModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
 import { UpdateNotice } from './components/UpdateNotice'
@@ -21,9 +25,9 @@ import { ComingSoon } from './pages/ComingSoon'
 export type Route =
   | { name: 'home' }
   | { name: 'dashboard' }
-  | { name: 'tasks' }
+  | { name: 'tasks'; newFor?: string }
   | { name: 'agents'; kind: AgentKind }
-  | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
+  | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string; via?: 'projects' }
   | { name: 'editor'; kind: AgentKind; agentId?: string }
   | { name: 'skills' }
   | { name: 'art' }
@@ -51,8 +55,21 @@ export default function App(): JSX.Element {
   }, [])
 
   const refreshSessions = useCallback(async () => setSessions(await window.tyslin.sessions.list()), [])
-  const openChat = (agentId: string, projectId: string | null, sessionId?: string): void =>
-    setRoute({ name: 'chat', agentId, projectId, sessionId })
+  /** New chats with an agent open in its project; `via` keeps the Projects panel when opened from there. */
+  const openChat = (agentId: string, projectId: string | null, sessionId?: string, via?: 'projects'): void => {
+    const a = agents.find((x) => x.id === agentId)
+    const pid = !sessionId && projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
+    setRoute({ name: 'chat', agentId, projectId: pid, sessionId, via })
+  }
+  const [creating, setCreating] = useState(false)
+  const you = auth?.account?.name?.split(' ')[0] || 'You'
+  // "New agent" from anywhere (Home, the side panel) opens the step-by-step dialog over the agents list.
+  useEffect(() => {
+    if (route.name === 'editor' && route.kind === 'agent' && !route.agentId) {
+      setCreating(true)
+      setRoute({ name: 'agents', kind: 'agent' })
+    }
+  }, [route])
 
   useEffect(() => {
     void refresh()
@@ -120,7 +137,19 @@ export default function App(): JSX.Element {
             onSettings={(tab) => setRoute({ name: 'settings', tab })}
           />
         )}
-        {route.name === 'agents' && (
+        {route.name === 'agents' && route.kind === 'agent' && (
+          <AgentsHub
+            agents={agents}
+            projects={projects}
+            you={you}
+            onOpen={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })}
+            onChat={(a) => openChat(a.id, null, sessions.find((s) => s.agentId === a.id)?.id)}
+            onNew={() => setCreating(true)}
+            onNewProject={() => setNewProject(true)}
+            onChanged={() => void refresh()}
+          />
+        )}
+        {route.name === 'agents' && route.kind === 'assistant' && (
           <AgentsPage
             key={route.kind}
             kind={route.kind}
@@ -144,7 +173,24 @@ export default function App(): JSX.Element {
             onSettings={() => setRoute({ name: 'settings' })}
           />
         )}
-        {route.name === 'editor' && (
+        {route.name === 'editor' && route.kind === 'agent' && route.agentId && (
+          <AgentPage
+            key={route.agentId}
+            agentId={route.agentId}
+            agents={agents}
+            projects={projects}
+            sessions={sessions}
+            onBack={() => setRoute({ name: 'agents', kind: 'agent' })}
+            onChat={(a) => openChat(a.id, null, sessions.find((s) => s.agentId === a.id)?.id)}
+            onTask={(a) => setRoute({ name: 'tasks', newFor: a.id })}
+            onOpenChat={openChat}
+            onOrgChart={() => { try { localStorage.setItem('agents:view', 'org') } catch { /* fine */ } setRoute({ name: 'agents', kind: 'agent' }) }}
+            onConnectors={() => setRoute({ name: 'connectors' })}
+            onChanged={() => void refresh()}
+            onDeleted={() => { void Promise.all([refresh(), refreshSessions()]); setRoute({ name: 'agents', kind: 'agent' }) }}
+          />
+        )}
+        {route.name === 'editor' && route.kind === 'assistant' && (
           <AgentEditor
             key={route.agentId ?? 'new-' + route.kind}
             kind={route.kind}
@@ -159,7 +205,7 @@ export default function App(): JSX.Element {
         {route.name === 'dashboard' && (
           <DashboardPage agents={agents} projects={projects} sessions={sessions} onOpenChat={openChat} />
         )}
-        {route.name === 'tasks' && <TasksPage agents={agents} projects={projects} onOpenChat={openChat} />}
+        {route.name === 'tasks' && <TasksPage key={route.newFor ?? 'tasks'} agents={agents} projects={projects} onOpenChat={openChat} newFor={route.newFor} />}
         {route.name === 'art' && (
           <ComingSoon title="Art" icon="art" text="Make images with your agents: pick a model that draws, describe what you need, and keep the results with your projects." />
         )}
@@ -182,7 +228,7 @@ export default function App(): JSX.Element {
           <ComingSoon title="Knowledge base" icon="knowledge" text="Collect documents, notes and links your agents and assistants can search, so their answers come from your own material." />
         )}
         {route.name === 'connectors' && (
-          <ComingSoon title="Connectors" icon="connectors" text="Connect your agents to the apps you already use, such as email, calendars and docs, so they can read and act on real work." />
+          <ConnectorsPage agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })} onChanged={() => void refresh()} />
         )}
         {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
         {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
@@ -192,6 +238,18 @@ export default function App(): JSX.Element {
       <div className="update-float">
         <UpdateNotice />
       </div>
+      {creating && (
+        <CreateAgentModal
+          agents={agents}
+          projects={projects}
+          onClose={() => setCreating(false)}
+          onCreated={() => void refresh()}
+          onChat={(a) => { setCreating(false); openChat(a.id, null) }}
+          onTask={(a) => { setCreating(false); setRoute({ name: 'tasks', newFor: a.id }) }}
+          onOpen={(a) => { setCreating(false); setRoute({ name: 'editor', kind: 'agent', agentId: a.id }) }}
+          onAskBuilder={() => { setCreating(false); const b = agents.find((x) => x.isMascot); if (b) openChat(b.id, null) }}
+        />
+      )}
       {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
       {newProject && (
         <NewProjectModal

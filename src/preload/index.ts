@@ -6,7 +6,9 @@ const api: TyslinApi = {
     list: () => ipcRenderer.invoke('agents:list'),
     get: (id) => ipcRenderer.invoke('agents:get', id),
     save: (input) => ipcRenderer.invoke('agents:save', input),
-    remove: (id) => ipcRenderer.invoke('agents:remove', id)
+    remove: (id) => ipcRenderer.invoke('agents:remove', id),
+    statuses: () => ipcRenderer.invoke('agents:statuses'),
+    test: (input) => ipcRenderer.invoke('agents:test', input)
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
@@ -83,6 +85,13 @@ const api: TyslinApi = {
       ipcRenderer.on('tasks:changed', fn)
       return () => ipcRenderer.removeListener('tasks:changed', fn)
     }
+  },
+  telegram: {
+    status: () => ipcRenderer.invoke('telegram:status'),
+    setToken: (t) => ipcRenderer.invoke('telegram:setToken', t),
+    linkCode: () => ipcRenderer.invoke('telegram:linkCode'),
+    unlink: (id) => ipcRenderer.invoke('telegram:unlink', id),
+    setNotify: (p) => ipcRenderer.invoke('telegram:setNotify', p)
   },
   orgs: {
     list: () => ipcRenderer.invoke('orgs:list'),

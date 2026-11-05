@@ -13,7 +13,7 @@ interface Props {
   /** Most recent chats across all agents and assistants, newest first. */
   sessions: Session[]
   onNavigate: (r: Route) => void
-  onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
+  onOpenChat: (agentId: string, projectId: string | null, sessionId?: string, via?: 'projects') => void
   onNewProject: () => void
 }
 
@@ -31,24 +31,26 @@ export function Sidebar(props: Props): JSX.Element {
   const kindOf = (id: string): AgentKind => agents.find((a) => a.id === id)?.kind ?? 'agent'
 
   const section: Section | null =
-    route.name === 'chat' ? (route.projectId ? 'projects' : kindSection(kindOf(route.agentId)))
+    route.name === 'chat' ? (route.via === 'projects' ? 'projects' : kindSection(kindOf(route.agentId)))
       : route.name === 'agents' || route.name === 'editor' ? kindSection(route.kind)
         : null
 
   /** Latest chat outside projects for this kind, or its list page when there are none yet. */
   const openKind = (kind: AgentKind): void => {
+    // Agents open their page (list, cards, org chart); assistants open their latest chat.
+    if (kind === 'agent') return onNavigate({ name: 'agents', kind })
     const last = sessions.find((s) => !s.projectId && kindOf(s.agentId) === kind)
     if (last) onOpenChat(last.agentId, null, last.id)
     else onNavigate({ name: 'agents', kind })
   }
   const openProject = (p: Project): void => {
     const last = sessions.find((s) => s.projectId === p.id)
-    if (last) onOpenChat(last.agentId, p.id, last.id)
-    else if (builder) onOpenChat(builder.id, p.id)
+    if (last) onOpenChat(last.agentId, p.id, last.id, 'projects')
+    else if (builder) onOpenChat(builder.id, p.id, undefined, 'projects')
   }
   const openProjects = (): void => {
     const last = sessions.find((s) => s.projectId && projects.some((p) => p.id === s.projectId))
-    if (last) onOpenChat(last.agentId, last.projectId, last.id)
+    if (last) onOpenChat(last.agentId, last.projectId, last.id, 'projects')
     else if (projects[0]) openProject(projects[0])
     else onNewProject()
   }
@@ -69,7 +71,7 @@ export function Sidebar(props: Props): JSX.Element {
 
   const currentSession = route.name === 'chat' ? route.sessionId : undefined
 
-  const chatRow = (s: Session, withAgent: boolean): JSX.Element => {
+  const chatRow = (s: Session, withAgent: boolean, via?: 'projects'): JSX.Element => {
     const a = agents.find((x) => x.id === s.agentId)
     const active = currentSession === s.id
     return (
@@ -78,10 +80,10 @@ export function Sidebar(props: Props): JSX.Element {
         type="button"
         className={'panel-item panel-chat' + (withAgent ? ' with-agent' : '') + (active ? ' active' : '')}
         aria-current={active ? 'page' : undefined}
-        onClick={() => onOpenChat(s.agentId, s.projectId, s.id)}
+        onClick={() => onOpenChat(s.agentId, s.projectId, s.id, via)}
         title={a ? `${s.title} · ${a.name}` : s.title}
       >
-        {withAgent && a && <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} size={18} />}
+        {withAgent && a && <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={18} />}
         <span className="panel-label">{s.title}</span>
       </button>
     )
@@ -105,8 +107,8 @@ export function Sidebar(props: Props): JSX.Element {
           <Icon name="grid" size={14} /> All {noun}s
         </button>
         {agents.filter((a) => a.kind === kind).map((a) => {
-          const chats = sessions.filter((s) => s.agentId === a.id && !s.projectId).slice(0, CHATS_PER_ITEM)
-          const here = (route.name === 'chat' && route.agentId === a.id && !route.projectId) || (route.name === 'editor' && route.agentId === a.id)
+          const chats = sessions.filter((s) => s.agentId === a.id).slice(0, CHATS_PER_ITEM)
+          const here = (route.name === 'chat' && route.agentId === a.id && route.via !== 'projects') || (route.name === 'editor' && route.agentId === a.id)
           return (
             <div key={a.id} className="panel-group">
               <button
@@ -114,7 +116,7 @@ export function Sidebar(props: Props): JSX.Element {
                 className={'panel-item panel-agent' + (here && !chats.some((s) => s.id === currentSession) ? ' active' : '')}
                 onClick={() => onOpenChat(a.id, null, chats[0]?.id)}
               >
-                <Avatar shape={a.shape} tone={a.tone} mascot={a.isMascot} size={26} />
+                <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={26} />
                 <span className="panel-label">{a.name}</span>
               </button>
               {chats.map((s) => chatRow(s, false))}
@@ -149,7 +151,8 @@ export function Sidebar(props: Props): JSX.Element {
         </div>
       </nav>
 
-      {(section === 'agents' || section === 'assistants') && kindPanel(section)}
+      {/* Agents have their own page (list, cards, org chart), so only assistants get the side panel. */}
+      {section === 'assistants' && kindPanel(section)}
 
       {section === 'projects' && (
         <nav className="panel" aria-label="Projects and chats">
@@ -158,7 +161,7 @@ export function Sidebar(props: Props): JSX.Element {
           </button>
           {projects.map((p) => {
             const chats = sessions.filter((s) => s.projectId === p.id).slice(0, CHATS_PER_ITEM)
-            const here = route.name === 'chat' && route.projectId === p.id
+            const here = route.name === 'chat' && route.via === 'projects' && route.projectId === p.id
             return (
               <div key={p.id} className="panel-group">
                 <button
@@ -170,7 +173,7 @@ export function Sidebar(props: Props): JSX.Element {
                   <span className="panel-folder"><Icon name="folder" /></span>
                   <span className="panel-label">{p.name}</span>
                 </button>
-                {chats.map((s) => chatRow(s, true))}
+                {chats.map((s) => chatRow(s, true, 'projects'))}
               </div>
             )
           })}

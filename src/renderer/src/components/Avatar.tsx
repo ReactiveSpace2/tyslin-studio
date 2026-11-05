@@ -1,5 +1,6 @@
 import type { Shape, Tone } from '@shared/types'
 import mascot from '../assets/logo-mark.png'
+import { HEAD_SRC } from '../heads'
 
 const TONES: Record<Tone, { fill: string; feat: string }> = {
   lime: { fill: '#7DB800', feat: '#0F0F0D' },
@@ -11,12 +12,15 @@ interface Props {
   shape: Shape
   tone: Tone
   mascot?: boolean
+  /** A mascot head id (shared/heads.ts); wins over shape and tone. */
+  head?: string | null
   size?: number
 }
 
 /** Agent character. The Builder agent uses the Tyslin mascot; others get a branded robot shape. */
-export function Avatar({ shape, tone, mascot: isMascot, size = 72 }: Props): JSX.Element {
+export function Avatar({ shape, tone, mascot: isMascot, head, size = 72 }: Props): JSX.Element {
   if (isMascot) return <img src={mascot} width={size} height={size} alt="" style={{ objectFit: 'contain' }} />
+  if (head && HEAD_SRC[head]) return <img className="avatar-head" src={HEAD_SRC[head]} width={size} height={size} alt="" />
   const { fill, feat } = TONES[tone]
   const stroke = '#0F0F0D'
   return (
