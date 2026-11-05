@@ -20,6 +20,25 @@ let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
 const activeRuns = new Map<string, { runId: string; controller: AbortController }>()
 
+const REPO = 'ReactiveSpace2/tyslin-studio'
+const STARS_TTL_MS = 60 * 60 * 1000
+let stars: { count: number | null; at: number } = { count: null, at: 0 }
+
+/**
+ * GitHub stars for the app's repo, fetched at most once an hour (unauthenticated GitHub allows 60
+ * calls an hour, shared with skill packs). Keeps the last good count when GitHub fails.
+ */
+async function githubStars(): Promise<{ count: number | null; url: string }> {
+  const url = `https://github.com/${REPO}`
+  if (Date.now() - stars.at < STARS_TTL_MS) return { count: stars.count, url }
+  stars = { ...stars, at: Date.now() }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}`, { headers: { 'user-agent': 'Tyslin-Studio', accept: 'application/vnd.github+json' } })
+    if (res.ok) stars = { count: ((await res.json()) as { stargazers_count?: number }).stargazers_count ?? stars.count, at: Date.now() }
+  } catch { /* offline: keep the last count */ }
+  return { count: stars.count, url }
+}
+
 /** Page backgrounds, matching --parchment in styles.css, so the window doesn't flash before the UI paints. */
 const BACKGROUND = { light: '#FAFAF7', dark: '#121210' }
 
@@ -289,6 +308,7 @@ function registerIpc(): void {
   ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
   ipcMain.handle('auth:signOut', () => signOut())
   ipcMain.handle('app:dashboard', () => db.dashboardStats())
+  ipcMain.handle('app:stars', () => githubStars())
   ipcMain.handle('tasks:list', () => db.listTasks())
   ipcMain.handle('tasks:save', (_e, input: TaskInput) =>
     db.saveTask(input, input.enabled ? nextRunAfter(input.schedule, Date.now()) : null))

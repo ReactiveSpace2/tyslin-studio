@@ -7,6 +7,7 @@ import { AccountBox } from '../components/AccountBox'
 import { track } from '../activity'
 import { ZoomControl } from '../components/ZoomControl'
 import { ColorSwatches } from '../components/ColorSwatches'
+import { GitHubStars } from '../components/GitHubStars'
 import { Icon } from '../components/Icon'
 import { refreshAppearance } from '../appearance'
 import { ORG_COLORS } from '@shared/types'
@@ -446,7 +447,7 @@ function AboutTab(): JSX.Element {
       <section className="box" aria-labelledby="data-h">
         <div className="box-head">
           <h2 id="data-h">Your data</h2>
-          <p className="hint">Agents, chats, projects and skills live in one local database. Tyslin sends nothing anywhere except your messages to the model providers you set up, and Google when you choose to sign in.</p>
+          <p className="hint">Agents, chats, projects and skills live in a local database, one per organization. Tyslin sends nothing anywhere except your messages to the model providers you set up, Google when you sign in, and requests to GitHub for updates, skill packs and the star count.</p>
         </div>
         <div className="kv">
           <span>Location</span><span className="mono path-inline">{info?.dataPath ?? '…'}</span>
@@ -466,6 +467,7 @@ function AboutTab(): JSX.Element {
           <span>Electron</span><span className="mono">{info?.electron ?? '…'}</span>
           <span>Platform</span><span className="mono">{info?.platform ?? '…'}</span>
         </div>
+        <GitHubStars />
         <span className="hint">Every agent you run. One studio. · <a href="https://tyslin.ai" target="_blank" rel="noreferrer">tyslin.ai</a> · <a href="https://github.com/ReactiveSpace2/tyslin-studio/issues" target="_blank" rel="noreferrer">Report an issue</a></span>
       </section>
     </>

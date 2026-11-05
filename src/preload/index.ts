@@ -100,6 +100,7 @@ const api: TyslinApi = {
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     dashboard: () => ipcRenderer.invoke('app:dashboard'),
+    stars: () => ipcRenderer.invoke('app:stars'),
     openDataFolder: () => ipcRenderer.invoke('app:openDataFolder')
   },
   updates: {

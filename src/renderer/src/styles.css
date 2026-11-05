@@ -103,6 +103,13 @@ a { color: var(--green); }
 .titlebar-side { width: 320px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 16px; background: var(--panel); border-right: 1px solid var(--line); }
 .titlebar.mac .titlebar-side { padding-left: 84px; }
 .titlebar-logo { width: 28px; height: 28px; flex: none; object-fit: contain; }
+.gh-stars { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 4px 0 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-size: 13px; font-weight: 600; text-decoration: none; align-self: flex-start; -webkit-app-region: no-drag; }
+.gh-stars:hover { border-color: var(--line-strong); }
+.gh-stars:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.gh-count { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 8px; border-left: 1px solid var(--line); font-size: 12px; font-weight: 500; color: var(--muted); }
+.gh-stars.compact { height: 24px; gap: 4px; padding: 0 2px 0 7px; margin-left: 6px; border-radius: 7px; font-size: 11px; align-self: center; color: var(--muted); }
+.gh-stars.compact .gh-count { height: 18px; padding: 0 5px; font-size: 11px; }
+.gh-stars.compact:hover { color: var(--ink); }
 .titlebar-wordmark { height: 14px; width: auto; flex: none; }
 .titlebar-main { flex: 1; min-width: 0; display: flex; align-items: center; padding: 0 150px 0 24px; }
 .titlebar.mac .titlebar-main { padding-right: 24px; }

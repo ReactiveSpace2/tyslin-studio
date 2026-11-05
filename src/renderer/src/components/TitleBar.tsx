@@ -3,6 +3,7 @@ import type { Agent, Project } from '@shared/types'
 import type { Route } from '../App'
 import mark from '../assets/logo-mark.png'
 import { ZoomControl } from './ZoomControl'
+import { GitHubStars } from './GitHubStars'
 import wordmarkBlack from '../assets/wordmark-black.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
 
@@ -42,6 +43,7 @@ export function TitleBar({ route, agents, projects }: Props): JSX.Element {
         <img className="titlebar-logo" src={mark} alt="" />
         <img className="titlebar-wordmark light-only" src={wordmarkBlack} alt="Tyslin" />
         <img className="titlebar-wordmark dark-only" src={wordmarkWhite} alt="Tyslin" />
+        <GitHubStars compact />
       </div>
       <div className="titlebar-main">
         <span className="titlebar-title">{titleFor(route, agents, projects)}</span>

@@ -496,6 +496,8 @@ export interface TyslinApi {
   app: {
     info(): Promise<AppInfo>
     dashboard(): Promise<DashboardStats>
+    /** GitHub stars for Tyslin's repo (null when GitHub couldn't be reached), and the repo URL. */
+    stars(): Promise<{ count: number | null; url: string }>
     openDataFolder(): Promise<void>
   }
   updates: {
