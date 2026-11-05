@@ -71,13 +71,19 @@ function changeSummary(list: PendingChange[]): string {
 interface Props {
   agentId: string
   projectId: string | null
+  /** Chat to open; the most recent one when missing. */
+  sessionId?: string
   agents: Agent[]
   projects: Project[]
   onSwitch: (agentId: string, projectId: string | null) => void
   onSettings: () => void
+  /** Called when the open chat changes, so the sidebar can highlight it. */
+  onSessionChange: (sessionId: string) => void
+  /** Called when a chat is created or gets a new message, so the sidebar list can refresh. */
+  onSessionsChanged: () => void
 }
 
-export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSettings }: Props): JSX.Element {
+export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSwitch, onSettings, onSessionChange, onSessionsChanged }: Props): JSX.Element {
   const agent = agents.find((a) => a.id === agentId)
   const project = projects.find((p) => p.id === projectId) ?? null
   const [sessions, setSessions] = useState<Session[]>([])
@@ -102,11 +108,22 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     void (async () => {
       const all = (await window.tyslin.sessions.list(agentId)).filter((s) => s.projectId === projectId)
       setSessions(all)
-      setSession(all[0] ?? null)
+      setSession(all.find((s) => s.id === sessionId) ?? all[0] ?? null)
     })()
     if (projectId) void window.tyslin.projects.files(projectId).then(setFiles)
     else setFiles([])
   }, [agentId, projectId])
+
+  // A chat picked in the sidebar for the same agent and project.
+  useEffect(() => {
+    if (!sessionId || sessionId === session?.id) return
+    const picked = sessions.find((s) => s.id === sessionId)
+    if (picked) setSession(picked)
+  }, [sessionId])
+
+  useEffect(() => {
+    if (session) onSessionChange(session.id)
+  }, [session])
 
   const loadChanges = (id: string): Promise<void> => window.tyslin.changes.list(id).then(setChanges)
 
@@ -161,6 +178,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
           if (e.type === 'run_error') setError(e.error)
           setMessages(await window.tyslin.sessions.messages(session.id))
           await loadChanges(session.id)
+          onSessionsChanged()
           break
       }
     })
@@ -196,6 +214,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     const s = await window.tyslin.sessions.create(agent.id, projectId)
     setSessions((list) => [s, ...list])
     setSession(s)
+    onSessionsChanged()
   }
 
   const answer = (p: Permission, choiceId: string | null): void => {
@@ -226,6 +245,8 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
     setStreaming('')
     try {
       await window.tyslin.sessions.send(s.id, t, sending.map((a) => a.id))
+      // The message is saved by now, and the first one renames the chat.
+      onSessionsChanged()
     } catch (err) {
       setStreaming(null)
       setError(err instanceof Error ? err.message : String(err))
@@ -240,13 +261,13 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
             <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={44} />
             <div>
               <h2>{agent.name}</h2>
-              <span className="sub">{project ? project.name : 'No project'} · <RunsOnBadge agent={agent} size={16} /> <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
+              <span className="sub">{agent.kind === 'assistant' ? 'Assistant' : project ? project.name : 'No project'} · <RunsOnBadge agent={agent} size={16} /> <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
             </div>
           </div>
           <div className="row">
-            <label htmlFor="agent-switch" className="section-label" style={{ padding: 0 }}>Agent</label>
+            <label htmlFor="agent-switch" className="section-label" style={{ padding: 0 }}>{agent.kind === 'assistant' ? 'Assistant' : 'Agent'}</label>
             <select id="agent-switch" className="select" style={{ width: 170, height: 36 }} value={agent.id} onChange={(e) => onSwitch(e.target.value, projectId)}>
-              {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {agents.filter((a) => a.kind === agent.kind).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
             <button type="button" className="btn btn-sm" onClick={newChat}><Icon name="plus" size={12} /> New chat</button>
           </div>
@@ -257,7 +278,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
             {messages.length === 0 && streaming === null && (
               <div className="empty" style={{ marginTop: 80 }}>
                 <Avatar shape={agent.shape} tone={agent.tone} mascot={agent.isMascot} size={120} />
-                <h2>Start working with {agent.name}</h2>
+                <h2>{agent.kind === 'assistant' ? 'Start a chat with' : 'Start working with'} {agent.name}</h2>
                 <p className="lead">{agent.description}</p>
               </div>
             )}
@@ -374,7 +395,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
       </section>
 
       <aside className="context" aria-label="Context">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {agent.kind === 'agent' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="section-label" style={{ padding: 0 }}>Project</span>
           <select className="select" aria-label="Project" value={projectId ?? ''} onChange={(e) => onSwitch(agent.id, e.target.value || null)}>
             <option value="">No project</option>
@@ -388,7 +409,7 @@ export function ChatPage({ agentId, projectId, agents, projects, onSwitch, onSet
               {files.length > 40 && <li className="hint">+ {files.length - 40} more</li>}
             </ul>
           )}
-        </div>
+        </div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <span className="section-label" style={{ padding: 0 }}>Skills</span>
           <div className="row" style={{ gap: 6 }}>

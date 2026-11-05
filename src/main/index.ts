@@ -75,7 +75,7 @@ function registerIpc(): void {
     if (!agent) throw new Error('Agent not found')
     if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
     db.addMessage(sessionId, 'user', text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
-    const project = session.projectId ? db.getProject(session.projectId) : null
+    const project = session.projectId && agent.kind === 'agent' ? db.getProject(session.projectId) : null
     const runId = randomUUID()
     const controller = new AbortController()
     activeRuns.set(sessionId, { runId, controller })

@@ -3,7 +3,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
-import { AGENT_LIBRARY_VERSION, BUILT_IN_AGENTS, RETIRED_AGENTS } from './seedAgents'
+import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
@@ -16,6 +16,7 @@ export function openDb(): Database.Database {
   db.pragma('foreign_keys = ON')
   migrate()
   seed()
+  seedAssistants()
   seedSkills()
   return db
 }
@@ -55,6 +56,7 @@ function migrate(): void {
   `)
   addColumn('agents', 'write_mode', "TEXT NOT NULL DEFAULT 'ask'")
   addColumn('agents', 'engine', "TEXT NOT NULL DEFAULT 'builtin'")
+  addColumn('agents', 'kind', "TEXT NOT NULL DEFAULT 'agent'")
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
   // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
@@ -100,6 +102,16 @@ function seed(): void {
   })()
 }
 
+/** Same as seed(), for the starter assistants, with its own version so either list can grow alone. */
+function seedAssistants(): void {
+  if (Number(getSetting('seed:assistantsVersion') ?? 0) >= ASSISTANT_LIBRARY_VERSION) return
+  db.transaction(() => {
+    const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
+    for (const a of BUILT_IN_ASSISTANTS) if (!names.has(a.name)) saveAgent(a)
+    setSetting('seed:assistantsVersion', String(ASSISTANT_LIBRARY_VERSION))
+  })()
+}
+
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */
 function seedSkills(): void {
   if (Number(getSetting('seed:skillsVersion') ?? 0) >= SKILL_LIBRARY_VERSION) return
@@ -112,12 +124,12 @@ function seedSkills(): void {
 
 type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
-  provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; is_mascot: number
+  provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; kind: string; is_mascot: number
   created_at: number; updated_at: number
 }
 
 const toAgent = (r: AgentRow): Agent => ({
-  id: r.id, name: r.name, description: r.description, instructions: r.instructions,
+  id: r.id, kind: r.kind === 'assistant' ? 'assistant' : 'agent', name: r.name, description: r.description, instructions: r.instructions,
   shape: r.shape as Agent['shape'], tone: r.tone as Agent['tone'], provider: r.provider as Agent['provider'],
   model: r.model, skills: JSON.parse(r.skills), schedule: r.schedule,
   engine: (r.engine || 'builtin') as Agent['engine'],
@@ -134,19 +146,25 @@ export function getAgent(id: string): Agent | null {
   return r ? toAgent(r) : null
 }
 
-export function saveAgent(input: AgentInput & { id?: string }): Agent {
+export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const now = Date.now()
-  if (input.id && getAgent(input.id)) {
+  const existing = raw.id ? getAgent(raw.id) : null
+  // The kind is fixed once created. Assistants always run on Tyslin's own models, never on a schedule.
+  const kind = existing?.kind ?? (raw.kind === 'assistant' ? 'assistant' : 'agent')
+  const input = kind === 'assistant'
+    ? { ...raw, engine: 'builtin' as const, schedule: 'manual', writeMode: 'ask' as const, isMascot: false }
+    : raw
+  if (existing) {
     db.prepare(`UPDATE agents SET name=?, description=?, instructions=?, shape=?, tone=?, provider=?, model=?,
       skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, updated_at=? WHERE id=?`).run(
       input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
-      JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, input.id)
-    return getAgent(input.id)!
+      JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, existing.id)
+    return getAgent(existing.id)!
   }
   const id = randomUUID()
-  db.prepare(`INSERT INTO agents (id, name, description, instructions, shape, tone, provider, model, skills,
-    schedule, engine, write_mode, is_mascot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    id, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
+  db.prepare(`INSERT INTO agents (id, kind, name, description, instructions, shape, tone, provider, model, skills,
+    schedule, engine, write_mode, is_mascot, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    id, kind, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
     JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0, now, now)
   return getAgent(id)!
 }
@@ -182,6 +200,8 @@ export function getSession(id: string): Session | null {
 }
 
 export function createSession(agentId: string, projectId: string | null): Session {
+  // Assistants don't work in folders.
+  if (projectId && getAgent(agentId)?.kind === 'assistant') projectId = null
   const now = Date.now()
   const s: Session = { id: randomUUID(), agentId, projectId, title: 'New chat', createdAt: now, updatedAt: now }
   db.prepare('INSERT INTO sessions (id, agent_id, project_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')

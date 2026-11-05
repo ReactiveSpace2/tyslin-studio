@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent, AgentInput, EngineId, EngineStatus, ProviderId, Shape, Skill, Tone, WriteMode } from '@shared/types'
+import type { Agent, AgentInput, AgentKind, EngineId, EngineStatus, ProviderId, Shape, Skill, Tone, WriteMode } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
@@ -12,18 +12,20 @@ const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
 }
 
 const BLANK: AgentInput = {
-  name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
+  kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
   provider: 'anthropic', model: 'claude-sonnet-5-5', skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false
 }
 
 interface Props {
+  /** For a new one; an existing one keeps its own kind. */
+  kind: AgentKind
   agentId?: string
   onDone: (saved: Agent | null) => void
   onCancel: () => void
 }
 
-export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
-  const [form, setForm] = useState<AgentInput & { id?: string }>(BLANK)
+export function AgentEditor({ kind, agentId, onDone, onCancel }: Props): JSX.Element {
+  const [form, setForm] = useState<AgentInput & { id?: string }>({ ...BLANK, kind })
   const [skills, setSkills] = useState<Skill[]>([])
   const [saving, setSaving] = useState(false)
   const [engines, setEngines] = useState<EngineStatus[]>([])
@@ -35,6 +37,8 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
     else void window.tyslin.settings.prefs().then((p) => setForm((f) => ({ ...f, writeMode: p.defaultWriteMode })))
   }, [agentId])
 
+  const isAgent = form.kind === 'agent'
+  const noun = isAgent ? 'agent' : 'assistant'
   const set = <K extends keyof AgentInput>(k: K, v: AgentInput[K]): void => setForm((f) => ({ ...f, [k]: v }))
   const toggleSkill = (name: string): void =>
     set('skills', form.skills.includes(name) ? form.skills.filter((s) => s !== name) : [...form.skills, name])
@@ -59,15 +63,15 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
       <header className="page-head">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={onCancel}>
-            <Icon name="back" size={14} /> Agents
+            <Icon name="back" size={14} /> {isAgent ? 'Agents' : 'Assistants'}
           </button>
-          <span className="eyebrow">{form.id ? 'Edit agent' : 'New agent'}</span>
-          <h1>{form.id ? form.name || 'Agent' : 'Build an agent'}</h1>
+          <span className="eyebrow">{form.id ? `Edit ${noun}` : `New ${noun}`}</span>
+          <h1>{form.id ? form.name || (isAgent ? 'Agent' : 'Assistant') : isAgent ? 'Build an agent' : 'Make an assistant'}</h1>
         </div>
         <div className="row">
           {form.id && !form.isMascot && <button type="button" className="btn" onClick={remove}>Delete</button>}
           <button type="button" className="btn btn-primary" disabled={!form.name.trim() || saving} onClick={save}>
-            {saving ? 'Saving…' : 'Save agent'}
+            {saving ? 'Saving…' : `Save ${noun}`}
           </button>
         </div>
       </header>
@@ -81,17 +85,19 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
             </div>
             <div className="field">
               <label htmlFor="f-desc">One-line description</label>
-              <input id="f-desc" className="input" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="What this agent does" />
+              <input id="f-desc" className="input" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder={`What this ${noun} does`} />
             </div>
           </div>
 
           <div className="field">
             <label htmlFor="f-ins">Instructions</label>
             <textarea id="f-ins" className="textarea" rows={8} value={form.instructions} onChange={(e) => set('instructions', e.target.value)}
-              placeholder="Describe the job, how the agent should work, and what a good result looks like." />
+              placeholder={isAgent
+                ? 'Describe the job, how the agent should work, and what a good result looks like.'
+                : 'Describe the role, the tone, and what a good answer looks like.'} />
           </div>
 
-          <div className="field">
+          {isAgent && <div className="field">
             <label htmlFor="f-engine">Runs on</label>
             <select id="f-engine" className="select" style={{ maxWidth: 420 }} value={form.engine} onChange={(e) => set('engine', e.target.value as EngineId)}>
               <option value="builtin">Tyslin (pick a model below)</option>
@@ -109,7 +115,7 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
                 </span>
               )
             })()}
-          </div>
+          </div>}
 
           {form.engine === 'builtin' && <div className="two">
             <div className="field">
@@ -141,7 +147,7 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
             </div>
           </fieldset>
 
-          <fieldset className="field" style={{ border: 0, margin: 0, padding: 0 }}>
+          {isAgent && <fieldset className="field" style={{ border: 0, margin: 0, padding: 0 }}>
             <legend className="label" style={{ marginBottom: 8 }}>File changes</legend>
             <div className="choices">
               {([
@@ -160,9 +166,9 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
                 {form.name || 'This agent'} will change files without asking. Use it only on folders you can restore, such as a git repo.
               </div>
             )}
-          </fieldset>
+          </fieldset>}
 
-          <div className="field" style={{ maxWidth: 320 }}>
+          {isAgent && <div className="field" style={{ maxWidth: 320 }}>
             <label htmlFor="f-sched">Schedule</label>
             <select id="f-sched" className="select" value={form.schedule} onChange={(e) => set('schedule', e.target.value)}>
               <option value="manual">Only when I ask</option>
@@ -170,14 +176,14 @@ export function AgentEditor({ agentId, onDone, onCancel }: Props): JSX.Element {
               <option value="Mondays 09:00">Every Monday</option>
             </select>
             <span className="hint">Scheduled runs are saved now and will run once the scheduler ships.</span>
-          </div>
+          </div>}
         </form>
 
         <aside className="editor-side" aria-label="Preview">
           <div className="preview">
             <span className="section-label" style={{ alignSelf: 'flex-start', padding: 0 }}>Preview</span>
             <div className="preview-tile"><Avatar shape={form.shape} tone={form.tone} mascot={form.isMascot} size={132} /></div>
-            <h2>{form.name || 'Your agent'}</h2>
+            <h2>{form.name || `Your ${noun}`}</h2>
             <p>{form.description || 'A one-line description appears here.'}</p>
           </div>
           {!form.isMascot && (

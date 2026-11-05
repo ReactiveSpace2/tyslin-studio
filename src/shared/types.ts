@@ -51,11 +51,18 @@ export interface EngineTestResult {
   error?: string
 }
 
+/**
+ * agent: works in a project folder with file tools, can run on an external engine and on a schedule.
+ * assistant: a prompt and a model for plain chat; no folder, no tools, no engine, no schedule.
+ */
+export type AgentKind = 'agent' | 'assistant'
+
 /** ask: file writes are staged for review · direct: written straight to disk */
 export type WriteMode = 'ask' | 'direct'
 
 export interface Agent {
   id: string
+  kind: AgentKind
   name: string
   description: string
   instructions: string

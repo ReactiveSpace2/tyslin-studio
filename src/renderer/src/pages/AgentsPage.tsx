@@ -1,17 +1,31 @@
 import { useMemo, useState } from 'react'
-import type { Agent } from '@shared/types'
+import type { Agent, AgentKind } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { RunsOnBadge, runsOnLabel } from '../components/RunsOnBadge'
 
 interface Props {
+  kind: AgentKind
   agents: Agent[]
   onChat: (a: Agent) => void
   onEdit: (a: Agent) => void
   onNew: () => void
 }
 
-export function AgentsPage({ agents, onChat, onEdit, onNew }: Props): JSX.Element {
+const COPY = {
+  agent: {
+    eyebrow: 'Your crew', title: 'Agents', noun: 'agent', add: 'Build a new agent',
+    lead: 'Agents do work in your project folders: each has a job, its own skills and tools, and the model or engine you choose.'
+  },
+  assistant: {
+    eyebrow: 'Everyday chat', title: 'Assistants', noun: 'assistant', add: 'Make a new assistant',
+    lead: 'Assistants are a prompt and a model for quick chats: writing, translating, questions. No folders or tools.'
+  }
+} as const
+
+/** List page for agents or for assistants (same cards, different filters and copy). */
+export function AgentsPage({ kind, agents, onChat, onEdit, onNew }: Props): JSX.Element {
+  const c = COPY[kind]
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<'all' | 'scheduled' | 'local'>('all')
 
@@ -26,30 +40,30 @@ export function AgentsPage({ agents, onChat, onEdit, onNew }: Props): JSX.Elemen
     <div className="page">
       <header className="page-head">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="eyebrow">Your crew</span>
-          <h1>Agents</h1>
-          <p className="lead">Each agent has a job, its own skills and the model you choose.</p>
+          <span className="eyebrow">{c.eyebrow}</span>
+          <h1>{c.title}</h1>
+          <p className="lead">{c.lead}</p>
         </div>
         <div className="row">
           <label className="row input" style={{ width: 240, gap: 8, color: 'var(--muted)' }}>
             <Icon name="search" />
             <input
               type="search"
-              placeholder="Search agents"
-              aria-label="Search agents"
+              placeholder={`Search ${c.noun}s`}
+              aria-label={`Search ${c.noun}s`}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ border: 0, outline: 'none', background: 'transparent', flex: 1, minWidth: 0 }}
             />
           </label>
           <button type="button" className="btn btn-primary" onClick={onNew}>
-            <Icon name="plus" size={14} /> New agent
+            <Icon name="plus" size={14} /> New {c.noun}
           </button>
         </div>
       </header>
 
-      <div className="row" role="group" aria-label="Filter agents">
-        {(['all', 'scheduled', 'local'] as const).map((f) => (
+      <div className="row" role="group" aria-label={`Filter ${c.noun}s`}>
+        {(kind === 'agent' ? (['all', 'scheduled', 'local'] as const) : (['all', 'local'] as const)).map((f) => (
           <button key={f} type="button" className={'pill' + (filter === f ? ' on' : '')} aria-pressed={filter === f} onClick={() => setFilter(f)}>
             {f === 'all' ? 'All' : f === 'scheduled' ? 'Scheduled' : 'Local models'}
           </button>
@@ -83,7 +97,7 @@ export function AgentsPage({ agents, onChat, onEdit, onNew }: Props): JSX.Elemen
         ))}
         <button type="button" className="add-card" onClick={onNew}>
           <Icon name="plus" size={28} />
-          Build a new agent
+          {c.add}
         </button>
       </div>
     </div>
