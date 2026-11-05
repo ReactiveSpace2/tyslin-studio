@@ -97,6 +97,90 @@ export interface Agent {
 type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
+/** Files made on the Mind mapper, Workflows and Canvas screens (a run is a workflow's log). */
+export type StudioKind = 'mindmap' | 'workflow' | 'run' | 'canvas'
+
+export interface StudioFile {
+  /** File name without the kind's extension. */
+  name: string
+  /** Relative to the project folder, with forward slashes. */
+  path: string
+  updatedAt: number
+}
+
+export interface MindNode {
+  id: string
+  text: string
+  children: MindNode[]
+  collapsed?: boolean
+}
+
+export interface MindMapDoc {
+  version: 1
+  root: MindNode
+}
+
+export interface WorkflowStep {
+  id: string
+  /** An agent or assistant. */
+  agentId: string
+  instruction: string
+}
+
+export interface WorkflowDoc {
+  version: 1
+  /** What the first step starts from. */
+  brief: string
+  steps: WorkflowStep[]
+}
+
+export interface WorkflowProgress {
+  runId: string
+  /** The workflow file being run. */
+  path: string
+  /** Step index, or -1 for the whole run. */
+  step: number
+  status: 'running' | 'done' | 'failed' | 'stopped'
+  output?: string
+  error?: string
+  sessionId?: string
+  /** When the run ends: the Markdown log, relative to the project folder. */
+  logPath?: string
+}
+
+export interface AskResult {
+  ok: boolean
+  reply: string
+  error?: string
+  sessionId?: string
+}
+
+export type DriveKind = 'folder' | 'mindmap' | 'workflow' | 'canvas' | 'image' | 'text' | 'file'
+
+export interface DriveEntry {
+  name: string
+  /** Relative to the project folder, with forward slashes. */
+  path: string
+  isDir: boolean
+  kind: DriveKind
+  size: number
+  updatedAt: number
+}
+
+export interface DriveListing {
+  /** The project actually shown (the Default project's id when none was chosen). */
+  projectId: string
+  folder: string
+  /** '' for the project folder itself. */
+  dir: string
+  entries: DriveEntry[]
+}
+
+export type DrivePreview =
+  | { kind: 'text'; text: string; truncated: boolean }
+  | { kind: 'image'; dataUrl: string }
+  | { kind: 'none'; note: string }
+
 /** What linked Telegram chats are sent besides replies. */
 export interface TelegramNotify {
   results: boolean
@@ -532,6 +616,40 @@ export interface TyslinApi {
     runNow(id: string): Promise<string>
     /** Fires when a task starts or finishes a run (scheduled or manual). */
     onChanged(cb: () => void): () => void
+  }
+  studio: {
+    /** The current organization's Default project (created with its folder on first use). */
+    defaultProject(): Promise<Project>
+    /** projectId null = the Default project. */
+    list(kind: StudioKind, projectId: string | null): Promise<{ project: Project; files: StudioFile[] }>
+    read(projectId: string | null, path: string): Promise<string>
+    /** Saves to `path`, or to a new free name for `kind` + `name`. */
+    write(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string): Promise<StudioFile>
+    remove(projectId: string | null, path: string): Promise<void>
+    /** Shows the file (or the project folder) in the system file manager. */
+    reveal(projectId: string | null, path?: string): Promise<void>
+    /** One message to an agent or assistant in a new chat titled `title`; resolves with its reply. */
+    ask(agentId: string, projectId: string | null, prompt: string, title: string): Promise<AskResult>
+    runWorkflow(projectId: string | null, path: string): Promise<string>
+    stopWorkflow(runId: string): Promise<void>
+    onWorkflow(cb: (p: WorkflowProgress) => void): () => void
+  }
+  drive: {
+    list(projectId: string | null, dir: string, showHidden?: boolean): Promise<DriveListing>
+    preview(projectId: string | null, path: string): Promise<DrivePreview>
+    mkdir(projectId: string | null, dir: string, name: string): Promise<void>
+    rename(projectId: string | null, path: string, name: string): Promise<void>
+    move(projectId: string | null, path: string, toDir: string): Promise<void>
+    remove(projectId: string | null, path: string): Promise<void>
+    /** System file picker; copies the chosen files into `dir`. Returns how many. */
+    upload(projectId: string | null, dir: string): Promise<number>
+    /** Copies files dropped onto the window (see `pathsFor`) into `dir`. */
+    copyIn(projectId: string | null, dir: string, paths: string[]): Promise<number>
+    /** Real paths of files dropped from the desktop. */
+    pathsFor(files: File[]): string[]
+    /** Opens with the system's app for that file type. */
+    open(projectId: string | null, path: string): Promise<void>
+    reveal(projectId: string | null, path: string): Promise<void>
   }
   telegram: {
     status(): Promise<TelegramStatus>

@@ -3,7 +3,7 @@ import type { AppInfo, EngineStatus, ProviderSettings } from '@shared/types'
 import logo from '../assets/logo-horizontal.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
-import mascot from '../assets/mascot-standing.png'
+import mascot from '../assets/mascot-pose-1.png'
 import { Icon } from '../components/Icon'
 import { Mark, MARKS, type MarkKey } from '../components/RunsOnBadge'
 
@@ -27,17 +27,17 @@ const READY_AREAS: [StudioArea, IconName, string, string][] = [
   ['assistants', 'chat', 'Assistants', 'A prompt and a model for quick chats'],
   ['tasks', 'clock', 'Tasks', 'Prompts that run on a schedule'],
   ['projects', 'folder', 'Projects', 'Folders on disk your agents work in'],
-  ['skills', 'skills', 'Skills', 'Reusable instructions for any agent']
+  ['skills', 'skills', 'Skills', 'Reusable instructions for any agent'],
+  ['workflows', 'workflow', 'Workflows', 'Chain agents into steps'],
+  ['canvas', 'canvas', 'Canvas', 'Draft documents with an agent'],
+  ['mindmap', 'mindmap', 'Mind mapper', 'Maps you grow with an agent'],
+  ['drive', 'drive', 'Drive', 'Every project folder, browsable'],
+  ['connectors', 'connectors', 'Connectors', 'Telegram today; more channels soon']
 ]
 const SOON_AREAS: [StudioArea, IconName, string, string][] = [
   ['art', 'art', 'Art', 'Make images with your agents'],
   ['videos', 'video', 'Videos', 'Make and edit short videos'],
-  ['workflows', 'workflow', 'Workflows', 'Chain agents into steps'],
-  ['canvas', 'canvas', 'Canvas', 'Draft and edit side by side'],
-  ['mindmap', 'mindmap', 'Mind mapper', 'Turn topics into mind maps'],
-  ['drive', 'drive', 'Drive', 'Files and storage in one place'],
-  ['knowledge', 'knowledge', 'Knowledge base', 'Your material, searchable'],
-  ['connectors', 'connectors', 'Connectors', 'Email, calendars, docs and more']
+  ['knowledge', 'knowledge', 'Knowledge base', 'Your material, searchable']
 ]
 
 function AreaTile({ icon, name, description, status, ready, onOpen }: {
@@ -152,7 +152,7 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
         <div className="support-grid">
           {READY_AREAS.map(([id, icon, name, description]) => (
             <AreaTile key={id} icon={icon} name={name} description={description} ready
-              status={(id === 'projects' || id === 'tasks') && !counts[id] ? 'Add one' : String(counts[id] ?? 0)} onOpen={() => onOpen(id)} />
+              status={id in counts ? ((id === 'projects' || id === 'tasks') && !counts[id] ? 'Add one' : String(counts[id])) : 'Open'} onOpen={() => onOpen(id)} />
           ))}
         </div>
         <div className="home-section-head" style={{ marginTop: 6 }}>

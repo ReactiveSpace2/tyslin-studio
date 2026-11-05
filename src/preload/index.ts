@@ -1,5 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron'
-import type { InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { InstallOutput, RunEvent, TyslinApi, UpdateStatus, WorkflowProgress } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -85,6 +85,35 @@ const api: TyslinApi = {
       ipcRenderer.on('tasks:changed', fn)
       return () => ipcRenderer.removeListener('tasks:changed', fn)
     }
+  },
+  studio: {
+    defaultProject: () => ipcRenderer.invoke('studio:defaultProject'),
+    list: (kind, projectId) => ipcRenderer.invoke('studio:list', kind, projectId),
+    read: (projectId, path) => ipcRenderer.invoke('studio:read', projectId, path),
+    write: (projectId, target, content) => ipcRenderer.invoke('studio:write', projectId, target, content),
+    remove: (projectId, path) => ipcRenderer.invoke('studio:remove', projectId, path),
+    reveal: (projectId, path) => ipcRenderer.invoke('studio:reveal', projectId, path),
+    ask: (agentId, projectId, prompt, title) => ipcRenderer.invoke('studio:ask', agentId, projectId, prompt, title),
+    runWorkflow: (projectId, path) => ipcRenderer.invoke('studio:runWorkflow', projectId, path),
+    stopWorkflow: (runId) => ipcRenderer.invoke('studio:stopWorkflow', runId),
+    onWorkflow: (cb) => {
+      const fn = (_e: unknown, p: WorkflowProgress): void => cb(p)
+      ipcRenderer.on('workflow:progress', fn)
+      return () => ipcRenderer.removeListener('workflow:progress', fn)
+    }
+  },
+  drive: {
+    list: (projectId, dir, showHidden) => ipcRenderer.invoke('drive:list', projectId, dir, showHidden),
+    preview: (projectId, path) => ipcRenderer.invoke('drive:preview', projectId, path),
+    mkdir: (projectId, dir, name) => ipcRenderer.invoke('drive:mkdir', projectId, dir, name),
+    rename: (projectId, path, name) => ipcRenderer.invoke('drive:rename', projectId, path, name),
+    move: (projectId, path, toDir) => ipcRenderer.invoke('drive:move', projectId, path, toDir),
+    remove: (projectId, path) => ipcRenderer.invoke('drive:remove', projectId, path),
+    upload: (projectId, dir) => ipcRenderer.invoke('drive:upload', projectId, dir),
+    copyIn: (projectId, dir, paths) => ipcRenderer.invoke('drive:copyIn', projectId, dir, paths),
+    pathsFor: (files) => files.map((f) => webUtils.getPathForFile(f)).filter(Boolean),
+    open: (projectId, path) => ipcRenderer.invoke('drive:open', projectId, path),
+    reveal: (projectId, path) => ipcRenderer.invoke('drive:reveal', projectId, path)
   },
   telegram: {
     status: () => ipcRenderer.invoke('telegram:status'),

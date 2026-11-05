@@ -16,6 +16,10 @@ import { TasksPage } from './pages/TasksPage'
 import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
 import { ConnectorsPage } from './pages/ConnectorsPage'
+import { MindMapPage } from './pages/MindMapPage'
+import { WorkflowsPage } from './pages/WorkflowsPage'
+import { CanvasPage } from './pages/CanvasPage'
+import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
@@ -32,9 +36,9 @@ export type Route =
   | { name: 'skills' }
   | { name: 'art' }
   | { name: 'videos' }
-  | { name: 'workflows' }
-  | { name: 'canvas' }
-  | { name: 'mindmap' }
+  | { name: 'workflows'; open?: { projectId: string; path: string } }
+  | { name: 'canvas'; open?: { projectId: string; path: string } }
+  | { name: 'mindmap'; open?: { projectId: string; path: string } }
   | { name: 'drive' }
   | { name: 'knowledge' }
   | { name: 'connectors' }
@@ -212,18 +216,10 @@ export default function App(): JSX.Element {
         {route.name === 'videos' && (
           <ComingSoon title="Videos" icon="video" text="Make and edit short videos with your agents: describe the clip, pick a model that makes video, and keep the results with your projects." />
         )}
-        {route.name === 'workflows' && (
-          <ComingSoon title="Workflows" icon="workflow" text="Chain agents into steps that hand work to each other, then run the whole flow by hand, on a schedule or when something changes." />
-        )}
-        {route.name === 'canvas' && (
-          <ComingSoon title="Canvas" icon="canvas" text="A shared page where you and your agents draft, rearrange and edit documents, notes and code side by side." />
-        )}
-        {route.name === 'mindmap' && (
-          <ComingSoon title="Mind mapper" icon="mindmap" text="Turn a topic, a chat or a document into a mind map you can expand, edit and hand to an agent." />
-        )}
-        {route.name === 'drive' && (
-          <ComingSoon title="Drive" icon="drive" text="Keep the files your agents use and make in one place: upload documents, connect storage you already have, and share files between agents and projects." />
-        )}
+        {route.name === 'workflows' && <WorkflowsPage key={route.open?.path ?? 'workflows'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'canvas' && <CanvasPage key={route.open?.path ?? 'canvas'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'mindmap' && <MindMapPage key={route.open?.path ?? 'mindmap'} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+        {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => setRoute({ name: screen, open: { projectId, path } } as Route)} />}
         {route.name === 'knowledge' && (
           <ComingSoon title="Knowledge base" icon="knowledge" text="Collect documents, notes and links your agents and assistants can search, so their answers come from your own material." />
         )}

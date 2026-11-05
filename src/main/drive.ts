@@ -1,0 +1,146 @@
+import { dialog, shell, type BrowserWindow } from 'electron'
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from 'fs'
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'path'
+import type { DriveEntry, DriveKind, DriveListing, DrivePreview } from '@shared/types'
+import { projectFor } from './studio'
+
+/**
+ * Drive: a file browser over each project's folder (the Default project when none is chosen).
+ * Mind maps, workflows, run logs and Canvas documents live here too, as ordinary files.
+ * Every path is resolved inside the project folder; nothing outside it can be read or changed.
+ */
+
+const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'])
+const TEXT = new Set(['.md', '.txt', '.json', '.csv', '.ts', '.tsx', '.js', '.jsx', '.py', '.html', '.css', '.yml', '.yaml', '.toml', '.xml', '.sh', '.sql', '.log', '.env.example'])
+const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' }
+const MAX_TEXT = 512 * 1024
+const MAX_IMAGE = 8 * 1024 * 1024
+
+function root(projectId: string | null): { folder: string; projectId: string } {
+  const p = projectFor(projectId)
+  return { folder: p.folder!, projectId: p.id }
+}
+
+/** A path inside the folder ('' = the folder itself); refuses escapes and .git. */
+function inside(folder: string, rel: string, allowRoot = false): string {
+  const abs = resolve(folder, rel || '.')
+  const r = relative(folder, abs)
+  if ((!r && !allowRoot) || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the project folder.')
+  return abs
+}
+
+const toRel = (folder: string, abs: string): string => relative(folder, abs).split(sep).join('/')
+
+function kindOf(name: string, isDir: boolean): DriveKind {
+  if (isDir) return 'folder'
+  if (name.endsWith('.mindmap.json')) return 'mindmap'
+  if (name.endsWith('.workflow.json')) return 'workflow'
+  const ext = extname(name).toLowerCase()
+  if (IMAGE.has(ext)) return 'image'
+  if (TEXT.has(ext) || !ext) return 'text'
+  return 'file'
+}
+
+export function driveList(projectId: string | null, dir: string, showHidden = false): DriveListing {
+  const { folder, projectId: id } = root(projectId)
+  const abs = inside(folder, dir, true)
+  const entries: DriveEntry[] = []
+  for (const name of readdirSync(abs)) {
+    if (name === '.git' || (!showHidden && name.startsWith('.'))) continue
+    try {
+      const st = statSync(join(abs, name))
+      const isDir = st.isDirectory()
+      let kind = kindOf(name, isDir)
+      // Canvas documents are the Markdown files in canvas/.
+      if (kind === 'text' && name.endsWith('.md') && toRel(folder, abs) === 'canvas') kind = 'canvas'
+      entries.push({ name, path: toRel(folder, join(abs, name)), isDir, kind, size: isDir ? 0 : st.size, updatedAt: st.mtimeMs })
+    } catch { /* unreadable entry: skip */ }
+  }
+  entries.sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name, undefined, { numeric: true }))
+  return { projectId: id, folder, dir: toRel(folder, abs), entries }
+}
+
+export function drivePreview(projectId: string | null, path: string): DrivePreview {
+  const { folder } = root(projectId)
+  const abs = inside(folder, path)
+  const st = statSync(abs)
+  const ext = extname(abs).toLowerCase()
+  if (IMAGE.has(ext)) {
+    if (st.size > MAX_IMAGE) return { kind: 'none', note: 'Too large to preview.' }
+    return { kind: 'image', dataUrl: `data:${MIME[ext]};base64,${readFileSync(abs).toString('base64')}` }
+  }
+  const buf = readFileSync(abs, { flag: 'r' }).subarray(0, MAX_TEXT)
+  if (buf.subarray(0, 8000).includes(0)) return { kind: 'none', note: 'No preview for this kind of file.' }
+  return { kind: 'text', text: buf.toString('utf8'), truncated: st.size > MAX_TEXT }
+}
+
+export function driveMkdir(projectId: string | null, dir: string, name: string): void {
+  const { folder } = root(projectId)
+  const clean = name.trim().replace(/[\\/]+/g, ' ')
+  if (!clean || clean === '.' || clean === '..') throw new Error('Give the folder a name.')
+  const abs = inside(folder, join(dir, clean))
+  if (existsSync(abs)) throw new Error(`${clean} already exists here.`)
+  mkdirSync(abs, { recursive: true })
+}
+
+export function driveRename(projectId: string | null, path: string, name: string): void {
+  const { folder } = root(projectId)
+  const clean = name.trim().replace(/[\\/]+/g, ' ')
+  if (!clean || clean === '.' || clean === '..') throw new Error('Give it a name.')
+  const from = inside(folder, path)
+  const to = inside(folder, join(path, '..', clean))
+  if (existsSync(to)) throw new Error(`${clean} already exists here.`)
+  renameSync(from, to)
+}
+
+export function driveMove(projectId: string | null, path: string, toDir: string): void {
+  const { folder } = root(projectId)
+  const from = inside(folder, path)
+  const dest = inside(folder, toDir, true)
+  if (dest === from || dest.startsWith(from + sep)) throw new Error('A folder can\'t go inside itself.')
+  const to = join(dest, basename(from))
+  if (existsSync(to)) throw new Error(`${basename(from)} already exists there.`)
+  renameSync(from, to)
+}
+
+export function driveRemove(projectId: string | null, path: string): void {
+  const { folder } = root(projectId)
+  rmSync(inside(folder, path), { recursive: true, force: true })
+}
+
+/** Copies files or folders from elsewhere on the computer into a folder of the project (a free name when taken). */
+export function driveCopyIn(projectId: string | null, dir: string, sources: string[]): number {
+  const { folder } = root(projectId)
+  const dest = inside(folder, dir, true)
+  let n = 0
+  for (const src of sources) {
+    if (!isAbsolute(src) || !existsSync(src)) continue
+    const st = statSync(src)
+    const ext = st.isDirectory() ? '' : extname(src)
+    const stem = basename(src, ext)
+    let to = join(dest, stem + ext)
+    for (let i = 2; existsSync(to); i++) to = join(dest, `${stem} ${i}${ext}`)
+    if (st.isDirectory()) cpSync(src, to, { recursive: true })
+    else copyFileSync(src, to)
+    n++
+  }
+  return n
+}
+
+export async function driveUpload(win: BrowserWindow | null, projectId: string | null, dir: string): Promise<number> {
+  const r = win
+    ? await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'], title: 'Add files to this folder' })
+    : await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'] })
+  return r.canceled ? 0 : driveCopyIn(projectId, dir, r.filePaths)
+}
+
+export function driveOpen(projectId: string | null, path: string): void {
+  const { folder } = root(projectId)
+  void shell.openPath(inside(folder, path))
+}
+
+export function driveReveal(projectId: string | null, path: string): void {
+  const { folder } = root(projectId)
+  if (!path) void shell.openPath(folder)
+  else shell.showItemInFolder(inside(folder, path))
+}

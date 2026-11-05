@@ -8,6 +8,8 @@ import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
+import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
+import { defaultProject, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { initTelegram, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, signIn, signOut } from './auth'
 import { pickAttachments, prepareAttachments } from './attachments'
@@ -15,7 +17,7 @@ import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, unins
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { Agent, AgentStatus, AgentTestResult, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, WorkflowDoc, WorkflowProgress, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -220,6 +222,71 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
   }
 }
 
+/**
+ * One message to an agent or assistant in a new chat (same path as chat, so pause, statuses,
+ * reviews and Telegram approvals all apply). Agents work in the given project; assistants have none.
+ */
+async function askAgent(agentId: string, projectId: string | null, prompt: string, title: string, onSession?: (id: string) => void): Promise<AskResult> {
+  try {
+    const agent = db.getAgent(agentId)
+    if (!agent) throw new Error('Pick an agent or assistant.')
+    const project = agent.kind === 'agent' ? projectFor(projectId) : null
+    const s = db.createSession(agent.id, project?.id ?? null)
+    onSession?.(s.id)
+    const { done } = startRun(s.id, prompt)
+    db.setSessionTitle(s.id, title)
+    const r = await done
+    if (!r.ok) return { ok: false, reply: '', error: r.error, sessionId: s.id }
+    const reply = db.listMessages(s.id).filter((m) => m.role === 'assistant').pop()?.content ?? ''
+    return { ok: true, reply, sessionId: s.id }
+  } catch (err) {
+    return { ok: false, reply: '', error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+const workflowRuns = new Map<string, { stopped: boolean; sessionId?: string }>()
+
+/** Runs a workflow file step by step (each step gets the brief and the previous step's output), then writes a Markdown log. */
+async function runWorkflow(runId: string, projectId: string | null, path: string): Promise<void> {
+  const send = (p: Omit<WorkflowProgress, 'runId' | 'path'>): void => { win?.webContents.send('workflow:progress', { runId, path, ...p }) }
+  const run = workflowRuns.get(runId)!
+  const started = new Date()
+  let doc: WorkflowDoc
+  try {
+    doc = JSON.parse(readStudioFile(projectId, path)) as WorkflowDoc
+  } catch {
+    send({ step: -1, status: 'failed', error: 'This workflow file could not be read.' })
+    return
+  }
+  const title = path.split('/').pop()!.replace(/\.workflow\.json$/, '')
+  const log = [`# ${title}`, `Run on ${started.toLocaleString()}`, '', '## Brief', '', doc.brief.trim() || '(none)', '']
+  let input = doc.brief.trim()
+  let status: WorkflowProgress['status'] = 'done'
+  for (let i = 0; i < doc.steps.length; i++) {
+    const step = doc.steps[i]
+    const agent = db.getAgent(step.agentId)
+    if (run.stopped) { status = 'stopped'; break }
+    send({ step: i, status: 'running' })
+    const prompt = [step.instruction.trim(), '', i === 0 ? '## Brief' : '## Input from the previous step', '', input || '(empty)',
+      ...(i > 0 && doc.brief.trim() ? ['', '## Original brief', '', doc.brief.trim()] : [])].join('\n')
+    const r = await askAgent(step.agentId, projectId, prompt, `${title} · step ${i + 1}`, (sid) => { run.sessionId = sid })
+    log.push(`## Step ${i + 1}: ${agent?.name ?? 'Missing agent'}`, '', `> ${step.instruction.trim().replace(/\n/g, '\n> ')}`, '', r.ok ? r.reply.trim() : `**Failed:** ${r.error}`, '')
+    if (!r.ok) {
+      status = run.stopped ? 'stopped' : 'failed'
+      send({ step: i, status, error: r.error, sessionId: r.sessionId })
+      break
+    }
+    send({ step: i, status: 'done', output: r.reply, sessionId: r.sessionId })
+    input = r.reply.trim()
+  }
+  const two = (n: number): string => String(n).padStart(2, '0')
+  const stamp = `${started.getFullYear()}-${two(started.getMonth() + 1)}-${two(started.getDate())} ${two(started.getHours())}-${two(started.getMinutes())}`
+  let logPath: string | undefined
+  try { logPath = writeStudioFile(projectId, { kind: 'run', name: `${title} ${stamp}` }, log.join('\n')).path } catch { /* folder gone */ }
+  send({ step: -1, status, logPath })
+  workflowRuns.delete(runId)
+}
+
 function createWindow(): void {
   applyTheme()
   // No File/Edit/View menu bar on Windows and Linux; the app draws its own title bar. macOS keeps its menu in the system bar.
@@ -389,6 +456,37 @@ function registerIpc(): void {
     if (!t) throw new Error('That task no longer exists.')
     return runTask(t, false)
   })
+  ipcMain.handle('studio:defaultProject', () => defaultProject())
+  ipcMain.handle('studio:list', (_e, kind: StudioKind, projectId: string | null) => listStudioFiles(kind, projectId))
+  ipcMain.handle('studio:read', (_e, projectId: string | null, path: string) => readStudioFile(projectId, path))
+  ipcMain.handle('studio:write', (_e, projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string) =>
+    writeStudioFile(projectId, target, String(content ?? '')))
+  ipcMain.handle('studio:remove', (_e, projectId: string | null, path: string) => removeStudioFile(projectId, path))
+  ipcMain.handle('studio:reveal', (_e, projectId: string | null, path?: string) => revealStudioFile(projectId, path))
+  ipcMain.handle('studio:ask', (_e, agentId: string, projectId: string | null, prompt: string, title: string) => askAgent(agentId, projectId, String(prompt ?? ''), String(title ?? 'Chat')))
+  ipcMain.handle('studio:runWorkflow', (_e, projectId: string | null, path: string) => {
+    const runId = randomUUID()
+    workflowRuns.set(runId, { stopped: false })
+    void runWorkflow(runId, projectId, path)
+    return runId
+  })
+  ipcMain.handle('studio:stopWorkflow', (_e, runId: string) => {
+    const r = workflowRuns.get(runId)
+    if (!r) return
+    r.stopped = true
+    const active = r.sessionId ? activeRuns.get(r.sessionId) : undefined
+    if (active) { active.controller.abort(); expireRunChanges(active.runId); cancelRunPermissions(active.runId) }
+  })
+  ipcMain.handle('drive:list', (_e, projectId: string | null, dir: string, showHidden?: boolean) => driveList(projectId, String(dir ?? ''), !!showHidden))
+  ipcMain.handle('drive:preview', (_e, projectId: string | null, path: string) => drivePreview(projectId, path))
+  ipcMain.handle('drive:mkdir', (_e, projectId: string | null, dir: string, name: string) => driveMkdir(projectId, String(dir ?? ''), String(name ?? '')))
+  ipcMain.handle('drive:rename', (_e, projectId: string | null, path: string, name: string) => driveRename(projectId, path, String(name ?? '')))
+  ipcMain.handle('drive:move', (_e, projectId: string | null, path: string, toDir: string) => driveMove(projectId, path, String(toDir ?? '')))
+  ipcMain.handle('drive:remove', (_e, projectId: string | null, path: string) => driveRemove(projectId, path))
+  ipcMain.handle('drive:upload', (_e, projectId: string | null, dir: string) => driveUpload(win, projectId, String(dir ?? '')))
+  ipcMain.handle('drive:copyIn', (_e, projectId: string | null, dir: string, paths: string[]) => driveCopyIn(projectId, String(dir ?? ''), Array.isArray(paths) ? paths.map(String) : []))
+  ipcMain.handle('drive:open', (_e, projectId: string | null, path: string) => driveOpen(projectId, path))
+  ipcMain.handle('drive:reveal', (_e, projectId: string | null, path: string) => driveReveal(projectId, String(path ?? '')))
   ipcMain.handle('telegram:status', () => telegramStatus())
   ipcMain.handle('telegram:setToken', (_e, t: string) => setTelegramToken(String(t ?? '')))
   ipcMain.handle('telegram:linkCode', () => newLinkCode())

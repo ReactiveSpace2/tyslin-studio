@@ -21,6 +21,8 @@ const PATHS = {
   play: <path d="M5 3.5v9l7-4.5z" />,
   pause: <path d="M5.5 3.5v9M10.5 3.5v9" />,
   trash: <><path d="M2.5 4.5h11M6 4.5V3h4v1.5M4 4.5l.7 9h6.6l.7-9" /></>,
+  arrowUp: <path d="M8 13V3M4 7l4-4 4 4" />,
+  arrowDown: <path d="M8 3v10M4 9l4 4 4-4" />,
   updown: <path d="m5 6 3-3 3 3M5 10l3 3 3-3" />,
   chat: <path d="M2.5 3h11v8H7.5L4.5 13.5V11h-2z" />,
   art: <><path d="M8 2a6 6 0 1 0 0 12c1 0 1.3-.8.9-1.5-.5-.9 0-1.7 1-1.7h1.6A2.5 2.5 0 0 0 14 8.3 6 6 0 0 0 8 2z" /><circle cx="5" cy="7.5" r="0.8" fill="currentColor" /><circle cx="7.5" cy="4.8" r="0.8" fill="currentColor" /><circle cx="10.7" cy="6" r="0.8" fill="currentColor" /></>,
