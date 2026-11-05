@@ -3,6 +3,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
+import { AGENT_LIBRARY_VERSION, BUILT_IN_AGENTS, RETIRED_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import type { Agent, AgentInput, ChangeStatus, Message, PendingChange, Preferences, Project, Session, Skill, SkillInput } from '@shared/types'
 
@@ -75,20 +76,28 @@ function addColumn(table: string, column: string, definition: string): void {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
 }
 
+/**
+ * Adds built-in agents (seedAgents.ts) new since this install last seeded, matched by name, so an
+ * agent the user renamed or deleted isn't recreated until the library version is bumped again.
+ * Version 1 also retires the old sample agents, but only ones without chats.
+ */
 function seed(): void {
-  const count = (db.prepare('SELECT COUNT(*) AS n FROM agents').get() as { n: number }).n
-  if (count > 0) return
-  const defaults: AgentInput[] = [
-    { name: 'Builder', description: 'Designs new agents with you, then keeps improving them.', instructions: 'You are Builder, the Tyslin agent that helps users design other agents. Ask what job the agent should do, then propose a name, short description, step-by-step instructions, and which skills and tools it needs.', shape: 'round', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['agent-design', 'skill-writer'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: true },
-    { name: 'Researcher', description: 'Searches your files and sources and returns sourced briefs.', instructions: 'You are a careful researcher. Give concise briefs with clear sections and always say where each fact comes from. Flag anything you are unsure about.', shape: 'round', tone: 'ink', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['cite-sources', 'deep-research', 'company-research'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
-    { name: 'Writer', description: 'Drafts posts, emails and docs that sound like you.', instructions: 'You write clear, warm, direct prose. Match the user\'s voice and keep drafts short unless asked otherwise.', shape: 'hex', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['human-voice', 'follow-up-email'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
-    { name: 'Critic', description: 'Reviews any draft and tells you exactly what to fix.', instructions: 'You are a constructive but honest reviewer. List the most important problems first, explain why each matters, and suggest a concrete fix.', shape: 'pill', tone: 'paper', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['edit-for-clarity'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false },
-    { name: 'Analyst', description: 'Turns numbers into plain answers.', instructions: 'You analyse data the user pastes or describes. Show your working briefly and give the answer in plain language first.', shape: 'block', tone: 'lime', provider: 'anthropic', model: 'claude-sonnet-5-5', skills: ['data-analysis'], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false }
-  ]
-  const tx = db.transaction(() => {
-    for (const a of defaults) saveAgent(a)
-  })
-  tx()
+  const version = Number(getSetting('seed:agentsVersion') ?? 0)
+  if (version >= AGENT_LIBRARY_VERSION) return
+  db.transaction(() => {
+    if (version < 1) {
+      const retire = db.prepare(`DELETE FROM agents WHERE name = ? AND is_mascot = 0
+        AND NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.agent_id = agents.id)`)
+      for (const name of RETIRED_AGENTS) retire.run(name)
+    }
+    const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
+    const hasMascot = !!db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()
+    for (const a of BUILT_IN_AGENTS) {
+      if (names.has(a.name) || (a.isMascot && hasMascot)) continue
+      saveAgent(a)
+    }
+    setSetting('seed:agentsVersion', String(AGENT_LIBRARY_VERSION))
+  })()
 }
 
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */

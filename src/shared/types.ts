@@ -143,6 +143,8 @@ export interface SkillPack {
   /** SPDX id from GitHub, or '' when the repo has no licence GitHub recognises. */
   license: string
   featured: boolean
+  /** Which Skills tab shows it: 'claude' for Anthropic's skills repo, otherwise the GitHub tab. */
+  group?: 'claude'
   /** GitHub stars, for topic repos. */
   stars?: number
   /** False when the pack can't be installed; `blockedReason` says why. */
@@ -158,6 +160,20 @@ export interface SkillPack {
   updateAvailable: boolean
   /** Why the last update check failed (offline, rate limit). */
   checkError?: string
+}
+
+/** One skill in Anthropic's skills repo (github.com/anthropics/skills), as listed on the Claude tab. */
+export interface ClaudeSkill {
+  /** Folder under skills/. */
+  folder: string
+  name: string
+  description: string
+  /** 'Apache-2.0' (open source, installable), 'source-available' (Anthropic all rights reserved) or 'none' (no licence file). */
+  license: 'Apache-2.0' | 'source-available' | 'none'
+  installable: boolean
+  /** Why an open-source skill still can't be installed (for example, over the length limit). */
+  blockedReason?: string
+  url: string
 }
 
 /** One page of repos from the GitHub `agent-skills` topic, most stars first. */
@@ -342,6 +358,8 @@ export interface TyslinApi {
     discover(query: string, page: number): Promise<SkillPackSearch>
     /** Installs the pack, or updates it to the latest commit. Replaces edits to its skills. */
     install(id: string): Promise<SkillPackResult>
+    /** Every skill in Anthropic's skills repo with its licence (cached for 15 minutes). */
+    claudeCatalog(): Promise<ClaudeSkill[]>
     /** Deletes the pack's skills and detaches them from every agent. */
     uninstall(id: string): Promise<void>
   }

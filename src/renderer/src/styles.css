@@ -281,3 +281,8 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .login-wait { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; font-size: 14px; color: var(--muted); }
 .login-error { margin: 8px 0 0; color: var(--danger); font-size: 13px; }
 .login-note { margin: 16px 0 0; line-height: 1.5; }
+
+/* Skills page tabs */
+.tab-count { font-size: 11px; color: var(--muted); margin-left: 4px; }
+.muted-card { background: var(--panel); }
+.clamp-5 { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }

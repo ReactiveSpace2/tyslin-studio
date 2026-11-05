@@ -1,4 +1,4 @@
-import type { SkillPack, SkillPackResult, SkillPackSearch } from '@shared/types'
+import type { ClaudeSkill, SkillPack, SkillPackResult, SkillPackSearch } from '@shared/types'
 import * as db from './db'
 import { parseSkillFile, validateSkill } from './skillFiles'
 
@@ -25,6 +25,12 @@ interface PackDef {
   skillsDir?: string
   stars?: number
   featured: boolean
+  group?: 'claude'
+  /**
+   * For repos that license each skill separately: install only skills whose folder has a
+   * LICENSE.txt matching this, and skip the rest.
+   */
+  skillLicense?: RegExp
 }
 
 const PACKS: PackDef[] = [
@@ -47,8 +53,43 @@ const PACKS: PackDef[] = [
     license: 'MIT',
     skillsDir: 'skills',
     featured: true
+  },
+  {
+    id: 'agent-skills-addyosmani',
+    name: 'Engineering Skills',
+    author: 'Addy Osmani',
+    description: 'Code review, planning, test-driven development, debugging, security and shipping, for agents that write code.',
+    repo: 'addyosmani/agent-skills',
+    license: 'MIT',
+    skillsDir: 'skills',
+    featured: true
+  },
+  {
+    id: 'pm-skills',
+    name: 'PM Skills',
+    author: 'Pawel Huryn',
+    description: 'Product skills from discovery and strategy to PRDs, sprint plans, release notes and launch.',
+    repo: 'phuryn/pm-skills',
+    license: 'MIT',
+    featured: true
+  },
+  {
+    // Shown on the Claude tab. Most skills are Apache 2.0; docx, pdf, pptx and xlsx are
+    // source-available (Anthropic, all rights reserved), so only Apache-licensed folders install.
+    id: 'anthropic-skills',
+    name: 'Claude skills',
+    author: 'Anthropic',
+    description: 'Anthropic\'s open-source skills for Claude: design, art, documents, MCP servers, web apps, testing and more.',
+    repo: 'anthropics/skills',
+    license: 'Apache-2.0',
+    skillsDir: 'skills',
+    featured: true,
+    group: 'claude',
+    skillLicense: /^\s*Apache License/
   }
 ]
+
+const CLAUDE_PACK = 'anthropic-skills'
 
 const TOPIC = 'agent-skills'
 const PAGE_SIZE = 24
@@ -87,6 +128,7 @@ function toPack(def: PackDef): SkillPack {
     url: `https://github.com/${def.repo}`,
     license: def.license,
     featured: def.featured,
+    ...(def.group && { group: def.group }),
     ...(def.stars !== undefined && { stars: def.stars }),
     installable: !blockedReason,
     ...(blockedReason && { blockedReason }),
@@ -228,6 +270,12 @@ export async function installPack(id: string): Promise<SkillPackResult> {
   if (paths.length > MAX_PACK_SKILLS) throw new Error(`${def.repo} has ${paths.length} skills. Tyslin installs packs of up to ${MAX_PACK_SKILLS}.`)
 
   const skipped: string[] = []
+  if (def.skillLicense) {
+    const ok = await mapLimit(paths, async (path) => def.skillLicense!.test(await skillLicenseText(def.repo, sha, path)))
+    const keep = paths.filter((_, i) => ok[i])
+    for (const p of paths.filter((_, i) => !ok[i])) skipped.push(`${p.split('/').slice(-2, -1)[0]}: no open-source licence, so Tyslin doesn't install it`)
+    paths = keep
+  }
   const files = await mapLimit(paths, async (path) => {
     const res = await fetch(`https://raw.githubusercontent.com/${def.repo}/${sha}/${path}`, { headers: { 'user-agent': HEADERS['user-agent'] } })
     if (!res.ok) throw new Error(`Could not download ${path} (GitHub returned ${res.status}).`)
@@ -267,4 +315,46 @@ export async function installPack(id: string): Promise<SkillPackResult> {
 export function uninstallPack(id: string): void {
   if (!PACKS.some((p) => p.id === id) && !db.getPackRow(id)) throw new Error('Unknown skill pack.')
   db.removePack(id)
+}
+
+/** First lines of the LICENSE.txt next to a SKILL.md, or '' when there is none. */
+async function skillLicenseText(repo: string, ref: string, skillPath: string): Promise<string> {
+  const dir = skillPath.replace(/\/?SKILL\.md$/, '')
+  const res = await fetch(`https://raw.githubusercontent.com/${repo}/${ref}/${dir ? dir + '/' : ''}LICENSE.txt`, { headers: { 'user-agent': HEADERS['user-agent'] } })
+  return res.ok ? (await res.text()).slice(0, 400) : ''
+}
+
+let claudeCache: { at: number; skills: ClaudeSkill[] } | null = null
+
+/** Every skill in Anthropic's repo with its licence, for the Claude tab (cached for 15 minutes). */
+export async function claudeCatalog(): Promise<ClaudeSkill[]> {
+  if (claudeCache && Date.now() - claudeCache.at < CHECK_TTL_MS) return claudeCache.skills
+  const def = PACKS.find((p) => p.id === CLAUDE_PACK)!
+  const sha = await latestCommit(def.repo)
+  latest.set(def.id, { sha, at: Date.now() })
+  const tree = await github<{ tree: { path: string; type: string }[] }>(`/repos/${def.repo}/git/trees/${sha}?recursive=1`)
+  const paths = tree.tree.filter((t) => t.type === 'blob' && /^skills\/[^/]+\/SKILL\.md$/.test(t.path)).map((t) => t.path)
+  const skills = await mapLimit(paths, async (path): Promise<ClaudeSkill> => {
+    const folder = path.split('/')[1] ?? path
+    const [res, licence] = await Promise.all([
+      fetch(`https://raw.githubusercontent.com/${def.repo}/${sha}/${path}`, { headers: { 'user-agent': HEADERS['user-agent'] } }),
+      skillLicenseText(def.repo, sha, path)
+    ])
+    const parsed = res.ok ? parseSkillFile(await res.text(), `${folder}.md`) : { name: folder, description: '', body: '' }
+    const license: ClaudeSkill['license'] = def.skillLicense!.test(licence) ? 'Apache-2.0' : licence ? 'source-available' : 'none'
+    // The same check install uses, so the list doesn't promise a skill that would be skipped.
+    const problem = license === 'Apache-2.0' ? validateSkill(parsed) : null
+    return {
+      folder,
+      name: parsed.name || folder,
+      description: parsed.description.slice(0, 400),
+      license,
+      installable: license === 'Apache-2.0' && !problem,
+      ...(problem && { blockedReason: problem }),
+      url: `https://github.com/${def.repo}/tree/HEAD/skills/${folder}`
+    }
+  })
+  skills.sort((a, b) => Number(b.installable) - Number(a.installable) || a.name.localeCompare(b.name))
+  claudeCache = { at: Date.now(), skills }
+  return skills
 }

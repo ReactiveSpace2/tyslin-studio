@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent, Skill, SkillInput, SkillPack, SkillPackSearch } from '@shared/types'
+import type { Agent, ClaudeSkill, Skill, SkillInput, SkillPack, SkillPackSearch } from '@shared/types'
 import { Icon } from '../components/Icon'
 
 const BLANK: SkillInput = { name: '', description: '', body: '' }
@@ -145,6 +145,106 @@ function PackCard({ pack, busy, onInstall, onUninstall }: PackCardProps): JSX.El
   )
 }
 
+const CLAUDE_PACK = 'anthropic-skills'
+
+type Tab = 'builtin' | 'github' | 'claude'
+
+interface LibraryProps {
+  skills: Skill[]
+  label: string
+  empty: string
+  usedBy: (name: string) => Agent[]
+  onEdit: (s: Skill) => void
+}
+
+/** Searchable grid of installed skills; click a card to edit it. */
+function SkillLibrary({ skills, label, empty, usedBy, onEdit }: LibraryProps): JSX.Element {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = q ? skills.filter((s) => s.name.includes(q) || s.description.toLowerCase().includes(q)) : skills
+  const id = 'skill-search-' + label.toLowerCase().replace(/\W+/g, '-')
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }} aria-label={label}>
+      {skills.length > 0 && (
+        <div className="field" style={{ maxWidth: 360 }}>
+          <label htmlFor={id} className="section-label" style={{ padding: 0 }}>{label}</label>
+          <input id={id} className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${plural(skills.length, 'skill')}`} />
+        </div>
+      )}
+      <div className="grid">
+        {shown.map((s) => {
+          const used = usedBy(s.name)
+          return (
+            <div key={s.id} className="card skill-card">
+              <span className="skill-card-top">
+                <span className="chip on">{s.name}</span>
+                {s.sourceUrl && (
+                  <a className="skill-source" href={s.sourceUrl} target="_blank" rel="noreferrer"
+                    title={s.sourceUrl.replace(/^https:\/\//, '')} aria-label={`${s.name} on GitHub (opens in your browser)`}>
+                    <Icon name="github" size={18} />
+                  </a>
+                )}
+              </span>
+              <p>{s.description || 'No description'}</p>
+              <span className="card-foot">
+                <span className="mono">{used.length ? `${used.length} agent${used.length === 1 ? '' : 's'}` : 'Not attached'}</span>
+                {/* Covers the whole card (see .skill-edit::after), so any click on it opens the editor. */}
+                <button type="button" className="skill-edit mono" onClick={() => onEdit(s)} aria-label={`Edit ${s.name}`}>Edit</button>
+              </span>
+            </div>
+          )
+        })}
+        {skills.length === 0 && <p className="hint">{empty}</p>}
+        {skills.length > 0 && shown.length === 0 && <p className="hint">No skills match “{query}”.</p>}
+      </div>
+    </section>
+  )
+}
+
+const LICENSE_TEXT: Record<ClaudeSkill['license'], string> = {
+  'Apache-2.0': 'Apache 2.0',
+  'source-available': 'Source-available',
+  none: 'No licence'
+}
+
+interface ClaudeListProps {
+  catalog: ClaudeSkill[] | null
+  error: string | null
+  installed: Map<string, Skill>
+  onEdit: (s: Skill) => void
+}
+
+/** Every skill in Anthropic's repo with its licence and whether it's installed. */
+function ClaudeList({ catalog, error, installed, onEdit }: ClaudeListProps): JSX.Element {
+  if (error) return <div className="msg-error" role="alert">Couldn't load Anthropic's skills from GitHub. {error}</div>
+  if (!catalog) return <p className="hint" role="status">Loading from GitHub…</p>
+  return (
+    <div className="grid">
+      {catalog.map((c) => {
+        const mine = installed.get(c.name)
+        const status = mine ? 'Installed' : c.installable ? 'Installs with the pack' : c.blockedReason ? 'Too long to install' : 'Read only on GitHub'
+        return (
+          <div key={c.folder} className={'card skill-card' + (c.installable ? '' : ' muted-card')}>
+            <span className="skill-card-top">
+              <span className={'chip' + (mine ? ' on' : '')}>{c.name}</span>
+              <a className="skill-source" href={c.url} target="_blank" rel="noreferrer"
+                title={c.url.replace(/^https:\/\//, '')} aria-label={`${c.name} on GitHub (opens in your browser)`}>
+                <Icon name="github" size={18} />
+              </a>
+            </span>
+            <p className="clamp-5" title={c.description}>{c.description || 'No description'}</p>
+            {c.blockedReason && <span className="hint">{c.blockedReason}</span>}
+            <span className="card-foot">
+              <span className="mono">{LICENSE_TEXT[c.license]} · {status}</span>
+              {mine && <button type="button" className="skill-edit mono" onClick={() => onEdit(mine)} aria-label={`Edit ${c.name}`}>Edit</button>}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 interface Props {
   agents: Agent[]
   onAgentsChanged: () => void
@@ -152,7 +252,9 @@ interface Props {
 
 export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
   const [skills, setSkills] = useState<Skill[]>([])
-  const [query, setQuery] = useState('')
+  const [tab, setTab] = useState<Tab>('builtin')
+  const [catalog, setCatalog] = useState<ClaudeSkill[] | null>(null)
+  const [catalogError, setCatalogError] = useState<string | null>(null)
   const [editing, setEditing] = useState<SkillInput | null>(null)
   const [notice, setNotice] = useState<{ text: string; skipped: string[] } | null>(null)
   const [packs, setPacks] = useState<SkillPack[]>([])
@@ -185,8 +287,16 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
     // Show install state straight away, then the update check from GitHub.
     void window.tyslin.skillPacks.list().then(setPacks)
     void window.tyslin.skillPacks.check().then(setPacks).catch(() => undefined)
-    void discover('')
   }, [])
+
+  // GitHub calls are rate limited, so each tab loads its list only when first opened.
+  useEffect(() => {
+    if (tab === 'github' && !found && !finding) void discover('')
+    if (tab === 'claude' && !catalog) {
+      setCatalogError(null)
+      window.tyslin.skillPacks.claudeCatalog().then(setCatalog).catch((err) => setCatalogError(errorText(err)))
+    }
+  }, [tab])
 
   /** Replaces a pack in the top row and in the search results after it changes. */
   const refreshPacks = async (changed?: SkillPack): Promise<void> => {
@@ -231,8 +341,16 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
   }
 
   const usedBy = (name: string): Agent[] => agents.filter((a) => a.skills.includes(name))
-  const q = query.trim().toLowerCase()
-  const shown = q ? skills.filter((s) => s.name.includes(q) || s.description.toLowerCase().includes(q)) : skills
+  const ownSkills = skills.filter((s) => !s.packId)
+  const githubSkills = skills.filter((s) => s.packId && s.packId !== CLAUDE_PACK)
+  const claudeSkills = skills.filter((s) => s.packId === CLAUDE_PACK)
+  const githubPacks = packs.filter((p) => p.group !== 'claude')
+  const claudePack = packs.find((p) => p.group === 'claude')
+  const tabs: [Tab, string, number][] = [
+    ['builtin', 'Built-in skills', ownSkills.length],
+    ['github', 'GitHub', githubSkills.length],
+    ['claude', 'Claude', claudeSkills.length]
+  ]
 
   const importFiles = async (): Promise<void> => {
     try {
@@ -273,83 +391,99 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
         </div>
       )}
 
-      <section aria-labelledby="packs-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <h2 id="packs-h" className="section-label" style={{ padding: 0, margin: 0 }}>Skill packs</h2>
-          <p className="hint" style={{ margin: '4px 0 0' }}>Open-source skill collections, downloaded from GitHub when you install them. Updating replaces any edits you made to their skills.</p>
-        </div>
-        <div className="grid">
-          {packs.map((p) => (
-            <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
-          ))}
-        </div>
-      </section>
-
-      <section aria-labelledby="discover-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div>
-          <h2 id="discover-h" className="section-label" style={{ padding: 0, margin: 0 }}>More on GitHub</h2>
-          <p className="hint" style={{ margin: '4px 0 0' }}>
-            Repos tagged <a href="https://github.com/topics/agent-skills" target="_blank" rel="noreferrer">agent-skills</a>, most stars first.
-            Their authors wrote them, not Tyslin, so read a skill before you attach it to an agent. Only repos with a licence can be installed.
-          </p>
-        </div>
-        <form className="row" role="search" style={{ maxWidth: 480, flexWrap: 'nowrap' }} onSubmit={(e) => { e.preventDefault(); void discover(findQuery) }}>
-          <label htmlFor="pack-search" className="sr-only">Search agent-skills repos</label>
-          <input id="pack-search" className="input" style={{ flex: 1, minWidth: 0 }} value={findQuery} onChange={(e) => setFindQuery(e.target.value)} placeholder="Search repos, e.g. design, seo, testing" />
-          <button type="submit" className="btn" disabled={finding}>Search</button>
-        </form>
-        {findError && <div className="msg-error" role="alert">Couldn't load repos from GitHub. {findError}</div>}
-        {(() => {
-          // Installed packs move to the row above.
-          const list = found?.packs.filter((p) => !p.installed) ?? []
-          return (
-            <>
-              <div className="grid" aria-busy={finding}>
-                {list.map((p) => (
-                  <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
-                ))}
-                {found && !finding && list.length === 0 && <p className="hint">No repos match “{searched}”.</p>}
-              </div>
-              <div className="row">
-                {finding && <span className="hint" role="status">Loading from GitHub…</span>}
-                {!finding && found?.nextPage && (
-                  <button type="button" className="btn" onClick={() => void discover(searched, found.nextPage)}>Show more</button>
-                )}
-              </div>
-            </>
-          )
-        })()}
-      </section>
-
-      <div className="field" style={{ maxWidth: 360 }}>
-        <label htmlFor="skill-search" className="section-label" style={{ padding: 0 }}>Search</label>
-        <input id="skill-search" className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`${skills.length} skills`} />
+      <div className="tabs" role="tablist" aria-label="Skill sources">
+        {tabs.map(([id, label, n]) => (
+          <button key={id} type="button" role="tab" id={'skills-tab-' + id} aria-selected={tab === id} aria-controls="skills-panel"
+            className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+            {label} <span className="mono tab-count">{n}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="grid">
-        {shown.map((s) => {
-          const used = usedBy(s.name)
-          return (
-            <div key={s.id} className="card skill-card">
-              <span className="skill-card-top">
-                <span className="chip on">{s.name}</span>
-                {s.sourceUrl && (
-                  <a className="skill-source" href={s.sourceUrl} target="_blank" rel="noreferrer"
-                    title={s.sourceUrl.replace(/^https:\/\//, '')} aria-label={`${s.name} on GitHub (opens in your browser)`}>
-                    <Icon name="github" size={18} />
-                  </a>
-                )}
-              </span>
-              <p>{s.description || 'No description'}</p>
-              <span className="card-foot">
-                <span className="mono">{used.length ? `${used.length} agent${used.length === 1 ? '' : 's'}` : 'Not attached'}</span>
-                {/* Covers the whole card (see .skill-edit::after), so any click on it opens the editor. */}
-                <button type="button" className="skill-edit mono" onClick={() => setEditing(s)} aria-label={`Edit ${s.name}`}>Edit</button>
-              </span>
-            </div>
-          )
-        })}
-        {shown.length === 0 && <p className="hint">No skills match “{query}”.</p>}
+      <div id="skills-panel" role="tabpanel" aria-labelledby={'skills-tab-' + tab} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {tab === 'builtin' && (
+          <SkillLibrary skills={ownSkills} label="Built-in skills" usedBy={usedBy} onEdit={setEditing}
+            empty="No skills yet. Create one with New skill or import a Markdown file." />
+        )}
+
+        {tab === 'github' && (
+          <>
+            <section aria-labelledby="packs-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <h2 id="packs-h" className="section-label" style={{ padding: 0, margin: 0 }}>Skill packs</h2>
+                <p className="hint" style={{ margin: '4px 0 0' }}>Open-source skill collections, downloaded from GitHub when you install them. Updating replaces any edits you made to their skills.</p>
+              </div>
+              <div className="grid">
+                {githubPacks.map((p) => (
+                  <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
+                ))}
+              </div>
+            </section>
+
+            <section aria-labelledby="discover-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <h2 id="discover-h" className="section-label" style={{ padding: 0, margin: 0 }}>More on GitHub</h2>
+                <p className="hint" style={{ margin: '4px 0 0' }}>
+                  Repos tagged <a href="https://github.com/topics/agent-skills" target="_blank" rel="noreferrer">agent-skills</a>, most stars first.
+                  Their authors wrote them, not Tyslin, so read a skill before you attach it to an agent. Only repos with a licence can be installed.
+                </p>
+              </div>
+              <form className="row" role="search" style={{ maxWidth: 480, flexWrap: 'nowrap' }} onSubmit={(e) => { e.preventDefault(); void discover(findQuery) }}>
+                <label htmlFor="pack-search" className="sr-only">Search agent-skills repos</label>
+                <input id="pack-search" className="input" style={{ flex: 1, minWidth: 0 }} value={findQuery} onChange={(e) => setFindQuery(e.target.value)} placeholder="Search repos, e.g. design, seo, testing" />
+                <button type="submit" className="btn" disabled={finding}>Search</button>
+              </form>
+              {findError && <div className="msg-error" role="alert">Couldn't load repos from GitHub. {findError}</div>}
+              {(() => {
+                // Installed packs move to the row above.
+                const list = found?.packs.filter((p) => !p.installed) ?? []
+                return (
+                  <>
+                    <div className="grid" aria-busy={finding}>
+                      {list.map((p) => (
+                        <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
+                      ))}
+                      {found && !finding && list.length === 0 && <p className="hint">No repos match “{searched}”.</p>}
+                    </div>
+                    <div className="row">
+                      {finding && <span className="hint" role="status">Loading from GitHub…</span>}
+                      {!finding && found?.nextPage && (
+                        <button type="button" className="btn" onClick={() => void discover(searched, found.nextPage)}>Show more</button>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
+            </section>
+
+            <SkillLibrary skills={githubSkills} label="Installed from GitHub" usedBy={usedBy} onEdit={setEditing}
+              empty="Nothing installed from GitHub yet. Install a pack above." />
+          </>
+        )}
+
+        {tab === 'claude' && (
+          <>
+            <section aria-labelledby="claude-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <h2 id="claude-h" className="section-label" style={{ padding: 0, margin: 0 }}>Claude skills by Anthropic</h2>
+                <p className="hint" style={{ margin: '4px 0 0' }}>
+                  From <a href="https://github.com/anthropics/skills" target="_blank" rel="noreferrer">github.com/anthropics/skills</a>.
+                  Installing adds the open-source (Apache 2.0) skills. The document skills (docx, pdf, pptx, xlsx) are source-available, not open source, so they stay on GitHub to read.
+                  Only each skill's SKILL.md is installed, not its scripts or reference files.
+                </p>
+              </div>
+              {claudePack && (
+                <div className="grid">
+                  <PackCard pack={claudePack} busy={busyPack === claudePack.id} onInstall={() => void installPack(claudePack)} onUninstall={() => void uninstallPack(claudePack)} />
+                </div>
+              )}
+            </section>
+            <section aria-label="Skills in Anthropic's repo" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <h2 className="section-label" style={{ padding: 0, margin: 0 }}>In the repo</h2>
+              <ClaudeList catalog={catalog} error={catalogError} installed={new Map(claudeSkills.map((s) => [s.name, s]))} onEdit={setEditing} />
+            </section>
+          </>
+        )}
       </div>
 
       {editing && (

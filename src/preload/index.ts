@@ -58,7 +58,8 @@ const api: TyslinApi = {
     check: () => ipcRenderer.invoke('skillPacks:check'),
     discover: (query, page) => ipcRenderer.invoke('skillPacks:discover', query, page),
     install: (id) => ipcRenderer.invoke('skillPacks:install', id),
-    uninstall: (id) => ipcRenderer.invoke('skillPacks:uninstall', id)
+    uninstall: (id) => ipcRenderer.invoke('skillPacks:uninstall', id),
+    claudeCatalog: () => ipcRenderer.invoke('skillPacks:claudeCatalog')
   },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
