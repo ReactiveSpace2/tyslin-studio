@@ -260,7 +260,12 @@ export interface PendingChange {
 }
 
 /** Workspace-wide defaults, edited in Settings → Agents. */
+/** system follows the computer's light or dark setting. */
+export type Theme = 'system' | 'light' | 'dark'
+
 export interface Preferences {
+  /** App colours; applied in main through nativeTheme so the CSS prefers-color-scheme rules follow it. */
+  theme: Theme
   /** File-change mode given to newly created agents. */
   defaultWriteMode: WriteMode
   /** Added to every agent's instructions. */

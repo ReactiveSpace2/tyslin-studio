@@ -415,12 +415,14 @@ export function expireStaleChanges(): void {
 export function getPrefs(): Preferences {
   return {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
-    sharedInstructions: getSetting('pref:sharedInstructions') ?? ''
+    sharedInstructions: getSetting('pref:sharedInstructions') ?? '',
+    theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system'
   }
 }
 
 export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.defaultWriteMode) setSetting('pref:defaultWriteMode', p.defaultWriteMode)
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
+  if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
   return getPrefs()
 }

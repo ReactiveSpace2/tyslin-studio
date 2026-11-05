@@ -20,7 +20,7 @@ export function Avatar({ shape, tone, mascot: isMascot, size = 72 }: Props): JSX
   const { fill, feat } = TONES[tone]
   const stroke = '#0F0F0D'
   return (
-    <svg width={size} height={size} viewBox="0 0 72 72" aria-hidden="true">
+    <svg className="avatar-svg" width={size} height={size} viewBox="0 0 72 72" aria-hidden="true">
       {shape === 'block' && (
         <>
           <line x1="36" y1="4" x2="36" y2="12" stroke={stroke} strokeWidth="2" />

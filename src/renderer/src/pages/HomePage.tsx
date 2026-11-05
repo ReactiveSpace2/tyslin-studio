@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { AppInfo, EngineStatus, ProviderSettings } from '@shared/types'
 import logo from '../assets/logo-horizontal.png'
+import mark from '../assets/logo-mark.png'
+import wordmarkWhite from '../assets/wordmark-white.png'
 import mascot from '../assets/mascot-standing.png'
 import { Icon } from '../components/Icon'
 import { Mark, MARKS, type MarkKey } from '../components/RunsOnBadge'
@@ -112,7 +114,11 @@ export function HomePage({ agentCount, assistantCount, projectCount, onOpen, onN
     <div className="page home">
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-intro">
-          <img src={logo} alt="Tyslin" className="home-logo" />
+          <img src={logo} alt="Tyslin" className="home-logo light-only" />
+          <span className="home-logo-dark dark-only">
+            <img src={mark} alt="Tyslin" />
+            <img src={wordmarkWhite} alt="" />
+          </span>
           <div className="row" style={{ gap: 8 }}>
             <span className="badge green mono">v{info?.version ?? '…'}</span>
             <span className="badge mono">Beta</span>

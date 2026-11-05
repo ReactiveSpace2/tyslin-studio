@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { readFileSync, statSync, writeFileSync } from 'fs'
@@ -19,14 +19,24 @@ let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
 const activeRuns = new Map<string, { runId: string; controller: AbortController }>()
 
+/** Page backgrounds, matching --parchment in styles.css, so the window doesn't flash before the UI paints. */
+const BACKGROUND = { light: '#FAFAF7', dark: '#121210' }
+
+/** Light, dark or the system setting. The renderer's CSS follows it through prefers-color-scheme. */
+function applyTheme(): void {
+  nativeTheme.themeSource = db.getPrefs().theme
+  win?.setBackgroundColor(nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light)
+}
+
 function createWindow(): void {
+  applyTheme()
   win = new BrowserWindow({
     width: 1360,
     height: 880,
     minWidth: 900,
     minHeight: 600,
     title: 'Tyslin Studio',
-    backgroundColor: '#FAFAF7',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light,
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -191,7 +201,11 @@ function registerIpc(): void {
   ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => setSecret(provider, key.trim()))
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
   ipcMain.handle('settings:prefs', () => db.getPrefs())
-  ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => db.setPrefs(p))
+  ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
+    const next = db.setPrefs(p)
+    if (p.theme) applyTheme()
+    return next
+  })
 
   ipcMain.handle('auth:status', () => authStatus())
   ipcMain.handle('auth:signIn', () => signIn())

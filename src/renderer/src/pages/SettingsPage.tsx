@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, UpdateStatus, WriteMode } from '@shared/types'
+import type { AppInfo, AuthStatus, EngineStatus, EngineTestResult, KeyProvider, Preferences, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
+import mark from '../assets/logo-mark.png'
+import wordmarkWhite from '../assets/wordmark-white.png'
 import { AccountBox } from '../components/AccountBox'
 
-export type SettingsTab = 'models' | 'engines' | 'agents' | 'account' | 'about'
+export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
 
-const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['account', 'Account'], ['about', 'About & updates']]
+const TABS: [Tab, string][] = [['models', 'Models'], ['engines', 'Agent engines'], ['agents', 'Agents'], ['appearance', 'Appearance'], ['account', 'Account'], ['about', 'About & updates']]
 
 const KEY_FIELDS: [KeyProvider, string, string, keyof ProviderSettings][] = [
   ['anthropic', 'Anthropic (Claude)', 'sk-ant-…', 'anthropicKeySet'],
@@ -30,6 +32,59 @@ function useFlash(): [string | null, (msg: string) => void] {
     setMsg(m)
     setTimeout(() => setMsg(null), 2500)
   }]
+}
+
+const THEMES: [Theme, string, string][] = [
+  ['system', 'System', 'Match your computer and switch with it.'],
+  ['light', 'Light', 'Parchment background, ink text.'],
+  ['dark', 'Dark', 'Dark background, easier on the eyes at night.']
+]
+
+/** Small drawing of the app in each theme; System shows half of each. */
+function ThemePreview({ theme }: { theme: Theme }): JSX.Element {
+  const pane = (dark: boolean): JSX.Element => (
+    <span className={'theme-pane' + (dark ? ' dark' : '')}>
+      <span className="theme-rail" />
+      <span className="theme-body"><span className="theme-line" /><span className="theme-line short" /><span className="theme-fill" /></span>
+    </span>
+  )
+  return (
+    <span className="theme-preview" aria-hidden="true">
+      {theme === 'system' ? <>{pane(false)}{pane(true)}</> : pane(theme === 'dark')}
+    </span>
+  )
+}
+
+function AppearanceTab(): JSX.Element {
+  const [theme, setTheme] = useState<Theme | null>(null)
+
+  useEffect(() => { void window.tyslin.settings.prefs().then((p) => setTheme(p.theme)) }, [])
+  if (!theme) return <></>
+
+  const choose = async (t: Theme): Promise<void> => {
+    setTheme(t)
+    setTheme((await window.tyslin.settings.setPrefs({ theme: t })).theme)
+  }
+
+  return (
+    <section className="box" aria-labelledby="theme-h">
+      <div className="box-head">
+        <h2 id="theme-h">Theme</h2>
+        <p className="hint">Changes apply straight away, on this computer.</p>
+      </div>
+      <div className="theme-choices" role="radiogroup" aria-labelledby="theme-h">
+        {THEMES.map(([id, title, hint]) => (
+          <label key={id} className={'choice theme-choice' + (theme === id ? ' on' : '')}>
+            <ThemePreview theme={id} />
+            <span className="row" style={{ gap: 10, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+              <input type="radio" name="theme" value={id} checked={theme === id} onChange={() => void choose(id)} />
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}><strong>{title}</strong><span className="hint">{hint}</span></span>
+            </span>
+          </label>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 function ModelsTab(): JSX.Element {
@@ -313,7 +368,11 @@ function AboutTab(): JSX.Element {
         </div>
       </section>
       <section className="box about" aria-label="About">
-        <img src={stacked} alt="Tyslin" />
+        <img src={stacked} alt="Tyslin" className="light-only" />
+        <span className="dark-only about-dark-logo">
+          <img src={mark} alt="Tyslin" />
+          <img src={wordmarkWhite} alt="" />
+        </span>
         <div className="kv">
           <span>Version</span><span className="mono">{info?.version ?? '…'}</span>
           <span>Electron</span><span className="mono">{info?.electron ?? '…'}</span>
@@ -344,6 +403,7 @@ export function SettingsPage({ initialTab = 'models', onAuthChange }: { initialT
         {tab === 'models' && <ModelsTab />}
         {tab === 'agents' && <AgentsTab />}
         {tab === 'engines' && <EnginesTab />}
+        {tab === 'appearance' && <AppearanceTab />}
         {tab === 'account' && <AccountTab onAuthChange={onAuthChange} />}
         {tab === 'about' && <AboutTab />}
       </div>
