@@ -18,6 +18,7 @@ import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, s
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { createTeam, ensureDefaultTeam, teamsStatus } from './teams'
 import { resetEverything, resetting } from './reset'
+import { addStarter, listStarters } from './starters'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
@@ -338,6 +339,8 @@ function registerIpc(): void {
     db.removeAgent(id)
   })
   ipcMain.handle('agents:statuses', () => agentStatuses())
+  ipcMain.handle('agents:starters', () => listStarters())
+  ipcMain.handle('agents:addStarter', (_e, name: string, projectId: string) => addStarter(String(name ?? ''), String(projectId ?? '')))
   ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
   ipcMain.handle('projects:list', () => db.listProjects())

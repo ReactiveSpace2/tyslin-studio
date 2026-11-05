@@ -64,3 +64,13 @@ export function useInWorkspace(): (a: Agent) => boolean {
   const dm = useDefaultModel()
   return (a: Agent) => inWorkspace(a, projectId, defaultId, dm?.assistantId)
 }
+
+/**
+ * What lists show for the selected project: its own agents and assistants only. Builder and the Studio
+ * helper still work everywhere (Ask Builder, "Default model") but aren't listed, so a new project starts empty.
+ */
+export function useListed(): (a: Agent) => boolean {
+  const [projectId] = useCurrentProject()
+  const dm = useDefaultModel()
+  return (a: Agent) => !a.isMascot && a.id !== dm?.assistantId && inWorkspace(a, projectId, defaultId, dm?.assistantId)
+}

@@ -457,6 +457,18 @@ export interface DefaultModel {
   assistantId: string | null
 }
 
+/** A starter agent or assistant from the library ("New agent" / "New assistant"). */
+export interface StarterInfo {
+  kind: AgentKind
+  name: string
+  description: string
+  head: string | null
+  shape: Shape
+  tone: Tone
+  engine: EngineId
+  skills: string[]
+}
+
 /** Creating a department team (shared/teams.ts). */
 export interface TeamCreateInput {
   templateId: string
@@ -705,6 +717,10 @@ export interface TyslinApi {
     statuses(): Promise<AgentStatus[]>
     /** Sends one short message (built-in models) or runs the engine handshake. Works on unsaved drafts too. */
     test(input: AgentInput): Promise<AgentTestResult>
+    /** The starter agents and assistants that can be added to a project. */
+    starters(): Promise<StarterInfo[]>
+    /** Adds a copy of a starter to the project. */
+    addStarter(name: string, projectId: string): Promise<Agent>
   }
   projects: {
     list(): Promise<Project[]>

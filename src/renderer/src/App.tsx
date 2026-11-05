@@ -22,6 +22,7 @@ import { CanvasPage } from './pages/CanvasPage'
 import { DrivePage } from './pages/DrivePage'
 import { CreateAgentModal } from './components/CreateAgentModal'
 import { NewAgentModal } from './components/NewAgentModal'
+import { NewAssistantModal } from './components/NewAssistantModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
 import { Onboarding } from './components/Onboarding'
@@ -36,7 +37,7 @@ export type Route =
   | { name: 'tasks'; newFor?: string }
   | { name: 'agents'; kind: AgentKind }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string; via?: 'projects' }
-  | { name: 'editor'; kind: AgentKind; agentId?: string }
+  | { name: 'editor'; kind: AgentKind; agentId?: string; /** New assistant from scratch (skips the starter choice). */ blank?: boolean }
   | { name: 'skills' }
   | { name: 'art' }
   | { name: 'videos' }
@@ -80,7 +81,14 @@ export default function App(): JSX.Element {
   const [creating, setCreating] = useState<false | 'choose' | 'single'>(false)
   const you = auth?.account?.name?.split(' ')[0] || 'You'
   // "New agent" from anywhere (Home, the side panel) opens the step-by-step dialog over the agents list.
+  const [newAssistant, setNewAssistant] = useState(false)
   useEffect(() => {
+    // "New assistant" anywhere: blank or a ready-made one first.
+    if (route.name === 'editor' && route.kind === 'assistant' && !route.agentId && !route.blank) {
+      setNewAssistant(true)
+      setRoute({ name: 'agents', kind: 'assistant' })
+      return
+    }
     if (route.name === 'editor' && route.kind === 'agent' && !route.agentId) {
       setCreating('choose')
       setRoute({ name: 'agents', kind: 'agent' })
@@ -290,9 +298,15 @@ export default function App(): JSX.Element {
       <div className="update-float">
         <UpdateNotice />
       </div>
+      {newAssistant && (
+        <NewAssistantModal agents={agents} onClose={() => setNewAssistant(false)} onAdded={() => void refresh()}
+          onBlank={() => { setNewAssistant(false); setRoute({ name: 'editor', kind: 'assistant', blank: true }) }} />
+      )}
       {creating === 'choose' && (
         <NewAgentModal
           projects={projects}
+          agents={agents}
+          onStarterAdded={() => void refresh()}
           onClose={() => setCreating(false)}
           onSingle={() => setCreating('single')}
           onAskBuilder={() => { setCreating(false); const b = agents.find((x) => x.isMascot); if (b) openChat(b.id, null) }}

@@ -75,24 +75,7 @@ export function StudioFiles({ kind, title, newLabel, allLabel, projects, project
         </div>
       ))}
       {error && <p className="hint account-error panel-note" role="alert">{error}</p>}
-      <ProjectFoot projects={projects} projectId={projectId} />
     </nav>
-  )
-}
-
-/** The foot of a studio panel: which project the files are in (picked in the title bar) and its folder. */
-export function ProjectFoot({ projects, projectId }: { projects: Project[]; projectId: string | null }): JSX.Element {
-  const name = projects.find((p) => p.id === projectId)?.name ?? 'Default project'
-  return (
-    <div className="panel-foot">
-      <div className="panel-project">
-        <span className="label">Project</span>
-        <span className="panel-project-name" title="Change the project in the title bar">{name}</span>
-      </div>
-      <button type="button" className="btn icon-btn" aria-label="Show the project folder" title="Show the project folder" onClick={() => void window.tyslin.studio.reveal(projectId)}>
-        <Icon name="folder" size={15} />
-      </button>
-    </div>
   )
 }
 

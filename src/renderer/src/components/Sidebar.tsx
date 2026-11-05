@@ -1,4 +1,4 @@
-import { useInWorkspace } from '../currentProject'
+import { useListed } from '../currentProject'
 import type { Agent, AgentKind, Project, Session } from '@shared/types'
 import type { Route } from '../App'
 import { Avatar } from './Avatar'
@@ -93,7 +93,7 @@ export function Sidebar(props: Props): JSX.Element {
     )
   }
 
-  const inWs = useInWorkspace()
+  const inWs = useListed()
   const kindPanel = (sec: 'agents' | 'assistants'): JSX.Element => {
     const kind = SECTION_KIND[sec]
     const noun = kind === 'agent' ? 'agent' : 'assistant'
@@ -138,18 +138,16 @@ export function Sidebar(props: Props): JSX.Element {
           as small headings when menu labels are on, and in every button's tooltip. Projects live in the
           title bar's project switcher. */}
       <nav className="rail" aria-label="Main">
-        {group('Team')}
-        {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'), 'Team')}
-        {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'), 'Team')}
-        {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }), 'Team')}
-        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }), 'Team')}
+        {group('Studio')}
+        {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'), 'Studio')}
+        {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'), 'Studio')}
+        {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }), 'Studio')}
+        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }), 'Studio')}
         {group('Tools')}
         {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }), 'Tools')}
         {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }), 'Tools')}
         {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }), 'Tools')}
-        {group('Create')}
-        {railBtn('Image', 'art', route.name === 'art', () => onNavigate({ name: 'art' }), 'Create')}
-        {railBtn('Videos', 'video', route.name === 'videos', () => onNavigate({ name: 'videos' }), 'Create')}
+        {/* Create (Image, Videos) is hidden until those screens are built; their routes still exist. */}
         <div className="rail-foot">
           {group('Resources')}
           {railBtn('Knowledge base', 'knowledge', route.name === 'knowledge', () => onNavigate({ name: 'knowledge' }), 'Resources')}

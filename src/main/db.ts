@@ -204,10 +204,13 @@ function seed(): void {
     const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
     // A brand-new database (fresh install or new organization) gets Atlas and the Engineering team in its
     // Default project once setup is done (main/teams.ts ensureDefaultTeam). Existing ones are left alone.
-    if (version === 0 && names.size === 0) setSetting('seed:defaultTeam', 'pending')
+    const fresh = version === 0 && names.size === 0
+    if (fresh) setSetting('seed:defaultTeam', 'pending')
     const hasMascot = !!db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()
     for (const a of BUILT_IN_AGENTS) {
       if (names.has(a.name) || (a.isMascot && hasMascot)) continue
+      // Fresh databases: only Builder and Atlas; the other starters are templates added from "New agent".
+      if (fresh && !a.isMascot && a.name !== 'Atlas') continue
       saveAgent(a)
     }
     setSetting('seed:agentsVersion', String(AGENT_LIBRARY_VERSION))
@@ -218,8 +221,10 @@ function seed(): void {
 function seedAssistants(): void {
   if (Number(getSetting('seed:assistantsVersion') ?? 0) >= ASSISTANT_LIBRARY_VERSION) return
   db.transaction(() => {
+    // Fresh databases start with no assistants: the starters are templates added from "New assistant".
+    const fresh = getSetting('seed:defaultTeam') === 'pending' && Number(getSetting('seed:assistantsVersion') ?? 0) === 0
     const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
-    for (const a of BUILT_IN_ASSISTANTS) if (!names.has(a.name)) saveAgent(a)
+    if (!fresh) for (const a of BUILT_IN_ASSISTANTS) if (!names.has(a.name)) saveAgent(a)
     setSetting('seed:assistantsVersion', String(ASSISTANT_LIBRARY_VERSION))
   })()
 }

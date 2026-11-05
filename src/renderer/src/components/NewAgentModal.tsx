@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { Project, TeamCreateResult, TeamsStatus } from '@shared/types'
+import type { Agent, Project, TeamCreateResult, TeamsStatus } from '@shared/types'
+import { StarterList } from './StarterList'
 import { TEAM_TEMPLATES, type TeamTemplate } from '@shared/teams'
 import { describeSchedule } from '@shared/schedule'
 import { HEAD_SRC } from '../heads'
@@ -9,6 +10,9 @@ import { Icon } from './Icon'
 
 interface Props {
   projects: Project[]
+  agents: Agent[]
+  /** A starter agent was added (lists reload). */
+  onStarterAdded: () => void
   onClose: () => void
   /** "Single agent": the step-by-step wizard. */
   onSingle: () => void
@@ -26,9 +30,9 @@ function Head({ id, size = 32 }: { id: string; size?: number }): JSX.Element {
  * "New agent": one agent (the six-step wizard) or a department team. Teams are picked from a gallery,
  * reviewed (members, project, how they work on their own) and created in one go.
  */
-export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCreated }: Props): JSX.Element {
+export function NewAgentModal({ projects, agents, onStarterAdded, onClose, onSingle, onAskBuilder, onCreated }: Props): JSX.Element {
   const dm = useDefaultModel()
-  const [step, setStep] = useState<'choose' | 'gallery' | 'review'>('choose')
+  const [step, setStep] = useState<'choose' | 'gallery' | 'review' | 'starters'>('choose')
   const [status, setStatus] = useState<TeamsStatus | null>(null)
   const [pick, setPick] = useState<TeamTemplate | null>(null)
   const [projectId, setProjectId] = useState<string>('')
@@ -79,10 +83,11 @@ export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCre
       <div className={'modal nt-modal' + (step === 'choose' ? ' nt-small' : '')} role="dialog" aria-modal="true" aria-labelledby="nt-title">
         <header className="nt-head-row">
           <div>
-            {step !== 'choose' && <span className="eyebrow">{step === 'gallery' ? 'By team' : `${pick?.name} team`}</span>}
-            <h2 id="nt-title">{step === 'choose' ? 'New agent' : step === 'gallery' ? 'Start from a team' : pick?.tagline}</h2>
+            {step !== 'choose' && <span className="eyebrow">{step === 'gallery' ? 'By team' : step === 'starters' ? 'Starter agents' : `${pick?.name} team`}</span>}
+            <h2 id="nt-title">{step === 'choose' ? 'New agent' : step === 'gallery' ? 'Start from a team' : step === 'starters' ? 'Add a ready-made agent' : pick?.tagline}</h2>
             <p className="hint">
-              {step === 'choose' ? 'Build one agent, or start from a ready team for a department.'
+              {step === 'choose' ? 'Build one agent, add a ready-made one, or start from a team for a department.'
+                : step === 'starters' ? 'Each one is added to this project as its own copy, on your default model. Edit it afterwards like any agent.'
                 : step === 'gallery' ? 'The whole studio, mapped to the people it serves. Each team is a lead and its members, ready to work on their own.'
                   : pick?.summary}
             </p>
@@ -97,6 +102,11 @@ export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCre
               <strong>Single agent</strong>
               <span>Six short steps: job, runs on, instructions, skills, access, then a real test before it's created.</span>
             </button>
+            <button type="button" className="nt-option" onClick={() => setStep('starters')}>
+              <span className="nt-stack"><Head id="globe" size={44} /><Head id="calm" size={44} /></span>
+              <strong>Starter agent</strong>
+              <span>Ready-made agents for operations, code, writing, research, support, finance and more.</span>
+            </button>
             <button type="button" className="nt-option" onClick={() => setStep('gallery')}>
               <span className="nt-stack"><Head id="gears" size={44} /><Head id="engine" size={44} /><Head id="check" size={44} /></span>
               <strong>Agent team</strong>
@@ -104,6 +114,10 @@ export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCre
               <span className="nt-chips">{TEAM_TEMPLATES.map((t) => <span key={t.id}>{t.name}</span>)}</span>
             </button>
           </div>
+        )}
+
+        {step === 'starters' && (
+          <div className="nt-starters"><StarterList kind="agent" agents={agents} onAdded={() => onStarterAdded()} /></div>
         )}
 
         {step === 'gallery' && (
@@ -192,7 +206,7 @@ export function NewAgentModal({ projects, onClose, onSingle, onAskBuilder, onCre
                 <button type="button" className="btn btn-lime" disabled={busy} onClick={() => void create()}>{busy ? 'Creating…' : `Create ${pick.name} team`}</button>
               </>
             )}
-            {step !== 'review' && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
+            {step !== 'review' && <button type="button" className="btn" onClick={onClose}>{step === 'starters' ? 'Done' : 'Cancel'}</button>}
           </div>
         </footer>
       </div>

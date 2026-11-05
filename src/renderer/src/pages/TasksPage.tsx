@@ -1,4 +1,4 @@
-import { useInWorkspace } from '../currentProject'
+import { useInWorkspace, useListed } from '../currentProject'
 import { useEffect, useMemo, useState } from 'react'
 import type { Agent, Project, ScheduledTask, TaskInput, TaskSchedule } from '@shared/types'
 import { describeSchedule, WEEKDAY_NAMES } from '@shared/schedule'
@@ -34,6 +34,7 @@ function TaskEditor({ initial, agents, projects, onClose, onSaved }: {
   initial: TaskInput; agents: Agent[]; projects: Project[]; onClose: () => void; onSaved: () => void
 }): JSX.Element {
   const inWs = useInWorkspace()
+  const listed = useListed()
   const [form, setForm] = useState<TaskInput>(initial)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -65,8 +66,8 @@ function TaskEditor({ initial, agents, projects, onClose, onSaved }: {
           <div className="field">
             <label htmlFor="t-agent">Agent or assistant</label>
             <select id="t-agent" className="select" value={form.agentId} onChange={(e) => set('agentId', e.target.value)}>
-              <optgroup label="Agents">{agents.filter((a) => a.kind === 'agent' && inWs(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
-              <optgroup label="Assistants">{agents.filter((a) => a.kind === 'assistant' && inWs(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
+              <optgroup label="Agents">{agents.filter((a) => a.kind === 'agent' && listed(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
+              <optgroup label="Assistants">{agents.filter((a) => a.kind === 'assistant' && listed(a)).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</optgroup>
             </select>
           </div>
           <div className="field">

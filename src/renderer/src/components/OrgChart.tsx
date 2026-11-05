@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { Agent, AgentStatus, Project } from '@shared/types'
 import { STATUS_LABEL } from '../agentStatus'
 import { Avatar } from './Avatar'
+import { StarterList } from './StarterList'
 import { Icon } from './Icon'
 import { RunsOnBadge, runsOnLabel } from './RunsOnBadge'
 
@@ -128,7 +129,7 @@ export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, o
     <div className="org">
       <div className="org-bar">
         <span className="org-project"><Icon name="folder" size={14} /> {project.name}</span>
-        <span className="hint">Drag an agent onto You or onto a lead. Drag it to the tray to take it off the project.</span>
+        <span className="hint">Drag an agent onto You or onto a lead to set who it reports to. Add ready-made agents from the right.</span>
       </div>
       {error && <p className="hint account-error" role="alert">{error}</p>}
       <div className="org-stage">
@@ -150,12 +151,14 @@ export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, o
                 <span className="org-vline" aria-hidden="true" />
                 <div className="org-kids">{top.map((a) => <Node key={a.id} a={a} />)}</div>
               </>
-            ) : <p className="hint" style={{ marginTop: 16 }}>No one on {project.name} yet. Drag agents in from the tray.</p>}
+            ) : <p className="hint" style={{ marginTop: 16 }}>No one on {project.name} yet. Add a ready-made agent from the right, or use New agent.</p>}
           </div>
         </div>
         <aside className={'org-tray' + (over === 'tray' ? ' drop' : '')} aria-label="Agents with no project" {...dropProps('tray', (id) => void save(id, { projectId: null, leadId: null }))}>
-          <span className="section-label" style={{ padding: 0 }}>No project yet</span>
-          <span className="hint">Each agent works in one project. Agents in another project move from their page.</span>
+          <span className="section-label" style={{ padding: 0 }}>Add to {project.name}</span>
+          <span className="hint">Ready-made agents. Each is added to this project as its own copy.</span>
+          <StarterList kind="agent" agents={agents} onAdded={() => onChanged()} compact />
+          {tray.length > 0 && <span className="section-label" style={{ padding: 0, marginTop: 6 }}>Not in a project</span>}
           {tray.map((a) => (
             <div key={a.id} className="org-chip" {...dragProps(a)}>
               <Avatar shape={a.shape} tone={a.tone} head={a.head} size={26} />
@@ -163,10 +166,9 @@ export function OrgChart({ agents, projects, statuses, you, onChanged, onOpen, o
               <button type="button" className="btn btn-sm" onClick={() => moveUnder(a.id, null)} aria-label={`Add ${a.name} to ${project.name}`}>Add</button>
             </div>
           ))}
-          {tray.length === 0 && <p className="hint">Every agent has a project.</p>}
           <div className="org-note">
             <strong>What a lead gets</strong>
-            <span>A lead's instructions list its team in this project, and every agent knows who it reports to. Hand-offs between agents come with Workflows.</span>
+            <span>A lead's instructions list its team in this project, and every agent knows who it reports to. Hand-offs between agents run in Automation.</span>
           </div>
         </aside>
       </div>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useInWorkspace } from '../currentProject'
+import { useListed } from '../currentProject'
 import type { Agent, AgentStatus, Project } from '@shared/types'
 import { useAgentStatuses } from '../agentStatus'
 import { Avatar } from '../components/Avatar'
@@ -49,8 +49,8 @@ export function AgentsHub({ agents, projects, you, onOpen, onChat, onNew, onNewP
   const pick = (v: View): void => { setView(v); try { localStorage.setItem('agents:view', v) } catch { /* not saved */ } }
 
   // Projects are workspaces: the list shows the selected project's agents (and Builder).
-  const inWs = useInWorkspace()
-  const list = agents.filter((a) => a.kind === 'agent' && inWs(a))
+  const listed = useListed()
+  const list = agents.filter((a) => a.kind === 'agent' && listed(a))
   const projectName = (a: Agent): string => (a.isMascot ? 'Every project' : projects.find((p) => p.id === a.projectId)?.name ?? '—')
   const shown = useMemo(() => {
     const f = TABS.find((t) => t[0] === tab)![2]

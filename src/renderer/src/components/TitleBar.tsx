@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import type { Agent, Project } from '@shared/types'
 import type { Route } from '../App'
 import mark from '../assets/logo-mark.png'
-import { GitHubStars } from './GitHubStars'
 import { OrgSwitcher } from './OrgSwitcher'
 import { ProjectSwitcher } from './ProjectSwitcher'
 import wordmarkBlack from '../assets/wordmark-black.png'
@@ -38,7 +37,7 @@ function titleFor(route: Route, agents: Agent[], projects: Project[]): string {
   return TITLES[route.name] ?? ''
 }
 
-/** The window's title bar: Organization / Project at the left, the Tyslin logo in the middle (opens Home) with the GitHub stars. Empty space drags the window. */
+/** The window's title bar: Organization / Project at the left, the Tyslin logo in the middle (opens Home). Empty space drags the window. GitHub stars are in Settings → About. */
 export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOpenProjectChats, onHome, onProjectsChanged }: Props): JSX.Element {
   const [mac, setMac] = useState(false)
   useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
@@ -60,7 +59,6 @@ export function TitleBar({ route, agents, projects, onNewOrg, onNewProject, onOp
           <img className="titlebar-wordmark light-only" src={wordmarkBlack} alt="" />
           <img className="titlebar-wordmark dark-only" src={wordmarkWhite} alt="" />
         </button>
-        <GitHubStars compact />
       </div>
       <div className="titlebar-right" />
     </header>

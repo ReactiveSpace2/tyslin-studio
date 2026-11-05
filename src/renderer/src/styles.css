@@ -1115,3 +1115,16 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .switch-rename .input { height: 36px; flex: 1; min-width: 0; }
 .switch-err { padding: 4px 10px; margin: 0; }
 .org-project { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; }
+
+/* Starter agents and assistants (components/StarterList.tsx) */
+.starters { display: flex; flex-direction: column; gap: 6px; }
+.starter { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.starter-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.starter-text strong { font-size: 14px; }
+.starter-text small { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.starters.compact .starter { padding: 6px 8px; gap: 8px; border-radius: 10px; background: var(--parchment); }
+.starters.compact .starter-text strong { font-size: 13px; }
+.nt-starters { display: flex; flex-direction: column; gap: 10px; padding: 18px 24px; overflow-y: auto; }
+.nt-blank { flex-direction: column; }
+.nt-choose { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.modal.nt-modal.nt-small { width: 900px; }

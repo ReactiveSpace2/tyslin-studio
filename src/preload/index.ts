@@ -8,7 +8,9 @@ const api: TyslinApi = {
     save: (input) => ipcRenderer.invoke('agents:save', input),
     remove: (id) => ipcRenderer.invoke('agents:remove', id),
     statuses: () => ipcRenderer.invoke('agents:statuses'),
-    test: (input) => ipcRenderer.invoke('agents:test', input)
+    test: (input) => ipcRenderer.invoke('agents:test', input),
+    starters: () => ipcRenderer.invoke('agents:starters'),
+    addStarter: (name, projectId) => ipcRenderer.invoke('agents:addStarter', name, projectId)
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
