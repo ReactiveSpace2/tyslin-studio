@@ -275,7 +275,7 @@ export default function App(): JSX.Element {
               header={activeView ? <AgencyChannelBar agency={activeView.agency} lead={activeView.lead} onChanged={() => void refresh()} /> : undefined}
               agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })} onChanged={() => void refresh()} />
           )}
-          {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
+          {route.name === 'skills' && <SkillsPage key={activeView?.agency.id ?? 'none'} agents={agents} team={activeView?.lead ? { name: activeView.project.name, members: [activeView.lead, ...activeView.workers] } : activeView ? { name: activeView.project.name, members: activeView.workers } : undefined} onAgentsChanged={() => void refresh()} />}
           {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
         </main>
       </div>
