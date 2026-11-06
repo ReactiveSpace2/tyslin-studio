@@ -7,8 +7,10 @@ import { OrgSwitcher } from './OrgSwitcher'
 import { getDefaultProjectIdSafe } from './titleCrumbs'
 
 /** Workspace bar, under the toolbar: the organization, then its open agencies as tabs (+ opens or creates one). */
-export function WorkspaceBar({ projects, onNewOrg, onNavigate, onSelectAgency, onCloseAgency, onNewAgency }: {
+export function WorkspaceBar({ projects, unread, onNewOrg, onNavigate, onSelectAgency, onCloseAgency, onNewAgency }: {
   projects: Project[]
+  /** Unread Lead messages by project id: shown on each agency's tab. */
+  unread: Record<string, number>
   onNewOrg: () => void
   onNavigate: (r: Route) => void
   onSelectAgency: (id: string) => void
@@ -43,19 +45,21 @@ export function WorkspaceBar({ projects, onNewOrg, onNavigate, onSelectAgency, o
             <div key={p.id} className={'agency-tab' + (on ? ' on' : '')}>
               <button type="button" role="tab" aria-selected={on} className="agency-tab-btn" onClick={() => onSelectAgency(p.id)} title={p.name}>
                 <Icon name="agency" size={13} /><span>{p.name}</span>
+                {(unread[p.id] ?? 0) > 0 && <span className="tab-count mono" aria-label={`${unread[p.id]} unread from the Lead`}>{unread[p.id]}</span>}
               </button>
               <button type="button" className="agency-tab-x" aria-label={`Close ${p.name}`} onClick={() => onCloseAgency(p.id)}><Icon name="close" size={11} /></button>
             </div>
           )
         })}
         <div className="agency-plus-wrap" ref={menuRef}>
-          <button type="button" className="agency-plus" aria-label="Open an agency" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}><Icon name="plus" size={13} /></button>
+          <button type="button" className="agency-plus" aria-label={closed.some((p) => unread[p.id]) ? 'Open an agency (unread messages)' : 'Open an agency'} aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((m) => !m)}><Icon name="plus" size={13} />{closed.some((p) => unread[p.id]) && <span className="tab-dot" aria-hidden="true" />}</button>
           {menu && (
             <div className="switch-menu agency-menu" role="menu" aria-label="Open an agency">
               {closed.length > 0 && <span className="section-label">Open an agency</span>}
               {closed.map((p) => (
                 <button key={p.id} type="button" role="menuitem" onClick={() => { setMenu(false); onSelectAgency(p.id) }}>
                   <Icon name="agency" size={14} /><span className="switch-name">{p.name}</span>
+                  {(unread[p.id] ?? 0) > 0 && <span className="tab-count mono">{unread[p.id]}</span>}
                 </button>
               ))}
               {closed.length > 0 && <span className="switch-sep" aria-hidden="true" />}

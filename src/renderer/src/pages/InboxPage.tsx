@@ -18,8 +18,14 @@ const when = (t: number): string => {
     : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-/** The Inbox: every message the organization's agency Leads sent you, in one place, with answers going back to the Lead. */
-export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChannel, onCountChange }: {
+/**
+ * An agency's Lead chat: what its Lead sent you (briefs, questions, reviews, digests) as a list with filters,
+ * the open message with its quick answers and reply box, and New brief, which puts a card in the board's
+ * Inbox column and starts the Lead's planning run (agencies.brief).
+ */
+export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoard, onOpenChannel, onCountChange }: {
+  /** The agency whose Lead chat this is: only its messages show. */
+  agency: Agency
   agencies: Agency[]
   agents: Agent[]
   focusId?: string
@@ -34,9 +40,13 @@ export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChanne
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  /** New brief open in the right pane instead of a message. */
+  const [briefing, setBriefing] = useState(false)
+  const [brief, setBrief] = useState('')
+  const [note, setNote] = useState('')
 
-  const load = (): void => { void window.tyslin.channels.list().then(setMessages) }
-  useEffect(() => { load(); return window.tyslin.channels.onMessage(() => load()) }, [])
+  const load = (): void => { void window.tyslin.channels.list(scope.id).then(setMessages) }
+  useEffect(() => { load(); return window.tyslin.channels.onMessage((m) => { if (m.agencyId === scope.id) load() }) }, [scope.id])
   useEffect(() => { if (focusId) setSelected(focusId) }, [focusId])
 
   const agencyById = useMemo(() => new Map(agencies.map((a) => [a.id, a])), [agencies])
@@ -67,13 +77,28 @@ export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChanne
 
   const agency = current ? agencyById.get(current.agencyId) : undefined
   const lead = current ? agentById.get(current.agentId) : undefined
+  const scopeLead = scope.leadId ? agentById.get(scope.leadId) : undefined
+  const leadFirst = scopeLead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'
+
+  const sendBrief = async (): Promise<void> => {
+    if (!brief.trim()) return
+    setSending(true); setError(''); setNote('')
+    try {
+      const r = await window.tyslin.agencies.brief(scope.id, brief)
+      setBrief('')
+      setNote(r.planned ? `Added to Inbox on the board. ${leadFirst} is planning it.` : scope.paused ? `Added to Inbox on the board. ${leadFirst} plans it when you resume ${scope.name}.` : `Added to Inbox on the board. ${leadFirst} plans it on the next run.`)
+    } catch (err) { setError(err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err)) } finally { setSending(false) }
+  }
 
   return (
     <div className="inbox">
       <aside className="inbox-list" aria-label="Messages">
         <div className="inbox-head">
-          <span className="eyebrow">From your Leads</span>
-          <h1>Inbox</h1>
+          <span className="eyebrow">{scope.name}</span>
+          <div className="inbox-title">
+            <h1>Lead chat</h1>
+            <button type="button" className={'btn btn-sm' + (briefing ? ' btn-primary' : '')} disabled={!scopeLead} onClick={() => { setBriefing(true); setNote(''); setError('') }}><Icon name="plus" size={12} /> New brief</button>
+          </div>
           <div className="inbox-filters" role="tablist" aria-label="Show">
             {FILTERS.map(([id, label]) => (
               <button key={id} type="button" role="tab" aria-selected={filter === id} className={'chip' + (filter === id ? ' on' : '') + (id === 'needs' && counts.needs ? ' needs' : '')} onClick={() => setFilter(id)}>
@@ -84,14 +109,14 @@ export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChanne
         </div>
         <div className="inbox-items">
           {shown.length === 0 && (
-            <p className="hint inbox-empty">{messages.length ? 'Nothing here.' : 'When an agency Lead has a question, work to review or a digest, it lands here.'}</p>
+            <p className="hint inbox-empty">{messages.length ? 'Nothing here.' : `When ${leadFirst} has a question, work to review or a digest, it lands here.`}</p>
           )}
           {shown.map((m) => {
             const a = agentById.get(m.agentId)
             return (
-              <button key={m.id} type="button" className={'inbox-item' + (current?.id === m.id ? ' on' : '') + (m.readAt ? '' : ' unread') + (needsYou(m) ? ' needs' : '')} onClick={() => setSelected(m.id)}>
+              <button key={m.id} type="button" className={'inbox-item' + (current?.id === m.id ? ' on' : '') + (m.readAt ? '' : ' unread') + (needsYou(m) ? ' needs' : '')} onClick={() => { setSelected(m.id); setBriefing(false) }}>
                 <span className="inbox-item-top">
-                  <strong>{a?.name.replace(/\s*\(Lead\)$/, '') ?? 'Lead'} · {agencyById.get(m.agencyId)?.name ?? 'Agency'}</strong>
+                  <strong>{a?.name.replace(/\s*\(Lead\)$/, '') ?? 'Lead'}</strong>
                   <span className="mono hint">{when(m.createdAt)}</span>
                 </span>
                 <span className="inbox-item-text">{m.text}</span>
@@ -105,12 +130,39 @@ export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChanne
         </div>
       </aside>
 
-      <section className="inbox-detail" aria-label="Message">
-        {!current ? (
+      <section className="inbox-detail" aria-label={briefing ? 'New brief' : 'Message'}>
+        {briefing ? (
+          <>
+            <header className="inbox-from">
+              {scopeLead ? <Avatar shape={scopeLead.shape} tone={scopeLead.tone} head={scopeLead.head} size={44} /> : <span className="area-icon"><Icon name="agency" size={16} /></span>}
+              <span className="inbox-from-text">
+                <strong>New brief for {scopeLead?.name ?? 'the Lead'}</strong>
+                <span className="hint">It goes into Inbox on {scope.name}&apos;s board, and {leadFirst} turns it into cards.</span>
+              </span>
+            </header>
+            <div className="field">
+              <label className="label" htmlFor="inbox-brief">What do you need?</label>
+              <textarea id="inbox-brief" className="textarea" rows={6} autoFocus value={brief} onChange={(e) => setBrief(e.target.value)}
+                placeholder="The work, what done looks like, and anything to avoid."
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendBrief() }} />
+            </div>
+            {error && <p className="hint account-error" role="alert">{error}</p>}
+            {note && <p className="ok" role="status">{note}</p>}
+            <div className="row inbox-send">
+              <button type="button" className="btn" onClick={() => setBriefing(false)}>{note ? 'Back to messages' : 'Cancel'}</button>
+              <button type="button" className="btn btn-primary" disabled={sending || !brief.trim()} onClick={() => void sendBrief()}>
+                <Icon name="send" size={13} /> {sending ? 'Sending…' : 'Send brief'}
+              </button>
+            </div>
+            <div className="row" style={{ gap: 8 }}>
+              <button type="button" className="btn" onClick={() => onOpenBoard(scope.projectId)}><Icon name="kanban" size={14} /> Open the board</button>
+            </div>
+          </>
+        ) : !current ? (
           <div className="inbox-blank">
             <span className="area-icon"><Icon name="channel" size={18} /></span>
             <strong>No messages yet</strong>
-            <span className="hint">Leads write here when there's no channel, and as well as Telegram or Slack when there is.</span>
+            <span className="hint">{leadFirst} writes here when there&apos;s no channel, and as well as Telegram or Slack when there is. Use New brief to give {leadFirst} work.</span>
           </div>
         ) : (
           <>
@@ -141,7 +193,7 @@ export function InboxPage({ agencies, agents, focusId, onOpenBoard, onOpenChanne
                 <div className="field">
                   <label className="label" htmlFor="inbox-reply">Reply to {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'}</label>
                   <textarea id="inbox-reply" className="textarea" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)}
-                    placeholder={current.kind === 'question' ? 'Your answer' : current.kind === 'review' ? 'Approve, or say what to change' : 'Reply, or give the Lead a new brief'}
+                    placeholder={current.kind === 'question' ? 'Your answer' : current.kind === 'review' ? 'Approve, or say what to change' : `Reply to ${leadFirst}`}
                     onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send(draft) }} />
                 </div>
                 {error && <p className="hint account-error" role="alert">{error}</p>}

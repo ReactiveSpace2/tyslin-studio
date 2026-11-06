@@ -329,7 +329,7 @@ function updateBadge(): void {
   try { app.setBadgeCount(db.unreadChannelMessages()) } catch { /* not supported here */ }
 }
 
-/** Opens the window on the Inbox at one message. */
+/** Opens the window on the message's agency, in its Lead chat (the renderer resolves the agency from the message id). */
 function openInbox(messageId: string): void {
   if (!win) return
   if (win.isMinimized()) win.restore()
@@ -342,7 +342,7 @@ function openInbox(messageId: string): void {
 const shownNotifications = new Set<Notification>()
 const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest' }
 
-/** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the Inbox. */
+/** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the agency's Lead chat. */
 function notifyBoss(m: ChannelMessage): void {
   if (!Notification.isSupported()) return
   const agency = db.getAgency(m.agencyId)

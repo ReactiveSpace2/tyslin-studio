@@ -9,8 +9,8 @@ import { findCard, log, patchCard, readBoard } from './boardTools'
  * The channel gateway. Every message from an agency to the boss goes through here as one normalized
  * message {from, to, kind, text, actions}; only the agency's Lead may send (workers report to the Lead,
  * never to the boss), and the agency's notify setting decides which kinds leave the app. Every message
- * is kept in channel_messages so the Inbox and the Channel screen show it, whether or not it was delivered.
- * The boss answers from the Inbox (or a desktop notification); `replyToLead` saves the answer, notes it on
+ * is kept in channel_messages so the agency's Lead chat and Channel screen show it, whether or not it was delivered.
+ * The boss answers in the Lead chat (or a desktop notification); `replyToLead` saves the answer, notes it on
  * the card and sends it to the Lead in its "Inbox" chat.
  */
 
@@ -20,7 +20,7 @@ const ALLOWED: Record<Agency['notify'], MessageKind[]> = {
   digest: ['digest']
 }
 
-/** Set by index.ts: the Inbox and Channel screens refresh, and `wanted` messages pop up as desktop notifications. */
+/** Set by index.ts: the Lead chat and Channel screens refresh, and `wanted` messages pop up as desktop notifications. */
 export let onChannelMessage: (m: ChannelMessage, wanted: boolean) => void = () => {}
 export function setChannelMessageHook(fn: typeof onChannelMessage): void { onChannelMessage = fn }
 
@@ -57,7 +57,7 @@ export async function sendToBoss(agency: Agency, from: Agent, kind: MessageKind,
       delivered = n > 0
       note = `Sent on Slack (${n} channel${n === 1 ? '' : 's'}).`
     } else {
-      note = wanted ? 'No channel is set up for this agency; the boss gets it in the Inbox and as a desktop notification, and the answer comes back to you in your "Inbox" chat.' : `The boss only gets ${agency.notify === 'digest' ? 'digests' : 'questions and reviews'} from this agency as notifications; this ${kind} is kept in the Inbox.`
+      note = wanted ? 'No channel is set up for this agency; the boss gets it in this agency\'s Lead chat and as a desktop notification, and the answer comes back to you in your "Inbox" chat.' : `The boss only gets ${agency.notify === 'digest' ? 'digests' : 'questions and reviews'} from this agency as notifications; this ${kind} is kept in the Inbox.`
     }
   } catch (err) {
     note = `Could not send: ${err instanceof Error ? err.message : String(err)} The boss sees it in the app.`
@@ -109,7 +109,7 @@ export function replyToLead(messageId: string, text: string): ChannelMessage {
   if (!deps) throw new Error('Replies are not available yet.')
   const quoted = m.text.length > 400 ? `${m.text.slice(0, 400)}…` : m.text
   const card = m.cardId ? ` (card ${m.cardId})` : ''
-  deliver(inboxSession(lead), `The boss answered your ${m.kind}${card} from the Inbox.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
+  deliver(inboxSession(lead), `The boss answered your ${m.kind}${card} in the Lead chat.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
   if (m.cardId) patchCard(agency, m.cardId, (c) => log(c, `Boss: ${answer}`))
   const saved = db.replyChannelMessage(messageId, answer)!
   onChannelMessage(saved, false)
