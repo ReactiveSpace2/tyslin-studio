@@ -22,7 +22,8 @@ import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, unins
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
-import type { Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, TeamCreateInput, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import { createAgency, removeAgency, updateAgency } from './agencies'
+import type { AgencyCreateInput, AgencyUpdateInput, Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -201,7 +202,7 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
   const started = Date.now()
   const agent: Agent = {
     id: 'test', createdAt: started, updatedAt: started, projectId: null, leadId: null, pinned: false, paused: false,
-    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input, team: input.team ?? ''
+    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input, team: input.team ?? '', agency: input.agency ?? null
   }
   try {
     const problem = setupProblem(agent)
@@ -486,6 +487,16 @@ function registerIpc(): void {
     }
     db.setSetting('onboarded', '1')
   })
+
+  ipcMain.handle('agencies:list', () => db.listAgencies())
+  ipcMain.handle('agencies:get', (_e, id: string) => db.getAgency(id))
+  ipcMain.handle('agencies:create', (_e, input: AgencyCreateInput) => {
+    const a = createAgency(input)
+    win?.webContents.send('tasks:changed')
+    return a
+  })
+  ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
+  ipcMain.handle('agencies:remove', (_e, id: string) => { removeAgency(id); win?.webContents.send('tasks:changed') })
 
   ipcMain.handle('auth:status', () => authStatus())
   ipcMain.handle('auth:signIn', () => signIn())

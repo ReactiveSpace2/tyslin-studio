@@ -7,7 +7,7 @@ export type KeyProvider = 'anthropic' | 'openai' | 'gemini'
  * What runs the agent: Tyslin's own model runtime, or an external agent driven over ACP
  * (Agent Client Protocol). The external program is installed by the user, never bundled.
  */
-export type EngineId = 'builtin' | 'goose' | 'hermes' | 'zeroclaw' | 'openclaw' | 'custom'
+export type EngineId = 'builtin' | 'goose' | 'hermes' | 'zeroclaw' | 'openclaw' | 'custom' | 'claude-code' | 'gemini-cli' | 'codex'
 export type ExternalEngineId = Exclude<EngineId, 'builtin'>
 
 export interface EngineStatus {
@@ -89,14 +89,16 @@ export interface Agent {
   channels: { telegram: boolean }
   /** A mascot head from shared/heads.ts; null = the simple robot shape (shape + tone). */
   head: string | null
-  /** The department team it was created for (shared/teams.ts), '' if none. */
+  /** The agency this agent belongs to (agencies.id), null for Builder and loose agents. */
+  agency: string | null
+  /** The department team it was created for (archived teams), '' if none. */
   team: string
   createdAt: number
   updatedAt: number
 }
 
 /** Fields added after v0.4 are optional on input; saving keeps the stored value when they're missing. */
-type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head' | 'team'
+type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head' | 'team' | 'agency'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
 /** Kanban: columns of cards (boards/<name>.board.json). A card can be given to an agent and run. */
@@ -113,8 +115,63 @@ export interface KanbanCard {
   /** The agent's last reply for this card, and its chat. */
   result?: string
   sessionId?: string
+  /** Agency boards: the worker the Lead gave the card to (same as agentId once it runs). */
+  assignee?: string
+  /** The agency this board belongs to. */
+  agency?: string
+  /** Estimated cost of the runs on this card, in the provider's currency; undefined = not reported. */
+  cost?: number
+  /** The card this one was split from. */
+  parentCard?: string
+  /** What happened on the card: moves, runs, reviews. */
+  log?: { at: number; text: string }[]
   createdAt: number
 }
+
+/** An agency: a Lead and its workers in one project, with a board, a channel and a budget (agencies table). */
+export interface Agency {
+  id: string
+  name: string
+  description: string
+  goal: string
+  /** Standing instructions every agent in the agency follows. */
+  prompt: string
+  plan: string[]
+  templateId: string
+  leadId: string | null
+  projectId: string
+  /** Default adapter for new workers: an engine id, or 'template' for the template's own mix. */
+  adapter: string
+  /** Board file, relative to the project folder. */
+  boardPath: string
+  channel: { kind: 'telegram' | 'slack' | 'none' }
+  notify: 'all' | 'questions' | 'digest'
+  /** Monthly budget in the default model's currency; null = none set. */
+  budget: number | null
+  spent: number
+  autoRun: boolean
+  paused: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface AgencyCreateInput {
+  name: string
+  templateId: string | null
+  description: string
+  goal: string
+  prompt: string
+  /** 'template' keeps each worker on the engine its template names. */
+  adapter: string
+  /** Skill packs to install (skillPacks.ts ids). */
+  packs: string[]
+  autoRun: boolean
+  channel: 'telegram' | 'slack' | 'none'
+  notify: 'all' | 'questions' | 'digest'
+  budget: number | null
+}
+
+export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'autoRun' | 'paused'> & { channel: Agency['channel'] }>
 
 export interface KanbanColumn {
   id: string
@@ -796,6 +853,15 @@ export interface TyslinApi {
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
     /** Fires when the zoom changes anywhere (slider, Settings or keyboard shortcut). */
     onZoom(cb: (zoom: number) => void): () => void
+  }
+  agencies: {
+    list(): Promise<Agency[]>
+    get(id: string): Promise<Agency | null>
+    /** Creates the project folder, the Lead and workers, the board, the channel link and the Lead's task. */
+    create(input: AgencyCreateInput): Promise<Agency>
+    update(id: string, input: AgencyUpdateInput): Promise<Agency>
+    /** Deletes the agency, its agents, board and task; files in its folder stay. */
+    remove(id: string): Promise<void>
   }
   tasks: {
     list(): Promise<ScheduledTask[]>

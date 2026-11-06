@@ -138,14 +138,15 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
     setBusy(true); setError(null)
     try {
       if (firstRun) {
-        await window.tyslin.onboarding.finish({ orgName: d.org.trim(), projectName: d.name.trim(), defaultProvider: d.model.provider, defaultModel: d.model.model.trim() })
+        // The organization's name and the default model first; the Default project is only a fallback folder.
+        await window.tyslin.onboarding.finish({ orgName: d.org.trim(), projectName: 'Default project', defaultProvider: d.model.provider, defaultModel: d.model.model.trim() })
         await refreshDefaultModel()
-        return onDone()
       }
-      // Screens first: from New agency, Create makes the agency's folder (shown as an agency). Agents, board,
-      // skills and channel come with the backend.
-      const p = await window.tyslin.projects.createWithFolder(d.name.trim())
-      onDone(p.id)
+      const a = await window.tyslin.agencies.create({
+        name: d.name.trim(), templateId: d.templateId, description: d.description.trim(), goal: d.goal.trim(), prompt: d.prompt,
+        adapter: d.adapter, packs: d.packs, autoRun: d.autoRun, channel: d.channel, notify: d.notify, budget: null
+      })
+      onDone(a.projectId)
     } catch (e) {
       setError(errorText(e)); setBusy(false)
     }

@@ -8,7 +8,7 @@ import { BUILT_IN_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import { HEAD_IDS } from '@shared/heads'
-import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
+import type { Agency, AgencyUpdateInput, Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -255,7 +255,7 @@ type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
   provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; kind: string; is_mascot: number
   project_id: string | null; lead_id: string | null; pinned: number; paused: number; tools: string; channels: string
-  last_run_at: number | null; last_error: string; head: string | null; team: string
+  last_run_at: number | null; last_error: string; head: string | null; team: string; agency: string | null
   created_at: number; updated_at: number
 }
 
@@ -271,6 +271,7 @@ const toAgent = (r: AgentRow): Agent => ({
   tools: parseJson(r.tools, { read: true, write: true }), channels: parseJson(r.channels, { telegram: false }),
   head: r.head && HEAD_IDS.includes(r.head) ? r.head : null,
   team: r.team ?? '',
+  agency: r.agency ?? null,
   createdAt: r.created_at, updatedAt: r.updated_at
 })
 
@@ -313,24 +314,25 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const tools = input.tools ?? existing?.tools ?? { read: true, write: true }
   const channels = input.channels ?? existing?.channels ?? { telegram: false }
   const head = input.head !== undefined ? (input.head && HEAD_IDS.includes(input.head) ? input.head : null) : existing?.head ?? null
+  const agency = input.agency !== undefined ? input.agency : existing?.agency ?? null
   if (existing) {
     // Moving to another project: its team stays behind and reports to you.
     if (existing.projectId !== projectId) db.prepare('UPDATE agents SET lead_id = NULL WHERE lead_id = ?').run(existing.id)
     db.prepare(`UPDATE agents SET name=?, description=?, instructions=?, shape=?, tone=?, provider=?, model=?,
       skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, project_id=?, lead_id=?, pinned=?, paused=?, tools=?, channels=?,
-      head=?, updated_at=? WHERE id=?`).run(
+      head=?, agency=?, updated_at=? WHERE id=?`).run(
       input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
       JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
-      projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, now, existing.id)
+      projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, now, existing.id)
     return getAgent(existing.id)!
   }
   const id = randomUUID()
   db.prepare(`INSERT INTO agents (id, kind, name, description, instructions, shape, tone, provider, model, skills,
-    schedule, engine, write_mode, is_mascot, project_id, lead_id, pinned, paused, tools, channels, head, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    schedule, engine, write_mode, is_mascot, project_id, lead_id, pinned, paused, tools, channels, head, agency, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id, kind, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
     JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
-    projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, now, now)
+    projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, now, now)
   return getAgent(id)!
 }
 
@@ -817,4 +819,79 @@ export function allProjectFolders(): string[] {
 export function closeAll(): void {
   if (db && db !== home) db.close()
   home?.close()
+}
+
+// ---- Agencies -------------------------------------------------------------------------------------------
+
+type AgencyRow = {
+  id: string; name: string; description: string; goal: string; prompt: string; plan: string; template_id: string
+  lead_id: string | null; project_id: string; adapter: string; board_path: string; channel: string; notify: string
+  budget: number | null; spent: number; auto_run: number; paused: number; created_at: number; updated_at: number
+}
+
+const toAgency = (r: AgencyRow): Agency => ({
+  id: r.id, name: r.name, description: r.description, goal: r.goal, prompt: r.prompt,
+  plan: (() => { try { const p = JSON.parse(r.plan); return Array.isArray(p) ? p.map(String) : [] } catch { return [] } })(),
+  templateId: r.template_id, leadId: r.lead_id, projectId: r.project_id, adapter: r.adapter || 'template', boardPath: r.board_path,
+  channel: parseJson(r.channel, { kind: 'none' as const }), notify: (['all', 'questions', 'digest'].includes(r.notify) ? r.notify : 'questions') as Agency['notify'],
+  budget: r.budget, spent: r.spent ?? 0, autoRun: !!r.auto_run, paused: !!r.paused, createdAt: r.created_at, updatedAt: r.updated_at
+})
+
+export function listAgencies(): Agency[] {
+  return (db.prepare('SELECT * FROM agencies ORDER BY created_at').all() as AgencyRow[]).map(toAgency)
+}
+
+export function getAgency(id: string): Agency | null {
+  const r = db.prepare('SELECT * FROM agencies WHERE id = ?').get(id) as AgencyRow | undefined
+  return r ? toAgency(r) : null
+}
+
+export function agencyForProject(projectId: string): Agency | null {
+  const r = db.prepare('SELECT * FROM agencies WHERE project_id = ?').get(projectId) as AgencyRow | undefined
+  return r ? toAgency(r) : null
+}
+
+export function insertAgency(a: Omit<Agency, 'createdAt' | 'updatedAt' | 'spent'>): Agency {
+  const now = Date.now()
+  db.prepare(`INSERT INTO agencies (id, name, description, goal, prompt, plan, template_id, lead_id, project_id, adapter, board_path,
+    channel, notify, budget, spent, auto_run, paused, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`).run(
+    a.id, a.name, a.description, a.goal, a.prompt, JSON.stringify(a.plan), a.templateId, a.leadId, a.projectId, a.adapter, a.boardPath,
+    JSON.stringify(a.channel), a.notify, a.budget, a.autoRun ? 1 : 0, a.paused ? 1 : 0, now, now)
+  return getAgency(a.id)!
+}
+
+export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
+  const cur = getAgency(id)
+  if (!cur) throw new Error('That agency no longer exists.')
+  const next = { ...cur, ...input }
+  const name = String(next.name ?? '').trim().slice(0, 80)
+  if (!name) throw new Error('Give the agency a name.')
+  db.prepare(`UPDATE agencies SET name=?, description=?, goal=?, prompt=?, plan=?, adapter=?, channel=?, notify=?, budget=?, auto_run=?, paused=?, updated_at=? WHERE id=?`)
+    .run(name, next.description, next.goal, next.prompt, JSON.stringify(next.plan), next.adapter, JSON.stringify(next.channel), next.notify,
+      next.budget === null || next.budget === undefined || Number.isNaN(Number(next.budget)) ? null : Number(next.budget),
+      next.autoRun ? 1 : 0, next.paused ? 1 : 0, Date.now(), id)
+  if (name !== cur.name) db.prepare('UPDATE projects SET name = ? WHERE id = ?').run(name, cur.projectId)
+  return getAgency(id)!
+}
+
+export function setAgencyLead(id: string, leadId: string | null): void {
+  db.prepare('UPDATE agencies SET lead_id = ?, updated_at = ? WHERE id = ?').run(leadId, Date.now(), id)
+}
+
+export function addAgencySpend(id: string, amount: number): void {
+  if (amount > 0) db.prepare('UPDATE agencies SET spent = spent + ? WHERE id = ?').run(amount, id)
+}
+
+/** Deletes the agency row, its agents (with their chats and tasks) and its project row; the folder stays. */
+export function removeAgency(id: string): void {
+  const a = getAgency(id)
+  if (!a) return
+  const members = (db.prepare('SELECT id FROM agents WHERE agency = ? OR (project_id = ? AND is_mascot = 0)').all(id, a.projectId) as { id: string }[]).map((r) => r.id)
+  db.transaction(() => {
+    for (const m of members) removeAgent(m)
+    db.prepare('DELETE FROM agencies WHERE id = ?').run(id)
+    db.prepare('DELETE FROM gsync_files WHERE project_id = ?').run(a.projectId)
+    db.prepare('DELETE FROM gsync_projects WHERE project_id = ?').run(a.projectId)
+    db.prepare('DELETE FROM projects WHERE id = ?').run(a.projectId)
+  })()
 }

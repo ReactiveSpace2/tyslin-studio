@@ -23,7 +23,10 @@ export const MARKS: Record<MarkKey, { label: string; letters: string; tone: 'ink
   hermes: { label: ENGINE_NAMES.hermes, letters: 'He', tone: 'lime' },
   zeroclaw: { label: ENGINE_NAMES.zeroclaw, letters: 'Zc', tone: 'lime' },
   openclaw: { label: ENGINE_NAMES.openclaw, letters: 'Oc', tone: 'lime' },
-  custom: { label: 'Custom agent', letters: '··', tone: 'paper' }
+  custom: { label: 'Custom agent', letters: '··', tone: 'paper' },
+  'claude-code': { label: ENGINE_NAMES['claude-code'], letters: 'CC', tone: 'lime' },
+  'gemini-cli': { label: ENGINE_NAMES['gemini-cli'], letters: 'GC', tone: 'lime' },
+  codex: { label: ENGINE_NAMES.codex, letters: 'Co', tone: 'lime' }
 }
 
 /** `mark`: a single-colour logo shown on a white tile · `icon`: an app icon that fills the tile. */
@@ -34,7 +37,10 @@ const LOGOS: Partial<Record<MarkKey, { src: string; fit: 'mark' | 'icon' }>> = {
   goose: { src: gooseLogo, fit: 'icon' },
   hermes: { src: hermesLogo, fit: 'icon' },
   openclaw: { src: openclawLogo, fit: 'icon' },
-  zeroclaw: { src: zeroclawLogo, fit: 'icon' }
+  zeroclaw: { src: zeroclawLogo, fit: 'icon' },
+  // Claude Code and Gemini CLI reuse their companies' marks (Simple Icons); Codex has no sourced file.
+  'claude-code': { src: claudeLogo, fit: 'mark' },
+  'gemini-cli': { src: geminiLogo, fit: 'mark' }
 }
 
 const keyOf = (agent: Pick<Agent, 'engine' | 'provider'>): MarkKey => (agent.engine === 'builtin' ? agent.provider : agent.engine)

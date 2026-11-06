@@ -79,6 +79,13 @@ const api: TyslinApi = {
       return () => ipcRenderer.removeListener('zoom:changed', fn)
     }
   },
+  agencies: {
+    list: () => ipcRenderer.invoke('agencies:list'),
+    get: (id) => ipcRenderer.invoke('agencies:get', id),
+    create: (input) => ipcRenderer.invoke('agencies:create', input),
+    update: (id, input) => ipcRenderer.invoke('agencies:update', id, input),
+    remove: (id) => ipcRenderer.invoke('agencies:remove', id)
+  },
   tasks: {
     list: () => ipcRenderer.invoke('tasks:list'),
     save: (input) => ipcRenderer.invoke('tasks:save', input),

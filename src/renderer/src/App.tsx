@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Agent, AuthStatus, Project, Session } from '@shared/types'
+import type { Agency, Agent, AuthStatus, Project, Session } from '@shared/types'
 import { TitleBar } from './components/TitleBar'
 import { refreshAppearance } from './appearance'
 import { StatusBar } from './components/StatusBar'
@@ -10,7 +10,7 @@ import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { OrgHome } from './pages/OrgHome'
 import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
-import { agencyOf } from './agencies'
+import { agencyOf, type AgencyView } from './agencies'
 import { AgencyChannelBar } from './components/AgencyChannelBar'
 import { AgencyNav } from './components/AgencyNav'
 import { Toolbar } from './components/Toolbar'
@@ -48,20 +48,21 @@ export default function App(): JSX.Element {
   const [route, setRoute] = useState<Route>({ name: 'home' })
   const [agents, setAgents] = useState<Agent[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [agencyRows, setAgencyRows] = useState<Agency[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   /** null = still checking. */
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
   const [orgName, setOrgName] = useState('')
-  const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null)
   const [newOrg, setNewOrg] = useState(false)
   /** "Add a worker": the step-by-step agent wizard, in the active agency. */
   const [addingWorker, setAddingWorker] = useState(false)
 
   const refresh = useCallback(async () => {
-    const [a, p] = await Promise.all([window.tyslin.agents.list(), window.tyslin.projects.list()])
+    const [a, p, g] = await Promise.all([window.tyslin.agents.list(), window.tyslin.projects.list(), window.tyslin.agencies.list()])
     setAgents(a)
     setProjects(p)
+    setAgencyRows(g)
   }, [])
   const refreshSessions = useCallback(async () => setSessions(await window.tyslin.sessions.list()), [])
 
@@ -90,10 +91,12 @@ export default function App(): JSX.Element {
   // without an agency; it isn't an agency itself.
   const [currentProject] = useCurrentProject()
   useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
-  useEffect(() => { if (onboarding === false) void window.tyslin.studio.defaultProject().then((p) => setDefaultProjectId(p.id)) }, [onboarding, projects.length])
-  const agencies = projects.filter((p) => p.id !== defaultProjectId).map((p) => agencyOf(p, agents))
-  const activeAgency = currentProject && currentProject !== defaultProjectId ? currentProject : null
-  const activeProject = activeAgency ? projects.find((p) => p.id === activeAgency) ?? null : null
+  const agencies = agencyRows.map((a) => agencyOf(a, projects, agents)).filter((v): v is AgencyView => !!v)
+  const viewFor = (projectId: string | null): AgencyView | null => agencies.find((v) => v.project.id === projectId) ?? null
+  /** The agency in the active tab (its project is the current one). */
+  const activeView = viewFor(currentProject)
+  const activeAgency = activeView?.project.id ?? null
+  const activeProject = activeView?.project ?? null
   const openAgency = (id: string, tab: 'org' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
   /** A tab: Kanban, Drive, Channel and Skills stay on their screen for the new agency; anything else opens its overview. */
   const selectAgency = (id: string): void => {
@@ -102,13 +105,13 @@ export default function App(): JSX.Element {
   }
   const closeAgency = (id: string): void => {
     const next = closeAgencyTab(id)
-    if (route.name === 'agency' && route.id === id) setRoute(next && next !== defaultProjectId ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
+    if (route.name === 'agency' && route.id === id) setRoute(next && viewFor(next) ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
   }
   /** Which screens show the agency sidebar. */
   const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency))
   /** The agency page of the agent's agency (or the list). */
   const backFromAgent = (a?: Agent): void => {
-    const id = a?.projectId && a.projectId !== defaultProjectId ? a.projectId : activeAgency
+    const id = a?.projectId && viewFor(a.projectId) ? a.projectId : activeAgency
     if (id) openAgency(id); else setRoute({ name: 'agencies' })
   }
 
@@ -130,7 +133,8 @@ export default function App(): JSX.Element {
         <div className="titlebar" />
         <AgencyWizard firstRun firstName={auth.account?.name?.split(' ')[0]} onDone={(projectId) => {
           setOnboarding(false)
-          void refresh().then(() => { if (projectId) openAgency(projectId); else setRoute({ name: 'home' }) })
+          // The tab store loads once setup is done; open the new agency's tab after it, not before.
+          void Promise.all([refresh(), initCurrentProject()]).then(() => { if (projectId) openAgency(projectId); else setRoute({ name: 'home' }) })
           void refreshDefaultModel()
         }} />
       </div>
@@ -149,7 +153,7 @@ export default function App(): JSX.Element {
         onSignOut={() => { void window.tyslin.auth.signOut().then(setAuth) }}
       />
       <WorkspaceBar
-        projects={projects}
+        projects={agencies.map((v) => v.project)}
         onNewOrg={() => setNewOrg(true)}
         onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }}
         onSelectAgency={selectAgency}
@@ -187,12 +191,13 @@ export default function App(): JSX.Element {
             />
           )}
           {route.name === 'agency' && (() => {
-            const p = projects.find((x) => x.id === route.id)
-            if (!p) return null
+            const v = viewFor(route.id)
+            if (!v) return null
+            const p = v.project
             return (
               <AgencyPage
-                key={p.id + route.tab}
-                view={agencyOf(p, agents)}
+                key={p.id + route.tab + v.agency.updatedAt}
+                view={v}
                 tab={route.tab}
                 you={you}
                 onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
@@ -203,6 +208,7 @@ export default function App(): JSX.Element {
                 onDrive={() => { openAgencyTab(p.id); setRoute({ name: 'drive' }) }}
                 onBack={() => setRoute({ name: 'agencies' })}
                 onChanged={() => void refresh()}
+                onDeleted={() => { closeAgencyTab(p.id); void refresh(); setRoute({ name: 'agencies' }) }}
               />
             )
           })()}
@@ -237,11 +243,12 @@ export default function App(): JSX.Element {
               onDeleted={() => { void Promise.all([refresh(), refreshSessions()]); setRoute(activeAgency ? { name: 'agency', id: activeAgency, tab: 'org' } : { name: 'agencies' }) }}
             />
           )}
-          {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${activeProject?.name ?? ''}:${route.open?.path ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
+          {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${activeProject?.name ?? ''}:${route.open?.path ?? activeView?.agency.boardPath ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat}
+            initial={route.open ?? (activeView ? { projectId: activeView.project.id, path: activeView.agency.boardPath } : undefined)} />}
           {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setRoute({ name: 'newAgency' })} onOpenIn={(_screen, projectId, path) => { openAgencyTab(projectId); setRoute({ name: 'kanban', open: { projectId, path } }) }} />}
           {route.name === 'connectors' && (
             <ConnectorsPage
-              header={activeProject ? <AgencyChannelBar agency={activeProject.name} lead={agencyOf(activeProject, agents).lead?.name ?? null} /> : undefined}
+              header={activeView ? <AgencyChannelBar agency={activeView.agency.name} lead={activeView.lead?.name ?? null} /> : undefined}
               agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })} onChanged={() => void refresh()} />
           )}
           {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
