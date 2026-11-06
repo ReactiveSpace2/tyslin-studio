@@ -8,7 +8,7 @@ import { HeadPicker } from '../components/HeadPicker'
 import { Icon } from '../components/Icon'
 import { RunsOnBadge, runsOnLabel } from '../components/RunsOnBadge'
 import { StatusPill } from '../components/StatusPill'
-import { MODEL_SUGGESTIONS } from './AgentEditor'
+import { MODEL_SUGGESTIONS } from '@shared/models'
 
 type Section = 'overview' | 'instructions' | 'skills' | 'runs' | 'access' | 'channels' | 'tasks' | 'activity'
 

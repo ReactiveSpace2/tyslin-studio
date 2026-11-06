@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AutomationProgress, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -9,8 +9,6 @@ const api: TyslinApi = {
     remove: (id) => ipcRenderer.invoke('agents:remove', id),
     statuses: () => ipcRenderer.invoke('agents:statuses'),
     test: (input) => ipcRenderer.invoke('agents:test', input),
-    starters: () => ipcRenderer.invoke('agents:starters'),
-    addStarter: (name, projectId) => ipcRenderer.invoke('agents:addStarter', name, projectId)
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
@@ -100,13 +98,6 @@ const api: TyslinApi = {
     remove: (projectId, path) => ipcRenderer.invoke('studio:remove', projectId, path),
     reveal: (projectId, path) => ipcRenderer.invoke('studio:reveal', projectId, path),
     ask: (agentId, projectId, prompt, title) => ipcRenderer.invoke('studio:ask', agentId, projectId, prompt, title),
-    runAutomation: (projectId, path) => ipcRenderer.invoke('studio:runAutomation', projectId, path),
-    stopAutomation: (runId) => ipcRenderer.invoke('studio:stopAutomation', runId),
-    onAutomation: (cb) => {
-      const fn = (_e: unknown, p: AutomationProgress): void => cb(p)
-      ipcRenderer.on('automation:progress', fn)
-      return () => ipcRenderer.removeListener('automation:progress', fn)
-    }
   },
   drive: {
     list: (projectId, dir, showHidden) => ipcRenderer.invoke('drive:list', projectId, dir, showHidden),
@@ -127,10 +118,6 @@ const api: TyslinApi = {
     linkCode: () => ipcRenderer.invoke('telegram:linkCode'),
     unlink: (id) => ipcRenderer.invoke('telegram:unlink', id),
     setNotify: (p) => ipcRenderer.invoke('telegram:setNotify', p)
-  },
-  teams: {
-    status: () => ipcRenderer.invoke('teams:status'),
-    create: (input) => ipcRenderer.invoke('teams:create', input)
   },
   gdrive: {
     status: () => ipcRenderer.invoke('gdrive:status'),

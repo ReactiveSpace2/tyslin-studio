@@ -211,7 +211,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
         {dm && (
           <button type="button" className={'status-item status-btn' + (dm.ready ? '' : ' attention')} onClick={() => onNavigate({ name: 'settings', tab: 'models' })}
             title={dm.ready
-              ? `Default model, used by Mind mapper, Canvas and Automation: ${modelLabel(dm)}. Click to change it.`
+              ? `Default model, used by the Leads and cards on "Default model": ${modelLabel(dm)}. Click to change it.`
               : `The default model needs a ${PROVIDER_NAME[dm.provider]} key. Click to add one.`}>
             <Icon name="agents" size={12} />
             <span className="mono">{modelLabel(dm)}</span>

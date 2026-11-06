@@ -9,7 +9,7 @@ type IconName = Parameters<typeof Icon>[0]['name']
 interface Props {
   projects: Project[]
   onNewProject: () => void
-  /** Open a mind map, automation or Canvas design in its own screen. */
+  /** Open a board in Kanban. */
   onOpenIn: (screen: 'mindmap' | 'automation' | 'canvas' | 'kanban', projectId: string, path: string) => void
 }
 
@@ -72,10 +72,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     if (e.isDir) return go(e.path)
     const pid = listing?.projectId
     if (!pid) return
-    if (e.kind === 'mindmap') return onOpenIn('mindmap', pid, e.path)
     if (e.kind === 'board') return onOpenIn('kanban', pid, e.path)
-    if (e.kind === 'automation') return onOpenIn('automation', pid, e.path)
-    if (e.kind === 'canvas') return onOpenIn('canvas', pid, e.path)
     void window.tyslin.drive.open(projectId, e.path)
   }
   const submitName = (): void => {
@@ -181,7 +178,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
             </div>
             <div className="row" style={{ gap: 6 }}>
               <button type="button" className="btn btn-sm btn-primary" onClick={() => openEntry(sel)}>
-                {sel.isDir ? 'Open folder' : sel.kind === 'mindmap' ? 'Open in Mind mapper' : sel.kind === 'board' ? 'Open in Kanban' : sel.kind === 'automation' ? 'Open in Automation' : sel.kind === 'canvas' ? 'Open in Canvas' : 'Open'}
+                {sel.isDir ? 'Open folder' : sel.kind === 'board' ? 'Open in Kanban' : 'Open'}
               </button>
               {!sel.isDir && ['mindmap', 'automation', 'canvas', 'board'].includes(sel.kind) && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
               <button type="button" className="btn btn-sm" onClick={() => setNaming({ mode: 'rename', value: sel.name })}>Rename</button>

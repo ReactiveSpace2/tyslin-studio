@@ -1,13 +1,13 @@
 import Database from 'better-sqlite3'
 import { app } from 'electron'
 import { join } from 'path'
-import { mkdirSync } from 'fs'
+import { existsSync, mkdirSync, renameSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
-import { AGENT_LIBRARY_VERSION, ASSISTANT_LIBRARY_VERSION, BUILT_IN_AGENTS, BUILT_IN_ASSISTANTS, RETIRED_AGENTS } from './seedAgents'
+import { BUILT_IN_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
-import { DEFAULT_HEADS, HEAD_IDS } from '@shared/heads'
+import { HEAD_IDS } from '@shared/heads'
 import type { Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
 /**
@@ -21,6 +21,20 @@ let home: Database.Database
 let db: Database.Database
 
 export const DEFAULT_ORG = 'default'
+
+/**
+ * Schema generation, kept in SQLite's user_version. 2 = the agencies schema (6 Nov 2026). A home database
+ * from before it is set aside as tyslin-v0.5.db (with its orgs/ folder as orgs-v0.5/) and a fresh one is
+ * created; only per-computer settings are copied across (see COPIED_SETTINGS).
+ */
+export const SCHEMA_VERSION = 2
+const OLD_SUFFIX = '-v0.5'
+/** Settings carried into a fresh database: keys, the account, appearance, Telegram, Drive. Not `onboarded`, so setup runs. */
+const COPIED_SETTINGS = (key: string): boolean =>
+  key.startsWith('secret:') || key.startsWith('engine:') || key.startsWith('telegram:') || key.startsWith('gdrive:') ||
+  key === 'account' || key === 'ollamaUrl' || key === 'pref:theme' || key === 'pref:zoom' ||
+  key === 'pref:iconStyle' || key === 'pref:railLabels' || key === 'pref:accent' ||
+  key === 'pref:defaultProvider' || key === 'pref:defaultModel'
 
 /** Settings shared by every organization on this computer. Everything else is per organization. */
 const GLOBAL_SETTING = (key: string): boolean =>
@@ -42,14 +56,36 @@ function openOrgDb(id: string): Database.Database {
   if (id === DEFAULT_ORG) home = d
   migrate()
   seed()
-  seedAssistants()
   seedSkills()
-  seedHeads()
   return d
 }
 
+/** Moves a pre-agencies home database (and its orgs/) aside and returns the settings worth copying from it. */
+function setAsideOldDb(): [string, string][] {
+  const file = orgFile(DEFAULT_ORG)
+  if (!existsSync(file)) return []
+  const probe = new Database(file)
+  const version = probe.pragma('user_version', { simple: true }) as number
+  if (version >= SCHEMA_VERSION) { probe.close(); return [] }
+  let rows: [string, string][] = []
+  try {
+    rows = (probe.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[])
+      .filter((r) => COPIED_SETTINGS(r.key)).map((r) => [r.key, r.value])
+  } catch { /* no settings table: nothing to copy */ }
+  probe.close()
+  const base = app.getPath('userData')
+  for (const ext of ['', '-wal', '-shm']) {
+    if (existsSync(file + ext)) renameSync(file + ext, join(base, `tyslin${OLD_SUFFIX}.db${ext}`))
+  }
+  if (existsSync(join(base, 'orgs'))) renameSync(join(base, 'orgs'), join(base, `orgs${OLD_SUFFIX}`))
+  return rows
+}
+
 export function openDb(): Database.Database {
+  const copied = setAsideOldDb()
   openOrgDb(DEFAULT_ORG)
+  home.pragma(`user_version = ${SCHEMA_VERSION}`)
+  for (const [key, value] of copied) setSetting(key, value)
   home.exec('CREATE TABLE IF NOT EXISTS orgs (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL)')
   if (!(home.prepare('PRAGMA table_info(orgs)').all() as { name: string }[]).some((c) => c.name === 'color')) {
     home.exec("ALTER TABLE orgs ADD COLUMN color TEXT NOT NULL DEFAULT 'lime'")
@@ -151,6 +187,17 @@ function migrate(): void {
   addColumn('agents', 'last_error', "TEXT NOT NULL DEFAULT ''")
   addColumn('agents', 'head', 'TEXT')
   addColumn('agents', 'team', "TEXT NOT NULL DEFAULT ''")
+  // Agencies (6 Nov 2026): a Lead and its workers around one project, a board, a channel and a budget.
+  addColumn('agents', 'agency', 'TEXT')
+  db.exec(`CREATE TABLE IF NOT EXISTS agencies (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', goal TEXT NOT NULL DEFAULT '',
+    prompt TEXT NOT NULL DEFAULT '', plan TEXT NOT NULL DEFAULT '[]', template_id TEXT NOT NULL DEFAULT '',
+    lead_id TEXT, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    adapter TEXT NOT NULL DEFAULT '', board_path TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL DEFAULT '{}', notify TEXT NOT NULL DEFAULT 'questions',
+    budget REAL, spent REAL NOT NULL DEFAULT 0, auto_run INTEGER NOT NULL DEFAULT 0,
+    paused INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  )`)
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
   // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
@@ -187,56 +234,11 @@ function addColumn(table: string, column: string, definition: string): void {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
 }
 
-/**
- * Adds built-in agents (seedAgents.ts) new since this install last seeded, matched by name, so an
- * agent the user renamed or deleted isn't recreated until the library version is bumped again.
- * Version 1 also retires the old sample agents, but only ones without chats.
- */
+/** Every database gets Builder (the mascot) once. Agencies bring their own agents; there are no other built-ins. */
 function seed(): void {
-  const version = Number(getSetting('seed:agentsVersion') ?? 0)
-  if (version >= AGENT_LIBRARY_VERSION) return
-  db.transaction(() => {
-    if (version < 1) {
-      const retire = db.prepare(`DELETE FROM agents WHERE name = ? AND is_mascot = 0
-        AND NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.agent_id = agents.id)`)
-      for (const name of RETIRED_AGENTS) retire.run(name)
-    }
-    const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
-    // A brand-new database (fresh install or new organization) gets Atlas and the Engineering team in its
-    // Default project once setup is done (main/teams.ts ensureDefaultTeam). Existing ones are left alone.
-    const fresh = version === 0 && names.size === 0
-    if (fresh) setSetting('seed:defaultTeam', 'pending')
-    const hasMascot = !!db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()
-    for (const a of BUILT_IN_AGENTS) {
-      if (names.has(a.name) || (a.isMascot && hasMascot)) continue
-      // Fresh databases: only Builder and Atlas; the other starters are templates added from "New agent".
-      if (fresh && !a.isMascot && a.name !== 'Atlas') continue
-      saveAgent(a)
-    }
-    setSetting('seed:agentsVersion', String(AGENT_LIBRARY_VERSION))
-  })()
-}
-
-/** Same as seed(), for the starter assistants, with its own version so either list can grow alone. */
-function seedAssistants(): void {
-  if (Number(getSetting('seed:assistantsVersion') ?? 0) >= ASSISTANT_LIBRARY_VERSION) return
-  db.transaction(() => {
-    // Fresh databases start with no assistants: the starters are templates added from "New assistant".
-    const fresh = getSetting('seed:defaultTeam') === 'pending' && Number(getSetting('seed:assistantsVersion') ?? 0) === 0
-    const names = new Set((db.prepare('SELECT name FROM agents').all() as { name: string }[]).map((r) => r.name))
-    if (!fresh) for (const a of BUILT_IN_ASSISTANTS) if (!names.has(a.name)) saveAgent(a)
-    setSetting('seed:assistantsVersion', String(ASSISTANT_LIBRARY_VERSION))
-  })()
-}
-
-/** Once per database: starter agents and assistants get their mascot heads, unless a head is already set. */
-function seedHeads(): void {
-  if (getSetting('seed:headsVersion') === '1') return
-  const set = db.prepare('UPDATE agents SET head = ? WHERE name = ? AND head IS NULL AND is_mascot = 0')
-  db.transaction(() => {
-    for (const [name, head] of Object.entries(DEFAULT_HEADS)) set.run(head, name)
-    setSetting('seed:headsVersion', '1')
-  })()
+  if (db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()) return
+  const builder = BUILT_IN_AGENTS.find((a) => a.isMascot)
+  if (builder) saveAgent(builder)
 }
 
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */

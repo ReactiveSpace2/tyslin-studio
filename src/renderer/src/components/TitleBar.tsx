@@ -15,8 +15,7 @@ interface Props {
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
-  home: 'Home', agencies: 'Agencies', tasks: 'Scheduled tasks', skills: 'Skills', settings: 'Settings', art: 'Image', videos: 'Videos',
-  automation: 'Automation', canvas: 'Canvas', mindmap: 'Mind mapper', kanban: 'Kanban', drive: 'Drive', knowledge: 'Knowledge base', connectors: 'Channel'
+  home: 'Home', agencies: 'Agencies', skills: 'Skills', settings: 'Settings', kanban: 'Kanban', drive: 'Drive', connectors: 'Channel'
 }
 
 interface Crumb { label: string; to?: Route }
@@ -37,13 +36,11 @@ function crumbsFor(route: Route, agents: Agent[], projects: Project[], agencyId:
         : [agencies, { label: p?.name ?? 'Agency' }]
     }
     case 'kanban': return agencyId ? [...agency(agencyId), { label: 'Board' }] : [{ label: 'Kanban' }]
-    case 'agents': return [{ label: route.kind === 'assistant' ? 'Assistants' : 'Agents' }]
     case 'editor': {
       const a = agents.find((x) => x.id === route.agentId)
-      if (!a) return [{ label: route.kind === 'assistant' ? 'New assistant' : 'New agent' }]
-      if (a.kind === 'assistant') return [{ label: 'Assistants', to: { name: 'agents', kind: 'assistant' } }, { label: a.name }]
+      if (!a) return [agencies, { label: 'Agent' }]
       const up = agency(a.projectId)
-      return up.length ? [...up, { label: a.name }] : [{ label: 'Agents', to: { name: 'agents', kind: 'agent' } }, { label: a.name }]
+      return up.length ? [...up, { label: a.name }] : [agencies, { label: a.name }]
     }
     case 'chat': {
       const a = agents.find((x) => x.id === route.agentId)

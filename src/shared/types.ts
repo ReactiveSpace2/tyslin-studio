@@ -718,9 +718,6 @@ export interface TyslinApi {
     /** Sends one short message (built-in models) or runs the engine handshake. Works on unsaved drafts too. */
     test(input: AgentInput): Promise<AgentTestResult>
     /** The starter agents and assistants that can be added to a project. */
-    starters(): Promise<StarterInfo[]>
-    /** Adds a copy of a starter to the project. */
-    addStarter(name: string, projectId: string): Promise<Agent>
   }
   projects: {
     list(): Promise<Project[]>
@@ -822,10 +819,6 @@ export interface TyslinApi {
     reveal(projectId: string | null, path?: string): Promise<void>
     /** One message to an agent or assistant in a new chat titled `title`; resolves with its reply. */
     ask(agentId: string, projectId: string | null, prompt: string, title: string): Promise<AskResult>
-    /** Runs an automation now from its triggers; returns the run id (progress arrives on onAutomation). */
-    runAutomation(projectId: string | null, path: string): Promise<string>
-    stopAutomation(runId: string): Promise<void>
-    onAutomation(cb: (p: AutomationProgress) => void): () => void
   }
   drive: {
     list(projectId: string | null, dir: string, showHidden?: boolean): Promise<DriveListing>
@@ -852,10 +845,6 @@ export interface TyslinApi {
     linkCode(): Promise<TelegramStatus>
     unlink(chatId: number): Promise<TelegramStatus>
     setNotify(p: Partial<TelegramNotify>): Promise<TelegramStatus>
-  }
-  teams: {
-    status(): Promise<TeamsStatus>
-    create(input: TeamCreateInput): Promise<TeamCreateResult>
   }
   gdrive: {
     status(): Promise<GDriveStatus>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Agent, AgentInput, AgentTestResult, EngineStatus, ExternalEngineId, Project, ProviderId, ProviderSettings, Shape, Skill, Tone } from '@shared/types'
-import { MODEL_SUGGESTIONS } from '../pages/AgentEditor'
+import { MODEL_SUGGESTIONS } from '@shared/models'
 import { getDefaultModel } from '../defaultModel'
 import { getCurrentProject } from '../currentProject'
 import { Avatar } from './Avatar'

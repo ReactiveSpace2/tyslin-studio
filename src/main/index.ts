@@ -13,12 +13,9 @@ import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant }
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { inWorkspace } from '@shared/scope'
 import { createProjectFolder, newProjectFolderPath, defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
-import { type AutomationDeps, migrateWorkflows, runAutomation, runDueAutomations, stopAutomation } from './automation'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
-import { createTeam, ensureDefaultTeam, teamsStatus } from './teams'
 import { resetEverything, resetting } from './reset'
-import { addStarter, listStarters } from './starters'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
@@ -164,13 +161,9 @@ function startScheduler(): void {
       try { runTask(t, true) } catch { /* recorded on the task */ }
     }
   }
-  // Active automations with a schedule trigger, in every project of the current organization.
-  const autoTick = (): void => {
-    try { runDueAutomations(Date.now(), (projectId, path) => { startAutomation(projectId, path, 'schedule') }) } catch { /* next tick */ }
-  }
-  const both = (): void => { if (!resetting) { tick(); autoTick() } }
-  setTimeout(both, 5000)
-  setInterval(both, 30_000)
+  const safe = (): void => { if (!resetting) tick() }
+  setTimeout(safe, 5000)
+  setInterval(safe, 30_000)
 }
 
 const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' }
@@ -263,23 +256,6 @@ async function askAgent(agentId: string, projectId: string | null, prompt: strin
   }
 }
 
-/** What automation runs need from the rest of the app. */
-const automationDeps: AutomationDeps = {
-  ask: (agentId, projectId, prompt, title, onSession) => askAgent(agentId, projectId, prompt, title, onSession),
-  stopSession: (sessionId) => {
-    const active = activeRuns.get(sessionId)
-    if (active) { active.controller.abort(); expireRunChanges(active.runId); cancelRunPermissions(active.runId) }
-  },
-  sendTelegram: (text) => sendToLinkedChats(text),
-  emit: (p) => { win?.webContents.send('automation:progress', p) }
-}
-
-function startAutomation(projectId: string | null, path: string, trigger: 'manual' | 'schedule'): string {
-  const runId = randomUUID()
-  void runAutomation(runId, projectId, path, trigger, automationDeps)
-  return runId
-}
-
 function createWindow(): void {
   applyTheme()
   // No File/Edit/View menu bar on Windows and Linux; the app draws its own title bar. macOS keeps its menu in the system bar.
@@ -320,8 +296,6 @@ function registerIpc(): void {
   ipcMain.handle('agents:list', () => {
     // Every organization has a Studio assistant on the default model (per computer); it catches up here.
     studioAssistant()
-    // Fresh installs and new organizations: Atlas and the Engineering team in the Default project, once.
-    ensureDefaultTeam()
     return db.listAgents()
   })
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
@@ -335,12 +309,10 @@ function registerIpc(): void {
     return saved
   })
   ipcMain.handle('agents:remove', (_e, id: string) => {
-    if (isStudioAssistant(id)) throw new Error('Studio runs your default model for Mind mapper, Canvas and Automation, so it stays. Change its model in Settings → Models.')
+    if (isStudioAssistant(id)) throw new Error('Studio runs your default model for cards and the agency screens, so it stays. Change its model in Settings → Models.')
     db.removeAgent(id)
   })
   ipcMain.handle('agents:statuses', () => agentStatuses())
-  ipcMain.handle('agents:starters', () => listStarters())
-  ipcMain.handle('agents:addStarter', (_e, name: string, projectId: string) => addStarter(String(name ?? ''), String(projectId ?? '')))
   ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
   ipcMain.handle('projects:list', () => db.listProjects())
@@ -478,12 +450,6 @@ function registerIpc(): void {
     return next
   })
 
-  ipcMain.handle('teams:status', () => teamsStatus())
-  ipcMain.handle('teams:create', (_e, input: TeamCreateInput) => {
-    const r = createTeam(input)
-    win?.webContents.send('tasks:changed')
-    return r
-  })
   ipcMain.handle('gdrive:status', () => gdriveStatus())
   ipcMain.handle('gdrive:connect', async () => {
     await connectDrive()
@@ -537,19 +503,13 @@ function registerIpc(): void {
     return runTask(t, false)
   })
   ipcMain.handle('studio:defaultProject', () => defaultProject())
-  ipcMain.handle('studio:list', (_e, kind: StudioKind, projectId: string | null) => {
-    // Old Workflows files are converted into automations the first time Automation lists them.
-    if (kind === 'automation') { try { migrateWorkflows(projectFor(projectId)) } catch { /* listed below either way */ } }
-    return listStudioFiles(kind, projectId)
-  })
+  ipcMain.handle('studio:list', (_e, kind: StudioKind, projectId: string | null) => listStudioFiles(kind, projectId))
   ipcMain.handle('studio:read', (_e, projectId: string | null, path: string) => readStudioFile(projectId, path))
   ipcMain.handle('studio:write', (_e, projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string, encoding?: 'utf8' | 'base64') =>
     writeStudioFile(projectId, target, String(content ?? ''), encoding === 'base64' ? 'base64' : 'utf8'))
   ipcMain.handle('studio:remove', (_e, projectId: string | null, path: string) => removeStudioFile(projectId, path))
   ipcMain.handle('studio:reveal', (_e, projectId: string | null, path?: string) => revealStudioFile(projectId, path))
   ipcMain.handle('studio:ask', (_e, agentId: string, projectId: string | null, prompt: string, title: string) => askAgent(agentId, projectId, String(prompt ?? ''), String(title ?? 'Chat')))
-  ipcMain.handle('studio:runAutomation', (_e, projectId: string | null, path: string) => startAutomation(projectId, String(path ?? ''), 'manual'))
-  ipcMain.handle('studio:stopAutomation', (_e, runId: string) => stopAutomation(runId, automationDeps))
   ipcMain.handle('drive:list', (_e, projectId: string | null, dir: string, showHidden?: boolean) => driveList(projectId, String(dir ?? ''), !!showHidden))
   ipcMain.handle('drive:preview', (_e, projectId: string | null, path: string) => drivePreview(projectId, path))
   ipcMain.handle('drive:mkdir', (_e, projectId: string | null, dir: string, name: string) => driveMkdir(projectId, String(dir ?? ''), String(name ?? '')))
