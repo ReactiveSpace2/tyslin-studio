@@ -494,7 +494,7 @@ function AboutTab(): JSX.Element {
       <section className="box" aria-labelledby="data-h">
         <div className="box-head">
           <h2 id="data-h">Your data</h2>
-          <p className="hint">Agents, chats, projects and skills live in a local database, one per organization. Tyslin sends nothing anywhere except your messages to the model providers you set up, Google when you sign in, and requests to GitHub for updates, skill packs and the star count.</p>
+          <p className="hint">Agencies, agents, chats and skills live in a local database, one per organization; boards and the files your agents make are in each agency's folder. Tyslin sends nothing anywhere except your work to the model providers and adapters you set up (Claude Code, Codex, Gemini CLI, Hermes and the others run on this computer and talk to their own services), the Lead's messages to the Telegram or Slack chats you link, Google when you sign in or sync Drive, and requests to GitHub for updates, skill packs and the star count.</p>
         </div>
         <div className="kv">
           <span>Location</span><span className="mono path-inline">{info?.dataPath ?? '…'}</span>
