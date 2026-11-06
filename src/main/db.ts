@@ -8,7 +8,7 @@ import { BUILT_IN_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import { HEAD_IDS } from '@shared/heads'
-import type { Agency, AgencyUpdateInput, Agent, AgentInput, ChangeStatus, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
+import type { Agency, AgencyUpdateInput, Agent, AgentInput, ChangeStatus, ChannelMessage, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -197,6 +197,11 @@ function migrate(): void {
     channel TEXT NOT NULL DEFAULT '{}', notify TEXT NOT NULL DEFAULT 'questions',
     budget REAL, spent REAL NOT NULL DEFAULT 0, auto_run INTEGER NOT NULL DEFAULT 0,
     paused INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  )`)
+  // Messages from agency Leads to the boss, delivered or not (channels.ts).
+  db.exec(`CREATE TABLE IF NOT EXISTS channel_messages (
+    id TEXT PRIMARY KEY, agency_id TEXT NOT NULL, agent_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
+    via TEXT NOT NULL DEFAULT 'app', delivered INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
   )`)
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
@@ -894,4 +899,22 @@ export function removeAgency(id: string): void {
     db.prepare('DELETE FROM gsync_projects WHERE project_id = ?').run(a.projectId)
     db.prepare('DELETE FROM projects WHERE id = ?').run(a.projectId)
   })()
+}
+
+// ---- Channel messages (Lead → boss) ---------------------------------------------------------------------
+
+const MESSAGE_COLS = 'id, agency_id AS agencyId, agent_id AS agentId, kind, text, via, delivered, created_at AS createdAt'
+
+export function addChannelMessage(m: ChannelMessage): ChannelMessage {
+  db.prepare('INSERT INTO channel_messages (id, agency_id, agent_id, kind, text, via, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(m.id, m.agencyId, m.agentId, m.kind, m.text, m.via, m.delivered ? 1 : 0, m.createdAt)
+  return m
+}
+
+export function listChannelMessages(agencyId?: string, limit = 100): ChannelMessage[] {
+  type Row = Omit<ChannelMessage, 'delivered'> & { delivered: number }
+  const rows = (agencyId
+    ? db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages WHERE agency_id = ? ORDER BY created_at DESC LIMIT ?`).all(agencyId, limit)
+    : db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages ORDER BY created_at DESC LIMIT ?`).all(limit)) as Row[]
+  return rows.map((r) => ({ ...r, delivered: !!r.delivered }))
 }

@@ -340,6 +340,31 @@ export interface TelegramNotify {
   failures: boolean
 }
 
+export interface SlackStatus {
+  connected: boolean
+  botName: string
+  linked: { channelId: string; name: string }[]
+  running: boolean
+  error: string
+  /** The open one-time code, if any: post "tyslin CODE" in the channel after inviting the bot. */
+  linkCode: string | null
+}
+
+export type MessageKind = 'brief' | 'question' | 'review' | 'digest'
+
+/** A message from an agency's Lead to the boss, kept whether or not it left the app (channels.ts). */
+export interface ChannelMessage {
+  id: string
+  agencyId: string
+  agentId: string
+  kind: MessageKind
+  text: string
+  /** Where it was delivered; 'app' when it stayed in Tyslin. */
+  via: 'telegram' | 'slack' | 'app'
+  delivered: boolean
+  createdAt: number
+}
+
 export interface TelegramStatus {
   /** A bot token is saved. */
   connected: boolean
@@ -861,6 +886,18 @@ export interface TyslinApi {
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
     /** Fires when the zoom changes anywhere (slider, Settings or keyboard shortcut). */
     onZoom(cb: (zoom: number) => void): () => void
+  }
+  slack: {
+    status(): Promise<SlackStatus>
+    /** Checks the token with Slack, then saves it encrypted; '' disconnects. */
+    setToken(token: string): Promise<SlackStatus>
+    linkCode(): Promise<SlackStatus>
+    unlink(channelId: string): Promise<SlackStatus>
+  }
+  channels: {
+    /** Messages Leads sent the boss, newest first; for one agency when given. */
+    list(agencyId?: string): Promise<ChannelMessage[]>
+    onMessage(cb: (m: ChannelMessage) => void): () => void
   }
   agencies: {
     list(): Promise<Agency[]>

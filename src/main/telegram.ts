@@ -200,6 +200,11 @@ export function onRunEvent(e: RunEvent): void {
 }
 
 /** Sends a message to every linked chat (Automation's Telegram node). Returns how many got it. */
+/** Makes `agentId` the one that answers in every linked chat (a Lead that just messaged the boss). */
+export function pointLinkedChatsAt(agentId: string): void {
+  for (const l of links()) currentAgent.set(l.chatId, agentId)
+}
+
 export async function sendToLinkedChats(text: string): Promise<number> {
   if (!token()) throw new Error('Telegram is not connected. Add your bot in Connectors first.')
   const targets = links()

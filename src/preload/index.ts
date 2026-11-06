@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { ChannelMessage, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -78,6 +78,20 @@ const api: TyslinApi = {
       const fn = (_e: unknown, z: number): void => cb(z)
       ipcRenderer.on('zoom:changed', fn)
       return () => ipcRenderer.removeListener('zoom:changed', fn)
+    }
+  },
+  slack: {
+    status: () => ipcRenderer.invoke('slack:status'),
+    setToken: (t) => ipcRenderer.invoke('slack:setToken', t),
+    linkCode: () => ipcRenderer.invoke('slack:linkCode'),
+    unlink: (id) => ipcRenderer.invoke('slack:unlink', id)
+  },
+  channels: {
+    list: (agencyId) => ipcRenderer.invoke('channels:list', agencyId),
+    onMessage: (cb) => {
+      const fn = (_e: unknown, m: ChannelMessage): void => cb(m)
+      ipcRenderer.on('channel:message', fn)
+      return () => ipcRenderer.removeListener('channel:message', fn)
     }
   },
   agencies: {

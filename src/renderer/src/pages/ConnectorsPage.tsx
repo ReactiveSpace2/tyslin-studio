@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent, TelegramNotify, TelegramStatus } from '@shared/types'
+import type { Agent, SlackStatus, TelegramNotify, TelegramStatus } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { ToggleRow } from '../components/CreateAgentModal'
 import { Icon } from '../components/Icon'
@@ -23,11 +23,13 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props): JSX.Element {
   const [pick, setPick] = useState<Channel>('telegram')
   const [tg, setTg] = useState<TelegramStatus | null>(null)
+  const [sl, setSl] = useState<SlackStatus | null>(null)
+  const [slToken, setSlToken] = useState('')
   const [token, setToken] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = (): void => { void window.tyslin.telegram.status().then(setTg) }
+  const load = (): void => { void window.tyslin.telegram.status().then(setTg); void window.tyslin.slack.status().then(setSl) }
   useEffect(() => {
     load()
     const t = setInterval(load, 4000) // the linked list changes when you send /start from Telegram
@@ -51,6 +53,14 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
     setTg(await window.tyslin.telegram.setToken(''))
   }
   const setNotify = async (p: Partial<TelegramNotify>): Promise<void> => setTg(await window.tyslin.telegram.setNotify(p))
+  const saveSlack = async (): Promise<void> => {
+    setBusy(true); setError(null)
+    try { setSl(await window.tyslin.slack.setToken(slToken)); setSlToken('') } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
+  }
+  const disconnectSlack = async (): Promise<void> => {
+    if (!window.confirm('Disconnect Slack? Linked channels are forgotten and Leads stop answering there.')) return
+    setSl(await window.tyslin.slack.setToken(''))
+  }
   const toggleAgent = async (a: Agent): Promise<void> => {
     await window.tyslin.agents.save({ ...a, channels: { ...a.channels, telegram: !a.channels.telegram } })
     onChanged()
@@ -58,7 +68,7 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
 
   const CHANNELS: [Channel, string, string, string, string][] = [
     ['telegram', 'Telegram', 'Chat, task results and approvals from your phone', tg?.connected ? 'Connected' : 'Set up', tg?.connected ? 'green' : ''],
-    ['slack', 'Slack', 'Agents answer in your workspace when mentioned', 'Coming soon', 'soon'],
+    ['slack', 'Slack', 'Your agency Leads in one of your channels', sl?.connected ? 'Connected' : 'Set up', sl?.connected ? 'green' : ''],
     ['discord', 'Discord', 'A bot in your server for your agents', 'Coming soon', 'soon'],
     ['whatsapp', 'WhatsApp', 'Needs a public address for messages', 'Hosted plan', 'soon'],
     ['email', 'Email', 'An inbox address for each agent', 'Coming soon', 'soon']
@@ -152,7 +162,55 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
             <p className="hint">Agents answer while Tyslin is open on this computer; messages sent while it's closed are picked up when you open it. Each agent keeps one "Telegram" chat in the app, so you can read the whole conversation there.</p>
           </>
         )}
-        {pick === 'slack' && <Soon name="Slack" text="Agents will answer in your Slack workspace when mentioned, connected from this computer with Slack's Socket Mode, so no public server is needed." />}
+        {pick === 'slack' && sl && (
+          <>
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2 style={{ fontSize: 22 }}>Slack</h2>
+              {sl.connected && <button type="button" className="btn" onClick={() => void disconnectSlack()}>Disconnect</button>}
+            </div>
+            {sl.connected && sl.error && <p className="hint account-error" role="alert">Can't reach Slack right now: {sl.error}</p>}
+            <section className="cn-step">
+              <span className={'cn-num' + (sl.connected ? ' done' : '')}>{sl.connected ? <Icon name="check" size={13} /> : 1}</span>
+              <div className="cn-body">
+                <strong>Your Slack app</strong>
+                <span className="hint">Create an app at api.slack.com/apps, add the bot scopes chat:write, channels:read, groups:read, channels:history and groups:history, install it to your workspace and paste the Bot User OAuth Token. It's stored encrypted on this computer.</span>
+                {sl.connected ? <span className="ok">Connected as @{sl.botName}</span> : (
+                  <form className="row" onSubmit={(e) => { e.preventDefault(); void saveSlack() }}>
+                    <input className="input" style={{ flex: 1, minWidth: 260 }} type="password" placeholder="xoxb-…" aria-label="Slack bot token" value={slToken} onChange={(e) => setSlToken(e.target.value)} />
+                    <button type="submit" className="btn btn-primary" disabled={!slToken.trim() || busy}>{busy ? 'Checking…' : 'Connect'}</button>
+                  </form>
+                )}
+                {error && <span className="hint account-error" role="alert">{error}</span>}
+              </div>
+            </section>
+            <section className={'cn-step' + (sl.connected ? '' : ' off')}>
+              <span className={'cn-num' + (sl.linked.length ? ' done' : '')}>{sl.linked.length ? <Icon name="check" size={13} /> : 2}</span>
+              <div className="cn-body">
+                <strong>Link a channel</strong>
+                <span className="hint">Invite the bot to the channel (/invite @{sl.botName || 'yourbot'}), then post the code there. Only linked channels can talk to your Leads; everything else is ignored.</span>
+                {sl.linked.map((l) => (
+                  <div key={l.channelId} className="row"><span className="ok">Linked: #{l.name}</span>
+                    <button type="button" className="link-btn" onClick={() => void window.tyslin.slack.unlink(l.channelId).then(setSl)}>Unlink</button></div>
+                ))}
+                {sl.linkCode ? (
+                  <div className="cn-code">Post <code className="mono">tyslin {sl.linkCode}</code> in the channel. The code works for 10 minutes.</div>
+                ) : (
+                  <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} disabled={!sl.connected} onClick={() => void window.tyslin.slack.linkCode().then(setSl)}>
+                    {sl.linked.length ? 'Link another channel' : 'Get a link code'}
+                  </button>
+                )}
+              </div>
+            </section>
+            <section className={'cn-step' + (sl.connected ? '' : ' off')}>
+              <span className="cn-num">3</span>
+              <div className="cn-body">
+                <strong>Who answers here</strong>
+                <span className="hint">Only agency Leads talk to you on Slack. A reply in a linked channel goes to the Lead that last wrote there (or the first agency's Lead). Workers never message you.</span>
+              </div>
+            </section>
+            <p className="hint">Tyslin checks the linked channels every few seconds while it's open on this computer; messages sent while it's closed are picked up when you open it.</p>
+          </>
+        )}
         {pick === 'discord' && <Soon name="Discord" text="A bot in your Discord server, connected from this computer, with the same linked-accounts rule as Telegram." />}
         {pick === 'whatsapp' && <Soon name="WhatsApp" text="WhatsApp only delivers messages to a public web address, which a desktop app on your computer doesn't have. It will come with the hosted plan, which runs that address for you." />}
         {pick === 'email' && <Soon name="Email" text="Email an agent at its own address and get replies, task results and approval requests in your inbox." />}

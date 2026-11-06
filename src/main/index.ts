@@ -25,6 +25,8 @@ import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { cardsOnRunEvent, initCards, onChangeResolved, planNow, runCard, runningCards } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
+import { sendToBoss, setChannelMessageHook } from './channels'
+import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
 import type { AgencyCreateInput, AgencyUpdateInput, Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
@@ -312,14 +314,9 @@ async function openrouterModels(): Promise<{ id: string; name: string }[]> {
 function initAgencies(): void {
   initCards({ startRun, runTask })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
-  // Until channels.ts (Phase 5): a Lead's message goes to the linked Telegram chats when the agency uses Telegram.
-  boardHooks.messageBoss = async (agency, from, kind, text) => {
-    const line = `${from.name} · ${agency.name} · ${kind}\n\n${text.trim()}`
-    if (agency.channel.kind === 'telegram') {
-      try { const n = await sendToLinkedChats(line); return `Sent to the boss on Telegram (${n} chat${n === 1 ? '' : 's'}).` } catch (err) { return `Could not send on Telegram: ${err instanceof Error ? err.message : String(err)}. The boss will see it in this chat.` }
-    }
-    return 'No channel is set up for this agency; the boss will see this in the chat and on the board.'
-  }
+  // Every Lead → boss message goes through the gateway (Lead-only, the agency's notify setting, Telegram or Slack).
+  boardHooks.messageBoss = (agency, from, kind, text) => sendToBoss(agency, from, kind, text)
+  setChannelMessageHook((m) => win?.webContents.send('channel:message', m))
 }
 
 function registerIpc(): void {
@@ -535,6 +532,11 @@ function registerIpc(): void {
   ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
   ipcMain.handle('agencies:remove', (_e, id: string) => { removeAgency(id); win?.webContents.send('tasks:changed') })
   ipcMain.handle('agencies:plan', (_e, id: string) => planNow(id))
+  ipcMain.handle('slack:status', () => slackStatus())
+  ipcMain.handle('slack:setToken', (_e, t: string) => setSlackToken(String(t ?? '')))
+  ipcMain.handle('slack:linkCode', () => newSlackLinkCode())
+  ipcMain.handle('slack:unlink', (_e, id: string) => unlinkSlackChannel(String(id ?? '')))
+  ipcMain.handle('channels:list', (_e, agencyId?: string) => db.listChannelMessages(agencyId || undefined))
   ipcMain.handle('cards:run', (_e, agencyId: string, cardId: string) => runCard(agencyId, cardId))
   ipcMain.handle('cards:running', () => runningCards())
 
@@ -614,6 +616,7 @@ app.whenReady().then(() => {
   createWindow()
   startScheduler()
   void initTelegram({ startRun: (sid, text) => startRun(sid, text), resolveChange, answerPermission })
+  void initSlack({ startRun: (sid, text) => startRun(sid, text) })
   initGDrive((s) => { win?.webContents.send('gdrive:status', s) })
   // With the System theme, keep the window buttons and background in step when the OS switches.
   nativeTheme.on('updated', () => {

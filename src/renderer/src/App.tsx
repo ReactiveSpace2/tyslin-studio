@@ -248,7 +248,7 @@ export default function App(): JSX.Element {
           {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setRoute({ name: 'newAgency' })} onOpenIn={(_screen, projectId, path) => { openAgencyTab(projectId); setRoute({ name: 'kanban', open: { projectId, path } }) }} />}
           {route.name === 'connectors' && (
             <ConnectorsPage
-              header={activeView ? <AgencyChannelBar agency={activeView.agency.name} lead={activeView.lead?.name ?? null} /> : undefined}
+              header={activeView ? <AgencyChannelBar agency={activeView.agency} lead={activeView.lead} onChanged={() => void refresh()} /> : undefined}
               agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })} onChanged={() => void refresh()} />
           )}
           {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
