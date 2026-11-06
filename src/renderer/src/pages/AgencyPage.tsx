@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Agency, AgencyUpdateInput, Agent } from '@shared/types'
 import { AGENCY_ADAPTERS } from '@shared/agencies'
 import type { AgencyView } from '../agencies'
@@ -6,13 +6,19 @@ import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { runsOnLabel } from '../components/RunsOnBadge'
+import { LeadChat } from '../components/LeadChat'
 import { type BoardStats, firstName, plural, useBoardStats } from '../boardStats'
 
 interface Props {
   view: AgencyView
-  tab: 'org' | 'edit'
+  /** org: the overview (org chart); chat: the Lead chat beside the plan; edit: the agency's settings. */
+  tab: 'org' | 'chat' | 'edit'
   you: string
-  onTab: (tab: 'org' | 'edit') => void
+  onTab: (tab: 'org' | 'chat' | 'edit') => void
+  /** Opens the agency's Channel screen. */
+  onChannel: () => void
+  /** Messages were marked read: refresh the toolbar's Inbox count. */
+  onCountChange: () => void
   onBoard: () => void
   /** Run: open the Lead's chat in this agency. */
   onRun: (lead: Agent) => void
@@ -49,10 +55,34 @@ function statusLine(lead: Agent | null, b: BoardStats | undefined, paused: boole
 }
 
 /** One agency: its overview (org chart, plan, how it runs) or its settings. The board is Kanban in its folder. */
-export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onChanged, onDeleted }: Props): JSX.Element {
+export function AgencyPage({ view, tab, you, onTab, onChannel, onCountChange, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
   const st = agencyStatus(view)
   const board = useBoardStats([agency])[agency.id]
+  // Lead messages still waiting for an answer, for the Lead chat tab's count.
+  const [waiting, setWaiting] = useState(0)
+  useEffect(() => {
+    const count = (): void => { void window.tyslin.channels.list(agency.id).then((ms) => setWaiting(ms.filter((m) => !m.reply && (m.kind === 'question' || m.kind === 'review')).length)) }
+    count()
+    return window.tyslin.channels.onMessage((m) => { if (m.agencyId === agency.id) count() })
+  }, [agency.id, tab])
+  const side = (
+    <aside className="ag-side">
+      <div className="card ag-box">
+        <span className="eyebrow">Plan</span>
+        {agency.plan.length === 0 && <p className="hint">No plan yet. The Lead writes one from your first brief.</p>}
+        {agency.plan.map((p, i) => <span key={i} className="ag-plan"><span className="mono">{i + 1}</span><span>{p}</span></span>)}
+      </div>
+      <div className="card ag-box">
+        <span className="eyebrow">How it runs</span>
+        <span className="ag-kv"><span className="hint">Workers run on</span><span>{adapterName(agency.adapter)}</span></span>
+        <span className="ag-kv"><span className="hint">Cards</span><span>{agency.autoRun ? 'Lead runs them' : 'You run them'}</span></span>
+        <span className="ag-kv"><span className="hint">Channel</span><span>{channelLabel(agency.channel)}{agency.channel.kind !== 'none' ? ` · ${notifyLabel(agency.notify)}` : ''}</span></span>
+        <span className="ag-kv"><span className="hint">Budget</span><span className="mono">{agency.budget === null ? 'Not set' : `${agency.spent.toFixed(2)} of ${agency.budget}`}</span></span>
+      </div>
+      <button type="button" className="card ag-box ag-link" onClick={onBoard}><span><span className="eyebrow">Board</span><strong>Open the Kanban board</strong></span><Icon name="arrowUp" size={14} /></button>
+    </aside>
+  )
   const [draft, setDraft] = useState<AgencyUpdateInput>({
     name: agency.name, description: agency.description, goal: agency.goal, prompt: agency.prompt, plan: agency.plan,
     adapter: agency.adapter, channel: agency.channel, notify: agency.notify, budget: agency.budget, autoRun: agency.autoRun
@@ -85,15 +115,15 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
         <div>
           <div className="row" style={{ gap: 10 }}>
             <h1>{tab === 'edit' ? `Edit ${agency.name}` : agency.name}</h1>
-            {tab === 'org' && <span className="ag-status"><span className={'ag-dot ' + st.tone} />{st.label}</span>}
+            {tab !== 'edit' && <span className="ag-status"><span className={'ag-dot ' + st.tone} />{st.label}</span>}
           </div>
-          {tab === 'org' && <p className="ag-statusline" role="status">{statusLine(lead, board, agency.paused)}</p>}
-          {tab === 'org' && <p className="hint">{agency.goal || agency.description}</p>}
-          {tab === 'org' && <p className="hint mono">{project.folder ?? 'No folder'}</p>}
+          {tab !== 'edit' && <p className="ag-statusline" role="status">{statusLine(lead, board, agency.paused)}</p>}
+          {tab !== 'edit' && <p className="hint">{agency.goal || agency.description}</p>}
+          {tab !== 'edit' && <p className="hint mono">{project.folder ?? 'No folder'}</p>}
         </div>
         <div className="row">
           {tab === 'edit' && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>}
-          {tab === 'org' && (
+          {tab !== 'edit' && (
             <>
               <button type="button" className="btn" onClick={() => void togglePause()}>{agency.paused ? 'Resume' : 'Pause'}</button>
               <button type="button" className="btn btn-lime" disabled={!lead || agency.paused} title={lead ? `${lead.name} plans the Inbox now` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
@@ -104,6 +134,22 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
         </div>
       </header>
       {error && <p className="hint account-error" role="alert">{error}</p>}
+
+      {tab !== 'edit' && (
+        <div className="tabs ag-tabs" role="tablist" aria-label={`${agency.name} views`}>
+          <button type="button" role="tab" aria-selected={tab === 'org'} className={tab === 'org' ? 'on' : ''} onClick={() => onTab('org')}>Team</button>
+          <button type="button" role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => onTab('chat')}>
+            Lead chat {waiting > 0 && <span className="lc-badge mono" aria-label={`${waiting} waiting for you`}>{waiting}</span>}
+          </button>
+        </div>
+      )}
+
+      {tab === 'chat' && (
+        <div className="ag-split ag-chat">
+          {side}
+          <LeadChat agency={agency} lead={lead} onChannel={onChannel} onCountChange={onCountChange} />
+        </div>
+      )}
 
       {tab === 'org' && (
         <div className="ag-split">
@@ -135,21 +181,7 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
             )}
             <button type="button" className="btn ag-add" onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</button>
           </section>
-          <aside className="ag-side">
-            <div className="card ag-box">
-              <span className="eyebrow">Plan</span>
-              {agency.plan.length === 0 && <p className="hint">No plan yet. The Lead writes one from your first brief.</p>}
-              {agency.plan.map((p, i) => <span key={i} className="ag-plan"><span className="mono">{i + 1}</span><span>{p}</span></span>)}
-            </div>
-            <div className="card ag-box">
-              <span className="eyebrow">How it runs</span>
-              <span className="ag-kv"><span className="hint">Workers run on</span><span>{adapterName(agency.adapter)}</span></span>
-              <span className="ag-kv"><span className="hint">Cards</span><span>{agency.autoRun ? 'Lead runs them' : 'You run them'}</span></span>
-              <span className="ag-kv"><span className="hint">Channel</span><span>{channelLabel(agency.channel)}{agency.channel.kind !== 'none' ? ` · ${notifyLabel(agency.notify)}` : ''}</span></span>
-              <span className="ag-kv"><span className="hint">Budget</span><span className="mono">{agency.budget === null ? 'Not set' : `${agency.spent.toFixed(2)} of ${agency.budget}`}</span></span>
-            </div>
-            <button type="button" className="card ag-box ag-link" onClick={onBoard}><span><span className="eyebrow">Board</span><strong>Open the Kanban board</strong></span><Icon name="arrowUp" size={14} /></button>
-          </aside>
+          {side}
         </div>
       )}
 

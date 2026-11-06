@@ -11,7 +11,7 @@ export function AgencyNav({ agencyId, name, route, onNavigate }: {
   onNavigate: (r: Route) => void
 }): JSX.Element {
   const items: [string, IconName, Route, boolean][] = [
-    ['Overview', 'agency', { name: 'agency', id: agencyId, tab: 'org' }, route.name === 'agency' && route.tab === 'org'],
+    ['Overview', 'agency', { name: 'agency', id: agencyId, tab: 'org' }, route.name === 'agency' && route.tab !== 'edit'],
     ['Kanban', 'kanban', { name: 'kanban' }, route.name === 'kanban'],
     ['Channel', 'channel', { name: 'connectors' }, route.name === 'connectors'],
     ['Skills', 'skills', { name: 'skills' }, route.name === 'skills'],

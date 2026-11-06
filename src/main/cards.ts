@@ -1,5 +1,6 @@
-import type { Agency, Agent, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
-import { AGENCY_TEMPLATES } from '@shared/agencies'
+import { randomUUID } from 'crypto'
+import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
+import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
 import { estimateCost, type Usage } from '@shared/pricing'
 import * as db from './db'
 import { boardHooks, findCard, log, moveCard, patchCard, readBoard, writeBoard } from './boardTools'
@@ -169,4 +170,29 @@ export function planNow(agencyId: string): string {
   deps.startRun(session.id, prompt)
   db.setSessionTitle(session.id, `${agency.name}: plan the Inbox`)
   return session.id
+}
+
+/**
+ * A brief from the boss, typed in the agency's Lead chat: a card in the board's Inbox column (logged as
+ * the boss's brief, which is how the chat finds it again), then the Lead's planning run, unless the agency is paused.
+ */
+export function briefLead(agencyId: string, text: string): { cardId: string; planned: boolean } {
+  const body = text.trim()
+  if (!body) throw new Error('Write the brief.')
+  const agency = db.getAgency(agencyId)
+  if (!agency) throw new Error('That agency no longer exists.')
+  const doc = readBoard(agency)
+  if (!doc || !doc.columns.length) throw new Error(`${agency.name} has no board yet.`)
+  const inbox = doc.columns.find((c) => c.title.trim().toLowerCase() === 'inbox') ?? doc.columns[0]
+  const first = body.split('\n')[0].trim()
+  const title = first.length > 80 ? `${first.slice(0, 79)}…` : first
+  const card: KanbanCard = { id: randomUUID().slice(0, 8), title, notes: body, labels: [], agency: agency.id, createdAt: Date.now(), log: [] }
+  log(card, BRIEF_LOG)
+  inbox.cards.push(card)
+  writeBoard(agency, doc)
+  let planned = false
+  if (agency.leadId && !agency.paused) {
+    try { planNow(agencyId); planned = true } catch { /* the card waits in Inbox for the next planning run */ }
+  }
+  return { cardId: card.id, planned }
 }

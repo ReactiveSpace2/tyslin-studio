@@ -36,7 +36,7 @@ export type Route =
   | { name: 'home'; focus?: 'activity' }
   | { name: 'agencies' }
   | { name: 'inbox'; id?: string }
-  | { name: 'agency'; id: string; tab: 'org' | 'edit' }
+  | { name: 'agency'; id: string; tab: 'org' | 'chat' | 'edit' }
   | { name: 'newAgency'; templateId?: string }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; agentId: string }
@@ -110,7 +110,7 @@ export default function App(): JSX.Element {
   const activeView = viewFor(currentProject)
   const activeAgency = activeView?.project.id ?? null
   const activeProject = activeView?.project ?? null
-  const openAgency = (id: string, tab: 'org' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
+  const openAgency = (id: string, tab: 'org' | 'chat' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
   /** A tab: Kanban, Drive, Channel and Skills stay on their screen for the new agency; anything else opens its overview. */
   const selectAgency = (id: string): void => {
     if (route.name === 'kanban' || route.name === 'drive' || route.name === 'connectors' || route.name === 'skills') return openAgencyTab(id)
@@ -226,6 +226,8 @@ export default function App(): JSX.Element {
                 you={you}
                 onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
                 onBoard={() => { openAgencyTab(p.id); setRoute({ name: 'kanban' }) }}
+                onChannel={() => { openAgencyTab(p.id); setRoute({ name: 'connectors' }) }}
+                onCountChange={() => { void window.tyslin.channels.unread().then(setUnread) }}
                 onRun={(lead) => { void window.tyslin.agencies.plan(v.agency.id).then((sid) => openChat(lead.id, p.id, sid)).catch((err) => window.alert(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err))) }}
                 onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })}
                 onAddWorker={() => { openAgencyTab(p.id); setAddingWorker(true) }}

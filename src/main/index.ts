@@ -23,7 +23,7 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
-import { cardsOnRunEvent, initCards, onChangeResolved, planNow, runCard, runningCards } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -578,6 +578,7 @@ function registerIpc(): void {
   ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
   ipcMain.handle('agencies:remove', (_e, id: string) => { removeAgency(id); win?.webContents.send('tasks:changed') })
   ipcMain.handle('agencies:plan', (_e, id: string) => planNow(id))
+  ipcMain.handle('agencies:brief', (_e, id: string, text: string) => briefLead(String(id ?? ''), String(text ?? '')))
   ipcMain.handle('slack:status', () => slackStatus())
   ipcMain.handle('slack:setToken', (_e, t: string) => setSlackToken(String(t ?? '')))
   ipcMain.handle('slack:linkCode', () => newSlackLinkCode())
