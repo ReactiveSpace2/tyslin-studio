@@ -268,7 +268,7 @@ export default function App(): JSX.Element {
             />
           )}
           {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${activeProject?.name ?? ''}:${route.open?.path ?? activeView?.agency.boardPath ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat}
-            initial={route.open ?? (activeView ? { projectId: activeView.project.id, path: activeView.agency.boardPath } : undefined)} agencyId={activeView?.agency.id} />}
+            initial={route.open ?? (activeView ? { projectId: activeView.project.id, path: activeView.agency.boardPath } : undefined)} agencyId={activeView?.agency.id} leadName={activeView?.lead?.name} />}
           {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setRoute({ name: 'newAgency' })} onOpenIn={(_screen, projectId, path) => { openAgencyTab(projectId); setRoute({ name: 'kanban', open: { projectId, path } }) }} />}
           {route.name === 'connectors' && (
             <ConnectorsPage

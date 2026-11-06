@@ -404,7 +404,7 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
       <div id="skills-panel" role="tabpanel" aria-labelledby={'skills-tab-' + tab} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {tab === 'builtin' && (
           <SkillLibrary skills={ownSkills} label="Built-in skills" usedBy={usedBy} onEdit={setEditing}
-            empty="No skills yet. Create one with New skill or import a Markdown file." />
+            empty="Skills tell your agents how to do a kind of work. Your agency's skills show here; create one with New skill or import a Markdown file." />
         )}
 
         {tab === 'github' && (
@@ -458,7 +458,7 @@ export function SkillsPage({ agents, onAgentsChanged }: Props): JSX.Element {
             </section>
 
             <SkillLibrary skills={githubSkills} label="Installed from GitHub" usedBy={usedBy} onEdit={setEditing}
-              empty="Nothing installed from GitHub yet. Install a pack above." />
+              empty="Nothing installed from GitHub yet. Install a pack above and your agents can use its skills." />
           </>
         )}
 

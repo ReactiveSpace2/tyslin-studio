@@ -164,7 +164,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
               <span className="dv-muted mono">{e.isDir ? '—' : size(e.size)}</span>
             </button>
           ))}
-          {listing && shown.length === 0 && <p className="hint" style={{ padding: 16 }}>{q ? 'No files match.' : 'This folder is empty. Drop files here or use Add files.'}</p>}
+          {listing && shown.length === 0 && <p className="hint" style={{ padding: 16 }}>{q ? 'No files match.' : 'Files your agency makes land here. You can also drop files in or use Add files.'}</p>}
         </div>
         <label className="dv-hidden"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Show hidden files</label>
       </section>

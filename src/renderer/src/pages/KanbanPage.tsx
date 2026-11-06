@@ -7,6 +7,7 @@ import { Icon } from '../components/Icon'
 import { AgentSelect } from '../components/AgentSelect'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { modelLabel, useDefaultModel } from '../defaultModel'
+import { firstName } from '../boardStats'
 
 interface Props {
   agents: Agent[]
@@ -16,6 +17,8 @@ interface Props {
   initial?: { projectId: string; path: string }
   /** Inside an agency tab: cards run through the agency (assignee, cost, Review), not a plain chat. */
   agencyId?: string
+  /** The agency's Lead, for the empty board's hint. */
+  leadName?: string
 }
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
@@ -46,7 +49,7 @@ function parseBoard(text: string): KanbanDoc {
 type DragItem = { kind: 'card'; cardId: string; from: string } | { kind: 'column'; id: string }
 
 /** Kanban: boards of columns and cards in the project folder. Cards can be given to an agent and run. */
-export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId }: Props): JSX.Element {
+export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, leadName }: Props): JSX.Element {
   const dm = useDefaultModel()
   // The project picked in the title bar; App remounts this screen when it changes.
   const [projectId] = useCurrentProject()
@@ -206,7 +209,7 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId }: 
       <div className="studio-main">
         {!doc ? (
           <StudioOverview kind="board" title="Kanban" newLabel="New board" projectId={projectId} refreshKey={refresh}
-            intro={<>Plan work on boards of columns and cards. Give a card to an agent or the default model and run it; the result is saved on the card. Boards are saved in the project folder under <code className="mono">boards/</code>.</>}
+            intro={<>Your agency works from a board. Drop a brief in Inbox; the Lead turns it into cards and workers run them. Finished work waits in Review for you. Boards are saved in the agency's folder under <code className="mono">boards/</code>.</>}
             onOpen={(f) => void openFile(f)} onNew={(n) => void create(n)} />
         ) : (
           <>
@@ -239,6 +242,7 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId }: 
                         <button type="button" className="cv-tool kb-col-del" aria-label={`Delete column ${col.title}`} title="Delete column" onClick={() => removeColumn(col.id)}><Icon name="trash" size={12} /></button>
                       </header>
                       <ul className="kb-cards">
+                        {agencyId && total === 0 && ci === 0 && <li className="hint kb-empty">Drop a brief in Inbox and {leadName ? firstName(leadName) : 'your Lead'} will plan it.</li>}
                         {cards.map((k) => {
                           const i = col.cards.indexOf(k)
                           return (

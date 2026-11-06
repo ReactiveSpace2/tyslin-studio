@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Agency, Agent, ChannelMessage } from '@shared/types'
+import { firstName } from '../boardStats'
 
 const KIND: Record<ChannelMessage['kind'], string> = { brief: 'Brief', question: 'Question', review: 'Review', digest: 'Digest' }
 
@@ -25,6 +26,13 @@ export function AgencyChannelBar({ agency, lead, onChanged }: { agency: Agency; 
             <option value="questions">Questions and reviews</option><option value="all">Everything</option><option value="digest">Digest only</option>
           </select></label>
       </div>
+      {messages.length === 0 && lead && (
+        <p className="hint">
+          {agency.channel.kind === 'none'
+            ? `${firstName(lead.name)} will message you here, and on Telegram or Slack once you pick one above.`
+            : `${firstName(lead.name)} will message you here and on ${agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'}.`}
+        </p>
+      )}
       {messages.length > 0 && (
         <div className="agency-feed">
           <span className="section-label" style={{ padding: 0 }}>From {lead?.name ?? 'the Lead'}</span>
