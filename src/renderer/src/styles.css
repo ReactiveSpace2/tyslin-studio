@@ -1300,3 +1300,21 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .crumb-link { border: 0; background: none; font: inherit; color: var(--muted); cursor: pointer; padding: 0 6px; height: 30px; border-radius: 8px; white-space: nowrap; }
 .crumb-link:hover { color: var(--ink); background: var(--card); }
 .crumb-here { font-weight: 600; color: var(--ink); padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Agency tabs in the title bar */
+.agency-tabs { display: flex; align-items: center; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; padding: 0 2px; }
+.agency-tab { display: flex; align-items: center; height: 32px; border: 1px solid transparent; border-radius: 9px; flex: none; max-width: 200px; }
+.agency-tab:hover { background: var(--card); border-color: var(--line); }
+.agency-tab.on { background: var(--card); border-color: var(--line-strong); }
+.agency-tab-btn { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 4px 0 10px; border: 0; background: none; font: inherit; font-size: 13px; color: var(--muted); cursor: pointer; min-width: 0; }
+.agency-tab-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agency-tab.on .agency-tab-btn { color: var(--ink); font-weight: 600; }
+.agency-tab-x { width: 24px; height: 24px; margin-right: 3px; border: 0; border-radius: 6px; background: none; color: var(--muted); display: grid; place-items: center; cursor: pointer; flex: none; }
+.agency-tab-x:hover { background: var(--panel); color: var(--ink); }
+.agency-plus-wrap { position: relative; flex: none; }
+.agency-plus { width: 32px; height: 32px; border: 1px dashed var(--line-strong); border-radius: 9px; background: none; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+.agency-plus:hover { background: var(--card); }
+.agency-menu { position: fixed; top: 42px; left: auto; min-width: 240px; }
+.agency-channel { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 14px 16px; margin-bottom: 6px; }
+.agency-channel > span { display: flex; flex-direction: column; gap: 2px; }
+.agency-channel strong { display: block; margin: 2px 0; }
+.agency-channel .field { margin: 0; }

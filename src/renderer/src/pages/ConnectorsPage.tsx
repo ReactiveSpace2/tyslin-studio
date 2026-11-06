@@ -10,6 +10,8 @@ interface Props {
   agents: Agent[]
   onOpenAgent: (a: Agent) => void
   onChanged: () => void
+  /** Shown at the top: the open agency's Lead and what it sends. */
+  header?: React.ReactNode
 }
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
@@ -18,7 +20,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
  * Connectors → Channels: reach your agents from chat apps. Telegram works today (your own bot,
  * polled from this computer, linked accounts only); the others are marked honestly.
  */
-export function ConnectorsPage({ agents, onOpenAgent, onChanged }: Props): JSX.Element {
+export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props): JSX.Element {
   const [pick, setPick] = useState<Channel>('telegram')
   const [tg, setTg] = useState<TelegramStatus | null>(null)
   const [token, setToken] = useState('')
@@ -66,6 +68,7 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged }: Props): JSX.E
   return (
     <div className="connectors">
       <div className="cn-list">
+        {header}
         <span className="eyebrow">Connectors</span>
         <h1>Channels</h1>
         <p className="lead" style={{ fontSize: 14 }}>Talk to your agents from the chat apps you already use, get task results there and approve file changes on the go. Only accounts you link can message your agents.</p>

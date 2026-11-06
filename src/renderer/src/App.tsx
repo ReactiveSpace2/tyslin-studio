@@ -14,6 +14,7 @@ import { OrgHome } from './pages/OrgHome'
 import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
 import { agencyOf } from './agencies'
+import { AgencyChannelBar } from './components/AgencyChannelBar'
 import { TasksPage } from './pages/TasksPage'
 import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
@@ -31,7 +32,7 @@ import { LoginScreen } from './components/LoginScreen'
 import { AgencyWizard } from './components/AgencyWizard'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
-import { initCurrentProject, setCurrentProject, useCurrentProject, useInWorkspace } from './currentProject'
+import { closeAgencyTab, initCurrentProject, openAgencyTab, setCurrentProject, useCurrentProject, useInWorkspace } from './currentProject'
 import { UpdateNotice } from './components/UpdateNotice'
 import { ComingSoon } from './pages/ComingSoon'
 
@@ -137,7 +138,18 @@ export default function App(): JSX.Element {
   useEffect(() => { if (onboarding === false) void window.tyslin.studio.defaultProject().then((p) => setDefaultProjectId(p.id)) }, [onboarding, projects.length])
   // The Default project holds files for screens without an agency; it isn't an agency itself.
   const agencies = projects.filter((p) => p.id !== defaultProjectId).map((p) => agencyOf(p, agents))
-  const openAgency = (id: string, tab: 'org' | 'edit' = 'org'): void => { setCurrentProject(id); setRoute({ name: 'agency', id, tab }) }
+  const openAgency = (id: string, tab: 'org' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
+  /** The agency in the active tab (the Default project isn't one). */
+  const activeAgency = currentProject && currentProject !== defaultProjectId ? currentProject : null
+  /** A tab: Kanban, Drive and Channel stay on their screen for the new agency; anything else opens its overview. */
+  const selectAgency = (id: string): void => {
+    if (route.name === 'kanban' || route.name === 'drive' || route.name === 'connectors') return openAgencyTab(id)
+    openAgency(id)
+  }
+  const closeAgency = (id: string): void => {
+    const next = closeAgencyTab(id)
+    if (route.name === 'agency' && route.id === id) setRoute(next && next !== defaultProjectId ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
+  }
 
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
   if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
@@ -173,7 +185,10 @@ export default function App(): JSX.Element {
         projects={projects}
         onNewOrg={() => setNewOrg(true)}
         onHome={() => setRoute({ name: 'home' })}
-        onNavigate={(r) => { if (r.name === 'agency') setCurrentProject(r.id); setRoute(r) }}
+        onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }}
+        onSelectAgency={selectAgency}
+        onCloseAgency={closeAgency}
+        onNewAgency={() => setRoute({ name: 'newAgency' })}
       />
       <div className="app-body">
       <Sidebar
@@ -181,7 +196,7 @@ export default function App(): JSX.Element {
         agents={agents}
         projects={projects}
         sessions={sessions}
-        onNavigate={setRoute}
+        onNavigate={(r) => (r.name === 'agencies' && activeAgency ? openAgency(activeAgency) : setRoute(r))}
         onOpenChat={openChat}
         onNewProject={() => setNewProject(true)}
       />
@@ -221,6 +236,7 @@ export default function App(): JSX.Element {
               you={you}
               onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
               onBoard={() => { setCurrentProject(p.id); setRoute({ name: 'kanban' }) }}
+              onRun={(lead) => openChat(lead.id, p.id)}
               onOpenAgent={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })}
               onAddWorker={() => { setCurrentProject(p.id); setCreating('choose') }}
               onDrive={() => { setCurrentProject(p.id); setRoute({ name: 'drive' }) }}
@@ -305,12 +321,17 @@ export default function App(): JSX.Element {
         {route.name === 'canvas' && <CanvasPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'canvas'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
         {route.name === 'mindmap' && <MindMapPage key={`${currentProject}:${projectName}:${route.open?.path ?? 'mindmap'}`} agents={agents} projects={projects} onOpenChat={openChat} initial={route.open} />}
-        {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setNewProject(true)} onOpenIn={(screen, projectId, path) => { setCurrentProject(projectId); setRoute({ name: screen, open: { projectId, path } } as Route) }} />}
+        {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setRoute({ name: 'newAgency' })} onOpenIn={(screen, projectId, path) => { setCurrentProject(projectId); setRoute({ name: screen, open: { projectId, path } } as Route) }} />}
         {route.name === 'knowledge' && (
           <ComingSoon title="Knowledge base" icon="knowledge" text="Collect documents, notes and links your agents and assistants can search, so their answers come from your own material." />
         )}
         {route.name === 'connectors' && (
-          <ConnectorsPage agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })} onChanged={() => void refresh()} />
+          <ConnectorsPage
+            header={(() => {
+              const p = activeAgency ? projects.find((x) => x.id === activeAgency) : null
+              return p ? <AgencyChannelBar agency={p.name} lead={agencyOf(p, agents).lead?.name ?? null} /> : undefined
+            })()}
+            agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })} onChanged={() => void refresh()} />
         )}
         {route.name === 'skills' && <SkillsPage agents={agents} onAgentsChanged={() => void refresh()} />}
         {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}

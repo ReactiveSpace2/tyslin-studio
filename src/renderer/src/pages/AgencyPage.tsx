@@ -12,6 +12,8 @@ interface Props {
   you: string
   onTab: (tab: 'org' | 'edit') => void
   onBoard: () => void
+  /** Run: open the Lead's chat in this agency. */
+  onRun: (lead: Agent) => void
   onOpenAgent: (a: Agent) => void
   onAddWorker: () => void
   onDrive: () => void
@@ -23,7 +25,7 @@ interface Props {
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 /** One agency: its org chart (You → Lead → workers) or its settings. Board opens Kanban in its folder. */
-export function AgencyPage({ view, tab, you, onTab, onBoard, onOpenAgent, onAddWorker, onDrive, onBack, onChanged }: Props): JSX.Element {
+export function AgencyPage({ view, tab, you, onTab, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onChanged }: Props): JSX.Element {
   const { project, lead, workers } = view
   const st = agencyStatus(view)
   const [name, setName] = useState(project.name)
@@ -51,11 +53,15 @@ export function AgencyPage({ view, tab, you, onTab, onBoard, onOpenAgent, onAddW
         </div>
         <div className="row">
           <div className="ag-tabs" role="tablist" aria-label="Agency views">
-            <button type="button" role="tab" aria-selected={tab === 'org'} className={tab === 'org' ? 'on' : ''} onClick={() => onTab('org')}>Org chart</button>
-            <button type="button" role="tab" aria-selected={false} onClick={onBoard}>Board</button>
+            <button type="button" role="tab" aria-selected={tab === 'org'} className={tab === 'org' ? 'on' : ''} onClick={() => onTab('org')}>Overview</button>
             <button type="button" role="tab" aria-selected={tab === 'edit'} className={tab === 'edit' ? 'on' : ''} onClick={() => onTab('edit')}>Edit</button>
           </div>
           {tab === 'edit' && <button type="button" className="btn btn-primary" onClick={() => void save()}>Save</button>}
+          {tab === 'org' && (
+            <button type="button" className="btn btn-lime" disabled={!lead} title={lead ? `Open ${lead.name} in this agency` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
+              <Icon name="play" size={12} /> Run
+            </button>
+          )}
         </div>
       </header>
 

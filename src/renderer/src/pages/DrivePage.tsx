@@ -52,7 +52,9 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
     if (sel && !sel.isDir) void window.tyslin.drive.preview(projectId, sel.path).then(setPreview).catch(() => setPreview({ kind: 'none', note: 'Could not read this file.' }))
   }, [sel?.path])
 
-  const roots = [{ id: defaultId, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
+  const allRoots = [{ id: defaultId, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
+  // An agency tab is open: its Drive shows only that agency's folder.
+  const roots = projectId && projectId !== defaultId ? allRoots.filter((r) => r.id === projectId) : allRoots
   const crumbs = dir ? dir.split('/') : []
   const shown = useMemo(() => {
     const list = (listing?.entries ?? []).filter((e) => !q || e.name.toLowerCase().includes(q.toLowerCase()))
@@ -104,7 +106,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
   return (
     <div className="drive">
       <nav className="panel studio-panel" aria-label="Drive">
-        <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> New project</button>
+        <button type="button" className="panel-item panel-add" onClick={onNewProject}><Icon name="plus" size={14} /> New agency</button>
         {roots.map((r) => (
           <button key={r.id ?? 'default'} type="button" className={'panel-item panel-agent' + (projectId === r.id ? ' active' : '')} aria-current={projectId === r.id ? 'page' : undefined}
             title={r.name} onClick={() => { if (r.id) setProjectId(r.id); go('') }}>
@@ -114,7 +116,7 @@ export function DrivePage({ projects, onNewProject, onOpenIn }: Props): JSX.Elem
         ))}
         <div style={{ marginTop: 'auto' }} />
         <GoogleDriveCard />
-        <p className="hint panel-note">Each project's folder on this computer: documents, images, PDFs, archives and what your agents make. Boards, mind maps, designs and automations open in their own screens.</p>
+        <p className="hint panel-note">Each agency's folder on this computer: documents, images, PDFs, archives and what your agents make. Boards, mind maps, designs and automations open in their own screens.</p>
       </nav>
 
       <section className="dv-main" {...dropProps('main', dir)} aria-label="Files">
