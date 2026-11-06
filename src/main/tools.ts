@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'path'
 import { applyHunks, diffHunks } from '@shared/diff'
-import type { Agent, PendingChange, Project, RunEventBody } from '@shared/types'
+import type { Agency, Agent, PendingChange, Project, RunEventBody } from '@shared/types'
 import * as db from './db'
+import { BOARD_TOOL_NAMES, runBoardTool } from './boardTools'
 
 /** Provider-neutral tool definition; each runtime maps it to its own wire format. */
 export interface ToolDef {
@@ -29,6 +30,8 @@ export interface ToolContext {
   runId: string
   sessionId: string
   emit: (e: RunEventBody) => void
+  /** Set when the agent is the Lead of an agency: it gets the board tools too. */
+  agency?: Agency
 }
 
 const MAX_READ_BYTES = 200_000
@@ -160,7 +163,10 @@ export async function runTools(calls: ToolCall[], ctx: ToolContext): Promise<Too
 
   for (const call of calls) {
     try {
-      if (call.name === 'list_files') {
+      if (BOARD_TOOL_NAMES.has(call.name)) {
+        if (!ctx.agency) throw new Error('Only an agency Lead can use the board tools.')
+        results.push(runBoardTool(call, ctx.agent, ctx.agency).catch((err) => ({ id: call.id, content: err instanceof Error ? err.message : String(err), isError: true })))
+      } else if (call.name === 'list_files') {
         results.push({ id: call.id, content: listProjectFiles(folder).join('\n') || '(empty)', isError: false })
       } else if (call.name === 'read_file') {
         const { abs, rel } = safePath(folder, call.input.path)

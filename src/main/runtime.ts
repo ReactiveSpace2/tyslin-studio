@@ -8,6 +8,8 @@ import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 import { runAcpTurn } from './acp'
 import { engineLaunch, engineStatus } from './engines'
+import { BOARD_TOOLS, boardSummary } from './boardTools'
+import { getAgency } from './db'
 
 /**
  * AgentRuntime is the seam between Tyslin and whatever runs the agent loop.
@@ -51,6 +53,13 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
     if (team.length) lines.push(`You lead this team${home ? ` in ${home.name}` : ''}; plan work for them and say who should do what:\n` + team.map((a) => `- ${a.name}: ${a.description || 'agent'}`).join('\n'))
     parts.push('## Team\n' + lines.join('\n'))
   }
+  // The Lead of an agency sees its board and roster, and has the board tools.
+  const agency = agent.agency ? getAgency(agent.agency) : null
+  if (agency && agency.leadId === agent.id) {
+    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, assign, move and comment on cards, board_run_card to start one, message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.')
+  } else if (agency) {
+    parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it).`)
+  }
   if (project) {
     parts.push(`## Project\nYou are working in the project "${project.name}".`)
     if (project.folder) {
@@ -67,10 +76,12 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
 /** File tools are offered only when the project is linked to a folder. */
 function toolsFor(opts: RunOptions): { defs: ToolDef[]; ctx: ToolContext } | null {
   if (!opts.project?.folder || !opts.agent.tools.read) return null
+  const agency = opts.agent.agency ? getAgency(opts.agent.agency) : null
+  const lead = !!agency && agency.leadId === opts.agent.id
   return {
-    // "Change project files" off: only the reading tools.
-    defs: opts.agent.tools.write ? FILE_TOOLS : FILE_TOOLS.filter((t) => t.name === 'list_files' || t.name === 'read_file'),
-    ctx: { agent: opts.agent, project: opts.project, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit }
+    // "Change project files" off: only the reading tools. The agency Lead also gets the board tools.
+    defs: [...(opts.agent.tools.write ? FILE_TOOLS : FILE_TOOLS.filter((t) => t.name === 'list_files' || t.name === 'read_file')), ...(lead ? BOARD_TOOLS : [])],
+    ctx: { agent: opts.agent, project: opts.project, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit, agency: lead ? agency! : undefined }
   }
 }
 
@@ -200,8 +211,12 @@ class AnthropicRuntime implements AgentRuntime {
           } else if (ev.type === 'content_block_stop') {
             const b = blocks[ev.index]
             if (b?.type === 'tool_use') emit({ type: 'tool_call_end', toolCallId: b.id! })
+          } else if (ev.type === 'message_start') {
+            const u = ev.message?.usage
+            if (u) emit({ type: 'usage', inputTokens: Number(u.input_tokens ?? 0) + Number(u.cache_read_input_tokens ?? 0) + Number(u.cache_creation_input_tokens ?? 0), outputTokens: 0 })
           } else if (ev.type === 'message_delta') {
             stop = ev.delta?.stop_reason ?? stop
+            if (ev.usage?.output_tokens) emit({ type: 'usage', inputTokens: 0, outputTokens: Number(ev.usage.output_tokens) })
           } else if (ev.type === 'error') {
             throw new Error(ev.error?.message ?? 'Model error')
           }
@@ -267,6 +282,8 @@ class OpenAICompatibleRuntime implements AgentRuntime {
           model: agent.model,
           stream: true,
           messages,
+          // Token counts in the last chunk, for cost estimates (Gemini's OpenAI endpoint rejects the option).
+          ...(this.kind !== 'gemini' && { stream_options: { include_usage: true } }),
           ...(tools && { tools: tools.defs.map((t) => ({ type: 'function', function: t })) })
         })
       })
@@ -289,6 +306,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
       for await (const data of sseLines(res)) {
         if (data === '[DONE]') break
         for (const chunk of parsed(data)) {
+          if (chunk.usage) emit({ type: 'usage', inputTokens: Number(chunk.usage.prompt_tokens ?? 0), outputTokens: Number(chunk.usage.completion_tokens ?? 0) })
           const choice = chunk.choices?.[0]
           const delta = choice?.delta
           if (delta?.content) {

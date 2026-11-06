@@ -23,6 +23,8 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
+import { cardsOnRunEvent, initCards, onChangeResolved, planNow, runCard, runningCards } from './cards'
+import { boardHooks, setBoardChangedHook } from './boardTools'
 import type { AgencyCreateInput, AgencyUpdateInput, Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
@@ -291,6 +293,7 @@ function createWindow(): void {
 function emit(e: RunEvent): void {
   win?.webContents.send('run-event', e)
   onRunEvent(e)
+  cardsOnRunEvent(e)
 }
 
 /** OpenRouter's public model list, cached for an hour. Empty when offline. */
@@ -304,6 +307,19 @@ async function openrouterModels(): Promise<{ id: string; name: string }[]> {
     openrouterCache = { at: Date.now(), models }
     return models
   } catch { return openrouterCache?.models ?? [] }
+}
+
+function initAgencies(): void {
+  initCards({ startRun, runTask })
+  setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
+  // Until channels.ts (Phase 5): a Lead's message goes to the linked Telegram chats when the agency uses Telegram.
+  boardHooks.messageBoss = async (agency, from, kind, text) => {
+    const line = `${from.name} · ${agency.name} · ${kind}\n\n${text.trim()}`
+    if (agency.channel.kind === 'telegram') {
+      try { const n = await sendToLinkedChats(line); return `Sent to the boss on Telegram (${n} chat${n === 1 ? '' : 's'}).` } catch (err) { return `Could not send on Telegram: ${err instanceof Error ? err.message : String(err)}. The boss will see it in this chat.` }
+    }
+    return 'No channel is set up for this agency; the boss will see this in the chat and on the board.'
+  }
 }
 
 function registerIpc(): void {
@@ -396,7 +412,11 @@ function registerIpc(): void {
 
 
   ipcMain.handle('changes:list', (_e, sessionId: string) => db.listChanges(sessionId))
-  ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => resolveChange(id, acceptedHunks, note))
+  ipcMain.handle('changes:resolve', (_e, id: string, acceptedHunks: number[], note: string) => {
+    const r = resolveChange(id, acceptedHunks, note)
+    try { onChangeResolved(r) } catch { /* the card stays where it is */ }
+    return r
+  })
 
   ipcMain.handle('skills:list', () => db.listSkills())
   ipcMain.handle('skillPacks:list', () => listPacks())
@@ -514,6 +534,9 @@ function registerIpc(): void {
   })
   ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
   ipcMain.handle('agencies:remove', (_e, id: string) => { removeAgency(id); win?.webContents.send('tasks:changed') })
+  ipcMain.handle('agencies:plan', (_e, id: string) => planNow(id))
+  ipcMain.handle('cards:run', (_e, agencyId: string, cardId: string) => runCard(agencyId, cardId))
+  ipcMain.handle('cards:running', () => runningCards())
 
   ipcMain.handle('auth:status', () => authStatus())
   ipcMain.handle('auth:signIn', () => signIn())
@@ -587,6 +610,7 @@ app.whenReady().then(() => {
   db.openDb()
   db.expireStaleChanges()
   registerIpc()
+  initAgencies()
   createWindow()
   startScheduler()
   void initTelegram({ startRun: (sid, text) => startRun(sid, text), resolveChange, answerPermission })

@@ -75,7 +75,7 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
           {tab === 'org' && (
             <>
               <button type="button" className="btn" onClick={() => void togglePause()}>{agency.paused ? 'Resume' : 'Pause'}</button>
-              <button type="button" className="btn btn-lime" disabled={!lead || agency.paused} title={lead ? `Open ${lead.name} in this agency` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
+              <button type="button" className="btn btn-lime" disabled={!lead || agency.paused} title={lead ? `${lead.name} plans the Inbox now` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
                 <Icon name="play" size={12} /> Run
               </button>
             </>

@@ -14,6 +14,8 @@ interface Props {
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
   /** A file to open straight away (from Drive). */
   initial?: { projectId: string; path: string }
+  /** Inside an agency tab: cards run through the agency (assignee, cost, Review), not a plain chat. */
+  agencyId?: string
 }
 
 const uid = (): string => Math.random().toString(36).slice(2, 10)
@@ -44,7 +46,7 @@ function parseBoard(text: string): KanbanDoc {
 type DragItem = { kind: 'card'; cardId: string; from: string } | { kind: 'column'; id: string }
 
 /** Kanban: boards of columns and cards in the project folder. Cards can be given to an agent and run. */
-export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JSX.Element {
+export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId }: Props): JSX.Element {
   const dm = useDefaultModel()
   // The project picked in the title bar; App remounts this screen when it changes.
   const [projectId] = useCurrentProject()
@@ -132,11 +134,29 @@ export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JS
     change((d) => ({ ...d, columns: d.columns.filter((c) => c.id !== id) }))
   }
 
+  // Agency boards change from the main process (the Lead's tools, finished runs): reload when told.
+  useEffect(() => window.tyslin.cards.onBoardChanged(async (p) => {
+    if (!file || p.path !== file.path || p.projectId !== projectId) return
+    setDoc(parseBoard(await window.tyslin.studio.read(projectId, file.path)))
+    setDirty(false)
+    void window.tyslin.cards.running().then((ids) => setRunning(Object.fromEntries(ids.map((i) => [i, true]))))
+  }), [file?.path, projectId])
+  useEffect(() => { if (agencyId) void window.tyslin.cards.running().then((ids) => setRunning(Object.fromEntries(ids.map((i) => [i, true])))) }, [agencyId, file?.path])
+
   /** Gives the card to its agent (or the default model) as a chat; the reply is saved on the card. */
   const runCard = async (id: string): Promise<void> => {
     const hit = find(id)
     if (!hit || running[id]) return
     const { card, col } = hit
+    if (agencyId) {
+      // Through the agency: the main process runs it, writes the result, cost and log on the card and moves it.
+      setRunning((r) => ({ ...r, [id]: true })); setErrors((e) => ({ ...e, [id]: '' }))
+      try { await window.tyslin.cards.run(agencyId, id) } catch (err) {
+        setRunning((m) => ({ ...m, [id]: false }))
+        setErrors((e) => ({ ...e, [id]: err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err) }))
+      }
+      return
+    }
     const agentId = card.agentId || DEFAULT_MODEL_AGENT
     const labels = (docRef.current?.labels ?? []).filter((l) => card.labels.includes(l.id)).map((l) => l.name)
     const prompt = [`Work on this task from the "${file?.name ?? 'board'}" board (column: ${col.title}).`, '', `## ${card.title}`, card.notes.trim() ? `\n${card.notes.trim()}` : '',
@@ -298,11 +318,18 @@ export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JS
                     </label>
                   </div>
                   <label className="field" style={{ gap: 4 }}><span className="label">Assigned to</span>
-                    <AgentSelect agents={agents} value={sel.card.agentId || DEFAULT_MODEL_AGENT} onChange={(v) => patchCard(sel.card.id, { agentId: v })} />
+                    <AgentSelect agents={agencyId ? agents.filter((a) => a.agency === agencyId) : agents} value={sel.card.assignee || sel.card.agentId || DEFAULT_MODEL_AGENT}
+                      onChange={(v) => patchCard(sel.card.id, agencyId ? { assignee: v === DEFAULT_MODEL_AGENT ? undefined : v, agentId: v === DEFAULT_MODEL_AGENT ? undefined : v } : { agentId: v })} />
                   </label>
                   <button type="button" className="btn btn-primary" disabled={!!running[sel.card.id]} onClick={() => void runCard(sel.card.id)}>
-                    <Icon name="play" size={12} /> {running[sel.card.id] ? 'Working…' : sel.card.result ? 'Run again' : 'Run with agent'}
+                    <Icon name="play" size={12} /> {running[sel.card.id] ? 'Working…' : sel.card.result ? 'Run again' : agencyId ? 'Run card' : 'Run with agent'}
                   </button>
+                  {agencyId && (sel.card.status || sel.card.cost !== undefined) && (
+                    <p className="hint mono" style={{ margin: 0 }}>
+                      {sel.card.status === 'running' ? 'Running' : sel.card.status === 'failed' ? 'Last run failed' : sel.card.status === 'done' ? 'Finished' : ''}
+                      {sel.card.cost !== undefined ? ` · cost ${sel.card.cost.toFixed(4)} (estimate)` : sel.card.status === 'done' ? ' · cost not reported' : ''}
+                    </p>
+                  )}
                   {errors[sel.card.id] && <p className="hint account-error" role="alert">{errors[sel.card.id]}</p>}
                   {sel.card.result && (
                     <div className="au-output">
@@ -311,6 +338,12 @@ export function KanbanPage({ agents, projects, onOpenChat, initial }: Props): JS
                     </div>
                   )}
                   {sel.card.sessionId && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => onOpenChat(sel.card.agentId || DEFAULT_MODEL_AGENT, projectId, sel.card.sessionId)}>Open chat</button>}
+                  {!!sel.card.log?.length && (
+                    <div className="kb-log">
+                      <span className="section-label" style={{ padding: 0 }}>Log</span>
+                      {sel.card.log.slice(-8).map((l, i) => <span key={i} className="hint"><span className="mono">{new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> {l.text}</span>)}
+                    </div>
+                  )}
                   <div className="cv-actions">
                     <button type="button" className="btn btn-sm cv-danger" onClick={() => { if (window.confirm(`Delete "${sel.card.title}"?`)) removeCard(sel.card.id) }}><Icon name="trash" size={12} /> Delete card</button>
                   </div>

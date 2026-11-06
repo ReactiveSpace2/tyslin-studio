@@ -1365,3 +1365,5 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .aw-mix { margin-bottom: 2px; }
 .ag-plan { display: flex; gap: 10px; font-size: 13.5px; line-height: 1.45; }
 .ag-plan .mono { color: var(--muted); flex: none; width: 14px; }
+.kb-log { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.kb-log .mono { color: var(--muted); margin-right: 6px; font-size: 11px; }

@@ -85,7 +85,17 @@ const api: TyslinApi = {
     get: (id) => ipcRenderer.invoke('agencies:get', id),
     create: (input) => ipcRenderer.invoke('agencies:create', input),
     update: (id, input) => ipcRenderer.invoke('agencies:update', id, input),
-    remove: (id) => ipcRenderer.invoke('agencies:remove', id)
+    remove: (id) => ipcRenderer.invoke('agencies:remove', id),
+    plan: (id) => ipcRenderer.invoke('agencies:plan', id)
+  },
+  cards: {
+    run: (agencyId, cardId) => ipcRenderer.invoke('cards:run', agencyId, cardId),
+    running: () => ipcRenderer.invoke('cards:running'),
+    onBoardChanged: (cb) => {
+      const fn = (_e: unknown, p: { projectId: string; path: string }): void => cb(p)
+      ipcRenderer.on('board:changed', fn)
+      return () => ipcRenderer.removeListener('board:changed', fn)
+    }
   },
   tasks: {
     list: () => ipcRenderer.invoke('tasks:list'),

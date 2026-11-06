@@ -202,7 +202,7 @@ export default function App(): JSX.Element {
                 you={you}
                 onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
                 onBoard={() => { openAgencyTab(p.id); setRoute({ name: 'kanban' }) }}
-                onRun={(lead) => openChat(lead.id, p.id)}
+                onRun={(lead) => { void window.tyslin.agencies.plan(v.agency.id).then((sid) => openChat(lead.id, p.id, sid)).catch((err) => window.alert(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err))) }}
                 onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })}
                 onAddWorker={() => { openAgencyTab(p.id); setAddingWorker(true) }}
                 onDrive={() => { openAgencyTab(p.id); setRoute({ name: 'drive' }) }}
@@ -244,7 +244,7 @@ export default function App(): JSX.Element {
             />
           )}
           {route.name === 'kanban' && <KanbanPage key={`${currentProject}:${activeProject?.name ?? ''}:${route.open?.path ?? activeView?.agency.boardPath ?? 'kanban'}`} agents={agents} projects={projects} onOpenChat={openChat}
-            initial={route.open ?? (activeView ? { projectId: activeView.project.id, path: activeView.agency.boardPath } : undefined)} />}
+            initial={route.open ?? (activeView ? { projectId: activeView.project.id, path: activeView.agency.boardPath } : undefined)} agencyId={activeView?.agency.id} />}
           {route.name === 'drive' && <DrivePage projects={projects} onNewProject={() => setRoute({ name: 'newAgency' })} onOpenIn={(_screen, projectId, path) => { openAgencyTab(projectId); setRoute({ name: 'kanban', open: { projectId, path } }) }} />}
           {route.name === 'connectors' && (
             <ConnectorsPage

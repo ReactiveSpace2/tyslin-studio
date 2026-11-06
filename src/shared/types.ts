@@ -125,6 +125,9 @@ export interface KanbanCard {
   parentCard?: string
   /** What happened on the card: moves, runs, reviews. */
   log?: { at: number; text: string }[]
+  /** The last run on this card and where it stands. */
+  runId?: string
+  status?: 'running' | 'done' | 'failed'
   createdAt: number
 }
 
@@ -602,6 +605,8 @@ export type RunEventBody =
   | { type: 'approval_needed'; toolCallId: string; changeId: string; filePath: string }
   | { type: 'approval_needed'; toolCallId: string; permissionId: string; title: string; choices: PermissionChoice[] }
   | { type: 'state_update'; status: 'running' | 'waiting_for_review' }
+  /** Token counts for one model call (built-in runtimes only); cards add them up for their cost. */
+  | { type: 'usage'; inputTokens: number; outputTokens: number }
   | { type: 'run_finished' }
   | { type: 'run_error'; error: string }
 
@@ -865,6 +870,16 @@ export interface TyslinApi {
     update(id: string, input: AgencyUpdateInput): Promise<Agency>
     /** Deletes the agency, its agents, board and task; files in its folder stay. */
     remove(id: string): Promise<void>
+    /** Runs the Lead's "plan the Inbox" prompt now; returns the chat id. */
+    plan(id: string): Promise<string>
+  }
+  cards: {
+    /** Runs a card with its assignee (or the Lead); the result, chat and cost land on the card. Returns the chat id. */
+    run(agencyId: string, cardId: string): Promise<string>
+    /** Card ids with a run in progress. */
+    running(): Promise<string[]>
+    /** A board file changed on disk (a run finished, the Lead moved a card). */
+    onBoardChanged(cb: (p: { projectId: string; path: string }) => void): () => void
   }
   tasks: {
     list(): Promise<ScheduledTask[]>
