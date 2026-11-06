@@ -33,7 +33,7 @@ function crumbsFor(route: Route, agents: Agent[], projects: Project[], agencyId:
       const p = projects.find((x) => x.id === route.id)
       return route.tab === 'org'
         ? [agencies, { label: p?.name ?? 'Agency' }]
-        : [agencies, { label: p?.name ?? 'Agency', to: { name: 'agency', id: route.id, tab: 'org' } }, { label: route.tab === 'edit' ? 'Edit' : 'Lead chat' }]
+        : [agencies, { label: p?.name ?? 'Agency', to: { name: 'agency', id: route.id, tab: 'org' } }, { label: route.tab === 'edit' ? 'Edit' : 'Inbox' }]
     }
     case 'kanban': return agencyId ? [...agency(agencyId), { label: 'Board' }] : [{ label: 'Kanban' }]
     case 'editor': {

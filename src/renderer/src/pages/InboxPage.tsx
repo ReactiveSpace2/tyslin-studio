@@ -19,12 +19,12 @@ const when = (t: number): string => {
 }
 
 /**
- * An agency's Lead chat: what its Lead sent you (briefs, questions, reviews, digests) as a list with filters,
+ * An agency's Inbox: what its Lead sent you (briefs, questions, reviews, digests) as a list with filters,
  * the open message with its quick answers and reply box, and New brief, which puts a card in the board's
  * Inbox column and starts the Lead's planning run (agencies.brief).
  */
 export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoard, onOpenChannel, onCountChange }: {
-  /** The agency whose Lead chat this is: only its messages show. */
+  /** The agency whose Inbox this is: only its messages show. */
   agency: Agency
   agencies: Agency[]
   agents: Agent[]
@@ -96,7 +96,7 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
         <div className="inbox-head">
           <span className="eyebrow">{scope.name}</span>
           <div className="inbox-title">
-            <h1>Lead chat</h1>
+            <h1>Inbox</h1>
             <button type="button" className={'btn btn-sm' + (briefing ? ' btn-primary' : '')} disabled={!scopeLead} onClick={() => { setBriefing(true); setNote(''); setError('') }}><Icon name="plus" size={12} /> New brief</button>
           </div>
           <div className="inbox-filters" role="tablist" aria-label="Show">

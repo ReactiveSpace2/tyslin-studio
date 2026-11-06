@@ -173,7 +173,7 @@ export function planNow(agencyId: string): string {
 }
 
 /**
- * A brief from the boss, typed in the agency's Lead chat: a card in the board's Inbox column (logged as
+ * A brief from the boss, typed in the agency's Inbox: a card in the board's Inbox column (logged as
  * the boss's brief, which is how the chat finds it again), then the Lead's planning run, unless the agency is paused.
  */
 export function briefLead(agencyId: string, text: string): { cardId: string; planned: boolean } {

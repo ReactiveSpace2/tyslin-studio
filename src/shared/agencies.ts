@@ -85,8 +85,8 @@ export const templateAdapters = (t: AgencyTemplate): AgencyAdapterId[] =>
 export const planOwner = (t: AgencyTemplate, step: string): AgencyMember | undefined =>
   t.roster.find((m) => step.startsWith(m.first + ' '))
 
-/** The card log line that marks a brief the boss typed in the Lead chat (cards.ts briefLead; the chat reads it back). */
-export const BRIEF_LOG = 'Brief from you, in the Lead chat'
+/** The card log line that marks a brief the boss typed in the Inbox (cards.ts briefLead; the chat reads it back). */
+export const BRIEF_LOG = 'Brief from you, in the Inbox'
 
 /** Board columns every agency board starts with. */
 export const AGENCY_COLUMNS = ['Inbox', 'Planned', 'In progress', 'Review', 'Done'] as const

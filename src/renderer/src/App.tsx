@@ -35,7 +35,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 export type Route =
   | { name: 'home'; focus?: 'activity' }
   | { name: 'agencies' }
-  | { name: 'agency'; id: string; tab: 'org' | 'chat' | 'edit'; /** Lead chat: the message to open. */ focus?: string }
+  | { name: 'agency'; id: string; tab: 'org' | 'chat' | 'edit'; /** Inbox: the message to open. */ focus?: string }
   | { name: 'newAgency'; templateId?: string }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; agentId: string }
@@ -51,7 +51,7 @@ export default function App(): JSX.Element {
   const [projects, setProjects] = useState<Project[]>([])
   const [agencyRows, setAgencyRows] = useState<Agency[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
-  /** Unread Lead messages by agency id: counts on the agency tabs and on each agency's Lead chat. */
+  /** Unread Lead messages by agency id: counts on the agency tabs and on each agency's Inbox. */
   const [unreadBy, setUnreadBy] = useState<Record<string, number>>({})
   const countUnread = (): void => {
     void window.tyslin.channels.list().then((ms) => {
@@ -82,7 +82,8 @@ export default function App(): JSX.Element {
     if (agentId === DEFAULT_MODEL_AGENT) agentId = getDefaultModel()?.assistantId ?? agentId
     void refreshSessions()
     const a = agents.find((x) => x.id === agentId)
-    const pid = !sessionId && projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
+    // An agent's chat is in its project; fall back to it whenever no project was given.
+    const pid = projectId === null && a?.kind === 'agent' && !a.isMascot ? a.projectId : projectId
     setRoute({ name: 'chat', agentId, projectId: pid, sessionId })
   }
   const you = auth?.account?.name?.split(' ')[0] || 'You'
@@ -102,7 +103,7 @@ export default function App(): JSX.Element {
   // without an agency; it isn't an agency itself.
   const [currentProject] = useCurrentProject()
   useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
-  // Unread counts follow new messages, replies and reads; a clicked desktop notification opens that agency's Lead chat.
+  // Unread counts follow new messages, replies and reads; a clicked desktop notification opens that agency's Inbox.
   useEffect(() => {
     countUnread()
     const offMsg = window.tyslin.channels.onMessage(countUnread)
@@ -134,7 +135,9 @@ export default function App(): JSX.Element {
     if (route.name === 'agency' && route.id === id) setRoute(next && viewFor(next) ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
   }
   /** Which screens show the agency sidebar. */
-  const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency))
+  const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency)
+    // A chat with one of this agency's agents keeps the agency sidebar.
+    || (route.name === 'chat' && (route.projectId === activeAgency || agents.find((a) => a.id === route.agentId)?.projectId === activeAgency)))
   /** The agency page of the agent's agency (or the list). */
   const backFromAgent = (a?: Agent): void => {
     const id = a?.projectId && viewFor(a.projectId) ? a.projectId : activeAgency
@@ -189,7 +192,7 @@ export default function App(): JSX.Element {
       />
       <div className="app-body">
         {agencyNavOn && activeAgency && (
-          <AgencyNav agencyId={activeAgency} name={activeProject?.name ?? 'Agency'} route={route} unread={unreadByProject[activeAgency] ?? 0}
+          <AgencyNav agencyId={activeAgency} name={activeProject?.name ?? 'Agency'} route={route} unread={unreadByProject[activeAgency] ?? 0} leadId={activeView?.lead?.id ?? null}
             onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }} />
         )}
         <main className="main">

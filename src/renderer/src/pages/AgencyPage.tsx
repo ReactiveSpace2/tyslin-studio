@@ -10,7 +10,7 @@ import { type BoardStats, firstName, plural, useBoardStats } from '../boardStats
 
 interface Props {
   view: AgencyView
-  /** org: the overview (org chart); edit: the agency's settings. The Lead chat is its own screen (InboxPage). */
+  /** org: the overview (org chart); edit: the agency's settings. The Inbox is its own screen (InboxPage). */
   tab: 'org' | 'edit'
   you: string
   onTab: (tab: 'org' | 'edit') => void

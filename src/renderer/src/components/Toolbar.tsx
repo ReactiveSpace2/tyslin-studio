@@ -9,7 +9,7 @@ type IconName = Parameters<typeof Icon>[0]['name']
 const DOCS = 'https://tyslin.ai'
 const ISSUES = 'https://github.com/ReactiveSpace2/tyslin-studio/issues'
 
-/** Toolbar under the title bar: Home, Agencies and Settings at the left; Help and your profile at the right. Lead messages live in each agency's Lead chat. */
+/** Toolbar under the title bar: Home, Agencies and Settings at the left; Help and your profile at the right. Lead messages live in each agency's Inbox. */
 export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onSignOut }: {
   route: Route
   onNavigate: (r: Route) => void

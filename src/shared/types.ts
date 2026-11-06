@@ -925,7 +925,7 @@ export interface TyslinApi {
     remove(id: string): Promise<void>
     /** Runs the Lead's "plan the Inbox" prompt now; returns the chat id. */
     plan(id: string): Promise<string>
-    /** A brief from the Lead chat: a card in Inbox, then the Lead's planning run unless the agency is paused. */
+    /** A brief from the Inbox: a card in Inbox, then the Lead's planning run unless the agency is paused. */
     brief(id: string, text: string): Promise<{ cardId: string; planned: boolean }>
   }
   cards: {

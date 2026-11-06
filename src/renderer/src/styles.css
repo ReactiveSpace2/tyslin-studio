@@ -1474,7 +1474,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .dv-delete { color: var(--danger); }
 .dv-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); background: var(--card); }
 
-/* Unread Lead messages on agency tabs, the + menu and the agency menu's Lead chat (7 Nov 2026; the toolbar Inbox is gone). */
+/* Unread Lead messages on agency tabs, the + menu and the agency menu's Inbox (7 Nov 2026; the toolbar Inbox is gone). */
 .agency-tab-btn .tab-count { min-width: 18px; height: 18px; font-size: 10.5px; margin-left: 2px; }
 .agency-side-item .tab-count, .agency-menu .tab-count { margin-left: auto; }
 .agency-plus { position: relative; }
