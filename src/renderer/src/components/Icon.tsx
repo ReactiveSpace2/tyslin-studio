@@ -5,6 +5,7 @@ const PATHS = {
   agency: <><circle cx="8" cy="4" r="2" /><path d="M4.5 10.5a3.5 3.5 0 0 1 7 0" /><circle cx="3" cy="7" r="1.5" /><circle cx="13" cy="7" r="1.5" /><path d="M.75 12.5a2.4 2.4 0 0 1 3.1-2.3M15.25 12.5a2.4 2.4 0 0 0-3.1-2.3M5 14h6" /></>,
   channel: <><path d="M1.5 2.5h8.5v5.5H5.5l-2.5 2V8H1.5z" /><path d="M12.5 5.5h2V11h-1.5v2l-2.5-2H6.5V9.5" /></>,
   folder: <path d="M2 4h4l1.5 1.5H14V13H2z" />,
+  list: <path d="M6 4h7.5M6 8h7.5M6 12h7.5M2.5 4h.5M2.5 8h.5M2.5 12h.5" />,
   grid: <><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="9" y="2.5" width="4.5" height="4.5" rx="1" /><rect x="2.5" y="9" width="4.5" height="4.5" rx="1" /><rect x="9" y="9" width="4.5" height="4.5" rx="1" /></>,
   video: <><rect x="1.5" y="4" width="9.5" height="8" rx="1.5" /><path d="m11 7 3.5-2v6L11 9" /></>,
   workflow: <><rect x="1.5" y="2" width="4.5" height="3.5" rx="1" /><rect x="10" y="6.25" width="4.5" height="3.5" rx="1" /><rect x="1.5" y="10.5" width="4.5" height="3.5" rx="1" /><path d="M6 3.75h1.5a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H6M8.5 8H10" /></>,

@@ -852,7 +852,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .dv-ic.mindmap, .dv-ic.workflow, .dv-ic.canvas { color: var(--ink); }
 .dv-ic.big { width: 40px; height: 40px; border-radius: 10px; }
 .dv-hidden { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.dv-side { width: 320px; flex: none; border-left: 1px solid var(--line); padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; box-sizing: border-box; background: var(--parchment); }
+.dv-side { width: 380px; flex: none; border-left: 1px solid var(--line); padding: 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; box-sizing: border-box; background: var(--parchment); }
 .dv-title { display: block; font-size: 15px; overflow-wrap: anywhere; }
 .dv-img { max-width: 100%; max-height: 320px; object-fit: contain; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
 .sf-open { min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-height: 44px; text-align: left; cursor: pointer; color: var(--ink); border-radius: 10px; }
@@ -1477,3 +1477,30 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .lc-input { flex: 1; min-width: 0; min-height: 44px; resize: none; padding: 10px 12px; line-height: 1.45; font: inherit; }
 .lc-row .btn { min-height: 44px; }
 .lc-channel { align-self: flex-start; font-size: 12.5px; }
+
+/* Drive: list or icon view, and the preview pane on the right (7 Nov 2026). */
+.dv-views { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.dv-views button { width: 40px; height: 32px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.dv-views button.on { background: var(--card); border-color: var(--line); color: var(--ink); }
+.dv-views button:focus-visible { outline: 2px solid var(--green); outline-offset: 1px; }
+.dv-sync { margin-left: 8px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.dv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; align-content: start; }
+.dv-grid.drop { outline: 2px dashed var(--green); outline-offset: 3px; border-radius: 14px; }
+.dv-tile { min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.dv-tile:hover { border-color: var(--line-strong); }
+.dv-tile.on { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; background: var(--lime-soft); }
+.dv-tile.drop { outline: 2px dashed var(--green); outline-offset: -3px; }
+.dv-tile:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.dv-thumb { aspect-ratio: 4 / 3; display: grid; place-items: center; border-radius: 10px; background: var(--panel); color: var(--muted); overflow: hidden; }
+.dv-thumb.folder { color: var(--green); background: var(--lime-soft); }
+.dv-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; padding: 6px; box-sizing: border-box; }
+.dv-tile-name { font-size: 13px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dv-preview { min-height: 200px; max-height: 420px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 14px; background: var(--card); overflow: hidden; }
+.dv-preview .dv-img { max-height: 400px; border: 0; border-radius: 0; }
+.dv-preview .dv-text { align-self: stretch; width: 100%; margin: 0; max-height: 418px; overflow: auto; border: 0; }
+.dv-none { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px; text-align: center; }
+.dv-ic.huge { width: 72px; height: 72px; border-radius: 18px; }
+.dv-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.dv-actions .btn-primary { flex-basis: 100%; }
+.dv-delete { color: var(--danger); }
+.dv-text { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); background: var(--card); }
