@@ -60,7 +60,7 @@ export function TitleBar({ route, agents, projects, onHome }: Props): JSX.Elemen
   useEffect(() => { void getDefaultProjectIdSafe().then(setDefaultId) }, [projects.length])
   const agencyId = current && current !== defaultId ? current : null
   const title = crumbsFor(route, agents, projects, agencyId, defaultId).map((c) => c.label).filter(Boolean).join(' › ')
-  useEffect(() => { document.title = title ? `${title} · Tyslin Studio` : 'Tyslin Studio' }, [title])
+  useEffect(() => { document.title = title ? `${title} · Tyslin Studio` : 'Tyslin Studio — run your own AI agency' }, [title])
 
   return (
     <header className={'titlebar' + (mac ? ' mac' : '')}>

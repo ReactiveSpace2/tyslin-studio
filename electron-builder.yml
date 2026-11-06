@@ -53,7 +53,7 @@ deb:
   afterInstall: resources/linux/after-install.sh
   afterRemove: resources/linux/after-remove.sh
 snap:
-  summary: Every agent you run. One studio.
+  summary: Run your own AI agency.
   grade: stable
   # Classic, not strict: the app runs external agent engines from the user's
   # PATH, their official installers, and works on project folders anywhere.

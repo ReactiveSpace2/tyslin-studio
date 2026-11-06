@@ -270,7 +270,7 @@ function createWindow(): void {
     height: 880,
     minWidth: 900,
     minHeight: 600,
-    title: 'Tyslin Studio',
+    title: 'Tyslin Studio — run your own AI agency',
     backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light,
     icon: join(__dirname, '../../resources/icon.png'),
     titleBarStyle: 'hidden',
