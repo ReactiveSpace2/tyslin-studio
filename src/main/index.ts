@@ -6,7 +6,7 @@ import * as db from './db'
 import { setSecret, getSecret } from './secrets'
 import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
-import { cancelInstall, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
+import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
 import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
 import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant } from './defaultModel'
@@ -293,6 +293,19 @@ function emit(e: RunEvent): void {
   onRunEvent(e)
 }
 
+/** OpenRouter's public model list, cached for an hour. Empty when offline. */
+let openrouterCache: { at: number; models: { id: string; name: string }[] } | null = null
+async function openrouterModels(): Promise<{ id: string; name: string }[]> {
+  if (openrouterCache && Date.now() - openrouterCache.at < 3_600_000) return openrouterCache.models
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(15_000) })
+    const body = await res.json() as { data?: { id: string; name?: string }[] }
+    const models = (body.data ?? []).map((m) => ({ id: m.id, name: m.name || m.id })).sort((a, b) => a.name.localeCompare(b.name))
+    openrouterCache = { at: Date.now(), models }
+    return models
+  } catch { return openrouterCache?.models ?? [] }
+}
+
 function registerIpc(): void {
   ipcMain.handle('agents:list', () => {
     // Every organization has a Studio assistant on the default model (per computer); it catches up here.
@@ -311,6 +324,8 @@ function registerIpc(): void {
   })
   ipcMain.handle('agents:remove', (_e, id: string) => {
     if (isStudioAssistant(id)) throw new Error('Studio runs your default model for cards and the agency screens, so it stays. Change its model in Settings → Models.')
+    const gone = db.getAgent(id)
+    if (gone?.engine === 'hermes') deleteHermesProfile(gone)
     db.removeAgent(id)
   })
   ipcMain.handle('agents:statuses', () => agentStatuses())
@@ -434,6 +449,7 @@ function registerIpc(): void {
     anthropicKeySet: !!getSecret('anthropic'),
     openaiKeySet: !!getSecret('openai'),
     geminiKeySet: !!getSecret('gemini'),
+    openrouterKeySet: !!getSecret('openrouter'),
     ollamaUrl: db.getSetting('ollamaUrl') || 'http://localhost:11434',
     defaultModel: defaultModel()
   }))
@@ -442,6 +458,7 @@ function registerIpc(): void {
     syncStudioAssistant()
   })
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
+  ipcMain.handle('settings:openrouterModels', () => openrouterModels())
   ipcMain.handle('settings:prefs', () => db.getPrefs())
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
     const next = db.setPrefs(p)

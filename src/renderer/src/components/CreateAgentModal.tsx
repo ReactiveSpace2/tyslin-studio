@@ -55,7 +55,7 @@ export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat,
   }, [])
 
   const set = <K extends keyof AgentInput>(k: K, v: AgentInput[K]): void => { setForm((f) => ({ ...f, [k]: v })); setTest(null) }
-  const keySet = (p: ProviderId): boolean => p === 'ollama' || !!(keys && { anthropic: keys.anthropicKeySet, openai: keys.openaiKeySet, gemini: keys.geminiKeySet }[p as 'anthropic'])
+  const keySet = (p: ProviderId): boolean => p === 'ollama' || !!(keys && { anthropic: keys.anthropicKeySet, openai: keys.openaiKeySet, gemini: keys.geminiKeySet, openrouter: keys.openrouterKeySet }[p as 'anthropic'])
   const team = agents.filter((a) => a.kind === 'agent' && !a.isMascot && form.projectId && a.projectId === form.projectId)
   const shownSkills = useMemo(() => {
     const q = skillQ.toLowerCase()

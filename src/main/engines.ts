@@ -1,10 +1,11 @@
-import { spawn, type ChildProcess } from 'child_process'
-import { accessSync, constants, statSync } from 'fs'
+import { spawn, spawnSync, type ChildProcess } from 'child_process'
+import { accessSync, constants, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { delimiter, isAbsolute, join } from 'path'
-import type { EngineInstall, EngineStatus, ExternalEngineId } from '@shared/types'
+import type { Agent, EngineInstall, EngineStatus, ExternalEngineId } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
 import { getSetting, setSetting } from './db'
+import { getSecret as getKey } from './secrets'
 import type { AcpLaunch } from './acp'
 
 type EngineDef = Omit<EngineStatus, 'command' | 'resolvedPath' | 'install'>
@@ -34,6 +35,25 @@ const INSTALLERS: Partial<Record<ExternalEngineId, InstallRecipe>> = {
     source: 'hermes-agent.nousresearch.com',
     nextStep: 'Follow the Hermes setup guide to choose a model and add its key, then test the connection. On a Mac, Hermes supports Apple silicon only.'
   },
+  // The three agency adapters install from npm (the ACP registry lists these packages, github.com/agentclientprotocol/registry).
+  'claude-code': {
+    posix: 'npm install -g @agentclientprotocol/claude-agent-acp',
+    windows: 'npm install -g @agentclientprotocol/claude-agent-acp',
+    source: 'github.com/agentclientprotocol/claude-agent-acp',
+    nextStep: 'Sign in once by running "claude" in a terminal, or add your Claude key in Settings → Models: Tyslin passes it to the agent.'
+  },
+  'gemini-cli': {
+    posix: 'npm install -g @google/gemini-cli',
+    windows: 'npm install -g @google/gemini-cli',
+    source: 'github.com/google-gemini/gemini-cli',
+    nextStep: 'Sign in once by running "gemini" in a terminal, or add your Gemini key in Settings → Models: Tyslin passes it to the agent.'
+  },
+  codex: {
+    posix: 'npm install -g @agentclientprotocol/codex-acp',
+    windows: 'npm install -g @agentclientprotocol/codex-acp',
+    source: 'github.com/agentclientprotocol/codex-acp',
+    nextStep: 'Add your OpenAI key in Settings → Models (Tyslin passes it to the agent), or sign in with ChatGPT when the agent asks.'
+  },
   openclaw: {
     posix: 'curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard',
     windows: '& ([scriptblock]::Create((iwr -useb https://openclaw.ai/install.ps1))) -NoOnboard',
@@ -50,6 +70,21 @@ function installFor(id: ExternalEngineId): EngineInstall | null {
 
 /** External agents Tyslin can drive over ACP. Users install them; Tyslin only starts them. */
 export const ENGINES: EngineDef[] = [
+  {
+    id: 'claude-code', name: ENGINE_NAMES['claude-code'], defaultCommand: 'claude-agent-acp',
+    description: 'Anthropic\'s Claude Code, through the Claude Agent ACP adapter.',
+    docsUrl: 'https://github.com/agentclientprotocol/claude-agent-acp', note: 'Uses your Claude sign-in, or the Claude key from Settings → Models.'
+  },
+  {
+    id: 'gemini-cli', name: ENGINE_NAMES['gemini-cli'], defaultCommand: 'gemini --acp',
+    description: 'Google\'s open-source agent for the terminal, in its ACP mode.',
+    docsUrl: 'https://github.com/google-gemini/gemini-cli', note: 'Uses your Google sign-in, or the Gemini key from Settings → Models.'
+  },
+  {
+    id: 'codex', name: ENGINE_NAMES.codex, defaultCommand: 'codex-acp',
+    description: 'OpenAI\'s Codex, through its ACP adapter.',
+    docsUrl: 'https://github.com/agentclientprotocol/codex-acp', note: 'Uses the OpenAI key from Settings → Models, or a ChatGPT sign-in.'
+  },
   {
     id: 'goose', name: ENGINE_NAMES.goose, defaultCommand: 'goose acp',
     description: 'Open-source agent from Block, now under the Agentic AI Foundation.',
@@ -150,19 +185,69 @@ export function setEngineCommand(id: ExternalEngineId, command: string): EngineS
   return engineStatus(id)
 }
 
-/** How to start an engine in `cwd`. Throws a readable error when it isn't installed or configured. */
-export function engineLaunch(id: ExternalEngineId, cwd: string): AcpLaunch {
+// ---- Hermes profiles ---------------------------------------------------------------------------------
+
+/** Hermes keeps one persona, memory and config per profile, so every Tyslin agent on Hermes gets its own. */
+export const hermesProfileName = (agent: Pick<Agent, 'id'>): string => `tyslin${agent.id.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 20)}`
+
+const hermesHome = (): string => process.env.HERMES_HOME || join(homedir(), '.hermes')
+
+/**
+ * Makes sure the agent's Hermes profile exists and its SOUL.md carries the agent's instructions (rewritten on
+ * every launch, so edits in Tyslin reach Hermes). Returns the profile name.
+ */
+export function ensureHermesProfile(agent: Agent, hermesPath: string): string {
+  const name = hermesProfileName(agent)
+  const dir = join(hermesHome(), 'profiles', name)
+  if (!existsSync(dir)) {
+    // --clone copies the active profile's config, .env (model keys) and skills, so the agent can answer at once.
+    const r = spawnSync(hermesPath, ['profile', 'create', name, '--clone', '--no-alias', '--description', `Tyslin agent ${agent.name}`.slice(0, 80)],
+      { encoding: 'utf8', timeout: 60_000, env: { ...process.env, PATH: searchDirs().join(delimiter) } })
+    if (r.status !== 0 && !existsSync(dir)) throw new Error(`Hermes couldn't create the profile for ${agent.name}: ${(r.stderr || r.stdout || '').trim().slice(0, 300)}`)
+  }
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(join(dir, 'SOUL.md'), `${agent.instructions.trim() || `You are ${agent.name}.`}
+
+(This profile is managed by Tyslin Studio for the agent "${agent.name}". Edit the agent in Tyslin, not this file.)
+`, 'utf8')
+  return name
+}
+
+/** Deletes the agent's Hermes profile, if Hermes and the profile exist. Never throws. */
+export function deleteHermesProfile(agent: Pick<Agent, 'id'>): void {
+  const name = hermesProfileName(agent)
+  if (!existsSync(join(hermesHome(), 'profiles', name))) return
+  const [program] = splitCommand(commandLine('hermes'))
+  const path = program ? which(program) : null
+  if (!path) return
+  try { spawnSync(path, ['profile', 'delete', name, '-y'], { timeout: 60_000, env: { ...process.env, PATH: searchDirs().join(delimiter) } }) } catch { /* left on disk */ }
+}
+
+/** Keys the adapters read from the environment, passed from Settings → Models when set. */
+function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  const keyFor = (name: string): string | null => { try { return getKey(name) } catch { return null } }
+  if (id === 'claude-code') { const k = keyFor('anthropic'); if (k && !process.env.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = k }
+  if (id === 'gemini-cli') { const k = keyFor('gemini'); if (k && !process.env.GEMINI_API_KEY) env.GEMINI_API_KEY = k }
+  if (id === 'codex') { const k = keyFor('openai'); if (k && !process.env.OPENAI_API_KEY && !process.env.CODEX_API_KEY) env.OPENAI_API_KEY = k }
+  return env
+}
+
+/** How to start an engine in `cwd` for an agent. Throws a readable error when it isn't installed or configured. */
+export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): AcpLaunch {
   const d = def(id)
   const [program, ...args] = splitCommand(commandLine(id))
   if (!program) throw new Error(`Set the command for ${d.name} in Settings → Agent engines.`)
   const path = which(program)
   if (!path) throw new Error(`${d.name} isn't installed, or Tyslin can't find "${program}". Install it, or set its full path in Settings → Agent engines.`)
+  // Hermes: the agent's own profile, before the subcommand ("hermes -p <profile> acp").
+  const finalArgs = id === 'hermes' && agent ? ['-p', ensureHermesProfile(agent, path), ...args] : args
   return {
     command: path,
-    args,
+    args: finalArgs,
     cwd,
-    // The child gets the same widened PATH, so it can find its own helpers.
-    env: { ...process.env, PATH: searchDirs().join(delimiter) }
+    // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
+    env: { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
   }
 }
 

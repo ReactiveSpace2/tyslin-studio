@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { KeyProvider, ProviderId, ProviderSettings } from '@shared/types'
 import { MODEL_SUGGESTIONS, PROVIDER_NAME } from '@shared/models'
 import { refreshDefaultModel } from '../defaultModel'
@@ -7,7 +7,8 @@ import { refreshDefaultModel } from '../defaultModel'
 export const KEY_PROVIDERS: { id: KeyProvider; label: string; placeholder: string; flag: keyof ProviderSettings; getKey: string }[] = [
   { id: 'anthropic', label: 'Claude (Anthropic)', placeholder: 'sk-ant-…', flag: 'anthropicKeySet', getKey: 'https://console.anthropic.com/settings/keys' },
   { id: 'openai', label: 'ChatGPT (OpenAI)', placeholder: 'sk-…', flag: 'openaiKeySet', getKey: 'https://platform.openai.com/api-keys' },
-  { id: 'gemini', label: 'Gemini (Google)', placeholder: 'From Google AI Studio', flag: 'geminiKeySet', getKey: 'https://aistudio.google.com/apikey' }
+  { id: 'gemini', label: 'Gemini (Google)', placeholder: 'From Google AI Studio', flag: 'geminiKeySet', getKey: 'https://aistudio.google.com/apikey' },
+  { id: 'openrouter', label: 'OpenRouter (one key, many models)', placeholder: 'sk-or-…', flag: 'openrouterKeySet', getKey: 'https://openrouter.ai/keys' }
 ]
 
 const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
@@ -15,7 +16,7 @@ const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
 
 /** One row per provider: a password field and Save (Enter saves; no <form>, so it can sit inside one). Keys are encrypted in main and never come back to the window. */
 export function ModelKeys({ settings, onSaved }: { settings: ProviderSettings | null; onSaved: (label: string) => void | Promise<void> }): JSX.Element {
-  const [keys, setKeys] = useState<Record<KeyProvider, string>>({ anthropic: '', openai: '', gemini: '' })
+  const [keys, setKeys] = useState<Record<KeyProvider, string>>({ anthropic: '', openai: '', gemini: '', openrouter: '' })
   const [busy, setBusy] = useState<KeyProvider | null>(null)
   const save = async (id: KeyProvider, label: string): Promise<void> => {
     if (!keys[id].trim()) return
@@ -59,8 +60,16 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   onChange: (v: { provider: ProviderId; model: string }) => void
   idPrefix?: string
 }): JSX.Element {
-  const providers: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
-  const known = MODEL_SUGGESTIONS[value.provider].includes(value.model)
+  const providers: ProviderId[] = ['anthropic', 'openai', 'gemini', 'openrouter', 'ollama']
+  // OpenRouter lists hundreds of models; load them once the provider is picked.
+  const [orModels, setOrModels] = useState<{ id: string; name: string }[] | null>(null)
+  useEffect(() => {
+    if (value.provider !== 'openrouter' || orModels) return
+    void window.tyslin.settings.openrouterModels().then(setOrModels).catch(() => setOrModels([]))
+  }, [value.provider, orModels])
+  const options: { id: string; name: string }[] = value.provider === 'openrouter' && orModels && orModels.length > 0
+    ? orModels : MODEL_SUGGESTIONS[value.provider].map((m) => ({ id: m, name: m }))
+  const known = options.some((o) => o.id === value.model)
   return (
     <div className="dm-picker">
       <div className="field">
@@ -76,7 +85,7 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
         <label htmlFor={idPrefix + '-model'}>Model</label>
         <select id={idPrefix + '-model'} className="select mono" value={known ? value.model : OTHER}
           onChange={(e) => onChange({ ...value, model: e.target.value === OTHER ? '' : e.target.value })}>
-          {MODEL_SUGGESTIONS[value.provider].map((m) => <option key={m} value={m}>{m}</option>)}
+          {options.map((m) => <option key={m.id} value={m.id}>{m.name === m.id ? m.id : `${m.name} · ${m.id}`}</option>)}
           <option value={OTHER}>Other model…</option>
         </select>
         {!known && (

@@ -8,6 +8,7 @@ import * as db from './db'
 import { defaultModel } from './defaultModel'
 import { newProjectFolderPath } from './studio'
 import { installPack } from './skillPacks'
+import { deleteHermesProfile } from './engines'
 
 /**
  * Agencies: a template becomes a project folder, a Lead and its workers, a board file and the Lead's
@@ -115,6 +116,8 @@ export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
 export function removeAgency(id: string): void {
   const a = db.getAgency(id)
   if (!a) return
+  // Hermes agents own a profile each; it goes with them.
+  for (const agent of db.listAgents()) if (agent.agency === id && agent.engine === 'hermes') deleteHermesProfile(agent)
   const project = db.getProject(a.projectId)
   if (project?.folder && a.boardPath) {
     const board = join(project.folder, a.boardPath)

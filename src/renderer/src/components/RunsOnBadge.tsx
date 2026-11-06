@@ -19,6 +19,7 @@ export const MARKS: Record<MarkKey, { label: string; letters: string; tone: 'ink
   openai: { label: 'OpenAI', letters: 'AI', tone: 'ink' },
   gemini: { label: 'Gemini', letters: 'Ge', tone: 'ink' },
   ollama: { label: 'Local · Ollama', letters: 'Ol', tone: 'paper' },
+  openrouter: { label: 'OpenRouter', letters: 'OR', tone: 'ink' },
   goose: { label: ENGINE_NAMES.goose, letters: 'Go', tone: 'lime' },
   hermes: { label: ENGINE_NAMES.hermes, letters: 'He', tone: 'lime' },
   zeroclaw: { label: ENGINE_NAMES.zeroclaw, letters: 'Zc', tone: 'lime' },

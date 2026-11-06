@@ -231,17 +231,23 @@ class AnthropicRuntime implements AgentRuntime {
 }
 
 class OpenAICompatibleRuntime implements AgentRuntime {
-  constructor(private kind: 'openai' | 'gemini' | 'ollama') {}
+  constructor(private kind: 'openai' | 'gemini' | 'ollama' | 'openrouter') {}
 
   async run(opts: RunOptions): Promise<string> {
     const { agent, skills, project, history, emit, signal } = opts
     let base = 'https://api.openai.com/v1'
     const headers: Record<string, string> = { 'content-type': 'application/json' }
-    if (this.kind === 'openai' || this.kind === 'gemini') {
+    if (this.kind === 'openai' || this.kind === 'gemini' || this.kind === 'openrouter') {
       const key = getSecret(this.kind)
-      if (!key) throw new Error(`Add your ${this.kind === 'openai' ? 'OpenAI' : 'Google Gemini'} API key in Settings.`)
+      if (!key) throw new Error(`Add your ${this.kind === 'openai' ? 'OpenAI' : this.kind === 'gemini' ? 'Google Gemini' : 'OpenRouter'} API key in Settings.`)
       headers.authorization = `Bearer ${key}`
       if (this.kind === 'gemini') base = 'https://generativelanguage.googleapis.com/v1beta/openai'
+      if (this.kind === 'openrouter') {
+        base = 'https://openrouter.ai/api/v1'
+        // OpenRouter asks apps to identify themselves (shown on its usage pages); no user data in these.
+        headers['HTTP-Referer'] = 'https://tyslin.ai'
+        headers['X-Title'] = 'Tyslin Studio'
+      }
     } else {
       base = (getSetting('ollamaUrl') || 'http://localhost:11434').replace(/\/$/, '') + '/v1'
     }
@@ -368,7 +374,7 @@ class AcpRuntime implements AgentRuntime {
   async run(opts: RunOptions): Promise<string> {
     const { name } = engineStatus(this.engine)
     const folder = opts.project?.folder ?? null
-    const launch = engineLaunch(this.engine, folder ?? homedir())
+    const launch = engineLaunch(this.engine, folder ?? homedir(), opts.agent)
     const access = folder && opts.agent.tools.read
       ? acpFileAccess({ agent: opts.agent, project: opts.project!, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit })
       : null
@@ -398,6 +404,7 @@ export function runtimeFor(agent: Agent): AgentRuntime {
   switch (agent.provider) {
     case 'anthropic': return new AnthropicRuntime()
     case 'openai': return new OpenAICompatibleRuntime('openai')
+    case 'openrouter': return new OpenAICompatibleRuntime('openrouter')
     case 'gemini': return new OpenAICompatibleRuntime('gemini')
     case 'ollama': return new OpenAICompatibleRuntime('ollama')
   }

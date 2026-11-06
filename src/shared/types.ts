@@ -1,8 +1,8 @@
 export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
-export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama'
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
 /** Providers that need an API key (stored encrypted). */
-export type KeyProvider = 'anthropic' | 'openai' | 'gemini'
+export type KeyProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter'
 /**
  * What runs the agent: Tyslin's own model runtime, or an external agent driven over ACP
  * (Agent Client Protocol). The external program is installed by the user, never bundled.
@@ -498,6 +498,7 @@ export interface ProviderSettings {
   anthropicKeySet: boolean
   openaiKeySet: boolean
   geminiKeySet: boolean
+  openrouterKeySet: boolean
   ollamaUrl: string
   /** The model Mind mapper, Canvas and Automation use when "Default model" is picked (shown in the status bar). */
   defaultModel: DefaultModel
@@ -849,6 +850,8 @@ export interface TyslinApi {
     get(): Promise<ProviderSettings>
     setKey(provider: KeyProvider, key: string): Promise<void>
     setOllamaUrl(url: string): Promise<void>
+    /** OpenRouter's public model list (id and name), cached for an hour; [] when offline. */
+    openrouterModels(): Promise<{ id: string; name: string }[]>
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
     /** Fires when the zoom changes anywhere (slider, Settings or keyboard shortcut). */

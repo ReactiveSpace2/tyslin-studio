@@ -71,6 +71,7 @@ const api: TyslinApi = {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
     setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url),
+    openrouterModels: () => ipcRenderer.invoke('settings:openrouterModels'),
     prefs: () => ipcRenderer.invoke('settings:prefs'),
     setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p),
     onZoom: (cb) => {
