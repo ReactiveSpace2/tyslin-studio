@@ -79,12 +79,12 @@ export function Activity({ agents, projects, sessions, onOpenChat, agencyCount }
   const agentOf = (id: string): Agent | undefined => agents.find((a) => a.id === id)
   const projectName = (id: string | null): string | null => (id ? projects.find((p) => p.id === id)?.name ?? null : null)
   const nAgents = agents.filter((a) => a.kind === 'agent').length
-  const nAssistants = agents.length - nAgents
+  const nLeads = agents.filter((a) => a.kind === 'agent' && !!a.agency && !a.leadId).length
   const topMax = Math.max(1, ...(stats?.topAgents.map((t) => t.messages) ?? [1]))
 
   const tiles: [string, string | number, string][] = stats ? [
     ['Agents', nAgents, `${agents.filter((a) => a.kind === 'agent' && a.schedule !== 'manual').length} on a schedule`],
-    ['Assistants', nAssistants, 'for quick chats'],
+    ['Leads', nLeads, nLeads === 1 ? 'plans and reviews' : 'plan and review'],
     agencyCount === undefined
       ? ['Projects', projects.length, projects.length === 1 ? 'linked folder' : 'linked folders']
       : ['Agencies', agencyCount, 'in this organization'],
@@ -113,8 +113,8 @@ export function Activity({ agents, projects, sessions, onOpenChat, agencyCount }
   return (
     <section id="activity" className="home-section home-activity" aria-labelledby="activity-title">
       <div className="home-section-head">
-        <h2 id="activity-title">What your studio is doing</h2>
-        <p className="hint">Activity from this computer: your agents, assistants, chats and the changes waiting for you.</p>
+        <h2 id="activity-title">What your agencies are doing</h2>
+        <p className="hint">Activity from this computer: your agents' chats and the file changes waiting for you.</p>
       </div>
 
       {!stats ? <p className="hint">Loading…</p> : (

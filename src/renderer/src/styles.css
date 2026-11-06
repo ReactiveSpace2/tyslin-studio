@@ -382,6 +382,8 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .home-intro h1 { font-size: 40px; }
 .home-tagline { margin: -6px 0 0; font-size: 18px; font-weight: 600; color: var(--green); }
 .home-intro .btn { min-height: 44px; }
+.home-status { font-size: 14px; color: var(--muted); }
+.home-first { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
 .home-mascot { display: none; height: 340px; width: auto; flex: none; margin: -12px 0 -32px; }
 .home-section { display: flex; flex-direction: column; gap: 14px; }
 .home-section-head { display: flex; flex-direction: column; gap: 4px; }

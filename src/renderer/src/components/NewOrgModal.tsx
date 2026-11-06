@@ -31,7 +31,7 @@ export function NewOrgModal({ onClose }: { onClose: () => void }): JSX.Element {
           <label htmlFor="no-name">Name</label>
           <input id="no-name" className="input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme" autoFocus />
           <span className="hint">
-            An organization has its own agents, assistants, projects, chats and skills, kept apart from your other organizations.
+            An organization has its own agencies, agents, chats and skills, kept apart from your other organizations.
             Your sign-in, API keys and theme are shared.
           </span>
         </div>

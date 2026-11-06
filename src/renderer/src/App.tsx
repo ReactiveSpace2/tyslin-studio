@@ -37,7 +37,7 @@ export type Route =
   | { name: 'agencies' }
   | { name: 'inbox'; id?: string }
   | { name: 'agency'; id: string; tab: 'org' | 'edit' }
-  | { name: 'newAgency' }
+  | { name: 'newAgency'; templateId?: string }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; agentId: string }
   | { name: 'kanban'; open?: { projectId: string; path: string } }
@@ -191,7 +191,7 @@ export default function App(): JSX.Element {
               focus={route.focus}
               onOpenAgency={(id) => openAgency(id)}
               onAllAgencies={() => setRoute({ name: 'agencies' })}
-              onNewAgency={() => setRoute({ name: 'newAgency' })}
+              onNewAgency={(templateId) => setRoute({ name: 'newAgency', templateId })}
               onOpenChat={openChat}
             />
           )}
@@ -298,6 +298,7 @@ export default function App(): JSX.Element {
       {route.name === 'newAgency' && (
         <AgencyWizard
           firstRun={false}
+          templateId={route.templateId}
           firstName={you !== 'You' ? you : undefined}
           onCancel={() => setRoute({ name: 'agencies' })}
           onDone={(projectId) => { void refresh().then(() => { if (projectId) openAgency(projectId); else setRoute({ name: 'agencies' }) }) }}

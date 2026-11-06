@@ -10,6 +10,9 @@ import { Avatar } from '../components/Avatar'
 import { Activity } from '../components/Activity'
 import { Icon } from '../components/Icon'
 import { Watermark } from '../components/Watermark'
+import { AGENCY_TEMPLATES, templateSummary } from '@shared/agencies'
+import { HEAD_SRC } from '../heads'
+import { money, plural, useBoardStats } from '../boardStats'
 
 interface Props {
   you: string
@@ -21,7 +24,8 @@ interface Props {
   focus?: 'activity'
   onOpenAgency: (projectId: string) => void
   onAllAgencies: () => void
-  onNewAgency: () => void
+  /** With a template id: the wizard opens with that template picked. */
+  onNewAgency: (templateId?: string) => void
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
 }
 
@@ -34,6 +38,15 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
   useEffect(() => { void window.tyslin.app.info().then(setInfo) }, [])
   const leads = agencies.filter((v) => v.lead).length
   const workers = agencies.reduce((n, v) => n + v.workers.length, 0)
+  const boards = useBoardStats(agencies.map((v) => v.agency))
+  const review = Object.values(boards).reduce((n, b) => n + b.review, 0)
+  const spent = Object.values(boards).reduce((n, b) => n + b.spentWeek, 0)
+  // Parts that are zero are left out.
+  const status = agencies.length === 0 ? 'No agencies yet.' : [
+    plural(agencies.length, 'agency', 'agencies'),
+    review > 0 ? `${plural(review, 'card')} waiting for your review` : '',
+    spent > 0 ? `${money(spent)} spent this week` : ''
+  ].filter(Boolean).join(' · ')
   return (
     <div className="page home watermarked ag-home">
       <Watermark />
@@ -48,15 +61,11 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
             <span className="badge green mono">v{info?.version ?? '…'}</span>
             <span className="badge mono">Beta</span>
           </div>
-          <h1 id="home-title">Tyslin Studio</h1>
           <p className="home-tagline">Every agent you run. One studio.</p>
-          <p className="lead">
-            Agencies do the work in your folders: a Lead plans the board and hands cards to its workers, each on the model
-            or agent you choose. You review every change before it touches your files, and the Lead tells you what's done
-            on Telegram or Slack.
-          </p>
+          <h1 id="home-title">Your agencies</h1>
+          <p className="lead mono home-status" role="status">{status}</p>
           <div className="row">
-            <button type="button" className="btn btn-primary" onClick={agencies.length ? onAllAgencies : onNewAgency}>
+            <button type="button" className="btn btn-primary" onClick={() => (agencies.length ? onAllAgencies() : onNewAgency())}>
               <Icon name="agency" size={14} /> {agencies.length ? `Open your ${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'Create an agency'}
             </button>
           </div>
@@ -67,11 +76,31 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
         <div>
           <span className="eyebrow">{orgName || 'Organization'}</span>
           <h1>{greeting()}{you !== 'You' ? `, ${you}` : ''}</h1>
-          <p className="hint">{orgName || 'Your organization'} runs {agencies.length} {agencies.length === 1 ? 'agency' : 'agencies'}. Each has its own Lead, team, board and folder.</p>
+          <p className="hint">{agencies.length ? `${orgName || 'Your organization'} runs ${plural(agencies.length, 'agency', 'agencies')}. Each has its own Lead, team, board and folder.` : `${orgName || 'Your organization'} has no agencies yet.`}</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={onNewAgency}><Icon name="plus" size={12} /> New agency</button>
+        <button type="button" className="btn btn-primary" onClick={() => onNewAgency()}><Icon name="plus" size={12} /> New agency</button>
       </header>
 
+      {agencies.length === 0 && (
+        <section className="home-first" aria-labelledby="first-title">
+          <div className="ag-sub"><h2 id="first-title">Set up your first agency</h2></div>
+          <p className="hint">Pick a template to start: you get a Lead and a team with a goal, a plan, a board and a line to you. You can change everything before it's created.</p>
+          <div className="aw-grid">
+            {AGENCY_TEMPLATES.map((t) => {
+              const l = t.roster.find((m) => m.lead)
+              return (
+                <button key={t.id} type="button" className="aw-tpl" onClick={() => onNewAgency(t.id)}>
+                  <span className="aw-tpl-top"><img src={HEAD_SRC[l?.head ?? 'smile'] ?? HEAD_SRC.smile} alt="" width={30} height={30} className="nt-head" /><strong>{t.name}</strong></span>
+                  <span className="hint">{t.tagline}</span>
+                  <span className="mono aw-small">{templateSummary(t)}</span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {agencies.length > 0 && (<>
       <div className="ag-stats">
         <div className="card ag-stat"><span className="hint">Agencies</span><strong className="mono">{agencies.length}</strong></div>
         <div className="card ag-stat"><span className="hint">Agents</span><strong className="mono">{agents.filter((a) => a.kind === 'agent' && !a.isMascot).length}</strong></div>
@@ -94,12 +123,13 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
             </button>
           )
         })}
-        <button type="button" className="card ag-card ag-new" onClick={onNewAgency}>
+        <button type="button" className="card ag-card ag-new" onClick={() => onNewAgency()}>
           <span className="ag-plus"><Icon name="plus" size={16} /></span>
           <strong>New agency</strong>
           <span className="hint">Start from one of 20 templates or describe your own.</span>
         </button>
       </div>
+      </>)}
 
       <Activity agents={agents} projects={projects} sessions={sessions} onOpenChat={onOpenChat} agencyCount={agencies.length} />
     </div>

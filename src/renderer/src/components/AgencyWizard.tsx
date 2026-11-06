@@ -55,8 +55,10 @@ interface Draft {
  * Agency setup: seven steps that turn a template (or a description) into an agency: a Lead, its workers,
  * skills, a Kanban board and a channel to you. Shown after sign-in on first run.
  */
-export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
+export function AgencyWizard({ firstName, firstRun, templateId, onDone, onCancel }: {
   firstName?: string
+  /** Opens with this template picked (from Home's template grid). */
+  templateId?: string
   /** First run asks the organization and shows the key fields; from New agency it doesn't. */
   firstRun: boolean
   /** Created; from New agency, with the new agency's project id. */
@@ -103,6 +105,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
       prompt: `${t.tagline} Work in this agency's folder. Keep each change small and send it for review. Write in plain English. Ask before adding a paid service or a new dependency.`
     })
   }
+  useEffect(() => { if (templateId) pickTemplate(templateId) }, [templateId])
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     return q ? AGENCY_TEMPLATES.filter((t) => `${t.name} ${t.tagline}`.toLowerCase().includes(q)) : AGENCY_TEMPLATES
