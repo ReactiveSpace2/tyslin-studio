@@ -7,6 +7,7 @@ import { updateTask, useTasks } from '../activity'
 import { Icon } from './Icon'
 import { useGDrive } from './GoogleDrive'
 import { ZoomControl } from './ZoomControl'
+import { WorkingDots } from './Working'
 
 interface Props {
   route: Route
@@ -162,7 +163,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
           <div className="running" ref={menuRef}>
             <button type="button" className="status-item status-btn status-busy" aria-haspopup="dialog" aria-expanded={open}
               onClick={() => setOpen((o) => !o)}>
-              <span className="status-pulse" aria-hidden="true" />
+              <WorkingDots />
               <span className="running-summary">{summary}</span>
             </button>
             <span className="sr-only" role="status">{summary}</span>

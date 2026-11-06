@@ -6,6 +6,8 @@ import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { runsOnLabel } from '../components/RunsOnBadge'
+import { WorkingBorder, WorkingDots } from '../components/Working'
+import { useAgentStatuses } from '../agentStatus'
 import { type BoardStats, firstName, plural, useBoardStats } from '../boardStats'
 
 interface Props {
@@ -54,6 +56,10 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
   const { agency, project, lead, workers } = view
   const st = agencyStatus(view)
   const board = useBoardStats([agency])[agency.id]
+  const statuses = useAgentStatuses()
+  const working = (a: Agent): boolean => statuses.get(a.id)?.state === 'working'
+  // A worker on a card the Lead handed out: dots run down the line from the Lead to it.
+  const handOff = workers.some(working)
   const side = (
     <aside className="ag-side">
       <div className="card ag-box">
@@ -132,22 +138,26 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
             {lead ? (
               <>
                 <span className="nt-line" />
-                <button type="button" className="nt-person nt-lead ag-node" onClick={() => onOpenAgent(lead)}>
+                <button type="button" className={'nt-person nt-lead ag-node' + (working(lead) ? ' working' : '')} onClick={() => onOpenAgent(lead)}>
+                  {working(lead) && <WorkingBorder />}
                   <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} />
-                  <span><strong>{lead.name}</strong><small>{lead.description || 'Plans the work, hands out cards and reports to you'}</small><small className="mono">{runsOnLabel(lead)}</small></span>
+                  <span><strong>{lead.name}</strong><small>{lead.description || 'Plans the work, hands out cards and reports to you'}</small><small className="mono">{runsOnLabel(lead)}</small>
+                    {working(lead) && <small className="nt-working">Working<WorkingDots /></small>}</span>
                 </button>
               </>
             ) : <p className="hint" style={{ marginTop: 16 }}>No Lead yet. Add an agent to this agency and it becomes the Lead.</p>}
             {workers.length > 0 && (
               <>
-                <span className="nt-line" />
+                <span className={'nt-line' + (handOff ? ' flow' : '')} />
                 <div className="nt-members" style={{ gridTemplateColumns: `repeat(${Math.min(workers.length, 4)}, minmax(0, 1fr))` }}>
                   {workers.map((w) => (
-                    <button key={w.id} type="button" className="nt-person nt-member ag-node" onClick={() => onOpenAgent(w)}>
+                    <button key={w.id} type="button" className={'nt-person nt-member ag-node' + (working(w) ? ' working' : '')} onClick={() => onOpenAgent(w)}>
+                      {working(w) && <><WorkingBorder /><span className="nt-stem flow" aria-hidden="true" /></>}
                       <Avatar shape={w.shape} tone={w.tone} head={w.head} size={38} />
                       <strong>{w.name}</strong>
                       <small>{w.description}</small>
                       <span className="mono nt-access">{runsOnLabel(w)}</span>
+                      {working(w) && <small className="nt-working">Working<WorkingDots /></small>}
                     </button>
                   ))}
                 </div>
