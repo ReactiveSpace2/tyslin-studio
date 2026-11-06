@@ -12,25 +12,13 @@
 
 ---
 
-Tyslin Studio is an open-source desktop studio for running agencies of AI agents. An agency is a Lead agent and its workers around one goal: the Lead plans a brief into cards on a Kanban board, hands them to the workers, reviews what comes back and talks to you (the boss) on Telegram or Slack. Twenty templates (App Development, SEO, Customer Support, Startup Visa, Finance & Bookkeeping and more) set one up in seven steps.
+**Run your own AI agency.** Pick one of 20 agencies. A Lead agent plans the work on a board and hands it to a team of agents on Claude Code, Codex, Gemini CLI or Hermes. They work on their own; you approve what ships. Open source, on your machine.
 
-Everything runs on your computer. Agents, chats, projects and skills live in a local SQLite database (one per organization), and your API keys are encrypted with your system keychain. Bring your own key for Anthropic (Claude), OpenAI or Google Gemini, or run models locally with Ollama.
+<p align="center">
+  <img src="docs/screenshots/agency-board.png" alt="An agency's Kanban board in Tyslin Studio: cards in Inbox, Planned, In progress, Review and Done, each with its assignee and cost" width="900">
+</p>
 
 > **Status: beta (v0.6.0, the agencies release).** v0.6 starts on a fresh database: an older `tyslin.db` is set aside as `tyslin-v0.5.db` (keys, account and appearance are copied across) and the pre-agency screens live in `archive/`. Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
-
-## What works today
-
-- **First run:** sign in (official builds), then the agency wizard: name your organization and agency, describe it or pick one of 20 templates, choose how the workers run (the template's mix of Claude Code, Hermes, Gemini CLI and Codex, or one adapter for all), add model keys and pick the Lead's model, tick skill packs, see the board and the first cards, set up Telegram or Slack, review and create. You land on the agency's overview.
-- **Agencies:** each one is a Lead and its workers (named "First (Job)", with mascot heads), a project folder under `Documents/Tyslin Studio/<organization>/<agency>/`, a Kanban board (Inbox → Planned → In progress → Review → Done) with the template's starter cards, an agency prompt every agent follows, a goal and a five-step plan, a channel to you, a monthly budget and a scheduled "plan the Inbox" run for the Lead. Open several as tabs; each tab has its own Overview, Kanban, Channel, Skills and Drive. Edit saves everything; Delete removes the agents, board and task and keeps the files.
-- **The Lead:** runs on your default model with board tools: it lists, adds, assigns, moves and comments on cards, starts a card, messages you (brief, question, review or digest) and keeps `agency-log.md`. Run on the overview plans the Inbox now; the scheduled task does it every weekday (or Monday) at 09:00. With "Lead runs cards automatically" on, planned cards start one after another until the budget is reached.
-- **Cards:** Run card starts the assignee in its own chat in the agency folder; the result, chat and estimated cost land on the card and it moves to Review. File changes wait in the diff review; accepting them moves the card to Done. Cost is estimated from token counts for Claude, OpenAI, Gemini and OpenRouter (local models are free); agents on external adapters report no cost.
-- **Adapters:** workers run on Claude Code, Hermes, Gemini CLI or Codex over the Agent Client Protocol (install from Settings → Agent engines with each project's official command; Tyslin passes your model keys to them). Hermes gets one profile per agent so each worker keeps its own memory and persona. Goose, ZeroClaw, OpenClaw and custom ACP agents are still there.
-- **Models:** Claude, OpenAI, Gemini, OpenRouter (one key, hundreds of models, listed in the picker) and Ollama locally. One default model per computer, shown in the status bar.
-- **Channel:** only a Lead talks to you, never a worker. Telegram (your own bot, linked accounts by one-time code) and Slack (your own app's bot token, a channel linked by one-time code; polled from this computer, no public server). Per agency, choose everything, questions and reviews, or digests only; every message also shows on the agency's Channel screen.
-- **Skills:** 109 built-in skills (71 written for the agency templates), GitHub skill packs and Anthropic's open skills.
-- **Drive:** each agency's folder with real files only (documents, images, PDFs, archives, what the agents make); boards and other app data show with "Show hidden files". Google Drive sync of every agency folder, both ways.
-- **Organizations, sign-in, themes, zoom, reset, updates:** as before: separate databases per organization; Google sign-in in official builds; light and dark themes, accent and organization colours; Settings → About → Reset starts fresh; in-app updates.
-- **Chat and attachments:** talk to any agent in its agency folder, attach files and folders, review every file change before it is written.
 
 ## Download
 
@@ -62,7 +50,92 @@ From v0.2.0, Tyslin Studio checks GitHub Releases when it starts.
 
 If you're on v0.1.0, download the new version once by hand; updates after that arrive in the app.
 
-## Run from source
+## What an agency is
+
+- **Lead:** one agent that plans, assigns, reviews and talks to you. It runs on your default model.
+- **Workers:** three or four agents named for their jobs, such as "Sam (Backend)", each on an adapter.
+- **Board:** a Kanban board (Inbox, Planned, In progress, Review, Done) in the agency's own folder.
+- **Channel:** the Lead messages you on Telegram or Slack, and on the agency's Channel screen.
+- **Budget:** every card shows its estimated cost; the agency stops starting cards at its budget.
+- **Review:** file changes wait for you as a diff; accepting them moves the card to Done.
+
+## The 20 agencies
+
+Each template comes with a goal, a five-step plan, starter cards, skills and the Lead's scheduled planning run. You can rename it, change the roster and edit everything before and after it's created.
+
+<!-- agencies:start (generated by scripts/readme-agencies.mjs) -->
+| Agency | What it does | Lead | Agents |
+|---|---|---|---|
+| App Development | Plans, builds, tests and ships web and desktop apps from a spec. | Alex | 5 |
+| Mobile Apps | Designs and builds iOS and Android apps, then gets them ready for the stores. | Maya | 5 |
+| Web Design | Designs and builds marketing sites and landing pages. | Jade | 5 |
+| Social Media Marketing | Plans, writes and schedules posts across your social channels. | Mia | 5 |
+| Content Writing | Researches, writes and edits articles, guides and newsletters. | Clara | 4 |
+| SEO | Finds what people search for, plans pages and improves rankings. | Owen | 4 |
+| Paid Ads | Plans, writes and reports on ad campaigns. | Ray | 4 |
+| Email Marketing | Writes and plans newsletters and email sequences. | Nina | 4 |
+| Sales & Lead Gen | Finds leads, qualifies them and writes outreach. | Victor | 4 |
+| Customer Support | Answers customers, writes help articles and spots patterns. | Grace | 4 |
+| Research & Intelligence | Researches markets, companies and competitors and writes briefs. | Iris | 4 |
+| Data & Analytics | Cleans data, builds reports and explains what the numbers say. | Nadia | 4 |
+| Product Management | Turns feedback and goals into specs and a roadmap. | Erin | 4 |
+| QA & Testing | Writes test plans, runs tests and reports bugs. | Hannah | 4 |
+| DevOps | Sets up builds, deploys and monitoring. | Viktor | 4 |
+| Startup Visa | Prepares a startup visa application: eligibility, documents and a plan. | Peter | 4 |
+| Finance & Bookkeeping | Keeps the books, reconciles accounts and reports monthly. | Rebecca | 4 |
+| Legal & Contracts | Drafts and reviews contracts and keeps a checklist of risks. | Catherine | 4 |
+| HR & Recruiting | Writes job posts, screens candidates and prepares onboarding. | Laura | 4 |
+| Video & Creative | Writes scripts and storyboards and preps creative for recording. | Jessica | 4 |
+<!-- agencies:end -->
+
+## Adapters and models
+
+Workers run on an adapter, an agent you install that Tyslin drives over the [Agent Client Protocol](https://agentclientprotocol.com). Settings → Agent engines shows each project's official install command before anything runs.
+
+| Adapter | Install | Needs |
+|---|---|---|
+| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (run `claude` once), or your Claude key from Settings → Models |
+| Codex | `npm install -g @agentclientprotocol/codex-acp` | Your OpenAI key from Settings → Models, or a ChatGPT sign-in |
+| Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (run `gemini` once), or your Gemini key from Settings → Models |
+| Hermes | Official installer from Nous Research | Its own model and key, set up with the Hermes setup guide; Tyslin gives each agent its own Hermes profile |
+
+Any agent can also run on Goose (set up with `goose configure`), ZeroClaw, OpenClaw (needs a running OpenClaw Gateway) or a custom ACP command, chosen on the agent's page.
+
+The Lead, and any worker on the default model, uses one of these with your own key:
+
+| Model provider | Needs |
+|---|---|
+| Claude (Anthropic) | An Anthropic API key |
+| OpenAI | An OpenAI API key |
+| Gemini (Google) | A Gemini API key |
+| OpenRouter | An OpenRouter key (one key, many models) |
+| Ollama | Ollama running on this computer; no key |
+
+Keys are encrypted with your system keychain. Tyslin passes your Claude, OpenAI and Gemini keys to the matching adapter when you haven't signed it in yourself.
+
+## Review and budgets
+
+**Review.** Agents propose file changes instead of writing them. Each change shows as a diff you accept or reject, hunk by hunk, before it touches disk. When a card's run ends it moves to Review; accepting its changes moves it to Done. When an adapter asks permission, for example to run a command, the request shows as a card you approve or deny. You can let a single agent write directly from its page, with a warning.
+
+**Budgets.** Set a budget on the agency's Edit page. Each run adds its estimated cost (from token counts for Claude, OpenAI, Gemini and OpenRouter; local models are free; adapters that don't report usage count as zero) to the agency's total, shown on the card and, once a budget is set, on the Overview. Once the total reaches the budget, no more cards start, by hand or by auto-run, until you raise it. The total doesn't reset by itself yet.
+
+**Auto-run.** With "Let the Lead run cards automatically" on, the Lead starts planned cards one after another with their owners, within the budget. Off (the default), the Lead only plans and you start each card. Runs happen while the app is open.
+
+## Roadmap
+
+1. **Runs while the app is closed:** the Lead's scheduled runs and auto-run keep going when the window is shut.
+2. **Cost ledger on Home:** spend per agency, agent and model in one place.
+3. **File-based memory:** agents that remember what they learned, in plain files you can read and edit.
+4. **Discord and Email channels:** more ways for the Lead to reach you, next to Telegram and Slack.
+5. **More agencies:** new templates beyond the first 20.
+6. **Signed installers:** code signing for macOS and Windows, which also makes updates automatic on macOS.
+7. **Hosted plan:** the same agencies with no setup: managed models and team accounts.
+
+## Contributing
+
+Issues and ideas are welcome: [open an issue](https://github.com/ReactiveSpace2/tyslin-studio/issues/new). Pull requests will open once the license is set. Keep changes small and focused, and run `npm run typecheck` before submitting. After changing an agency template, run `node scripts/readme-agencies.mjs` to refresh the table above.
+
+### Run from source
 
 Requires Node.js 20 or 22.
 
@@ -75,9 +148,9 @@ npm run dev        # starts the app with hot reload
 
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev` instead.
 
-Then open **Settings** and add an Anthropic, OpenAI or Gemini key, or point it at a running Ollama (`http://localhost:11434`), and say hello to Builder.
+The first run opens the agency wizard: add a model key (or point it at a running Ollama, `http://localhost:11434`), pick a template and create your first agency.
 
-## Build installers
+### Build installers
 
 ```bash
 npm run dist:linux   # .AppImage, .deb and .snap
@@ -87,7 +160,7 @@ npm run dist:win     # .exe NSIS installer (run on Windows)
 
 Output goes to `dist/`. Build each installer on its own platform; GitHub Actions can build all three for a release. Public releases need signing (an Apple Developer ID with notarisation for macOS, a code-signing certificate for Windows), otherwise users see security warnings.
 
-## Releasing
+### Releasing
 
 Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners. The installers, plus the update files the app reads (`latest*.yml`, `*.blockmap` and the macOS `.zip`), are attached to the GitHub Release automatically. The Linux job also uploads the `.snap` to the Snap Store's stable channel when the `SNAPCRAFT_STORE_CREDENTIALS` repository secret is set; the `.snap` is not attached to the GitHub Release.
 
@@ -100,60 +173,34 @@ git push origin v0.2.0
 
 The tag must match `package.json`; installed apps compare their own version against the newest release. The workflow can also be started by hand from the **Actions** tab (Release → Run workflow → enter the tag).
 
-## Project layout
+### Project layout
 
 ```
 src/
   main/        Electron main process (the only code that touches DB, files, network, secrets)
-    index.ts     window (custom title bar, theme) + IPC handlers
-    db.ts        SQLite schema, seed data and queries; one database per organization
-    runtime.ts   AgentRuntime interface + Anthropic / OpenAI-compatible (OpenAI, Gemini, Ollama) runtimes (tool loop, run events) + AcpRuntime
-    acp.ts       ACP client: starts an external agent, drives one turn, maps its updates to run events
-    engines.ts   external agent catalogue, PATH lookup, command overrides
-    tools.ts     project file tools; staged writes and the review hand-back
-    skillFiles.ts  skill Markdown import/export and validation
-    skillPacks.ts  skill packs installed from GitHub (featured packs and the agent-skills topic)
-    attachments.ts chat attachments (files, folders, images)
-    seedAgents.ts  built-in agents and starter assistants (versioned; new ones reach existing installs)
-    auth.ts      optional Google sign-in
-    defaultModel.ts  the default model and each organization's Studio assistant
-    seedSkills.ts  built-in skill library (versioned; new skills reach existing installs)
-    secrets.ts   API keys encrypted with Electron safeStorage
-    telegram.ts  Telegram channel (bot polling, linked chats, approvals, task results)
-    studio.ts    Mind map, automation and Canvas files in project folders; the Default project
-    automation.ts  runs automations (node graph), schedules them, converts old workflows
-    drive.ts     Drive: list, preview, folders, rename, move, delete, copy in, confined to the project folder
-    gdrive.ts    Google Drive sync (two-way, drive.file scope, state in gsync_* tables)
-    teams.ts     department teams: create a team, the fresh-install Default project team
-    reset.ts     Settings → About reset: wipe app data, files to the Trash, restart
+    index.ts       window, IPC handlers, startRun and the task scheduler
+    db.ts          SQLite schema and queries; one database per organization
+    agencies.ts    create, update and remove an agency from a template
+    cards.ts       run a card with its assignee; cost, log, Review and Done; auto-run
+    boardTools.ts  the Lead's board, boss and log tools
+    channels.ts    the gateway every Lead message goes through (Telegram, Slack, in the app)
+    telegram.ts    Telegram channel (your own bot, linked chats)
+    slack.ts       Slack channel (your own bot token, linked channels)
+    runtime.ts     built-in runtimes (Anthropic, OpenAI-compatible) with a tool loop
+    acp.ts         ACP client for external agents
+    engines.ts     adapter catalogue, PATH lookup, official installers, Hermes profiles
+    tools.ts       project file tools; staged writes and the diff review
+    skillPacks.ts  skill packs from GitHub; seedSkills*.ts the built-in skills
+    drive.ts, gdrive.ts  Drive and Google Drive sync of agency folders
+    auth.ts, secrets.ts, updater.ts, reset.ts
   preload/     safe bridge exposing window.tyslin to the UI
-  renderer/    React UI
-    components/  TitleBar, Sidebar (icon rail and chat panel), TitleBar with OrgSwitcher, StatusBar, avatars, icons, dialogs
-    pages/       Home (with components/Activity, the former Dashboard), Agents (AgentsHub: tree list, org chart; Assistants is a list in AgentsPage), AgentPage, Assistants list and editor, Chat, Tasks, Connectors, Skills, Settings
-                 (Models, Agent engines, Agents, Appearance, Account, About & updates), ComingSoon placeholders
-  shared/      types shared by all three, plus diff.ts (hunk split and apply, used by main and UI)
+  renderer/    React UI (Home, Agencies, Inbox, Settings; per agency: Overview, Kanban, Channel, Skills, Drive)
+  shared/      types, the agency model (agencies.ts) and one file per template (agencies/), pricing, diff
+archive/       pre-agency screens and modules, kept for reference (not built)
 resources/     app icon and brand files
 ```
 
-Runtimes report progress as a typed event stream shaped like AG-UI events (`RunEvent` in `shared/types.ts`: run_started, text_delta, tool_call_start/args/end, tool_result, approval_needed, state_update, run_finished, run_error). The UI listens to that stream only.
-
-Adding a feature that needs data: type in `shared/types.ts` → query in `db.ts` → `ipcMain.handle` in `main/index.ts` → expose in `preload/index.ts` → use in the renderer. Run `npm run typecheck` after every change.
-
-## Roadmap
-
-1. **Runs and triggers:** every reply as an inspectable run; run agents on their schedule, when files change in a project folder, or from a local webhook.
-2. **Costs:** tokens and spend per run, agent, project and model, with an optional monthly cap.
-3. **Memory in your files:** per-project memory in `.tyslin/memory/` that you can read, edit and commit.
-4. **Crews:** ordered pipelines of agents, such as Scout → Quill → Forge, including hand-offs (Automation's AI agent nodes cover chains today).
-5. **Packs:** share agents, skills and crews as a folder you can import and export.
-6. **External agents, next steps:** keep an agent running between messages, pass MCP servers through, and show plans and token usage.
-7. **Tool permissions:** per-agent toggles for files, web, terminal and connectors, with "ask before acting".
-8. **Signed installers:** code signing for macOS and Windows, which also makes updates automatic on macOS.
-9. **Hosted plan:** the same UI on the web, with Postgres, accounts and billing, for people who don't want to self-host.
-
-## Contributing
-
-Issues and ideas are welcome. Pull requests will open once the license is set. Keep changes small and focused, and run `npm run typecheck` before submitting.
+Runtimes report progress as a typed event stream shaped like AG-UI events (`RunEvent` in `shared/types.ts`). The UI listens to that stream only.
 
 ## License
 
