@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ClaudeSkill, EngineStatus, ProviderId, ProviderSettings, SkillPack, TelegramStatus } from '@shared/types'
 import {
-  AGENCY_ADAPTERS, AGENCY_COLUMNS, AGENCY_TEMPLATES, agencySkills, agentName, templateAdapters,
-  type AgencyAdapterId, type AgencyMember, type AgencyNotify, type AgencyPlanStep
+  AGENCY_ADAPTERS, AGENCY_COLUMNS, AGENCY_TEMPLATES, agentName, planOwner, templateAdapters, templateSummary,
+  type AgencyAdapterId, type AgencyMember, type AgencyNotify, type AgencyTemplate
 } from '@shared/agencies'
 import { PROVIDER_NAME } from '@shared/models'
 import { HEAD_SRC } from '../heads'
@@ -40,9 +40,10 @@ interface Draft {
   goal: string
   /** Shared by every agent in the agency (saved once agencies are stored). */
   prompt: string
-  plan: AgencyPlanStep[]
+  plan: string[]
   roster: AgencyMember[]
-  adapter: AgencyAdapterId
+  /** 'template' = each worker on the engine its template names. */
+  adapter: AgencyAdapterId | 'template'
   model: { provider: ProviderId; model: string } | null
   packs: string[]
   autoRun: boolean
@@ -65,7 +66,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
   const [step, setStep] = useState(0)
   const [d, setD] = useState<Draft>({
     org: '', name: '', description: '', templateId: null, goal: '', prompt: '', plan: [], roster: [],
-    adapter: 'claude-code', model: null, packs: [], autoRun: false, channel: 'none', notify: 'questions'
+    adapter: 'template', model: null, packs: [], autoRun: false, channel: 'none', notify: 'questions'
   })
   const set = (p: Partial<Draft>): void => setD((v) => ({ ...v, ...p }))
   const [query, setQuery] = useState('')
@@ -98,20 +99,22 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
     const t = AGENCY_TEMPLATES.find((x) => x.id === id)
     if (!t) return
     set({
-      templateId: id, description: t.description, goal: t.goal, plan: t.plan, roster: t.members, name: d.name.trim() ? d.name : t.name,
-      prompt: `${t.description} Work in this agency's folder. Keep each change small and send it for review. Write in plain English. Ask before adding a paid service or a new dependency.`
+      templateId: id, description: t.tagline, goal: t.goal, plan: t.plan, roster: t.roster, name: d.name.trim() ? d.name : t.name,
+      prompt: `${t.tagline} Work in this agency's folder. Keep each change small and send it for review. Write in plain English. Ask before adding a paid service or a new dependency.`
     })
   }
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return q ? AGENCY_TEMPLATES.filter((t) => `${t.name} ${t.description}`.toLowerCase().includes(q)) : AGENCY_TEMPLATES
+    return q ? AGENCY_TEMPLATES.filter((t) => `${t.name} ${t.tagline}`.toLowerCase().includes(q)) : AGENCY_TEMPLATES
   }, [query])
 
   const lead = d.roster.find((m) => m.lead)
   const workers = d.roster.filter((m) => !m.lead)
   const template = AGENCY_TEMPLATES.find((t) => t.id === d.templateId) ?? null
-  const included = template ? agencySkills(template) : []
-  const adapter = AGENCY_ADAPTERS.find((a) => a.id === d.adapter)!
+  const included = template ? template.skills : []
+  const adapterName = (id: AgencyMember['engine'] | 'template'): string => id === 'template' ? 'Template\'s mix' : id === 'builtin' ? 'Default model' : AGENCY_ADAPTERS.find((a) => a.id === id)!.name
+  /** What a worker will run on after the Adapter step. */
+  const engineFor = (m: AgencyMember): AgencyMember['engine'] => m.lead || d.adapter === 'template' ? m.engine : d.adapter
   const engineOf = (id: string): EngineStatus | undefined => engines.find((e) => e.id === id)
   const togglePack = (id: string): void => set({ packs: d.packs.includes(id) ? d.packs.filter((p) => p !== id) : [...d.packs, id] })
   const folder = `Documents/Tyslin Studio/${d.org.trim() || '…'}/${d.name.trim() || '…'}`
@@ -204,14 +207,14 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
             </div>
             <div className="aw-grid" role="radiogroup" aria-label="Templates">
               {shown.map((t) => {
-                const l = t.members.find((m) => m.lead)!
+                const l = t.roster.find((m) => m.lead)!
                 const on = d.templateId === t.id
                 return (
                   <button key={t.id} type="button" role="radio" aria-checked={on} className={'aw-tpl' + (on ? ' on' : '')} onClick={() => pickTemplate(t.id)}>
                     <span className="aw-tpl-top"><Head id={l.head} size={30} /><strong>{t.name}</strong>{on && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
-                    <span className="hint">{t.description}</span>
+                    <span className="hint">{t.tagline}</span>
                     <span className="aw-tpl-foot">
-                      <span className="mono aw-small">{t.members.length} agents · {l.first} leads</span>
+                      <span className="mono aw-small">{templateSummary(t)}</span>
                       <span className="aw-runs" aria-label={`Runs on ${templateAdapters(t).map((id) => AGENCY_ADAPTERS.find((a) => a.id === id)!.name).join(', ')}`}>
                         {templateAdapters(t).map((id) => {
                           const a = AGENCY_ADAPTERS.find((x) => x.id === id)!
@@ -232,8 +235,13 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 1 && (
           <section className="aw-body">
             <h1 id="aw-h">How do your agents run?</h1>
-            <p className="hint">Pick the agent your team runs on. It's the default for the whole roster; you can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.</p>
-            <div className="aw-adapters" role="radiogroup" aria-label="Adapter">
+            <p className="hint">The template gives each worker an agent to run on (the Lead always runs on your default model). Keep that mix, or run every worker on one agent. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.</p>
+            <button type="button" role="radio" aria-checked={d.adapter === 'template'} className={'aw-adapter aw-mix' + (d.adapter === 'template' ? ' on' : '')} onClick={() => set({ adapter: 'template' })}>
+              <span className="aw-tpl-top"><span className="aw-mark aw-letter mono" aria-hidden="true">Mix</span><span><strong>Use the template's mix</strong><span className="hint" style={{ display: 'block' }}>Recommended</span></span>
+                {d.adapter === 'template' && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
+              <span className="hint">{template ? template.roster.filter((m) => !m.lead).map((m) => `${agentName(m)}: ${adapterName(m.engine)}`).join(' · ') : 'Pick a template first; each worker then has an agent named for it.'}</span>
+            </button>
+            <div className="aw-adapters" role="radiogroup" aria-label="One adapter for every worker">
               {AGENCY_ADAPTERS.map((a) => {
                 const e = engineOf(a.id)
                 const installed = !!e?.resolvedPath
@@ -324,10 +332,10 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
                 <div key={c} className="aw-col">
                   <span className="aw-col-h">{c}<span className="mono">{i === 0 ? d.plan.length : 0}</span></span>
                   {i === 0 && d.plan.map((p) => {
-                    const m = d.roster.find((x) => x.job === p.owner)
+                    const m = template ? planOwner(template, p) : undefined
                     return (
-                      <div key={p.title} className="aw-cardp">
-                        <span>{p.title}</span>
+                      <div key={p} className="aw-cardp">
+                        <span>{p}</span>
                         {m && <span className="aw-owner"><Head id={m.head} size={18} />{agentName(m)}</span>}
                       </div>
                     )
@@ -424,7 +432,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
               {lead && (
                 <>
                   <span className="nt-line" />
-                  <div className="nt-person nt-lead"><Head id={lead.head} size={40} /><span><strong>{agentName(lead)}</strong><small>{lead.description}</small></span></div>
+                  <div className="nt-person nt-lead"><Head id={lead.head} size={40} /><span><strong>{agentName(lead)}</strong><small>Plans the work, hands out cards and reports to you · {adapterName('builtin')}</small></span></div>
                 </>
               )}
               {workers.length > 0 && (
@@ -435,8 +443,8 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
                       <div key={m.first} className="nt-person nt-member">
                         <Head id={m.head} size={36} />
                         <strong>{agentName(m)}</strong>
-                        <small>{m.description}</small>
-                        <span className="mono nt-access">{adapter.name}</span>
+                        <small>{m.job}</small>
+                        <span className="mono nt-access">{adapterName(engineFor(m))}</span>
                       </div>
                     ))}
                   </div>
@@ -446,12 +454,12 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
             </div>
             <dl className="aw-summary">
               <dt>Folder</dt><dd className="mono">{folder}</dd>
-              <dt>Adapter</dt><dd>{adapter.name}{engineOf(d.adapter)?.resolvedPath ? '' : ' (not installed yet)'}</dd>
+              <dt>Adapter</dt><dd>{adapterName(d.adapter)}{d.adapter !== 'template' && !engineOf(d.adapter)?.resolvedPath ? ' (not installed yet)' : ''}</dd>
               <dt>Lead's model</dt><dd className="mono">{d.model ? `${PROVIDER_NAME[d.model.provider]} · ${d.model.model}` : ''}</dd>
               <dt>Skills</dt><dd>{included.length} included{d.packs.length ? `, ${d.packs.length} pack${d.packs.length > 1 ? 's' : ''} to install` : ''}</dd>
               <dt>Board</dt><dd>{AGENCY_COLUMNS.join(' → ')} · {d.plan.length} cards · {d.autoRun ? 'Lead runs cards' : 'you run cards'}</dd>
               <dt>Channel</dt><dd>{d.channel === 'none' ? 'Not now' : `${d.channel === 'telegram' ? 'Telegram' : 'Slack'} · ${d.notify === 'all' ? 'everything' : d.notify === 'questions' ? 'questions and reviews' : 'digest only'}`}</dd>
-              <dt>Lead's task</dt><dd>Weekdays at 09:00: plan the Inbox</dd>
+              <dt>Lead's task</dt><dd>{template ? `${template.leadTask.schedule.repeat === 'weekly' ? 'Mondays' : 'Weekdays'} at ${template.leadTask.schedule.time}: ${template.leadTask.prompt}` : 'Weekdays at 09:00: plan the Inbox'}</dd>
             </dl>
           </section>
         )}

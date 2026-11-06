@@ -1,13 +1,15 @@
 import type { Skill } from '@shared/types'
+import { AGENCY_SKILLS } from './seedSkillsAgencies'
 
 /**
  * Built-in skill library. Written for Tyslin: plain instructions that work with what an agent
  * has here (the conversation and, in a linked project, its files). No connectors assumed.
  * Bump SKILL_LIBRARY_VERSION when adding skills so existing installs pick them up.
  */
-export const SKILL_LIBRARY_VERSION = 4
+export const SKILL_LIBRARY_VERSION = 5
 
 export const BUILT_IN_SKILLS: Omit<Skill, 'id'>[] = [
+  ...AGENCY_SKILLS,
   // Original three
   { name: 'agent-design', description: 'Structure for designing a new agent.', body: 'When designing an agent, produce: name, one-line description, instructions, skills, tools, schedule.' },
   { name: 'cite-sources', description: 'Always attribute facts to their source.', body: 'For every factual claim, name the source. If there is no source, say so.' },
