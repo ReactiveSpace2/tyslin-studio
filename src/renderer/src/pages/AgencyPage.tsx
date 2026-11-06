@@ -6,6 +6,7 @@ import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { runsOnLabel } from '../components/RunsOnBadge'
+import { type BoardStats, firstName, plural, useBoardStats } from '../boardStats'
 
 interface Props {
   view: AgencyView
@@ -29,10 +30,29 @@ const adapterName = (id: string): string => id === 'template' ? "Template's mix"
 const notifyLabel = (n: Agency['notify']): string => n === 'all' ? 'everything' : n === 'digest' ? 'digest only' : 'questions and reviews'
 const channelLabel = (c: Agency['channel']): string => c.kind === 'telegram' ? 'Telegram' : c.kind === 'slack' ? 'Slack' : 'Not set'
 
+/** "Alex is planning 3 cards · 2 waiting for your review · paused", from the board as it is now. */
+function statusLine(lead: Agent | null, b: BoardStats | undefined, paused: boolean): string {
+  if (!lead) return paused ? 'No Lead yet · paused' : 'No Lead yet. Add an agent and it becomes the Lead.'
+  const who = firstName(lead.name)
+  if (!b) return paused ? `${who} is paused` : `${who} is ready`
+  const head = b.planned > 0 ? `${who} is planning ${plural(b.planned, 'card')}` : null
+  const parts = [
+    b.inbox > 0 ? (head ? `${b.inbox} in Inbox` : `${plural(b.inbox, 'brief')} in Inbox`) : '',
+    b.inProgress > 0 ? `${b.inProgress} in progress` : '',
+    b.review > 0 ? `${b.review} waiting for your review` : '',
+    paused ? 'paused' : ''
+  ].filter(Boolean)
+  if (head) return [head, ...parts].join(' · ')
+  if (parts.length === 1 && paused) return `${who} is paused`
+  if (parts.length) return `${who}: ${parts.join(' · ')}`
+  return `${who} is waiting for a brief. Drop one in Inbox on the board.`
+}
+
 /** One agency: its overview (org chart, plan, how it runs) or its settings. The board is Kanban in its folder. */
 export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
   const st = agencyStatus(view)
+  const board = useBoardStats([agency])[agency.id]
   const [draft, setDraft] = useState<AgencyUpdateInput>({
     name: agency.name, description: agency.description, goal: agency.goal, prompt: agency.prompt, plan: agency.plan,
     adapter: agency.adapter, channel: agency.channel, notify: agency.notify, budget: agency.budget, autoRun: agency.autoRun
@@ -67,6 +87,7 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
             <h1>{tab === 'edit' ? `Edit ${agency.name}` : agency.name}</h1>
             {tab === 'org' && <span className="ag-status"><span className={'ag-dot ' + st.tone} />{st.label}</span>}
           </div>
+          {tab === 'org' && <p className="ag-statusline" role="status">{statusLine(lead, board, agency.paused)}</p>}
           {tab === 'org' && <p className="hint">{agency.goal || agency.description}</p>}
           {tab === 'org' && <p className="hint mono">{project.folder ?? 'No folder'}</p>}
         </div>
