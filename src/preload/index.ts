@@ -92,6 +92,14 @@ const api: TyslinApi = {
       const fn = (_e: unknown, m: ChannelMessage): void => cb(m)
       ipcRenderer.on('channel:message', fn)
       return () => ipcRenderer.removeListener('channel:message', fn)
+    },
+    reply: (id, text) => ipcRenderer.invoke('channels:reply', id, text),
+    markRead: (ids) => ipcRenderer.invoke('channels:markRead', ids),
+    unread: () => ipcRenderer.invoke('channels:unread'),
+    onOpen: (cb) => {
+      const fn = (_e: unknown, id: string): void => cb(id)
+      ipcRenderer.on('inbox:open', fn)
+      return () => ipcRenderer.removeListener('inbox:open', fn)
     }
   },
   agencies: {

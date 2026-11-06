@@ -122,8 +122,8 @@ export const BOARD_TOOLS: ToolDef[] = [
   { name: 'board_run_card', description: 'Start a card: its assignee works on it now in its own chat. The result lands on the card and it moves to Review.', parameters: { type: 'object', properties: { card_id: { type: 'string' } }, required: ['card_id'] } },
   {
     name: 'message_boss',
-    description: 'Send the boss one message. kind: brief (a brief was received and planned), question (give two or three options), review (work is ready to review) or digest (what moved, what is next, what you need). Only you, the Lead, can do this.',
-    parameters: { type: 'object', properties: { kind: { type: 'string', enum: ['brief', 'question', 'review', 'digest'] }, text: { type: 'string' } }, required: ['kind', 'text'] }
+    description: 'Send the boss one message. kind: brief (a brief was received and planned), question (put two to four short answers in options), review (work is ready to review) or digest (what moved, what is next, what you need). Name the card it is about in card_id. The boss answers in the Inbox and the answer comes back to you. Only you, the Lead, can do this.',
+    parameters: { type: 'object', properties: { kind: { type: 'string', enum: ['brief', 'question', 'review', 'digest'] }, text: { type: 'string' }, options: { type: 'array', items: { type: 'string' }, description: 'For a question: two to four short answers the boss can tap.' }, card_id: { type: 'string', description: 'The card this is about, if any.' } }, required: ['kind', 'text'] }
   },
   { name: 'agency_log', description: 'Append a line to agency-log.md (date, card, decision, cost).', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }
 ]
@@ -133,7 +133,7 @@ export const BOARD_TOOL_NAMES = new Set(BOARD_TOOLS.map((t) => t.name))
 /** Set by cards.ts (runs a card) and channels.ts (messages the boss), to avoid import cycles. */
 export const boardHooks: {
   runCard: (agency: Agency, cardId: string) => Promise<string>
-  messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest', text: string) => Promise<string>
+  messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
 } = {
   runCard: async () => { throw new Error('Card runs are not available.') },
   messageBoss: async () => { throw new Error('No channel is set up.') }
@@ -145,7 +145,8 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   if (call.name === 'board_list_cards') return ok(boardSummary(agency))
   if (call.name === 'message_boss') {
     const kind = String(input.kind ?? 'digest') as 'brief' | 'question' | 'review' | 'digest'
-    return ok(await boardHooks.messageBoss(agency, agent, ['brief', 'question', 'review', 'digest'].includes(kind) ? kind : 'digest', String(input.text ?? '')))
+    const options = Array.isArray(input.options) ? input.options.map(String) : []
+    return ok(await boardHooks.messageBoss(agency, agent, ['brief', 'question', 'review', 'digest'].includes(kind) ? kind : 'digest', String(input.text ?? ''), { options, cardId: input.card_id ? String(input.card_id) : null }))
   }
   if (call.name === 'agency_log') {
     const project = db.getProject(agency.projectId)

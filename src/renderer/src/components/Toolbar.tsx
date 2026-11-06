@@ -9,9 +9,10 @@ type IconName = Parameters<typeof Icon>[0]['name']
 const DOCS = 'https://tyslin.ai'
 const ISSUES = 'https://github.com/ReactiveSpace2/tyslin-studio/issues'
 
-/** Toolbar under the title bar: Home, Agencies and Settings at the left; Help and your profile at the right. */
-export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onSignOut }: {
+/** Toolbar under the title bar: Home, Agencies, Inbox (with the unread count) and Settings at the left; Help and your profile at the right. */
+export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onSignOut, unread }: {
   route: Route
+  unread: number
   onNavigate: (r: Route) => void
   account: Account | null
   canSignOut: boolean
@@ -22,6 +23,7 @@ export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onS
   const items: [string, IconName, Route, boolean][] = [
     ['Home', 'home', { name: 'home' }, route.name === 'home'],
     ['Agencies', 'agency', { name: 'agencies' }, inAgencies],
+    ['Inbox', 'channel', { name: 'inbox' }, route.name === 'inbox'],
     ['Settings', 'settings', { name: 'settings' }, route.name === 'settings']
   ]
   const [help, setHelp] = useState(false)
@@ -41,6 +43,7 @@ export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onS
         {items.map(([label, icon, to, on]) => (
           <button key={label} type="button" className={'toolbar-btn' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}>
             <Icon name={icon} size={16} /> {label}
+            {label === 'Inbox' && unread > 0 && <span className="toolbar-count" aria-label={`${unread} unread`}>{unread}</span>}
           </button>
         ))}
       </div>

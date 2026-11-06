@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell } from 'electron'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
@@ -25,9 +25,9 @@ import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { cardsOnRunEvent, initCards, onChangeResolved, planNow, runCard, runningCards } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
-import { sendToBoss, setChannelMessageHook } from './channels'
+import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AgencyCreateInput, AgencyUpdateInput, Agent, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -315,8 +315,54 @@ function initAgencies(): void {
   initCards({ startRun, runTask })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
   // Every Lead → boss message goes through the gateway (Lead-only, the agency's notify setting, Telegram or Slack).
-  boardHooks.messageBoss = (agency, from, kind, text) => sendToBoss(agency, from, kind, text)
-  setChannelMessageHook((m) => win?.webContents.send('channel:message', m))
+  boardHooks.messageBoss = (agency, from, kind, text, extras) => sendToBoss(agency, from, kind, text, extras)
+  initChannels({ startRun })
+  setChannelMessageHook((m, wanted) => {
+    win?.webContents.send('channel:message', m)
+    updateBadge()
+    if (wanted && !m.reply) notifyBoss(m)
+  })
+}
+
+/** The app icon's count: unread Lead messages in the current organization (macOS dock, Linux launchers). */
+function updateBadge(): void {
+  try { app.setBadgeCount(db.unreadChannelMessages()) } catch { /* not supported here */ }
+}
+
+/** Opens the window on the Inbox at one message. */
+function openInbox(messageId: string): void {
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+  win.webContents.send('inbox:open', messageId)
+}
+
+/** Kept so notifications aren't garbage-collected before they're clicked. */
+const shownNotifications = new Set<Notification>()
+const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest' }
+
+/** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the Inbox. */
+function notifyBoss(m: ChannelMessage): void {
+  if (!Notification.isSupported()) return
+  const agency = db.getAgency(m.agencyId)
+  const lead = db.getAgent(m.agentId)
+  const who = lead?.name ?? 'Your Lead'
+  const n = new Notification({
+    title: `${who} · ${agency?.name ?? 'Agency'} ${NOTIFY_VERB[m.kind]}`,
+    body: m.text.length > 240 ? `${m.text.slice(0, 240)}…` : m.text,
+    hasReply: m.kind === 'question' || m.kind === 'review',
+    replyPlaceholder: `Reply to ${who}`,
+    actions: m.options.map((text) => ({ type: 'button' as const, text }))
+  })
+  const answer = (text: string): void => { try { replyToLead(m.id, text) } catch { openInbox(m.id) } }
+  n.on('click', () => openInbox(m.id))
+  n.on('reply', (_e, reply) => answer(reply))
+  n.on('action', (_e, index) => { const o = m.options[index]; if (o) answer(o) })
+  n.on('close', () => shownNotifications.delete(n))
+  shownNotifications.add(n)
+  n.show()
+  if (win && !win.isFocused()) win.flashFrame(true)
 }
 
 function registerIpc(): void {
@@ -537,6 +583,9 @@ function registerIpc(): void {
   ipcMain.handle('slack:linkCode', () => newSlackLinkCode())
   ipcMain.handle('slack:unlink', (_e, id: string) => unlinkSlackChannel(String(id ?? '')))
   ipcMain.handle('channels:list', (_e, agencyId?: string) => db.listChannelMessages(agencyId || undefined))
+  ipcMain.handle('channels:reply', (_e, id: string, text: string) => replyToLead(String(id ?? ''), String(text ?? '')))
+  ipcMain.handle('channels:markRead', (_e, ids: string[]) => { const n = db.markChannelMessagesRead(Array.isArray(ids) ? ids.map(String) : []); updateBadge(); return n })
+  ipcMain.handle('channels:unread', () => db.unreadChannelMessages())
   ipcMain.handle('cards:run', (_e, agencyId: string, cardId: string) => runCard(agencyId, cardId))
   ipcMain.handle('cards:running', () => runningCards())
 
@@ -585,6 +634,7 @@ function registerIpc(): void {
   ipcMain.handle('orgs:switch', (_e, id: string) => {
     if (activeRuns.size) throw new Error('An agent is still replying. Stop it or wait, then switch.')
     db.switchOrg(id)
+    updateBadge()
   })
   ipcMain.handle('app:info', (): AppInfo => ({
     version: app.getVersion(),

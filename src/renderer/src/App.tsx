@@ -9,6 +9,7 @@ import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { OrgHome } from './pages/OrgHome'
 import { AgenciesPage } from './pages/AgenciesPage'
+import { InboxPage } from './pages/InboxPage'
 import { AgencyPage } from './pages/AgencyPage'
 import { agencyOf, type AgencyView } from './agencies'
 import { AgencyChannelBar } from './components/AgencyChannelBar'
@@ -34,6 +35,7 @@ import { UpdateNotice } from './components/UpdateNotice'
 export type Route =
   | { name: 'home'; focus?: 'activity' }
   | { name: 'agencies' }
+  | { name: 'inbox'; id?: string }
   | { name: 'agency'; id: string; tab: 'org' | 'edit' }
   | { name: 'newAgency' }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
@@ -50,6 +52,8 @@ export default function App(): JSX.Element {
   const [projects, setProjects] = useState<Project[]>([])
   const [agencyRows, setAgencyRows] = useState<Agency[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
+  /** Unread Lead messages: the Inbox count in the toolbar. */
+  const [unread, setUnread] = useState(0)
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   /** null = still checking. */
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
@@ -91,6 +95,15 @@ export default function App(): JSX.Element {
   // without an agency; it isn't an agency itself.
   const [currentProject] = useCurrentProject()
   useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
+  // The Inbox count follows new messages, replies and reads; a clicked desktop notification opens the Inbox at its message.
+  useEffect(() => {
+    const count = (): void => { void window.tyslin.channels.unread().then(setUnread) }
+    count()
+    const offMsg = window.tyslin.channels.onMessage(count)
+    const offOpen = window.tyslin.channels.onOpen((id) => setRoute({ name: 'inbox', id }))
+    const t = setInterval(count, 15_000)
+    return () => { offMsg(); offOpen(); clearInterval(t) }
+  }, [orgName])
   const agencies = agencyRows.map((a) => agencyOf(a, projects, agents)).filter((v): v is AgencyView => !!v)
   const viewFor = (projectId: string | null): AgencyView | null => agencies.find((v) => v.project.id === projectId) ?? null
   /** The agency in the active tab (its project is the current one). */
@@ -147,6 +160,7 @@ export default function App(): JSX.Element {
       <Toolbar
         route={route}
         onNavigate={setRoute}
+        unread={unread}
         account={auth.account}
         canSignOut={auth.configured && !!auth.account}
         onProfile={() => setRoute({ name: 'settings', tab: 'account' })}
@@ -179,6 +193,16 @@ export default function App(): JSX.Element {
               onAllAgencies={() => setRoute({ name: 'agencies' })}
               onNewAgency={() => setRoute({ name: 'newAgency' })}
               onOpenChat={openChat}
+            />
+          )}
+          {route.name === 'inbox' && (
+            <InboxPage
+              agencies={agencyRows}
+              agents={agents}
+              focusId={route.id}
+              onOpenBoard={(id) => { openAgencyTab(id); setRoute({ name: 'kanban' }) }}
+              onOpenChannel={(id) => { openAgencyTab(id); setRoute({ name: 'connectors' }) }}
+              onCountChange={() => { void window.tyslin.channels.unread().then(setUnread) }}
             />
           )}
           {route.name === 'agencies' && (

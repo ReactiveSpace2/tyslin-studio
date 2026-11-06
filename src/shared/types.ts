@@ -363,6 +363,15 @@ export interface ChannelMessage {
   via: 'telegram' | 'slack' | 'app'
   delivered: boolean
   createdAt: number
+  /** Quick answers the Lead offered with a question (shown as buttons in the Inbox and the notification). */
+  options: string[]
+  /** The card the message is about, when the Lead named one. */
+  cardId: string | null
+  /** The boss's answer, sent back to the Lead ('' = not answered). */
+  reply: string
+  repliedAt: number | null
+  /** When the boss opened it in the Inbox (null = unread). */
+  readAt: number | null
 }
 
 export interface TelegramStatus {
@@ -898,6 +907,13 @@ export interface TyslinApi {
     /** Messages Leads sent the boss, newest first; for one agency when given. */
     list(agencyId?: string): Promise<ChannelMessage[]>
     onMessage(cb: (m: ChannelMessage) => void): () => void
+    /** Answers a message: saved on it, noted on its card and sent to the Lead's Inbox chat. */
+    reply(id: string, text: string): Promise<ChannelMessage>
+    markRead(ids: string[]): Promise<number>
+    /** Unread messages in the current organization (the Inbox count and the app icon badge). */
+    unread(): Promise<number>
+    /** A desktop notification was clicked: open the Inbox at that message. */
+    onOpen(cb: (id: string) => void): () => void
   }
   agencies: {
     list(): Promise<Agency[]>

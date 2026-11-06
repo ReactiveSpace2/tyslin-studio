@@ -203,6 +203,12 @@ function migrate(): void {
     id TEXT PRIMARY KEY, agency_id TEXT NOT NULL, agent_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
     via TEXT NOT NULL DEFAULT 'app', delivered INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL
   )`)
+  // The Inbox: quick answers, the card, the boss's reply and read state.
+  addColumn('channel_messages', 'options', "TEXT NOT NULL DEFAULT '[]'")
+  addColumn('channel_messages', 'card_id', 'TEXT')
+  addColumn('channel_messages', 'reply', "TEXT NOT NULL DEFAULT ''")
+  addColumn('channel_messages', 'replied_at', 'INTEGER')
+  addColumn('channel_messages', 'read_at', 'INTEGER')
   // Chat attachments: what the user sees (JSON list) and the text the model sees.
   addColumn('skills', 'source_url', "TEXT NOT NULL DEFAULT ''")
   // Skill packs installed from GitHub (skillPacks.ts): which commit, and which skills came from it.
@@ -903,18 +909,47 @@ export function removeAgency(id: string): void {
 
 // ---- Channel messages (Lead → boss) ---------------------------------------------------------------------
 
-const MESSAGE_COLS = 'id, agency_id AS agencyId, agent_id AS agentId, kind, text, via, delivered, created_at AS createdAt'
+const MESSAGE_COLS = 'id, agency_id AS agencyId, agent_id AS agentId, kind, text, via, delivered, created_at AS createdAt, options, card_id AS cardId, reply, replied_at AS repliedAt, read_at AS readAt'
+type ChannelRow = Omit<ChannelMessage, 'delivered' | 'options'> & { delivered: number; options: string }
+const toMessage = (r: ChannelRow): ChannelMessage => {
+  let options: string[] = []
+  try { const o = JSON.parse(r.options || '[]'); if (Array.isArray(o)) options = o.map(String) } catch { /* keep none */ }
+  return { ...r, delivered: !!r.delivered, options }
+}
 
 export function addChannelMessage(m: ChannelMessage): ChannelMessage {
-  db.prepare('INSERT INTO channel_messages (id, agency_id, agent_id, kind, text, via, delivered, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(m.id, m.agencyId, m.agentId, m.kind, m.text, m.via, m.delivered ? 1 : 0, m.createdAt)
+  db.prepare('INSERT INTO channel_messages (id, agency_id, agent_id, kind, text, via, delivered, created_at, options, card_id, reply, replied_at, read_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(m.id, m.agencyId, m.agentId, m.kind, m.text, m.via, m.delivered ? 1 : 0, m.createdAt, JSON.stringify(m.options), m.cardId, m.reply, m.repliedAt, m.readAt)
   return m
 }
 
 export function listChannelMessages(agencyId?: string, limit = 100): ChannelMessage[] {
-  type Row = Omit<ChannelMessage, 'delivered'> & { delivered: number }
   const rows = (agencyId
     ? db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages WHERE agency_id = ? ORDER BY created_at DESC LIMIT ?`).all(agencyId, limit)
-    : db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages ORDER BY created_at DESC LIMIT ?`).all(limit)) as Row[]
-  return rows.map((r) => ({ ...r, delivered: !!r.delivered }))
+    : db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages ORDER BY created_at DESC LIMIT ?`).all(limit)) as ChannelRow[]
+  return rows.map(toMessage)
+}
+
+export function getChannelMessage(id: string): ChannelMessage | null {
+  const r = db.prepare(`SELECT ${MESSAGE_COLS} FROM channel_messages WHERE id = ?`).get(id) as ChannelRow | undefined
+  return r ? toMessage(r) : null
+}
+
+/** Saves the boss's answer; answering also marks it read. */
+export function replyChannelMessage(id: string, text: string): ChannelMessage | null {
+  const now = Date.now()
+  db.prepare('UPDATE channel_messages SET reply = ?, replied_at = ?, read_at = COALESCE(read_at, ?) WHERE id = ?').run(text, now, now, id)
+  return getChannelMessage(id)
+}
+
+export function markChannelMessagesRead(ids: string[]): number {
+  const stmt = db.prepare('UPDATE channel_messages SET read_at = ? WHERE id = ? AND read_at IS NULL')
+  const now = Date.now()
+  let n = 0
+  db.transaction(() => { for (const id of ids) n += stmt.run(now, id).changes })()
+  return n
+}
+
+export function unreadChannelMessages(): number {
+  return (db.prepare('SELECT COUNT(*) AS n FROM channel_messages WHERE read_at IS NULL').get() as { n: number }).n
 }
