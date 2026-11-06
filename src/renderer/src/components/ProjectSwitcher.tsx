@@ -3,7 +3,7 @@ import type { Agent, Project } from '@shared/types'
 import { forgetProject, useCurrentProject } from '../currentProject'
 import { Icon } from './Icon'
 
-/** Project picker in the title bar, after the organization. One project is always selected. */
+/** Agency picker in the title bar, after the organization (each project is shown as an agency for now). One is always selected. */
 export function ProjectSwitcher({ projects, agents, onNewProject, onOpenChats, onChanged }: {
   projects: Project[]
   agents: Agent[]
@@ -39,41 +39,39 @@ export function ProjectSwitcher({ projects, agents, onNewProject, onOpenChats, o
   const remove = async (p: Project): Promise<void> => {
     setMore(null)
     const n = agents.filter((a) => !a.isMascot && a.projectId === p.id).length
-    const msg = `Delete the project "${p.name}"?\n\nIts ${n} ${n === 1 ? 'agent or assistant' : 'agents and assistants'}, their chats and tasks are deleted too. Files in its folder stay on your computer.`
+    const msg = `Delete the agency "${p.name}"?\n\nIts ${n} ${n === 1 ? 'agent or assistant' : 'agents and assistants'}, their chats and tasks are deleted too. Files in its folder stay on your computer.`
     if (!window.confirm(msg)) return
     try { await window.tyslin.projects.remove(p.id); forgetProject(p.id); onChanged() } catch (e) { setError(errorText(e)) }
   }
 
-  // The Default project first, then the rest by name.
-  const list = [...projects].sort((a, b) => Number(b.id === defaultId) - Number(a.id === defaultId) || a.name.localeCompare(b.name))
-  const current = projects.find((p) => p.id === projectId)
-  const name = current?.name ?? 'Default project'
+  // Agencies only: the Default project is not an agency, so it isn't listed.
+  const list = projects.filter((p) => p.id !== defaultId).sort((a, b) => a.name.localeCompare(b.name))
+  const current = list.find((p) => p.id === projectId)
+  const name = current?.name ?? 'All agencies'
 
   return (
     <div className="org-switch project-switch" ref={ref}>
       <button type="button" className="status-item status-btn org-btn" aria-haspopup="menu" aria-expanded={open}
-        aria-label={`Project: ${name}. Switch project`} onClick={() => setOpen((o) => !o)}>
-        <Icon name="folder" size={13} />
+        aria-label={`Agency: ${name}. Switch agency`} onClick={() => setOpen((o) => !o)}>
+        <Icon name="agency" size={13} />
         <span className="switch-name">{name}</span>
         <Icon name="updown" size={12} />
       </button>
       {open && (
-        <div className="switch-menu" role="menu" aria-label="Projects">
-          <span className="section-label">Projects</span>
+        <div className="switch-menu" role="menu" aria-label="Agencies">
+          <span className="section-label">Agencies</span>
           {list.map((p) => (
             <div key={p.id} className="switch-row">
               {renaming?.id === p.id ? (
                 <form className="switch-rename" onSubmit={(e) => { e.preventDefault(); void rename() }}>
-                  <input className="input" autoFocus value={renaming.name} aria-label="Project name" onChange={(e) => setRenaming({ id: p.id, name: e.target.value })} />
+                  <input className="input" autoFocus value={renaming.name} aria-label="Agency name" onChange={(e) => setRenaming({ id: p.id, name: e.target.value })} />
                   <button type="submit" className="btn btn-sm btn-primary" disabled={!renaming.name.trim()}>Save</button>
                 </form>
               ) : (
                 <button type="button" role="menuitemradio" aria-checked={p.id === projectId} onClick={() => { setProjectId(p.id); setOpen(false) }}
                   title={p.folder ?? 'No folder linked'}>
-                  <Icon name={p.id === defaultId ? 'drive' : 'folder'} size={14} />
+                  <Icon name="agency" size={14} />
                   <span className="switch-name">{p.name}</span>
-                  {p.id === defaultId && <span className="switch-meta">default</span>}
-                  {!p.folder && <span className="switch-meta">no folder</span>}
                   {p.id === projectId && <Icon name="check" size={14} />}
                 </button>
               )}
@@ -84,19 +82,20 @@ export function ProjectSwitcher({ projects, agents, onNewProject, onOpenChats, o
               {more === p.id && (
                 <div className="switch-submenu" role="menu" aria-label={`${p.name} actions`}>
                   <button type="button" role="menuitem" onClick={() => { setMore(null); setRenaming({ id: p.id, name: p.name }) }}><Icon name="file" size={13} /> Rename</button>
-                  <button type="button" role="menuitem" className="danger" disabled={p.id === defaultId} title={p.id === defaultId ? "The Default project can't be deleted" : undefined}
+                  <button type="button" role="menuitem" className="danger" disabled={p.id === defaultId} title={p.id === defaultId ? "The default agency can't be deleted" : undefined}
                     onClick={() => void remove(p)}><Icon name="trash" size={13} /> Delete</button>
                 </div>
               )}
             </div>
           ))}
+          {list.length === 0 && <p className="hint switch-err">No agencies yet.</p>}
           {error && <p className="hint account-error switch-err" role="alert">{error}</p>}
           <span className="switch-sep" aria-hidden="true" />
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpenChats() }}>
-            <Icon name="chat" size={14} /> Open project chats
+            <Icon name="grid" size={14} /> All agencies
           </button>
           <button type="button" role="menuitem" onClick={() => { setOpen(false); onNewProject() }}>
-            <Icon name="plus" size={14} /> New project
+            <Icon name="plus" size={14} /> New agency
           </button>
         </div>
       )}

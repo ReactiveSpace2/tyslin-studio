@@ -23,8 +23,8 @@ const SECTION_KIND: Record<Exclude<Section, 'projects'>, AgentKind> = { agents: 
 const kindSection = (k: AgentKind): Section => (k === 'assistant' ? 'assistants' : 'agents')
 
 /**
- * Icon rail (Home, Dashboard, Agents, Assistants, Tasks, Art, Videos, Automation, Canvas, Mind mapper, Projects; Drive, Knowledge base, Connectors, Skills, Settings at the
- * bottom) plus a panel listing agents, assistants or projects with their recent chats.
+ * Icon rail (Home; Studio: Agency, Kanban, Channel, Skills, Drive; Settings at the foot) plus a panel listing
+ * assistants or projects with their recent chats when one of those chats is open.
  */
 export function Sidebar(props: Props): JSX.Element {
   const { route, agents, projects, sessions, onNavigate, onOpenChat, onNewProject } = props
@@ -36,14 +36,6 @@ export function Sidebar(props: Props): JSX.Element {
       : route.name === 'agents' || route.name === 'editor' ? kindSection(route.kind)
         : null
 
-  /** Latest chat outside projects for this kind, or its list page when there are none yet. */
-  const openKind = (kind: AgentKind): void => {
-    // Agents open their page (list, cards, org chart); assistants open their latest chat.
-    if (kind === 'agent') return onNavigate({ name: 'agents', kind })
-    const last = sessions.find((s) => !s.projectId && kindOf(s.agentId) === kind)
-    if (last) onOpenChat(last.agentId, null, last.id)
-    else onNavigate({ name: 'agents', kind })
-  }
   const openProject = (p: Project): void => {
     const last = sessions.find((s) => s.projectId === p.id)
     if (last) onOpenChat(last.agentId, p.id, last.id, 'projects')
@@ -134,26 +126,19 @@ export function Sidebar(props: Props): JSX.Element {
 
   return (
     <>
-      {/* Grouped: overview, team, tools, create, then resources and setup at the foot. Group names show
-          as small headings when menu labels are on, and in every button's tooltip. Projects live in the
-          title bar's project switcher. */}
+      {/* Home, then Studio (Agency, Kanban, Channel, Skills, Drive), Settings at the foot. Agencies are
+          switched in the title bar. */}
       <nav className="rail" aria-label="Main">
+        {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }), 'Home')}
         {group('Studio')}
-        {railBtn('Agents', 'agents', section === 'agents', () => openKind('agent'), 'Studio')}
-        {railBtn('Assistants', 'chat', section === 'assistants', () => openKind('assistant'), 'Studio')}
-        {railBtn('Tasks', 'clock', route.name === 'tasks', () => onNavigate({ name: 'tasks' }), 'Studio')}
-        {railBtn('Automation', 'workflow', route.name === 'automation', () => onNavigate({ name: 'automation' }), 'Studio')}
-        {group('Tools')}
-        {railBtn('Canvas', 'canvas', route.name === 'canvas', () => onNavigate({ name: 'canvas' }), 'Tools')}
-        {railBtn('Mind mapper', 'mindmap', route.name === 'mindmap', () => onNavigate({ name: 'mindmap' }), 'Tools')}
-        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }), 'Tools')}
-        {/* Create (Image, Videos) is hidden until those screens are built; their routes still exist. */}
+        {railBtn('Agency', 'agency', route.name === 'agencies' || route.name === 'agency' || route.name === 'newAgency', () => onNavigate({ name: 'agencies' }), 'Studio')}
+        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }), 'Studio')}
+        {railBtn('Channel', 'channel', route.name === 'connectors', () => onNavigate({ name: 'connectors' }), 'Studio')}
+        {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }), 'Studio')}
+        {railBtn('Drive', 'drive', route.name === 'drive', () => onNavigate({ name: 'drive' }), 'Studio')}
+        {/* Agents, Assistants, Tasks, Automation, Canvas, Mind mapper and Knowledge base are off the rail for
+            the agency layout; their routes still exist and open from agency pages, Home and links. */}
         <div className="rail-foot">
-          {group('Resources')}
-          {railBtn('Knowledge base', 'knowledge', route.name === 'knowledge', () => onNavigate({ name: 'knowledge' }), 'Resources')}
-          {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }), 'Resources')}
-          {group('Setup')}
-          {railBtn('Connectors', 'connectors', route.name === 'connectors', () => onNavigate({ name: 'connectors' }), 'Setup')}
           {railBtn('Settings', 'settings', route.name === 'settings', () => onNavigate({ name: 'settings' }), 'Setup')}
         </div>
       </nav>

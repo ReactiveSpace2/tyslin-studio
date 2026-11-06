@@ -9,6 +9,8 @@ interface Props {
   /** Most recent chats, newest first. */
   sessions: Session[]
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
+  /** Agencies in the organization (the Default project isn't one). */
+  agencyCount?: number
 }
 
 const dayLabel = (day: string, style: 'short' | 'long'): string => {
@@ -70,7 +72,7 @@ function ActivityChart({ daily }: { daily: DashboardStats['daily'] }): JSX.Eleme
 }
 
 /** Home's activity section (formerly the Dashboard): counts, activity, reviews waiting, recent chats and most used. */
-export function Activity({ agents, projects, sessions, onOpenChat }: Props): JSX.Element {
+export function Activity({ agents, projects, sessions, onOpenChat, agencyCount }: Props): JSX.Element {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   useEffect(() => { void window.tyslin.app.dashboard().then(setStats) }, [sessions])
 
@@ -83,7 +85,9 @@ export function Activity({ agents, projects, sessions, onOpenChat }: Props): JSX
   const tiles: [string, string | number, string][] = stats ? [
     ['Agents', nAgents, `${agents.filter((a) => a.kind === 'agent' && a.schedule !== 'manual').length} on a schedule`],
     ['Assistants', nAssistants, 'for quick chats'],
-    ['Projects', projects.length, projects.length === 1 ? 'linked folder' : 'linked folders'],
+    agencyCount === undefined
+      ? ['Projects', projects.length, projects.length === 1 ? 'linked folder' : 'linked folders']
+      : ['Agencies', agencyCount, 'in this organization'],
     ['Chats', stats.chats, `${stats.chatsThisWeek} this week`],
     ['Messages sent', stats.messages, `${stats.messagesThisWeek} this week`],
     ['Waiting for review', stats.pendingChanges, stats.pendingChanges === 1 ? 'file change' : 'file changes']

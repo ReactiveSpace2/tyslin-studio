@@ -10,7 +10,10 @@ import { ChatPage } from './pages/ChatPage'
 import { AgentEditor } from './pages/AgentEditor'
 import { SkillsPage } from './pages/SkillsPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
-import { HomePage, type StudioArea } from './pages/HomePage'
+import { OrgHome } from './pages/OrgHome'
+import { AgenciesPage } from './pages/AgenciesPage'
+import { AgencyPage } from './pages/AgencyPage'
+import { agencyOf } from './agencies'
 import { TasksPage } from './pages/TasksPage'
 import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
@@ -25,7 +28,7 @@ import { NewAgentModal } from './components/NewAgentModal'
 import { NewAssistantModal } from './components/NewAssistantModal'
 import { NewProjectModal } from './components/NewProjectModal'
 import { LoginScreen } from './components/LoginScreen'
-import { Onboarding } from './components/Onboarding'
+import { AgencyWizard } from './components/AgencyWizard'
 import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
 import { initCurrentProject, setCurrentProject, useCurrentProject, useInWorkspace } from './currentProject'
@@ -48,6 +51,9 @@ export type Route =
   | { name: 'drive' }
   | { name: 'knowledge' }
   | { name: 'connectors' }
+  | { name: 'agencies' }
+  | { name: 'agency'; id: string; tab: 'org' | 'edit' }
+  | { name: 'newAgency' }
   | { name: 'settings'; tab?: SettingsTab }
 
 export default function App(): JSX.Element {
@@ -59,6 +65,8 @@ export default function App(): JSX.Element {
   const [auth, setAuth] = useState<AuthStatus | null>(null)
   /** null = still checking. */
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
+  const [orgName, setOrgName] = useState('')
+  const [defaultProjectId, setDefaultProjectId] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     const [a, p] = await Promise.all([window.tyslin.agents.list(), window.tyslin.projects.list()])
@@ -101,6 +109,7 @@ export default function App(): JSX.Element {
     void refreshAppearance()
     void window.tyslin.auth.status().then(setAuth)
     void window.tyslin.onboarding.status().then((s) => setOnboarding(s.needed))
+    void window.tyslin.orgs.list().then((o) => setOrgName(o.find((x) => x.current)?.name ?? ''))
   }, [refresh, refreshSessions])
 
   // Scheduled tasks start chats on their own; keep the sidebar's chat list current.
@@ -109,18 +118,6 @@ export default function App(): JSX.Element {
   const builder = agents.find((a) => a.isMascot) ?? agents[0]
   const [newOrg, setNewOrg] = useState(false)
 
-  /** Home's area tiles go where the matching sidebar button goes. */
-  const openArea = (area: StudioArea): void => {
-    if (area === 'agents') return setRoute({ name: 'agents', kind: 'agent' })
-    if (area === 'assistants') return setRoute({ name: 'agents', kind: 'assistant' })
-    if (area === 'projects') {
-      const last = sessions.find((s) => s.projectId && projects.some((p) => p.id === s.projectId))
-      if (last) return openChat(last.agentId, last.projectId, last.id)
-      if (projects[0] && builder) return openChat(builder.id, projects[0].id)
-      return setNewProject(true)
-    }
-    setRoute({ name: area } as Route)
-  }
 
   // The project picked in the title bar (needs setup done, so the Default project gets its chosen name).
   const [currentProject] = useCurrentProject()
@@ -136,6 +133,12 @@ export default function App(): JSX.Element {
     if (a && !inWs(a)) setRoute({ name: 'agents', kind: a.kind })
   }, [currentProject])
 
+  // Screens-first: every project is shown as an agency (see agencies.ts) until agencies are stored.
+  useEffect(() => { if (onboarding === false) void window.tyslin.studio.defaultProject().then((p) => setDefaultProjectId(p.id)) }, [onboarding, projects.length])
+  // The Default project holds files for screens without an agency; it isn't an agency itself.
+  const agencies = projects.filter((p) => p.id !== defaultProjectId).map((p) => agencyOf(p, agents))
+  const openAgency = (id: string, tab: 'org' | 'edit' = 'org'): void => { setCurrentProject(id); setRoute({ name: 'agency', id, tab }) }
+
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
   if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
   // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
@@ -147,12 +150,12 @@ export default function App(): JSX.Element {
       </div>
     )
   }
-  // First run on this computer: name the organization and Default project, add keys, pick the default model.
+  // First run on this computer: the agency setup wizard (organization, agency, adapter, model, skills, board, channel).
   if (onboarding) {
     return (
       <div className="app">
         <div className="titlebar" />
-        <Onboarding firstName={auth.account?.name?.split(' ')[0]} onDone={() => {
+        <AgencyWizard firstRun firstName={auth.account?.name?.split(' ')[0]} onDone={() => {
           setOnboarding(false)
           setRoute({ name: 'home' })
           void refresh()
@@ -169,17 +172,8 @@ export default function App(): JSX.Element {
         agents={agents}
         projects={projects}
         onNewOrg={() => setNewOrg(true)}
-        onNewProject={() => setNewProject(true)}
         onHome={() => setRoute({ name: 'home' })}
-        onProjectsChanged={() => { void refresh(); void refreshSessions() }}
-        onOpenProjectChats={() => {
-          // The selected project's chats, in the projects side panel (its latest chat, or Builder there).
-          const pid = currentProject ?? projects[0]?.id
-          if (!pid) return setNewProject(true)
-          const last = sessions.find((s) => s.projectId === pid)
-          if (last) openChat(last.agentId, pid, last.id, 'projects')
-          else if (builder) openChat(builder.id, pid, undefined, 'projects')
-        }}
+        onNavigate={(r) => { if (r.name === 'agency') setCurrentProject(r.id); setRoute(r) }}
       />
       <div className="app-body">
       <Sidebar
@@ -193,20 +187,48 @@ export default function App(): JSX.Element {
       />
       <main className="main">
         {route.name === 'home' && (
-          <HomePage
-            agentCount={agents.filter((a) => a.kind === 'agent').length}
-            assistantCount={agents.filter((a) => a.kind === 'assistant').length}
-            projectCount={projects.length}
-            onOpen={openArea}
-            onNewAgent={() => setRoute({ name: 'editor', kind: 'agent' })}
-            onSettings={(tab) => setRoute({ name: 'settings', tab })}
+          <OrgHome
+            you={you}
+            orgName={orgName}
+            agencies={agencies}
             agents={agents}
             projects={projects}
             sessions={sessions}
-            onOpenChat={openChat}
             focus={route.focus}
+            onOpenAgency={(id) => openAgency(id)}
+            onAllAgencies={() => setRoute({ name: 'agencies' })}
+            onNewAgency={() => setRoute({ name: 'newAgency' })}
+            onOpenChat={openChat}
           />
         )}
+        {route.name === 'agencies' && (
+          <AgenciesPage
+            agencies={agencies}
+            onOpen={(id) => openAgency(id)}
+            onBoard={(id) => { setCurrentProject(id); setRoute({ name: 'kanban' }) }}
+            onEdit={(id) => openAgency(id, 'edit')}
+            onNew={() => setRoute({ name: 'newAgency' })}
+          />
+        )}
+        {route.name === 'agency' && (() => {
+          const p = projects.find((x) => x.id === route.id)
+          if (!p) return null
+          return (
+            <AgencyPage
+              key={p.id + route.tab}
+              view={agencyOf(p, agents)}
+              tab={route.tab}
+              you={you}
+              onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
+              onBoard={() => { setCurrentProject(p.id); setRoute({ name: 'kanban' }) }}
+              onOpenAgent={(a) => setRoute({ name: 'editor', kind: a.kind, agentId: a.id })}
+              onAddWorker={() => { setCurrentProject(p.id); setCreating('choose') }}
+              onDrive={() => { setCurrentProject(p.id); setRoute({ name: 'drive' }) }}
+              onBack={() => setRoute({ name: 'agencies' })}
+              onChanged={() => void refresh()}
+            />
+          )
+        })()}
         {route.name === 'agents' && route.kind === 'agent' && (
           <AgentsHub
             agents={agents}
@@ -323,6 +345,14 @@ export default function App(): JSX.Element {
           onTask={(a) => { setCreating(false); setRoute({ name: 'tasks', newFor: a.id }) }}
           onOpen={(a) => { setCreating(false); setRoute({ name: 'editor', kind: 'agent', agentId: a.id }) }}
           onAskBuilder={() => { setCreating(false); const b = agents.find((x) => x.isMascot); if (b) openChat(b.id, null) }}
+        />
+      )}
+      {route.name === 'newAgency' && (
+        <AgencyWizard
+          firstRun={false}
+          firstName={you !== 'You' ? you : undefined}
+          onCancel={() => setRoute({ name: 'agencies' })}
+          onDone={(projectId) => { void refresh().then(() => { if (projectId) openAgency(projectId); else setRoute({ name: 'agencies' }) }) }}
         />
       )}
       {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
