@@ -15,6 +15,9 @@ import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
 import { agencyOf } from './agencies'
 import { AgencyChannelBar } from './components/AgencyChannelBar'
+import { AgencyNav } from './components/AgencyNav'
+import { Toolbar } from './components/Toolbar'
+import { WorkspaceBar } from './components/WorkspaceBar'
 import { TasksPage } from './pages/TasksPage'
 import { AgentsHub } from './pages/AgentsHub'
 import { AgentPage } from './pages/AgentPage'
@@ -146,6 +149,8 @@ export default function App(): JSX.Element {
     if (route.name === 'kanban' || route.name === 'drive' || route.name === 'connectors') return openAgencyTab(id)
     openAgency(id)
   }
+  /** Kanban, Drive, Channel, Skills and the agency page show the agency's own section bar. */
+  const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency))
   const closeAgency = (id: string): void => {
     const next = closeAgencyTab(id)
     if (route.name === 'agency' && route.id === id) setRoute(next && next !== defaultProjectId ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
@@ -179,12 +184,18 @@ export default function App(): JSX.Element {
 
   return (
     <div className="app">
-      <TitleBar
+      <TitleBar route={route} agents={agents} projects={projects} onHome={() => setRoute({ name: 'home' })} />
+      <Toolbar
         route={route}
-        agents={agents}
+        onNavigate={(r) => (r.name === 'agencies' && activeAgency ? openAgency(activeAgency) : setRoute(r))}
+        account={auth.account}
+        canSignOut={auth.configured && !!auth.account}
+        onProfile={() => setRoute({ name: 'settings', tab: 'account' })}
+        onSignOut={() => { void window.tyslin.auth.signOut().then(setAuth) }}
+      />
+      <WorkspaceBar
         projects={projects}
         onNewOrg={() => setNewOrg(true)}
-        onHome={() => setRoute({ name: 'home' })}
         onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }}
         onSelectAgency={selectAgency}
         onCloseAgency={closeAgency}
@@ -200,6 +211,10 @@ export default function App(): JSX.Element {
         onOpenChat={openChat}
         onNewProject={() => setNewProject(true)}
       />
+      {agencyNavOn && activeAgency && (
+        <AgencyNav agencyId={activeAgency} name={projects.find((p) => p.id === activeAgency)?.name ?? 'Agency'} route={route}
+          onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }} />
+      )}
       <main className="main">
         {route.name === 'home' && (
           <OrgHome

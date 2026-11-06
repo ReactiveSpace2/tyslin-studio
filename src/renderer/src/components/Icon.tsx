@@ -29,6 +29,7 @@ const PATHS = {
   chat: <path d="M2.5 3h11v8H7.5L4.5 13.5V11h-2z" />,
   art: <><path d="M8 2a6 6 0 1 0 0 12c1 0 1.3-.8.9-1.5-.5-.9 0-1.7 1-1.7h1.6A2.5 2.5 0 0 0 14 8.3 6 6 0 0 0 8 2z" /><circle cx="5" cy="7.5" r="0.8" fill="currentColor" /><circle cx="7.5" cy="4.8" r="0.8" fill="currentColor" /><circle cx="10.7" cy="6" r="0.8" fill="currentColor" /></>,
   connectors: <><path d="M6 1.5V5M10 1.5V5" /><path d="M4 5h8v2.5a4 4 0 0 1-8 0z" /><path d="M8 11.5v3" /></>,
+  help: <><circle cx="8" cy="8" r="6.25" /><path d="M6.3 6.3a1.75 1.75 0 1 1 2.4 1.6c-.45.2-.7.6-.7 1.1v.3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>,
   settings: <><path d="M2 4h7M13 4h1M2 8h1.5M7.5 8H14M2 12h8.5M14 12h0" /><circle cx="11" cy="4" r="1.6" /><circle cx="5.5" cy="8" r="1.6" /><circle cx="12.5" cy="12" r="1.6" /></>,
   plus: <path d="M8 2v12M2 8h12" />,
   star: <path d="M8 1.8 9.9 5.7l4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />,

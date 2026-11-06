@@ -23,7 +23,7 @@ const SECTION_KIND: Record<Exclude<Section, 'projects'>, AgentKind> = { agents: 
 const kindSection = (k: AgentKind): Section => (k === 'assistant' ? 'assistants' : 'agents')
 
 /**
- * Icon rail (Home; Studio: Agency, Kanban, Channel, Skills, Drive; Settings at the foot) plus a panel listing
+ * Icon rail (Home, Agencies; Settings at the foot) plus a panel listing
  * assistants or projects with their recent chats when one of those chats is open.
  */
 export function Sidebar(props: Props): JSX.Element {
@@ -128,20 +128,6 @@ export function Sidebar(props: Props): JSX.Element {
     <>
       {/* Home, then Studio (Agency, Kanban, Channel, Skills, Drive), Settings at the foot. Agencies are
           switched in the title bar. */}
-      <nav className="rail" aria-label="Main">
-        {railBtn('Home', 'home', route.name === 'home', () => onNavigate({ name: 'home' }), 'Home')}
-        {group('Studio')}
-        {railBtn('Agency', 'agency', route.name === 'agencies' || route.name === 'agency' || route.name === 'newAgency', () => onNavigate({ name: 'agencies' }), 'Studio')}
-        {railBtn('Kanban', 'kanban', route.name === 'kanban', () => onNavigate({ name: 'kanban' }), 'Studio')}
-        {railBtn('Channel', 'channel', route.name === 'connectors', () => onNavigate({ name: 'connectors' }), 'Studio')}
-        {railBtn('Skills', 'skills', route.name === 'skills', () => onNavigate({ name: 'skills' }), 'Studio')}
-        {railBtn('Drive', 'drive', route.name === 'drive', () => onNavigate({ name: 'drive' }), 'Studio')}
-        {/* Agents, Assistants, Tasks, Automation, Canvas, Mind mapper and Knowledge base are off the rail for
-            the agency layout; their routes still exist and open from agency pages, Home and links. */}
-        <div className="rail-foot">
-          {railBtn('Settings', 'settings', route.name === 'settings', () => onNavigate({ name: 'settings' }), 'Setup')}
-        </div>
-      </nav>
 
       {/* Agents have their own page (list, cards, org chart), so only assistants get the side panel. */}
       {section === 'assistants' && kindPanel(section)}

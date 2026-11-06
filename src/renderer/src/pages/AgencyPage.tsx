@@ -52,10 +52,6 @@ export function AgencyPage({ view, tab, you, onTab, onBoard, onRun, onOpenAgent,
           {tab === 'org' && <p className="hint mono">{project.folder ?? 'No folder'}</p>}
         </div>
         <div className="row">
-          <div className="ag-tabs" role="tablist" aria-label="Agency views">
-            <button type="button" role="tab" aria-selected={tab === 'org'} className={tab === 'org' ? 'on' : ''} onClick={() => onTab('org')}>Overview</button>
-            <button type="button" role="tab" aria-selected={tab === 'edit'} className={tab === 'edit' ? 'on' : ''} onClick={() => onTab('edit')}>Edit</button>
-          </div>
           {tab === 'edit' && <button type="button" className="btn btn-primary" onClick={() => void save()}>Save</button>}
           {tab === 'org' && (
             <button type="button" className="btn btn-lime" disabled={!lead} title={lead ? `Open ${lead.name} in this agency` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
