@@ -173,8 +173,8 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
 
         {step === 0 && (
           <section className="aw-body">
-            <h1 id="aw-h">Name your agency</h1>
-            <p className="hint">An agency is a Lead agent and its team, with a goal, a plan, a Kanban board and a line to you.</p>
+            <h1 id="aw-h">{firstRun ? 'Set up your first agency' : 'Set up a new agency'}</h1>
+            <p className="hint">You get a Lead and a team of agents with a goal, a plan, a board and a line to you. Start from a template or describe the work.</p>
             <div className="aw-two">
               {firstRun && (
                 <div className="field">
@@ -236,7 +236,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 1 && (
           <section className="aw-body">
             <h1 id="aw-h">How do your agents run?</h1>
-            <p className="hint">The template gives each worker an agent to run on (the Lead always runs on your default model). Keep that mix, or run every worker on one agent. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.</p>
+            <p className="hint">Your workers run on the agents you already use. Keep the template's mix or put every worker on one; the Lead runs on your default model. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.</p>
             <button type="button" role="radio" aria-checked={d.adapter === 'template'} className={'aw-adapter aw-mix' + (d.adapter === 'template' ? ' on' : '')} onClick={() => set({ adapter: 'template' })}>
               <span className="aw-tpl-top"><span className="aw-mark aw-letter mono" aria-hidden="true">Mix</span><span><strong>Use the template's mix</strong><span className="hint" style={{ display: 'block' }}>Recommended</span></span>
                 {d.adapter === 'template' && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
@@ -267,7 +267,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 2 && d.model && (
           <section className="aw-body">
             <h1 id="aw-h">Pick the Lead's model</h1>
-            <p className="hint">The Lead plans and reviews with this model, and it becomes your default model. Keys are encrypted on this computer and only go to their own provider. Ollama runs locally and needs no key.</p>
+            <p className="hint">Your Lead plans and reviews with this model, and it becomes your default. Keys are encrypted on this computer and only go to their own provider. Ollama runs locally and needs no key.</p>
             {firstRun ? <ModelKeys settings={settings} onSaved={keySaved} /> : <p className="hint">Model keys are in Settings → Models.</p>}
             <h2 className="onboard-sub">Lead's model</h2>
             <DefaultModelPicker settings={settings} value={d.model} onChange={(m) => set({ model: m })} idPrefix="aw-dm" />
@@ -277,7 +277,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 3 && (
           <section className="aw-body">
             <h1 id="aw-h">Skills</h1>
-            <p className="hint">Skills are instructions your agents follow for a kind of task. The template's skills are included; add packs if you like. Packs install when you create the agency.</p>
+            <p className="hint">Your agents get the skills this kind of work needs, already included. Add packs for more; they install when you create the agency.</p>
             {included.length > 0 && (
               <div className="field"><span className="label">Included with {template?.name}</span>
                 <span className="nt-chips">{included.map((s) => <span key={s} className="mono">{s}</span>)}</span>
@@ -327,7 +327,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 4 && (
           <section className="aw-body">
             <h1 id="aw-h">Where the work lives</h1>
-            <p className="hint">Your agency gets a Kanban board. The Lead puts the plan in the Inbox as cards, gives each one an owner and moves them along. Finished work waits in Review for you.</p>
+            <p className="hint">You drop a brief in Inbox; the Lead turns it into cards, gives each one an owner and moves them along. Finished work waits in Review for you.</p>
             <div className="aw-board" aria-label="Board preview">
               {AGENCY_COLUMNS.map((c, i) => (
                 <div key={c} className="aw-col">
@@ -356,9 +356,9 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
         {step === 5 && (
           <section className="aw-body">
             <h1 id="aw-h">How the Lead talks to you</h1>
-            <p className="hint">Only the Lead messages you: briefs, questions and work to review. Only accounts you link can reply. You can skip this and set it up later in Connectors.</p>
+            <p className="hint">Your Lead messages you when there's news or a question: briefs, questions, work to review and digests. Only accounts you link can reply. Skip this and set it up later on the agency's Channel tab.</p>
             <div className="aw-adapters aw-three" role="radiogroup" aria-label="Channel">
-              {([['telegram', 'Telegram', 'Your own bot; link your account with a one-time code.'], ['slack', 'Slack', 'A bot in your workspace, linked to one channel.'], ['none', 'Not now', 'Set up a channel later in Connectors.']] as const).map(([id, name, desc]) => (
+              {([['telegram', 'Telegram', 'Your own bot; link your account with a one-time code.'], ['slack', 'Slack', 'A bot in your workspace, linked to one channel.'], ['none', 'Not now', 'Set it up later on the Channel tab.']] as const).map(([id, name, desc]) => (
                 <button key={id} type="button" role="radio" aria-checked={d.channel === id} className={'aw-adapter' + (d.channel === id ? ' on' : '')} onClick={() => set({ channel: id })}>
                   <span className="aw-tpl-top"><span className="area-icon" aria-hidden="true"><Icon name={id === 'none' ? 'close' : 'chat'} size={16} /></span><strong>{name}</strong>
                     {d.channel === id && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
@@ -404,7 +404,7 @@ export function AgencyWizard({ firstName, firstRun, onDone, onCancel }: {
                   <span className="cn-num">1</span>
                   <div className="cn-body">
                     <strong>Your Slack bot</strong>
-                    <span className="hint">Paste the bot token from your Slack app, then link one channel with a one-time code. Slack setup is coming soon.</span>
+                    <span className="hint">Paste the bot token from your Slack app, then link one channel with a one-time code. Do this on the agency's Channel tab once it exists.</span>
                     <input className="input" type="password" placeholder="xoxb-…" aria-label="Slack bot token" disabled />
                   </div>
                 </section>

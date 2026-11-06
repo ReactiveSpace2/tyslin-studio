@@ -31,7 +31,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
         <h1>Tyslin Studio</h1>
         <p className="login-tagline">Every agent you run. One studio.</p>
         <p className="login-desc">
-          Build agents with a job, instructions and skills, run them on the model or agent engine you choose, and review every change before it lands.
+          Run your own AI agency. A Lead plans the work, your agents do it, you approve what ships.
         </p>
         {waiting ? (
           <div className="login-wait">
@@ -42,7 +42,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
           <button type="button" className="btn btn-primary login-btn" onClick={() => void signIn()}>Continue with Google</button>
         )}
         {error && <p className="login-error" role="alert">{error}</p>}
-        <p className="hint login-note">Your agents, chats and keys stay on this computer. Tyslin keeps only your name and email.</p>
+        <p className="hint login-note">Your agencies, chats and keys stay on this computer. Tyslin keeps only your name and email.</p>
       </div>
     </main>
   )
