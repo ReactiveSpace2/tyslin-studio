@@ -1480,3 +1480,14 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .agency-plus { position: relative; }
 .tab-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 2px var(--parchment); }
 .inbox-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+/* An agent's page inside an agency: the agency sidebar stays, so the agent's sections are tabs above the page (7 Nov 2026). */
+.ap-back { align-self: flex-start; margin-bottom: 8px; }
+.agent-page.in-agency { flex-direction: column; }
+.agent-page.in-agency .ap-nav { width: auto; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 4px 6px; padding: 10px 24px; border-right: 0; border-bottom: 1px solid var(--line); overflow: visible; }
+.agent-page.in-agency .ap-back { align-self: center; margin: 0 8px 0 0; }
+.agent-page.in-agency .ap-group { flex-direction: row; align-items: center; gap: 2px; }
+.agent-page.in-agency .ap-group + .ap-group { padding-left: 6px; border-left: 1px solid var(--line); }
+.agent-page.in-agency .ap-group .section-label { display: none; }
+.agent-page.in-agency .ap-item .c { margin-left: 6px; }
+.agent-page.in-agency .ap-main { min-height: 0; }

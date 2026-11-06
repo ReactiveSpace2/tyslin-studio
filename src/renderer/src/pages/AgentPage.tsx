@@ -23,6 +23,8 @@ interface Props {
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
   onOrgChart: () => void
   onConnectors: () => void
+  /** Shown inside an agency (its sidebar is on screen): the sections become tabs above the page. */
+  inAgency?: boolean
   onChanged: () => void
   onDeleted: () => void
 }
@@ -31,7 +33,7 @@ const when = (t: number): string => new Date(t).toLocaleString(undefined, { week
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 /** An agent's page: status and actions on top, sections on the left, one Save bar for edits. */
-export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat, onTask, onOpenChat, onOrgChart, onConnectors, onChanged, onDeleted }: Props): JSX.Element {
+export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat, onTask, onOpenChat, onOrgChart, onConnectors, inAgency, onChanged, onDeleted }: Props): JSX.Element {
   const saved = agents.find((a) => a.id === agentId)
   const [form, setForm] = useState<Agent | null>(saved ?? null)
   const [section, setSection] = useState<Section>('overview')
@@ -103,9 +105,9 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
   ]
 
   return (
-    <div className="agent-page">
+    <div className={'agent-page' + (inAgency ? ' in-agency' : '')}>
       <nav className="ap-nav" aria-label="Agent sections">
-        <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start', marginBottom: 8 }} onClick={onBack}><Icon name="back" size={12} /> Agents</button>
+        <button type="button" className="btn btn-sm ap-back" onClick={onBack}><Icon name="back" size={12} /> {inAgency ? 'Back' : 'Agents'}</button>
         {NAV.map(([group, items]) => (
           <div key={group} className="ap-group">
             <span className="section-label">{group}</span>

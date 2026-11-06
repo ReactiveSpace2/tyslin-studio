@@ -137,7 +137,9 @@ export default function App(): JSX.Element {
   /** Which screens show the agency sidebar. */
   const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency)
     // A chat with one of this agency's agents keeps the agency sidebar.
-    || (route.name === 'chat' && (route.projectId === activeAgency || agents.find((a) => a.id === route.agentId)?.projectId === activeAgency)))
+    || (route.name === 'chat' && (route.projectId === activeAgency || agents.find((a) => a.id === route.agentId)?.projectId === activeAgency))
+    // So does an agent's page.
+    || (route.name === 'editor' && agents.find((a) => a.id === route.agentId)?.projectId === activeAgency))
   /** The agency page of the agent's agency (or the list). */
   const backFromAgent = (a?: Agent): void => {
     const id = a?.projectId && viewFor(a.projectId) ? a.projectId : activeAgency
@@ -283,6 +285,7 @@ export default function App(): JSX.Element {
               onOpenChat={openChat}
               onOrgChart={() => backFromAgent(agents.find((a) => a.id === route.agentId))}
               onConnectors={() => setRoute({ name: 'connectors' })}
+              inAgency={agencyNavOn}
               onChanged={() => void refresh()}
               onDeleted={() => { void Promise.all([refresh(), refreshSessions()]); setRoute(activeAgency ? { name: 'agency', id: activeAgency, tab: 'org' } : { name: 'agencies' }) }}
             />
