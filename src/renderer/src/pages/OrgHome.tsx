@@ -1,5 +1,9 @@
-import { useEffect } from 'react'
-import type { Agent, Project, Session } from '@shared/types'
+import { useEffect, useState } from 'react'
+import type { Agent, AppInfo, Project, Session } from '@shared/types'
+import logo from '../assets/logo-horizontal.png'
+import mark from '../assets/logo-mark.png'
+import wordmarkWhite from '../assets/wordmark-white.png'
+import mascot from '../assets/mascot-pose-1.png'
 import type { AgencyView } from '../agencies'
 import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
@@ -26,11 +30,39 @@ const greeting = (): string => { const h = new Date().getHours(); return h < 12 
 /** Home: the organization and its agencies, then what the studio is doing. */
 export function OrgHome({ you, orgName, agencies, agents, projects, sessions, focus, onOpenAgency, onAllAgencies, onNewAgency, onOpenChat }: Props): JSX.Element {
   useEffect(() => { if (focus === 'activity') document.getElementById('activity')?.scrollIntoView({ block: 'start' }) }, [focus])
+  const [info, setInfo] = useState<AppInfo | null>(null)
+  useEffect(() => { void window.tyslin.app.info().then(setInfo) }, [])
   const leads = agencies.filter((v) => v.lead).length
   const workers = agencies.reduce((n, v) => n + v.workers.length, 0)
   return (
     <div className="page home watermarked ag-home">
       <Watermark />
+      <section className="home-hero" aria-labelledby="home-title">
+        <div className="home-intro">
+          <img src={logo} alt="Tyslin" className="home-logo light-only" />
+          <span className="home-logo-dark dark-only">
+            <img src={mark} alt="Tyslin" />
+            <img src={wordmarkWhite} alt="" />
+          </span>
+          <div className="row" style={{ gap: 8 }}>
+            <span className="badge green mono">v{info?.version ?? '…'}</span>
+            <span className="badge mono">Beta</span>
+          </div>
+          <h1 id="home-title">Tyslin Studio</h1>
+          <p className="home-tagline">Every agent you run. One studio.</p>
+          <p className="lead">
+            Agencies do the work in your folders: a Lead plans the board and hands cards to its workers, each on the model
+            or agent you choose. You review every change before it touches your files, and the Lead tells you what's done
+            on Telegram or Slack.
+          </p>
+          <div className="row">
+            <button type="button" className="btn btn-primary" onClick={agencies.length ? onAllAgencies : onNewAgency}>
+              <Icon name="agency" size={14} /> {agencies.length ? `Open your ${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'Create an agency'}
+            </button>
+          </div>
+        </div>
+        <img src={mascot} alt="The Tyslin robot mascot standing" className="home-mascot" />
+      </section>
       <header className="ag-head">
         <div>
           <span className="eyebrow">{orgName || 'Organization'}</span>

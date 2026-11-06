@@ -146,7 +146,7 @@ export default function App(): JSX.Element {
       <TitleBar route={route} agents={agents} projects={projects} onHome={() => setRoute({ name: 'home' })} />
       <Toolbar
         route={route}
-        onNavigate={(r) => (r.name === 'agencies' && activeAgency ? openAgency(activeAgency) : setRoute(r))}
+        onNavigate={setRoute}
         account={auth.account}
         canSignOut={auth.configured && !!auth.account}
         onProfile={() => setRoute({ name: 'settings', tab: 'account' })}
