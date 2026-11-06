@@ -298,6 +298,7 @@ export default function App(): JSX.Element {
       {route.name === 'newAgency' && (
         <AgencyWizard
           firstRun={false}
+          first={agencies.length === 0}
           templateId={route.templateId}
           firstName={you !== 'You' ? you : undefined}
           onCancel={() => setRoute({ name: 'agencies' })}

@@ -55,8 +55,10 @@ interface Draft {
  * Agency setup: seven steps that turn a template (or a description) into an agency: a Lead, its workers,
  * skills, a Kanban board and a channel to you. Shown after sign-in on first run.
  */
-export function AgencyWizard({ firstName, firstRun, templateId, onDone, onCancel }: {
+export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, onCancel }: {
   firstName?: string
+  /** The organization has no agencies yet (titles say "your first agency"). */
+  first?: boolean
   /** Opens with this template picked (from Home's template grid). */
   templateId?: string
   /** First run asks the organization and shows the key fields; from New agency it doesn't. */
@@ -176,7 +178,7 @@ export function AgencyWizard({ firstName, firstRun, templateId, onDone, onCancel
 
         {step === 0 && (
           <section className="aw-body">
-            <h1 id="aw-h">{firstRun ? 'Set up your first agency' : 'Set up a new agency'}</h1>
+            <h1 id="aw-h">{firstRun || first ? 'Set up your first agency' : 'Set up a new agency'}</h1>
             <p className="hint">You get a Lead and a team of agents with a goal, a plan, a board and a line to you. Start from a template or describe the work.</p>
             <div className="aw-two">
               {firstRun && (
