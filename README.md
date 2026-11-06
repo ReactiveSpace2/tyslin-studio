@@ -1,209 +1,174 @@
 <p align="center">
-  <img src="resources/brand/logo-beta.png" alt="Tyslin Studio beta" width="360">
+  <img src="resources/brand/logo-horizontal.png" alt="Tyslin" width="320">
 </p>
-
-<h1 align="center">Tyslin Studio</h1>
 
 <p align="center"><strong>Every agent you run. One studio.</strong></p>
 
+<p align="center">Tyslin Studio is an open-source desktop app for running AI agencies made of AI agents.</p>
+
+> **BETA.** Tyslin Studio is in beta. Tested on Linux; macOS and Windows builds are not yet tested much or signed. Expect rough edges and breaking changes.
+
+## Run your own AI agency
+
+A Lead agent plans the work on a Kanban board and hands it to a team of agents on Claude Code, Codex, Gemini CLI or Hermes. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
+
+<!-- TODO: replace with docs/screenshots/agency-board.png (an agency's Kanban board) once it is added. -->
 <p align="center">
-  <a href="https://tyslin.ai">tyslin.ai</a> · info@tyslin.ai · A ReactiveSpace product
+  <img src="docs/screenshots/agency-overview.png" alt="The Research & Intelligence agency in Tyslin Studio: Iris, the Lead, with Hugo (Analyst), Beatrice (Fact-check) and Felix (Writer) on Claude Code, the five-step plan and how it runs" width="900">
 </p>
-
----
-
-**Run your own AI agency.** Pick one of 20 agencies. A Lead agent plans the work on a board and hands it to a team of agents on Claude Code, Codex, Gemini CLI or Hermes. They work on their own; you approve what ships. Open source, on your machine.
-
-<p align="center">
-  <img src="docs/screenshots/agency-board.png" alt="An agency's Kanban board in Tyslin Studio: cards in Inbox, Planned, In progress, Review and Done, each with its assignee and cost" width="900">
-</p>
-
-> **Status: beta (v0.6.0, the agencies release).** v0.6 starts on a fresh database: an older `tyslin.db` is set aside as `tyslin-v0.5.db` (keys, account and appearance are copied across) and the pre-agency screens live in `archive/`. Tested on Linux. macOS and Windows builds are not yet tested or signed. Expect rough edges and breaking changes.
 
 ## Download
 
-Get the latest installer from [tyslin.ai](https://tyslin.ai/#download) or [GitHub Releases](https://github.com/ReactiveSpace2/tyslin-studio/releases/latest).
+Installers are on the [latest GitHub release](https://github.com/ReactiveSpace2/tyslin-studio/releases/latest) and at [tyslin.ai](https://tyslin.ai/#download).
 
 | Platform | File |
 |---|---|
-| macOS (Apple silicon) | `Tyslin-Studio-<version>-mac-arm64.dmg` |
-| macOS (Intel) | `Tyslin-Studio-<version>-mac-x64.dmg` |
+| macOS, Apple Silicon | `Tyslin-Studio-<version>-mac-arm64.dmg` |
+| macOS, Intel | `Tyslin-Studio-<version>-mac-x64.dmg` |
 | Windows 10/11 | `Tyslin-Studio-<version>-windows-x64-setup.exe` |
-| Linux (any distro) | `Tyslin-Studio-<version>-linux-x86_64.AppImage` |
-| Linux (Debian, Ubuntu) | `Tyslin-Studio-<version>-linux-amd64.deb` |
+| Linux, any distro | `Tyslin-Studio-<version>-linux-x86_64.AppImage` |
+| Linux, Debian and Ubuntu | `Tyslin-Studio-<version>-linux-amd64.deb` |
+| Linux, snap | Not on the Snap Store yet |
 
-On Ubuntu you can also install from the Snap Store (coming soon): search for **Tyslin Studio** in App Center, or run `sudo snap install tyslin-studio --classic`. Opening the `.deb` in App Center works too, but App Center labels every downloaded `.deb` "Unknown publisher" and "Potentially unsafe".
+The macOS and Windows builds are unsigned for now. On macOS, right-click the app and choose **Open**. On Windows, choose **More info**, then **Run anyway**.
 
-Early builds are not code-signed yet:
+Updates: the app checks GitHub Releases when it starts. Windows and the AppImage download and install updates in the app; macOS and the `.deb` tell you a new version is out; a snap install is updated by snapd.
 
-- **macOS:** right-click the app in Applications and choose **Open**, then **Open** again. If macOS still blocks it, run `xattr -cr "/Applications/Tyslin Studio.app"`.
-- **Windows:** on the SmartScreen prompt choose **More info**, then **Run anyway**.
-- **Linux:** `chmod +x Tyslin-Studio-*.AppImage` and run it (on Ubuntu 24.04 and later, first run `sudo apt install libfuse2t64`), or `sudo apt install ./Tyslin-Studio-*.deb`. If apt ends with `Notice: Download is performed unsandboxed as root ... Permission denied`, the install still worked. apt only means it couldn't read your Downloads folder as its restricted `_apt` user. To avoid the notice, copy the `.deb` to `/tmp` first and install it from there.
+## How an agency works
 
-### Updates
+1. **Brief:** you drop a brief in the board's Inbox column.
+2. **Plan:** the Lead turns it into cards, each with an assignee and what done looks like.
+3. **Work:** workers run their cards on their adapter, in the agency's folder.
+4. **Review:** every file change waits for you as a diff to accept or reject.
+5. **Done:** accepting a card's changes moves it to Done.
+6. **Digest:** the Lead reports to you on Telegram or Slack.
 
-From v0.2.0, Tyslin Studio checks GitHub Releases when it starts.
-
-- **Windows and Linux AppImage:** the update downloads in the background; restart when prompted to install it.
-- **Snap:** the Snap Store updates the app automatically; it doesn't check GitHub.
-- **macOS and Linux .deb:** the app tells you a new version is available and links to the download. (Automatic install on macOS needs a signed build, which is coming.)
-
-If you're on v0.1.0, download the new version once by hand; updates after that arrive in the app.
-
-## What an agency is
-
-- **Lead:** one agent that plans, assigns, reviews and talks to you. It runs on your default model.
-- **Workers:** three or four agents named for their jobs, such as "Sam (Backend)", each on an adapter.
-- **Board:** a Kanban board (Inbox, Planned, In progress, Review, Done) in the agency's own folder.
-- **Channel:** the Lead messages you on Telegram or Slack, and on the agency's Channel screen.
-- **Budget:** every card shows its estimated cost; the agency stops starting cards at its budget.
-- **Review:** file changes wait for you as a diff; accepting them moves the card to Done.
+Only the Lead messages you; workers report to the Lead on the card. Each agency has a budget: every card shows its estimated cost, and once the agency's total reaches the budget no more cards start until you raise it.
 
 ## The 20 agencies
 
-Each template comes with a goal, a five-step plan, starter cards, skills and the Lead's scheduled planning run. You can rename it, change the roster and edit everything before and after it's created.
+Each template comes with a goal, a five-step plan, starter cards, skills and the Lead's scheduled planning run. The Lead runs on your default model; the adapters below are where the workers run, and you can keep that mix or put every worker on one adapter.
 
 <!-- agencies:start (generated by scripts/readme-agencies.mjs) -->
-| Agency | What it does | Lead | Agents |
-|---|---|---|---|
-| App Development | Plans, builds, tests and ships web and desktop apps from a spec. | Alex | 5 |
-| Mobile Apps | Designs and builds iOS and Android apps, then gets them ready for the stores. | Maya | 5 |
-| Web Design | Designs and builds marketing sites and landing pages. | Jade | 5 |
-| Social Media Marketing | Plans, writes and schedules posts across your social channels. | Mia | 5 |
-| Content Writing | Researches, writes and edits articles, guides and newsletters. | Clara | 4 |
-| SEO | Finds what people search for, plans pages and improves rankings. | Owen | 4 |
-| Paid Ads | Plans, writes and reports on ad campaigns. | Ray | 4 |
-| Email Marketing | Writes and plans newsletters and email sequences. | Nina | 4 |
-| Sales & Lead Gen | Finds leads, qualifies them and writes outreach. | Victor | 4 |
-| Customer Support | Answers customers, writes help articles and spots patterns. | Grace | 4 |
-| Research & Intelligence | Researches markets, companies and competitors and writes briefs. | Iris | 4 |
-| Data & Analytics | Cleans data, builds reports and explains what the numbers say. | Nadia | 4 |
-| Product Management | Turns feedback and goals into specs and a roadmap. | Erin | 4 |
-| QA & Testing | Writes test plans, runs tests and reports bugs. | Hannah | 4 |
-| DevOps | Sets up builds, deploys and monitoring. | Viktor | 4 |
-| Startup Visa | Prepares a startup visa application: eligibility, documents and a plan. | Peter | 4 |
-| Finance & Bookkeeping | Keeps the books, reconciles accounts and reports monthly. | Rebecca | 4 |
-| Legal & Contracts | Drafts and reviews contracts and keeps a checklist of risks. | Catherine | 4 |
-| HR & Recruiting | Writes job posts, screens candidates and prepares onboarding. | Laura | 4 |
-| Video & Creative | Writes scripts and storyboards and preps creative for recording. | Jessica | 4 |
+| Agency | What it does | Lead | Agents | Adapters |
+|---|---|---|---|---|
+| App Development | Plans, builds, tests and ships web and desktop apps from a spec. | Alex | 5 | Claude Code, Codex, Hermes, Gemini CLI |
+| Mobile Apps | Designs and builds iOS and Android apps, then gets them ready for the stores. | Maya | 5 | Claude Code, Codex, Hermes, Gemini CLI |
+| Web Design | Designs and builds marketing sites and landing pages. | Jade | 5 | Claude Code, Gemini CLI, Codex, Hermes |
+| Social Media Marketing | Plans, writes and schedules posts across your social channels. | Mia | 5 | Gemini CLI, Hermes, Claude Code |
+| Content Writing | Researches, writes and edits articles, guides and newsletters. | Clara | 4 | Gemini CLI, Claude Code, Hermes |
+| SEO | Finds what people search for, plans pages and improves rankings. | Owen | 4 | Hermes, Gemini CLI, Claude Code |
+| Paid Ads | Plans, writes and reports on ad campaigns. | Ray | 4 | Gemini CLI, Claude Code, Hermes |
+| Email Marketing | Writes and plans newsletters and email sequences. | Nina | 4 | Gemini CLI, Hermes, Claude Code |
+| Sales & Lead Gen | Finds leads, qualifies them and writes outreach. | Victor | 4 | Hermes, Gemini CLI, Codex |
+| Customer Support | Answers customers, writes help articles and spots patterns. | Grace | 4 | Hermes, Claude Code, Gemini CLI |
+| Research & Intelligence | Researches markets, companies and competitors and writes briefs. | Iris | 4 | Claude Code, Hermes, Gemini CLI |
+| Data & Analytics | Cleans data, builds reports and explains what the numbers say. | Nadia | 4 | Codex, Claude Code, Hermes |
+| Product Management | Turns feedback and goals into specs and a roadmap. | Erin | 4 | Claude Code, Gemini CLI, Hermes |
+| QA & Testing | Writes test plans, runs tests and reports bugs. | Hannah | 4 | Claude Code, Codex, Hermes |
+| DevOps | Sets up builds, deploys and monitoring. | Viktor | 4 | Codex, Claude Code, Hermes |
+| Startup Visa | Prepares a startup visa application: eligibility, documents and a plan. | Peter | 4 | Claude Code, Gemini CLI |
+| Finance & Bookkeeping | Keeps the books, reconciles accounts and reports monthly. | Rebecca | 4 | Hermes, Claude Code |
+| Legal & Contracts | Drafts and reviews contracts and keeps a checklist of risks. | Catherine | 4 | Claude Code, Gemini CLI |
+| HR & Recruiting | Writes job posts, screens candidates and prepares onboarding. | Laura | 4 | Hermes, Claude Code, Gemini CLI |
+| Video & Creative | Writes scripts and storyboards and preps creative for recording. | Jessica | 4 | Gemini CLI, Claude Code, Hermes |
 <!-- agencies:end -->
 
-## Adapters and models
+Regenerate the table with `node scripts/readme-agencies.mjs --write`.
 
-Workers run on an adapter, an agent you install that Tyslin drives over the [Agent Client Protocol](https://agentclientprotocol.com). Settings → Agent engines shows each project's official install command before anything runs.
+## Runs on
 
-| Adapter | Install | Needs |
+### Adapters
+
+Workers run on agents you install. Tyslin drives them over the [Agent Client Protocol](https://agentclientprotocol.com). Settings → Agent engines shows the install command before anything runs.
+
+| Adapter | Install command the app uses | Needs |
 |---|---|---|
-| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (run `claude` once), or your Claude key from Settings → Models |
-| Codex | `npm install -g @agentclientprotocol/codex-acp` | Your OpenAI key from Settings → Models, or a ChatGPT sign-in |
-| Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (run `gemini` once), or your Gemini key from Settings → Models |
-| Hermes | Official installer from Nous Research | Its own model and key, set up with the Hermes setup guide; Tyslin gives each agent its own Hermes profile |
+| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (run `claude` once), or your Claude key in Settings → Models |
+| Codex | `npm install -g @agentclientprotocol/codex-acp` | Your OpenAI key in Settings → Models, or a ChatGPT sign-in when the agent asks |
+| Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (run `gemini` once), or your Gemini key in Settings → Models |
+| Hermes | `curl -fsSL https://hermes-agent.nousresearch.com/install.sh \| bash -s -- --non-interactive` (PowerShell installer on Windows) | A model and key set up with the Hermes setup guide; on a Mac, Apple Silicon only. Each agent gets its own Hermes profile |
+| Goose | `curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \| CONFIGURE=false bash` (PowerShell script on Windows) | Run `goose configure` once to choose its model provider |
+| ZeroClaw | No installer in the app; install from github.com/zeroclaw-labs/zeroclaw | Its own setup; the app runs `zeroclaw acp` |
+| OpenClaw | `curl -fsSL https://openclaw.ai/install.sh \| bash -s -- --no-onboard` (PowerShell installer on Windows) | A running OpenClaw Gateway: run `openclaw onboard --install-daemon` |
+| Custom ACP | You enter the full command, for example `my-agent --acp` | Whatever that agent needs |
 
-Any agent can also run on Goose (set up with `goose configure`), ZeroClaw, OpenClaw (needs a running OpenClaw Gateway) or a custom ACP command, chosen on the agent's page.
+The agency templates use Claude Code, Codex, Gemini CLI and Hermes. Goose, ZeroClaw, OpenClaw and custom commands can be set on any agent's page.
 
-The Lead, and any worker on the default model, uses one of these with your own key:
+### Models
 
-| Model provider | Needs |
+The Lead, and any agent on the built-in runtime, uses one of these.
+
+| Provider | Where the key goes |
 |---|---|
-| Claude (Anthropic) | An Anthropic API key |
-| OpenAI | An OpenAI API key |
-| Gemini (Google) | A Gemini API key |
-| OpenRouter | An OpenRouter key (one key, many models) |
-| Ollama | Ollama running on this computer; no key |
+| Claude (Anthropic) | Settings → Models, Anthropic API key |
+| OpenAI | Settings → Models, OpenAI API key |
+| Gemini (Google) | Settings → Models, Gemini API key |
+| OpenRouter | Settings → Models, OpenRouter key |
+| Ollama | No key; Settings → Models, the address of Ollama running on this computer |
 
-Keys are encrypted with your system keychain. Tyslin passes your Claude, OpenAI and Gemini keys to the matching adapter when you haven't signed it in yourself.
+Keys are also passed to Claude Code, Codex and Gemini CLI when you haven't signed them in yourself.
 
-## Review and budgets
+## Your data
 
-**Review.** Agents propose file changes instead of writing them. Each change shows as a diff you accept or reject, hunk by hunk, before it touches disk. When a card's run ends it moves to Review; accepting its changes moves it to Done. When an adapter asks permission, for example to run a command, the request shows as a card you approve or deny. You can let a single agent write directly from its page, with a warning.
+- One local SQLite database per organization, in the app's data folder (Settings → About → Open folder).
+- One folder per agency under `Documents/Tyslin Studio/<organization>/<agency>/`, with its board and the files its agents make.
+- API keys are encrypted with your operating system's keychain.
+- The app contacts only: the model providers and adapters you set up; GitHub, for updates, skill packs and the star count; Telegram or Slack, if you connect a channel; Google, if you sign in or connect Google Drive sync.
+- No analytics. Nothing is collected about how you use the app.
 
-**Budgets.** Set a budget on the agency's Edit page. Each run adds its estimated cost (from token counts for Claude, OpenAI, Gemini and OpenRouter; local models are free; adapters that don't report usage count as zero) to the agency's total, shown on the card and, once a budget is set, on the Overview. Once the total reaches the budget, no more cards start, by hand or by auto-run, until you raise it. The total doesn't reset by itself yet.
+## Build from source
 
-**Auto-run.** With "Let the Lead run cards automatically" on, the Lead starts planned cards one after another with their owners, within the budget. Off (the default), the Lead only plans and you start each card. Runs happen while the app is open.
-
-## Roadmap
-
-1. **Runs while the app is closed:** the Lead's scheduled runs and auto-run keep going when the window is shut.
-2. **Cost ledger on Home:** spend per agency, agent and model in one place.
-3. **File-based memory:** agents that remember what they learned, in plain files you can read and edit.
-4. **Discord and Email channels:** more ways for the Lead to reach you, next to Telegram and Slack.
-5. **More agencies:** new templates beyond the first 20.
-6. **Signed installers:** code signing for macOS and Windows, which also makes updates automatic on macOS.
-7. **Hosted plan:** the same agencies with no setup: managed models and team accounts.
-
-## Contributing
-
-Issues and ideas are welcome: [open an issue](https://github.com/ReactiveSpace2/tyslin-studio/issues/new). Pull requests will open once the license is set. Keep changes small and focused, and run `npm run typecheck` before submitting. After changing an agency template, run `node scripts/readme-agencies.mjs` to refresh the table above.
-
-### Run from source
-
-Requires Node.js 20 or 22.
+Requires Node.js 22 (the version the release builds use) and npm.
 
 ```bash
 git clone https://github.com/ReactiveSpace2/tyslin-studio.git
 cd tyslin-studio
 npm install        # also rebuilds the SQLite driver for Electron
-npm run dev        # starts the app with hot reload
+npm run dev        # the app with hot reload
+npm run typecheck  # run after every change
 ```
 
-Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev` instead.
+Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev`.
 
-The first run opens the agency wizard: add a model key (or point it at a running Ollama, `http://localhost:11434`), pick a template and create your first agency.
-
-### Build installers
+Installers:
 
 ```bash
 npm run dist:linux   # .AppImage, .deb and .snap
-npm run dist:mac     # .dmg (run on macOS)
-npm run dist:win     # .exe NSIS installer (run on Windows)
+npm run dist:mac     # .dmg and .zip (run on macOS)
+npm run dist:win     # .exe installer (run on Windows)
 ```
 
-Output goes to `dist/`. Build each installer on its own platform; GitHub Actions can build all three for a release. Public releases need signing (an Apple Developer ID with notarisation for macOS, a code-signing certificate for Windows), otherwise users see security warnings.
+Output goes to `dist/`. Build each installer on its own platform; the release workflow in `.github/workflows/release.yml` builds all three when a `v*` tag is pushed.
 
-### Releasing
+## Roadmap
 
-Releases are built by GitHub Actions (`.github/workflows/release.yml`) on macOS, Windows and Linux runners. The installers, plus the update files the app reads (`latest*.yml`, `*.blockmap` and the macOS `.zip`), are attached to the GitHub Release automatically. The Linux job also uploads the `.snap` to the Snap Store's stable channel when the `SNAPCRAFT_STORE_CREDENTIALS` repository secret is set; the `.snap` is not attached to the GitHub Release.
+1. Runs while the app is closed: the Lead's scheduled runs and auto-run keep going when the window is shut.
+2. Cost ledger on Home: spend per agency, agent and model.
+3. File-based memory: agents that remember what they learned, in plain files.
+4. Discord and Email channels, next to Telegram and Slack.
+5. More agencies.
+6. Hosted plan: the same agencies with no setup.
 
-```bash
-# 1. bump "version" in package.json (e.g. 0.2.0) and commit
-# 2. tag that commit with the same version and push the tag
-git tag v0.2.0
-git push origin v0.2.0
-```
+Assistants, Automation, Canvas and Mind mapper from earlier versions are archived in `archive/`. They are not built into the app; some may return.
 
-The tag must match `package.json`; installed apps compare their own version against the newest release. The workflow can also be started by hand from the **Actions** tab (Release → Run workflow → enter the tag).
+## Contributing
 
-### Project layout
+Report bugs and ideas in [GitHub Issues](https://github.com/ReactiveSpace2/tyslin-studio/issues). Discussions are off. Pull requests will open once the licence is set. Keep changes small and run `npm run typecheck`.
 
-```
-src/
-  main/        Electron main process (the only code that touches DB, files, network, secrets)
-    index.ts       window, IPC handlers, startRun and the task scheduler
-    db.ts          SQLite schema and queries; one database per organization
-    agencies.ts    create, update and remove an agency from a template
-    cards.ts       run a card with its assignee; cost, log, Review and Done; auto-run
-    boardTools.ts  the Lead's board, boss and log tools
-    channels.ts    the gateway every Lead message goes through (Telegram, Slack, in the app)
-    telegram.ts    Telegram channel (your own bot, linked chats)
-    slack.ts       Slack channel (your own bot token, linked channels)
-    runtime.ts     built-in runtimes (Anthropic, OpenAI-compatible) with a tool loop
-    acp.ts         ACP client for external agents
-    engines.ts     adapter catalogue, PATH lookup, official installers, Hermes profiles
-    tools.ts       project file tools; staged writes and the diff review
-    skillPacks.ts  skill packs from GitHub; seedSkills*.ts the built-in skills
-    drive.ts, gdrive.ts  Drive and Google Drive sync of agency folders
-    auth.ts, secrets.ts, updater.ts, reset.ts
-  preload/     safe bridge exposing window.tyslin to the UI
-  renderer/    React UI (Home, Agencies, Inbox, Settings; per agency: Overview, Kanban, Channel, Skills, Drive)
-  shared/      types, the agency model (agencies.ts) and one file per template (agencies/), pricing, diff
-archive/       pre-agency screens and modules, kept for reference (not built)
-resources/     app icon and brand files
-```
+**Add an agency template.** Create one file in `src/shared/agencies/` exporting an `AgencyTemplate` (see `src/shared/agencies.ts` for the type), and add it to `AGENCY_TEMPLATES` there. The roster lists the Lead first, with `engine: 'builtin'` and `lead: true`; workers run on `claude-code`, `codex`, `gemini-cli` or `hermes`. Name agents by first name and job (they show as "Sam (Backend)"), give each a different head from `src/shared/heads.ts`, and start each of the five plan steps with the first name of the member who does it. Every name in `skills` must be a built-in skill. Then run `node scripts/readme-agencies.mjs --write`.
 
-Runtimes report progress as a typed event stream shaped like AG-UI events (`RunEvent` in `shared/types.ts`). The UI listens to that stream only.
+**Add a skill.** Built-in skills live in `src/main/seedSkills.ts` and `src/main/seedSkillsAgencies.ts`. Names are kebab-case and a skill body is at most 40,000 characters. Bump `SKILL_LIBRARY_VERSION` in `seedSkills.ts` so existing installs get the new skill. Write skills fresh; don't copy them from other products.
 
-## License
+## Licence
 
-The code license will be set before the first public release (AGPL-3.0 is planned).
+[PLACEHOLDER — licence not chosen yet]
 
-Brand assets in `resources/brand` and `src/renderer/src/assets` (the Tyslin name, logo and mascot) are © ReactiveSpace and not covered by the code license.
+The Tyslin name, logo and mascot in `resources/brand` and `src/renderer/src/assets` are © ReactiveSpace and not covered by the code licence.
+
+---
+
+<p align="center">
+  <a href="https://tyslin.ai">tyslin.ai</a> · <a href="mailto:info@tyslin.ai">info@tyslin.ai</a> · <a href="https://x.com/tyslinai">X @tyslinai</a> · <a href="https://t.me/tyslinai">Telegram @tyslinai</a><br>
+  A <a href="https://reactivespace.com">ReactiveSpace</a> product
+</p>
