@@ -5,6 +5,7 @@ import { RunsOnBadge } from '../components/RunsOnBadge'
 import { Avatar } from '../components/Avatar'
 import { ChangeReview } from '../components/ChangeReview'
 import { Icon } from '../components/Icon'
+import { Markdown } from '../components/Markdown'
 
 /** A tool call in the live run, shown as one compact line. */
 interface Activity {
@@ -57,6 +58,42 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove?: () => void 
   )
 }
 
+const clock = (ms: number): string => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+/** "Today", "Yesterday" or a short date, for the conversation list. */
+function relDay(ms: number): string {
+  const d = new Date(ms), now = new Date()
+  const days = Math.round((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / 86_400_000)
+  if (days === 0) return clock(ms)
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return d.toLocaleDateString(undefined, { weekday: 'short' })
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
+}
+/** Card runs and briefs send long generated prompts; show their start and fold the rest. */
+const LONG_USER = 420
+
+function UserMessage({ m }: { m: Message }): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const long = m.content.length > LONG_USER
+  return (
+    <div className="msg-row msg-row-user">
+      <div className="msg-user-wrap">
+        <span className="msg-meta">You · {clock(m.createdAt)}</span>
+        {m.attachments?.length ? (
+          <div className="attach-list" aria-label="Attachments">
+            {m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}
+          </div>
+        ) : null}
+        {m.content && (
+          <div className={'msg-user' + (long && !open ? ' folded' : '')}>
+            {long && !open ? m.content.slice(0, LONG_USER).trimEnd() + '…' : m.content}
+          </div>
+        )}
+        {long && <button type="button" className="msg-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>{open ? 'Show less' : 'Show the full message'}</button>}
+      </div>
+    </div>
+  )
+}
+
 function changeSummary(list: PendingChange[]): string {
   const n = (s: PendingChange['status'][]): number => list.filter((c) => s.includes(c.status)).length
   const parts = [
@@ -81,9 +118,11 @@ interface Props {
   onSessionChange: (sessionId: string) => void
   /** Called when a chat is created or gets a new message, so the sidebar list can refresh. */
   onSessionsChanged: () => void
+  /** Opens Drive for the agent's folder (agency chats). */
+  onOpenDrive?: () => void
 }
 
-export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSwitch, onSettings, onSessionChange, onSessionsChanged }: Props): JSX.Element {
+export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSwitch, onSettings, onSessionChange, onSessionsChanged, onOpenDrive }: Props): JSX.Element {
   const agent = agents.find((a) => a.id === agentId)
   const project = projects.find((p) => p.id === projectId) ?? null
   const [sessions, setSessions] = useState<Session[]>([])
@@ -103,6 +142,8 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const [reviewRun, setReviewRun] = useState<string | null>(null)
   const [permissions, setPermissions] = useState<Permission[]>([])
   const threadRef = useRef<HTMLDivElement>(null)
+  const [switcher, setSwitcher] = useState(false)
+  const switchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void (async () => {
@@ -184,6 +225,16 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     })
   }, [session])
 
+  // Close the agent switcher on an outside click or Escape.
+  useEffect(() => {
+    if (!switcher) return
+    const onDown = (e: MouseEvent): void => { if (!switchRef.current?.contains(e.target as Node)) setSwitcher(false) }
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setSwitcher(false) }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
+  }, [switcher])
+
   // Close the attach menu on an outside click or Escape.
   useEffect(() => {
     if (!attachMenu) return
@@ -253,23 +304,53 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     }
   }
 
+  // Who you can switch to from here: the same agency's team (Lead first), else the same project. Never the whole organization.
+  const team = agents.filter((a) => a.kind === agent.kind && (agent.agency ? a.agency === agent.agency : a.projectId === agent.projectId && !a.isMascot))
+    .sort((a, b) => Number(!!a.leadId) - Number(!!b.leadId) || a.name.localeCompare(b.name))
+  const isLead = !!agent.agency && !agent.leadId
+  const runsOn = agent.engine === 'builtin' ? agent.model : ENGINE_NAMES[agent.engine]
+  const docs = files.filter((f) => !f.startsWith('memory/') && !f.startsWith('boards/'))
+
   return (
     <div className="chat">
       <section className="chat-col" aria-label="Conversation">
         <header className="chat-head">
           <div className="who">
-            <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={44} />
-            <div>
-              <h2>{agent.name}</h2>
-              <span className="sub">{agent.kind === 'assistant' ? 'Assistant' : project ? project.name : 'No project'} · <RunsOnBadge agent={agent} size={16} /> <span className="mono">{agent.engine === 'builtin' ? agent.model : `Runs on ${ENGINE_NAMES[agent.engine]}`}</span></span>
+            <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={40} />
+            <div className="who-text">
+              <div className="who-name">
+                <h2>{agent.name}</h2>
+                {isLead && <span className="role-tag">Lead</span>}
+              </div>
+              <span className="sub">
+                {agent.description || (agent.kind === 'assistant' ? 'Assistant' : 'Agent')}
+                <span className="sub-dot" aria-hidden="true">·</span>
+                <RunsOnBadge agent={agent} size={14} /> <span className="mono">{runsOn}</span>
+              </span>
             </div>
           </div>
-          <div className="row">
-            <label htmlFor="agent-switch" className="section-label" style={{ padding: 0 }}>{agent.kind === 'assistant' ? 'Assistant' : 'Agent'}</label>
-            <select id="agent-switch" className="select" style={{ width: 170, height: 36 }} value={agent.id} onChange={(e) => onSwitch(e.target.value, projectId)}>
-              {agents.filter((a) => a.kind === agent.kind).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-            <button type="button" className="btn btn-sm" onClick={newChat}><Icon name="plus" size={12} /> New chat</button>
+          <div className="chat-actions">
+            {team.length > 1 && (
+              <div className="switcher" ref={switchRef}>
+                <button type="button" className="btn btn-sm switcher-btn" aria-haspopup="menu" aria-expanded={switcher} onClick={() => setSwitcher((o) => !o)}>
+                  <Icon name="agents" size={14} /> Switch agent <Icon name="updown" size={12} />
+                </button>
+                {switcher && (
+                  <div className="switcher-menu" role="menu" aria-label={project ? `${project.name} team` : 'Team'}>
+                    <span className="switcher-cap">{project ? project.name : 'Team'}</span>
+                    {team.map((a) => (
+                      <button key={a.id} type="button" role="menuitemradio" aria-checked={a.id === agent.id} className={a.id === agent.id ? 'on' : ''}
+                        onClick={() => { setSwitcher(false); if (a.id !== agent.id) onSwitch(a.id, projectId) }}>
+                        <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={26} />
+                        <span className="switcher-text"><strong>{a.name}</strong><span>{a.description || (a.leadId ? 'Agent' : 'Lead')}</span></span>
+                        {a.id === agent.id && <Icon name="check" size={14} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <button type="button" className="btn btn-sm btn-primary" onClick={newChat}><Icon name="plus" size={12} /> New chat</button>
           </div>
         </header>
 
@@ -284,19 +365,26 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
             )}
             {messages.map((m) =>
               m.role === 'user'
-                ? (
-                  <div key={m.id} className="msg-user-wrap">
-                    {m.attachments?.length ? (
-                      <div className="attach-list" aria-label="Attachments">
-                        {m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}
-                      </div>
-                    ) : null}
-                    {m.content && <div className="msg-user">{m.content}</div>}
+                ? <UserMessage key={m.id} m={m} />
+                : (
+                  <div key={m.id} className="msg-row msg-row-agent">
+                    <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={28} />
+                    <div className="msg-agent-col">
+                      <span className="msg-meta"><strong>{agent.name}</strong> · {clock(m.createdAt)}</span>
+                      <Markdown className="msg-agent" text={m.content} />
+                    </div>
                   </div>
                 )
-                : <div key={m.id} className="msg-agent">{m.content}</div>
             )}
-            {streaming && <div className="msg-agent">{streaming}</div>}
+            {streaming && (
+              <div className="msg-row msg-row-agent">
+                <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={28} />
+                <div className="msg-agent-col">
+                  <span className="msg-meta"><strong>{agent.name}</strong> · now</span>
+                  <Markdown className="msg-agent" text={streaming} />
+                </div>
+              </div>
+            )}
             {streaming !== null && activity.length > 0 && (
               <ul className="activity" aria-label="Tool calls">
                 {activity.map((a) => (
@@ -338,7 +426,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
                 </div>
               </div>
             ))}
-            {streaming !== null && !waiting && <div className="typing">{agent.name} is working…</div>}
+            {streaming !== null && !waiting && <div className="typing" role="status"><span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>{agent.name} is working…</div>}
             {error && (
               <div className="msg-error">
                 {error}{' '}
@@ -372,7 +460,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           <textarea
             id="composer"
             rows={1}
-            placeholder={`Message ${agent.name}`}
+            placeholder={`Message ${agent.name}…`}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -394,39 +482,65 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
         </form>
       </section>
 
-      <aside className="context" aria-label="Context">
-        {agent.kind === 'agent' && <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="section-label" style={{ padding: 0 }}>Project</span>
-          {agent.isMascot ? (
+      <aside className="context" aria-label="Details">
+        <section className="ctx-block" aria-labelledby="ctx-chats">
+          <div className="ctx-head">
+            <h3 id="ctx-chats">Conversations</h3>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={newChat} aria-label="New chat"><Icon name="plus" size={12} /> New</button>
+          </div>
+          {sessions.length === 0 && <span className="hint">No conversations yet.</span>}
+          <ul className="ctx-sessions">
+            {sessions.map((s) => (
+              <li key={s.id}>
+                <button type="button" className={session?.id === s.id ? 'active' : ''} aria-current={session?.id === s.id ? 'true' : undefined} onClick={() => setSession(s)}>
+                  <span className="ctx-session-title">{s.title}</span>
+                  <span className="ctx-session-time mono">{relDay(s.updatedAt)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="ctx-block" aria-labelledby="ctx-about">
+          <div className="ctx-head"><h3 id="ctx-about">About {agent.name}</h3></div>
+          <dl className="ctx-facts">
+            <div><dt>Role</dt><dd>{agent.description || (isLead ? 'Lead' : 'Agent')}</dd></div>
+            <div><dt>Runs on</dt><dd><RunsOnBadge agent={agent} size={14} /> <span className="mono">{runsOn}</span></dd></div>
+            {agent.kind === 'agent' && <div><dt>Works in</dt><dd title={project?.folder ?? undefined}>{project ? project.name : 'No project yet'}</dd></div>}
+          </dl>
+          {agent.isMascot && agent.kind === 'agent' && (
             <select className="select" aria-label="Project" value={projectId ?? ''} onChange={(e) => onSwitch(agent.id, e.target.value || null)}>
               <option value="">No project</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
-          ) : (
-            <span className="hint">{project ? project.name : 'No project yet'} · an agent works in one project; change it on its page.</span>
           )}
-          {project?.folder && <span className="path">{project.folder}</span>}
-          {project?.folder && (
-            <ul>
-              {files.slice(0, 40).map((f) => <li key={f} title={f}>{f}</li>)}
-              {files.length === 0 && <li className="hint">Folder is empty</li>}
-              {files.length > 40 && <li className="hint">+ {files.length - 40} more</li>}
-            </ul>
-          )}
-        </div>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <span className="section-label" style={{ padding: 0 }}>Skills</span>
-          <div className="row" style={{ gap: 6 }}>
-            {agent.skills.length ? agent.skills.map((s) => <span key={s} className="chip on" style={{ cursor: 'default' }}>{s}</span>) : <span className="hint">No skills attached</span>}
+        </section>
+
+        <section className="ctx-block" aria-labelledby="ctx-skills">
+          <div className="ctx-head"><h3 id="ctx-skills">Skills</h3><span className="ctx-count mono">{agent.skills.length}</span></div>
+          <div className="ctx-tags">
+            {agent.skills.length ? agent.skills.map((sk) => <span key={sk} className="ctx-tag mono">{sk}</span>) : <span className="hint">No skills attached.</span>}
           </div>
-        </div>
-        <div className="sessions" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="section-label" style={{ padding: 0 }}>History</span>
-          {sessions.length === 0 && <span className="hint">No chats yet</span>}
-          {sessions.map((s) => (
-            <button key={s.id} type="button" className={session?.id === s.id ? 'active' : ''} onClick={() => setSession(s)}>{s.title}</button>
-          ))}
-        </div>
+        </section>
+
+        {agent.kind === 'agent' && project?.folder && (
+          <section className="ctx-block" aria-labelledby="ctx-files">
+            <div className="ctx-head">
+              <h3 id="ctx-files">Files</h3>
+              <span className="ctx-count mono">{docs.length}</span>
+            </div>
+            {docs.length === 0 ? <span className="hint">Nothing made yet. Work the agents produce shows up here.</span> : (
+              <ul className="ctx-files">
+                {docs.slice(0, 12).map((f) => <li key={f} title={f}><Icon name="file" size={13} /><span>{f}</span></li>)}
+              </ul>
+            )}
+            {(docs.length > 12 || onOpenDrive) && (
+              <button type="button" className="btn btn-ghost btn-sm ctx-more" onClick={onOpenDrive} disabled={!onOpenDrive}>
+                <Icon name="drive" size={13} /> {docs.length > 12 ? `All ${docs.length} files in Drive` : 'Open in Drive'}
+              </button>
+            )}
+          </section>
+        )}
       </aside>
       {reviewing.length > 0 && (
         <ChangeReview changes={reviewing} onClose={() => setReviewRun(null)} onResolved={() => session && void loadChanges(session.id)} />

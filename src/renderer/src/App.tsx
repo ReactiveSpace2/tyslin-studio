@@ -232,6 +232,8 @@ export default function App(): JSX.Element {
             const p = v.project
             if (route.tab === 'chat') {
               return (
+                <AgencyChatTabs tab="inbox" leadName={v.lead?.name ?? null} unread={unreadByProject[p.id] ?? 0}
+                  onChat={v.lead ? () => openChat(v.lead!.id, p.id) : null} onInbox={() => undefined}>
                 <InboxPage
                   key={p.id}
                   agency={v.agency}
@@ -242,6 +244,7 @@ export default function App(): JSX.Element {
                   onOpenChannel={(id) => { openAgencyTab(id); setRoute({ name: 'connectors' }) }}
                   onCountChange={countUnread}
                 />
+                </AgencyChatTabs>
               )
             }
             return (
@@ -262,7 +265,10 @@ export default function App(): JSX.Element {
               />
             )
           })()}
-          {route.name === 'chat' && (
+          {route.name === 'chat' && (() => {
+            // The agency Lead's chat sits under Chat's first tab, next to the Inbox.
+            const v = activeView && activeView.lead && route.agentId === activeView.lead.id ? activeView : null
+            const chat = (
             <ChatPage
               key={route.agentId + (route.projectId ?? '')}
               agentId={route.agentId}
@@ -274,8 +280,17 @@ export default function App(): JSX.Element {
               onSessionChange={(id) => setRoute((r) => (r.name === 'chat' && r.sessionId !== id ? { ...r, sessionId: id } : r))}
               onSessionsChanged={() => void refreshSessions()}
               onSettings={() => setRoute({ name: 'settings' })}
+              onOpenDrive={activeView ? () => { openAgencyTab(activeView.project.id); setRoute({ name: 'drive' }) } : undefined}
             />
-          )}
+            )
+            if (!v) return chat
+            return (
+              <AgencyChatTabs tab="chat" leadName={v.lead!.name} unread={unreadByProject[v.project.id] ?? 0}
+                onChat={() => undefined} onInbox={() => setRoute({ name: 'agency', id: v.project.id, tab: 'chat' })}>
+                {chat}
+              </AgencyChatTabs>
+            )
+          })()}
           {route.name === 'editor' && (
             <AgentPage
               key={route.agentId}
@@ -337,6 +352,32 @@ export default function App(): JSX.Element {
         />
       )}
       {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
+    </div>
+  )
+}
+
+/** Chat in an agency: the Lead chat and the Inbox as two tabs above whichever is open. */
+function AgencyChatTabs({ tab, leadName, unread, onChat, onInbox, children }: {
+  tab: 'chat' | 'inbox'
+  leadName: string | null
+  unread: number
+  onChat: (() => void) | null
+  onInbox: () => void
+  children: React.ReactNode
+}): JSX.Element {
+  return (
+    <div className="chat-tabs-wrap">
+      <div className="tabs chat-tabs" role="tablist" aria-label="Chat">
+        {onChat && (
+          <button type="button" role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => { if (tab !== 'chat') onChat() }}>
+            Chat{leadName ? ` with ${leadName}` : ''}
+          </button>
+        )}
+        <button type="button" role="tab" aria-selected={tab === 'inbox'} className={tab === 'inbox' ? 'on' : ''} onClick={() => { if (tab !== 'inbox') onInbox() }}>
+          Inbox{unread > 0 && <span className="tab-count mono" aria-label={`${unread} unread`}>{unread}</span>}
+        </button>
+      </div>
+      <div className="chat-tabs-body">{children}</div>
     </div>
   )
 }
