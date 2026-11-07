@@ -8,6 +8,7 @@ import { AgentSelect } from '../components/AgentSelect'
 import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../components/StudioFiles'
 import { modelLabel, useDefaultModel } from '../defaultModel'
 import { firstName } from '../boardStats'
+import { Pose } from '../components/Pose'
 
 interface Props {
   agents: Agent[]
@@ -242,7 +243,7 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                         <button type="button" className="cv-tool kb-col-del" aria-label={`Delete column ${col.title}`} title="Delete column" onClick={() => removeColumn(col.id)}><Icon name="trash" size={12} /></button>
                       </header>
                       <ul className="kb-cards">
-                        {agencyId && total === 0 && ci === 0 && <li className="hint kb-empty">Drop a brief in Inbox and {leadName ? firstName(leadName) : 'your Lead'} will plan it.</li>}
+                        {agencyId && total === 0 && ci === 0 && <li className="hint kb-empty"><Pose pose={5} height={110} />Drop a brief in Inbox and {leadName ? firstName(leadName) : 'your Lead'} will plan it.</li>}
                         {cards.map((k) => {
                           const i = col.cards.indexOf(k)
                           return (

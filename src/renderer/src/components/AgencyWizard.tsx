@@ -13,6 +13,7 @@ import logo from '../assets/logo-mark.png'
 import claudeLogo from '../assets/providers/claude.svg'
 import geminiLogo from '../assets/providers/gemini.svg'
 import hermesLogo from '../assets/providers/hermes.png'
+import { Pose } from './Pose'
 
 const STEPS = ['Agency', 'Adapter', 'Model', 'Skills', 'Kanban', 'Channel', 'Review'] as const
 
@@ -431,6 +432,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
 
         {step === 6 && (
           <section className="aw-body">
+            <Pose pose={2} height={90} className="aw-pose" />
             <h1 id="aw-h">Review and create</h1>
             <p className="hint">{d.goal || d.description}</p>
             <div className="nt-chart aw-chart">

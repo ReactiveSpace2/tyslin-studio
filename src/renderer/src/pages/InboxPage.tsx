@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Agency, Agent, ChannelMessage } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { Pose } from '../components/Pose'
 
 type Filter = 'all' | 'needs' | 'review' | 'brief' | 'digest'
 const KIND: Record<ChannelMessage['kind'], string> = { brief: 'brief', question: 'question', review: 'review', digest: 'digest' }
@@ -160,7 +161,7 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
           </>
         ) : !current ? (
           <div className="inbox-blank">
-            <span className="area-icon"><Icon name="channel" size={18} /></span>
+            <Pose pose={3} height={170} />
             <strong>No messages yet</strong>
             <span className="hint">{leadFirst} writes here when there&apos;s no channel, and as well as Telegram or Slack when there is. Use New brief to give {leadFirst} work.</span>
           </div>

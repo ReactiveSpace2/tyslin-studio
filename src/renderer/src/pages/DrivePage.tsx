@@ -3,6 +3,7 @@ import type { DriveEntry, DriveKind, DriveListing, DrivePreview, Project } from 
 import { useCurrentProject } from '../currentProject'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
+import { Pose } from '../components/Pose'
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
@@ -189,7 +190,9 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
                 <span className="dv-muted mono">{e.isDir ? '—' : size(e.size)}</span>
               </button>
             ))}
-            {listing && shown.length === 0 && <p className="hint" style={{ padding: 16 }}>{q ? 'No files match.' : 'Files your agency makes land here. You can also drop files in or use Add files.'}</p>}
+            {listing && shown.length === 0 && (q ? <p className="hint" style={{ padding: 16 }}>No files match.</p> : (
+              <div className="pose-empty"><Pose pose={6} height={150} /><p className="hint">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
+            ))}
           </div>
         )}
         {view === 'icons' && (
@@ -213,7 +216,9 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
                 <span className="dv-muted">{e.isDir ? LABEL[e.kind] : size(e.size)}</span>
               </button>
             ))}
-            {listing && shown.length === 0 && <p className="hint" style={{ padding: 16 }}>{q ? 'No files match.' : 'Files your agency makes land here. You can also drop files in or use Add files.'}</p>}
+            {listing && shown.length === 0 && (q ? <p className="hint" style={{ padding: 16 }}>No files match.</p> : (
+              <div className="pose-empty"><Pose pose={6} height={150} /><p className="hint">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
+            ))}
           </div>
         )}
         <label className="dv-hidden"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Show hidden files</label>

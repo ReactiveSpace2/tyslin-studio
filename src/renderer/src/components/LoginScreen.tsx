@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AuthStatus } from '@shared/types'
-import logo from '../assets/logo-mark.png'
+import { Pose } from './Pose'
 
 /** Full-window sign-in, shown when this build has Google sign-in and nobody is signed in. */
 export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => void }): JSX.Element {
@@ -26,7 +26,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
   return (
     <main className="login">
       <div className="login-card">
-        <img src={logo} alt="Tyslin" className="login-logo" width={88} height={88} />
+        <Pose pose={1} height={190} className="login-pose" />
         <span className="eyebrow">Tyslin</span>
         <h1>Tyslin Studio</h1>
         <p className="login-tagline">Every agent you run. One studio.</p>

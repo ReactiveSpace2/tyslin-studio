@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { Avatar } from '../components/Avatar'
 import { runsOnLabel } from '../components/RunsOnBadge'
 import { track } from '../activity'
+import { Pose } from '../components/Pose'
 
 const BLANK: SkillInput = { name: '', description: '', body: '' }
 
@@ -435,6 +436,7 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
           </button>
         )}
 
+        {q && groups.every((g) => g.items.length === 0) && <div className="pose-empty"><Pose pose={4} height={120} /></div>}
         {groups.map((g) => (
           <div key={g.label} className="sk-group">
             <span className="section-label" style={{ padding: 0 }}>{g.label}</span>

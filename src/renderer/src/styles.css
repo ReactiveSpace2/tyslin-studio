@@ -1515,3 +1515,13 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
   .wd span { animation: none; opacity: 1; }
   .nt-line.flow, .nt-stem.flow { animation: none; background-image: none; background-color: var(--lime); }
 }
+
+/* Mascot poses on empty screens and moments (components/Pose.tsx, 7 Nov 2026). */
+.pose { display: block; width: auto; max-width: 100%; object-fit: contain; flex: none; }
+.pose-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 24px 16px; text-align: center; }
+.pose-empty .hint { max-width: 360px; }
+.dv-grid .pose-empty { grid-column: 1 / -1; }
+.kb-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.login-pose { margin: 0 auto 4px; }
+.aw-body { position: relative; }
+.aw-pose { position: absolute; top: -14px; right: 8px; }
