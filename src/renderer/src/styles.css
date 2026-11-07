@@ -371,7 +371,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 
 /* Home */
 .home { gap: 36px; }
-.home-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 32px 40px; overflow: hidden; }
+.home-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; padding: 8px 0 4px; }
 .home-intro { display: flex; flex-direction: column; gap: 14px; max-width: 560px; }
 .home-logo { height: 40px; width: auto; align-self: flex-start; }
 .home-logo-dark { align-items: center; gap: 10px; align-self: flex-start; }
@@ -379,13 +379,18 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 @media (prefers-color-scheme: dark) { .dark-only.home-logo-dark { display: flex; } }
 .home-logo-dark img:first-child { height: 40px; width: 40px; }
 .home-logo-dark img:last-child { height: 16px; width: auto; }
-.home-intro h1 { font-size: 40px; }
-.home-tagline { margin: -6px 0 0; font-size: 18px; font-weight: 600; color: var(--green); }
+.home-intro h1 { font-size: 44px; letter-spacing: -0.03em; line-height: 1.05; }
+.home-tagline { margin: -4px 0 0; font-size: 18px; font-weight: 600; color: var(--green); }
 .home-intro .btn { min-height: 44px; }
 .kb-empty { padding: 10px 4px; font-size: 13px; line-height: 1.45; }
 .home-status { font-size: 14px; color: var(--muted); }
 .home-first { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
-.home-mascot { display: none; height: 340px; width: auto; flex: none; margin: -12px 0 -32px; }
+/* Home hero art: the banners' look (two poses in front of a soft lime circle); hidden on narrow windows. */
+.home-art { display: none; position: relative; flex: none; width: 400px; height: 340px; align-items: flex-end; justify-content: center; }
+.home-tint { position: absolute; right: 10px; top: 0; width: 340px; height: 340px; border-radius: 50%; background: var(--lime-soft); }
+.home-m { position: relative; width: auto; }
+.home-m5 { height: 280px; margin-right: -16px; }
+.home-m1 { height: 318px; }
 .home-section { display: flex; flex-direction: column; gap: 14px; }
 .home-section-head { display: flex; flex-direction: column; gap: 4px; }
 .home-section-head .hint { margin: 0; font-size: 13px; }
@@ -398,7 +403,7 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .support-text span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .support-tile .badge { flex: none; }
 .area-icon { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--panel); color: var(--ink); }
-@media (min-width: 981px) { .home-mascot { display: block; } }
+@media (min-width: 981px) { .home-art { display: flex; } }
 
 /* Skills */
 .skill-card { position: relative; text-align: left; cursor: pointer; font: inherit; color: inherit; min-height: 160px; }

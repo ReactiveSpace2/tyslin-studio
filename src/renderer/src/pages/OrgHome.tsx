@@ -3,13 +3,13 @@ import type { Agent, AppInfo, Project, Session } from '@shared/types'
 import logo from '../assets/logo-horizontal.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
-import mascot from '../assets/mascot-pose-1.png'
+import standing from '../assets/mascot-pose-1.png'
+import tablets from '../assets/mascot-pose-5.png'
 import type { AgencyView } from '../agencies'
 import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Activity } from '../components/Activity'
 import { Icon } from '../components/Icon'
-import { Watermark } from '../components/Watermark'
 import { AGENCY_TEMPLATES, templateSummary } from '@shared/agencies'
 import { HEAD_SRC } from '../heads'
 import { money, plural, useBoardStats } from '../boardStats'
@@ -48,8 +48,7 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
     spent > 0 ? `${money(spent)} spent this week` : ''
   ].filter(Boolean).join(' · ')
   return (
-    <div className="page home watermarked ag-home">
-      <Watermark />
+    <div className="page home ag-home">
       <section className="home-hero" aria-labelledby="home-title">
         <div className="home-intro">
           <img src={logo} alt="Tyslin" className="home-logo light-only" />
@@ -61,8 +60,8 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
             <span className="badge green mono">v{info?.version ?? '…'}</span>
             <span className="badge mono">Beta</span>
           </div>
-          <p className="home-tagline">Every agent you run. One studio.</p>
           <h1 id="home-title">Your agencies</h1>
+          <p className="home-tagline">Every agent you run. One studio.</p>
           <p className="lead mono home-status" role="status">{status}</p>
           <div className="row">
             <button type="button" className="btn btn-primary" onClick={() => (agencies.length ? onAllAgencies() : onNewAgency())}>
@@ -70,7 +69,12 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
             </button>
           </div>
         </div>
-        <img src={mascot} alt="The Tyslin robot mascot standing" className="home-mascot" />
+        {/* Same art as the social banners and the site's hero: two poses in front of a soft lime circle. */}
+        <div className="home-art" aria-hidden="true">
+          <span className="home-tint" />
+          <img src={tablets} alt="" className="home-m home-m5" />
+          <img src={standing} alt="" className="home-m home-m1" />
+        </div>
       </section>
       <header className="ag-head">
         <div>
