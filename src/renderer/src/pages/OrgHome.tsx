@@ -56,12 +56,12 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
   const org = orgName || 'Your organization'
 
   return (
-    <div className="tw mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-10 pt-8 pb-12 text-foreground">
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-10 pt-8 pb-12 text-foreground">
       {/* Hero: same look as the social banners and the site (logo, headline, green tagline, poses 5 and 1 on a lime circle). */}
       <section aria-labelledby="home-title" className="flex items-center justify-between gap-8">
         <div className="flex max-w-[560px] flex-col gap-4">
-          <img src={logo} alt="Tyslin" className="light-only h-10 w-auto self-start" />
-          <span className="dark-only home-logo-dark items-center gap-2.5 self-start">
+          <img src={logo} alt="Tyslin" className="h-10 w-auto self-start dark:hidden" />
+          <span className="hidden items-center gap-2.5 self-start dark:flex">
             <img src={mark} alt="Tyslin" className="size-10" />
             <img src={wordmarkWhite} alt="" className="h-4 w-auto" />
           </span>

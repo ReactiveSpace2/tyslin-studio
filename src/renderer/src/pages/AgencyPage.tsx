@@ -15,6 +15,9 @@ import { StatCard } from '../components/StatCard'
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb'
 import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -66,8 +69,11 @@ function statusLine(lead: Agent | null, b: BoardStats | undefined, paused: boole
 
 const th = 'h-10 px-4 text-xs font-medium text-muted-foreground'
 const td = 'px-4 py-3 text-sm whitespace-normal'
-const selectCls = 'h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+const selectCls = 'w-full bg-card text-foreground dark:bg-card dark:hover:bg-card'
 const hint = 'text-[13px] leading-normal text-muted-foreground'
+/** Org chart connector: a solid line, and lime dashes travelling down it while a worker is on a handed-out card (solid lime under reduced motion). */
+const LINE = 'h-5 w-0.5 flex-none bg-border-strong'
+const FLOW = 'w-[3px] bg-transparent bg-[repeating-linear-gradient(to_bottom,var(--lime)_0_4px,transparent_4px_9px)] bg-[length:3px_18px] animate-flow motion-reduce:animate-none motion-reduce:bg-none motion-reduce:bg-lime'
 
 /** Ready (soft lime), Paused or No Lead yet (muted). */
 function StatusBadge({ tone, label }: { tone: 'on' | 'off' | 'idle'; label: string }): JSX.Element {
@@ -185,7 +191,7 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
       </div>
       {lead ? (
         <>
-          <span className="nt-line" />
+          <span className={LINE} aria-hidden="true" />
           <button type="button" className="relative flex w-[340px] max-w-full items-center gap-3 rounded-[12px] border-2 border-green bg-card px-3.5 py-2.5 text-left outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(lead)}>
             {working(lead) && <WorkingBorder />}
             <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} />
@@ -200,11 +206,11 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
       ) : <p className={cn(hint, 'mt-4')}>No Lead yet. Add an agent to this agency and it becomes the Lead.</p>}
       {workers.length > 0 && (
         <>
-          <span className={'nt-line' + (handOff ? ' flow' : '')} />
+          <span className={cn(LINE, handOff && FLOW)} aria-hidden="true" />
           <div className="grid w-full max-w-[760px] gap-2.5 border-t-2 border-border-strong pt-3" style={{ gridTemplateColumns: `repeat(${Math.min(workers.length, 4)}, minmax(0, 1fr))` }}>
             {workers.map((w) => (
               <button key={w.id} type="button" className="relative flex flex-col items-center gap-1.5 rounded-[12px] border border-border bg-card px-2 py-3 text-center outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(w)}>
-                {working(w) && <><WorkingBorder /><span className="nt-stem flow" aria-hidden="true" /></>}
+                {working(w) && <><WorkingBorder /><span className={cn('absolute top-[-14px] left-[calc(50%-1.5px)] h-[13px] w-[3px]', FLOW)} aria-hidden="true" /></>}
                 <Avatar shape={w.shape} tone={w.tone} head={w.head} size={38} />
                 <strong className="text-[13.5px] font-semibold">{w.name}</strong>
                 <span className="text-xs leading-snug text-muted-foreground">{w.description}</span>
@@ -273,21 +279,29 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
   const togglePause = async (): Promise<void> => {
     try { await window.tyslin.agencies.update(agency.id, { paused: !agency.paused }); onChanged() } catch (e) { setError(errorText(e)) }
   }
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const memberCount = workers.length + (lead ? 1 : 0)
   const remove = async (): Promise<void> => {
-    const n = workers.length + (lead ? 1 : 0)
-    if (!window.confirm(`Delete the agency "${agency.name}"?\n\nIts ${n} agents, their chats, the Lead's task and the board are deleted. Files in its folder stay on your computer.`)) return
     try { await window.tyslin.agencies.remove(agency.id); onDeleted() } catch (e) { setError(errorText(e)) }
   }
   const id = (k: string): string => `${uid}-${k}`
 
   return (
-    <div className="tw flex w-full flex-col text-foreground">
+    <div className="flex w-full flex-col text-foreground">
       <header className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border bg-background px-6 py-2.5">
-        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
-          <button type="button" className="rounded-sm outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={onBack}>Agencies</button>
-          <span aria-hidden="true">/</span><span className="truncate">{agency.name}</span>
-          <span aria-hidden="true">/</span><span className="font-medium text-foreground" aria-current="page">{tab === 'edit' ? 'Edit' : 'Overview'}</span>
-        </nav>
+        <Breadcrumb className="min-w-0 flex-1">
+          <BreadcrumbList className="flex-nowrap gap-2 text-sm sm:gap-2">
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <button type="button" className="rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={onBack}>Agencies</button>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+            <BreadcrumbItem className="min-w-0"><span className="truncate">{agency.name}</span></BreadcrumbItem>
+            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+            <BreadcrumbItem><BreadcrumbPage className="font-medium">{tab === 'edit' ? 'Edit' : 'Overview'}</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
         {tab === 'edit' && <Button type="button" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</Button>}
         {tab !== 'edit' && (
           <>
@@ -392,10 +406,13 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
               <Card className="gap-3.5 px-5 py-[18px]">
                 <h2 className="text-base font-semibold">How it runs</h2>
                 <Field id={id('adapter')} label="New workers run on" hint="Existing agents keep theirs; change one on its page.">
-                  <select id={id('adapter')} className={selectCls} value={draft.adapter ?? 'template'} onChange={(e) => set({ adapter: e.target.value })}>
-                    <option value="template">Template's mix</option>
-                    {AGENCY_ADAPTERS.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
+                  <Select value={draft.adapter ?? 'template'} onValueChange={(v) => set({ adapter: v })}>
+                    <SelectTrigger id={id('adapter')} className={selectCls}><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="template">Template's mix</SelectItem>
+                      {AGENCY_ADAPTERS.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <div className="flex min-h-11 items-center justify-between gap-3">
                   <Label htmlFor={id('auto')} className="text-sm font-normal">Lead runs cards automatically</Label>
@@ -409,14 +426,20 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
               <Card className="gap-3.5 px-5 py-[18px]">
                 <h2 className="text-base font-semibold">Channel</h2>
                 <Field id={id('channel')} label="Lead talks to you on">
-                  <select id={id('channel')} className={selectCls} value={draft.channel?.kind ?? 'none'} onChange={(e) => set({ channel: { kind: e.target.value as Agency['channel']['kind'] } })}>
-                    <option value="none">Not now</option><option value="telegram">Telegram</option><option value="slack">Slack</option>
-                  </select>
+                  <Select value={draft.channel?.kind ?? 'none'} onValueChange={(v) => set({ channel: { kind: v as Agency['channel']['kind'] } })}>
+                    <SelectTrigger id={id('channel')} className={selectCls}><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="none">Not now</SelectItem><SelectItem value="telegram">Telegram</SelectItem><SelectItem value="slack">Slack</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
                 <Field id={id('notify')} label="What the Lead sends">
-                  <select id={id('notify')} className={selectCls} value={draft.notify ?? 'questions'} onChange={(e) => set({ notify: e.target.value as Agency['notify'] })}>
-                    <option value="questions">Questions and reviews</option><option value="all">Everything</option><option value="digest">Digest only</option>
-                  </select>
+                  <Select value={draft.notify ?? 'questions'} onValueChange={(v) => set({ notify: v as Agency['notify'] })}>
+                    <SelectTrigger id={id('notify')} className={selectCls}><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="questions">Questions and reviews</SelectItem><SelectItem value="all">Everything</SelectItem><SelectItem value="digest">Digest only</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </Field>
               </Card>
               <Card className="gap-3.5 px-5 py-[18px]">
@@ -424,10 +447,22 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
                 <span className="font-mono text-[13px] [overflow-wrap:anywhere] text-muted-foreground">{project.folder ?? 'No folder'}</span>
                 <div className="flex flex-wrap gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={onDrive}>Open in Drive</Button>
-                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => void remove()}><Icon name="trash" size={12} /> Delete agency</Button>
+                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => setConfirmDelete(true)}><Icon name="trash" size={12} /> Delete agency</Button>
                 </div>
               </Card>
               {saved && <p className={hint} role="status">{saved}</p>}
+              <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete the agency "{agency.name}"?</AlertDialogTitle>
+                    <AlertDialogDescription>Its {memberCount} agents, their chats, the Lead's task and the board are deleted. Files in its folder stay on your computer.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction variant="destructive" onClick={() => void remove()}>Delete agency</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </aside>
           </div>
         )}

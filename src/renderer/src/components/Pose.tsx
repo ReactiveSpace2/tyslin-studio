@@ -1,3 +1,4 @@
+import { cn } from '@/lib/utils'
 import standing from '../assets/mascot-pose-1.png'
 import jumping from '../assets/mascot-pose-2.png'
 import kneeling from '../assets/mascot-pose-3.png'
@@ -15,5 +16,5 @@ import back from '../assets/mascot-pose-6.png'
 const SRC = { 1: standing, 2: jumping, 3: kneeling, 4: thinking, 5: tablets, 6: back } as const
 
 export function Pose({ pose, height, className = '' }: { pose: keyof typeof SRC; height: number; className?: string }): JSX.Element {
-  return <img src={SRC[pose]} alt="" aria-hidden="true" className={'pose ' + className} style={{ height }} />
+  return <img src={SRC[pose]} alt="" aria-hidden="true" className={cn('block w-auto max-w-full flex-none object-contain', className)} style={{ height }} />
 }

@@ -5,6 +5,9 @@ import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 import { Pose } from '../components/Pose'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -133,6 +136,7 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
   })
 
   const note = syncNote(gd, projectId, defaultId)
+  const dropMain = dropping === 'main'
   const empty = listing && shown.length === 0 && (q ? <p className="col-span-full p-4 text-sm text-muted-foreground">No files match.</p> : (
     <div className="col-span-full flex flex-col items-center gap-2.5 px-4 py-6 text-center"><Pose pose={6} height={150} /><p className="max-w-[360px] text-sm text-muted-foreground">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
   ))
@@ -152,15 +156,21 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
           </nav>
           <div className="flex flex-wrap items-center gap-1.5">
             {roots.length > 1 && (
-              <select className={cn(SELECT, 'w-[180px]')} aria-label="Agency folder" value={projectId ?? ''}
-                onChange={(e) => { const r = roots.find((x) => (x.id ?? '') === e.target.value); if (r?.id) setProjectId(r.id); go('') }}>
-                {roots.map((r) => <option key={r.id ?? 'default'} value={r.id ?? ''}>{r.name}</option>)}
-              </select>
+              <Select value={projectId ?? NO_ID}
+                onValueChange={(v) => { const r = roots.find((x) => (x.id ?? NO_ID) === v); if (r?.id) setProjectId(r.id); go('') }}>
+                <SelectTrigger className="w-[180px] bg-card" aria-label="Agency folder"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {roots.map((r) => <SelectItem key={r.id ?? 'default'} value={r.id ?? NO_ID}>{r.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             )}
             <Input className="w-[180px]" type="search" placeholder="Filter" aria-label="Filter files" value={q} onChange={(e) => setQ(e.target.value)} />
-            <select className={cn(SELECT, 'w-[110px]')} aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
-              <option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option>
-            </select>
+            <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+              <SelectTrigger className="w-[110px] bg-card" aria-label="Sort"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name</SelectItem><SelectItem value="date">Modified</SelectItem><SelectItem value="size">Size</SelectItem>
+              </SelectContent>
+            </Select>
             <TabsList aria-label="View">
               <TabsTrigger active={view === 'list'} onClick={() => setView('list')}><Icon name="list" size={14} /> List</TabsTrigger>
               <TabsTrigger active={view === 'icons'} onClick={() => setView('icons')}><Icon name="grid" size={14} /> Icons</TabsTrigger>
@@ -182,7 +192,7 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         {notice && <p className="text-[13px] text-green" role="status">{notice} <button type="button" className="text-green underline" onClick={() => setNotice(null)}>Dismiss</button></p>}
         {view === 'list' && (
-          <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-xs', dropping === 'main' && 'outline-2 outline-offset-3 outline-green outline-dashed')} role="table" aria-label="Folder contents">
+          <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-xs', dropMain && 'outline-2 outline-offset-3 outline-green outline-dashed')} role="table" aria-label="Folder contents">
             <div className={cn(ROW, 'min-h-9 text-xs font-medium text-muted-foreground')} role="row"><span role="columnheader">Name</span><span role="columnheader">Kind</span><span role="columnheader">Modified</span><span role="columnheader" className="text-right">Size</span></div>
             {dir && (
               <button type="button" className={cn(ROW, ROW_BTN)} role="row" onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
@@ -204,7 +214,7 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
           </div>
         )}
         {view === 'icons' && (
-          <div className={cn('grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-3', dropping === 'main' && 'rounded-xl outline-2 outline-offset-3 outline-green outline-dashed')} role="list" aria-label="Folder contents">
+          <div className={cn('grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-3', dropMain && 'rounded-xl outline-2 outline-offset-3 outline-green outline-dashed')} role="list" aria-label="Folder contents">
             {dir && (
               <button type="button" role="listitem" className={TILE} onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
                 <span className={THUMB}><Icon name="back" size={26} /></span>
@@ -217,7 +227,7 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
                 {...(e.isDir ? dropProps(e.path, e.path) : {})}
                 aria-label={`${e.name}, ${LABEL[e.kind]}`}
                 onClick={() => setSel(e)} onDoubleClick={() => openEntry(e)} onKeyDown={(ev) => { if (ev.key === 'Enter') openEntry(e) }}>
-                <span className={cn(THUMB, e.kind === 'folder' && 'bg-lime-soft text-green')}>
+                <span className={cn(THUMB, TINT[e.kind] === FOLDER_TINT && FOLDER_TINT)}>
                   {thumbs[e.path] ? <img src={thumbs[e.path]} alt="" className="block size-full object-contain p-1.5" /> : <Icon name={ICON[e.kind]} size={30} />}
                 </span>
                 <span className="line-clamp-2 text-[13px] leading-tight font-medium [overflow-wrap:anywhere]">{e.name}</span>
@@ -227,7 +237,10 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
             {empty}
           </div>
         )}
-        <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" className="size-4 accent-green" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Show hidden files</label>
+        <div className="flex items-center gap-1.5">
+          <Checkbox id="drive-hidden" checked={hidden} onCheckedChange={(v) => setHidden(v === true)} />
+          <Label htmlFor="drive-hidden" className="text-xs font-normal text-muted-foreground">Show hidden files</Label>
+        </div>
       </section>
 
       <aside className="flex w-[380px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-border bg-background p-5" aria-label={sel ? `${sel.name}: preview and actions` : 'Details'}>
@@ -277,7 +290,8 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
   )
 }
 
-const SELECT = 'h-9 rounded-md border border-input bg-card px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+/** Radix Select can't hold an empty value: stands for a root without an id yet. */
+const NO_ID = '__none'
 const ROW = 'grid w-full grid-cols-[minmax(0,3fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_90px] items-center gap-3 border-b border-border px-4 text-left last:border-b-0'
 const ROW_BTN = 'min-h-11 cursor-default text-sm text-foreground outline-none hover:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset'
 const DROP_IN = 'outline-2 -outline-offset-3 outline-green outline-dashed'
@@ -286,13 +300,21 @@ const TILE = 'flex min-w-0 flex-col items-stretch gap-1.5 rounded-xl border bord
 const THUMB = 'grid aspect-[4/3] place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground'
 const crumbCls = (drop: boolean): string => cn('rounded-md border px-1.5 py-1 text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/40', drop ? 'border-green bg-lime-soft' : 'border-transparent')
 
-/** A file kind's icon on a tile: folders in the soft lime tint, studio files in ink, the rest muted. */
-function KindIcon({ kind, size: s = 'small' }: { kind: DriveKind; size?: 'small' | 'big' | 'huge' }): JSX.Element {
+/** Folders in the soft lime tint, studio files in ink, the rest muted. */
+const FOLDER_TINT = 'bg-lime-soft text-green'
+const TINT: Record<DriveKind, string> = {
+  folder: FOLDER_TINT, mindmap: 'bg-panel text-foreground', automation: 'bg-panel text-foreground', canvas: 'bg-panel text-foreground',
+  board: 'bg-panel text-muted-foreground', image: 'bg-panel text-muted-foreground', text: 'bg-panel text-muted-foreground',
+  pdf: 'bg-panel text-muted-foreground', archive: 'bg-panel text-muted-foreground', file: 'bg-panel text-muted-foreground'
+}
+const TILE_SIZE = { small: 'size-7 rounded-md', big: 'size-10 rounded-[10px]', huge: 'size-[72px] rounded-[18px]' } as const
+const ICON_SIZE = { small: 15, big: 20, huge: 40 } as const
+
+/** A file kind's icon tile (small in lists, big beside the name, huge in the preview). */
+function KindIcon({ kind, size: s = 'small' }: { kind: DriveKind; size?: keyof typeof TILE_SIZE }): JSX.Element {
   return (
-    <span className={cn('grid shrink-0 place-items-center bg-muted',
-      s === 'huge' ? 'size-[72px] rounded-2xl' : s === 'big' ? 'size-10 rounded-lg' : 'size-7 rounded-md',
-      kind === 'folder' ? 'bg-lime-soft text-green' : ['mindmap', 'automation', 'canvas'].includes(kind) ? 'text-foreground' : 'text-muted-foreground')}>
-      <Icon name={ICON[kind]} size={s === 'huge' ? 40 : s === 'big' ? 20 : 15} />
+    <span className={cn('grid shrink-0 place-items-center', TILE_SIZE[s], TINT[kind])}>
+      <Icon name={ICON[kind]} size={ICON_SIZE[s]} />
     </span>
   )
 }

@@ -1,3 +1,5 @@
+import { cn } from '@/lib/utils'
+
 const PATHS = {
   home: <><path d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h8V6.5" /><path d="M6.5 13V9.5h3V13" /></>,
   agents: <><rect x="2" y="4" width="12" height="10" rx="3" /><path d="M8 1v3" /><circle cx="6" cy="9" r="0.8" fill="currentColor" /><circle cx="10" cy="9" r="0.8" fill="currentColor" /></>,
@@ -64,9 +66,14 @@ const PATHS = {
 
 export type IconName = keyof typeof PATHS
 
-export function Icon({ name, size = 16 }: { name: IconName; size?: number }): JSX.Element {
+/**
+ * The app's stroke icons. The stroke width follows the outline/bold preset (--icon-stroke). The size goes
+ * through --icon-size so a Button's default svg size rule leaves it alone; a `size-*` class in `className` wins.
+ */
+export function Icon({ name, size = 16, className }: { name: IconName; size?: number; className?: string }): JSX.Element {
   return (
-    <svg className="icon" width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg data-icon={name} className={cn('size-(--icon-size) shrink-0 [stroke-width:var(--icon-stroke,1.6)]', className)}
+      style={{ ['--icon-size' as string]: `${size}px` }} width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {PATHS[name]}
     </svg>
   )

@@ -4,12 +4,13 @@ import { firstName } from '../boardStats'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 const KIND: Record<ChannelMessage['kind'], string> = { brief: 'Brief', question: 'Question', review: 'Review', digest: 'Digest' }
 
 const HINT = 'text-[13px] leading-snug text-muted-foreground'
-const SELECT = 'flex h-9 w-full min-w-0 rounded-md border border-input bg-card px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
 
 const NOTIFY: [Agency['notify'], string, string][] = [
   ['questions', 'Questions and reviews', 'Only when the Lead needs you'],
@@ -25,7 +26,7 @@ export function AgencyChannelBar({ agency, lead, onChanged }: { agency: Agency; 
   const setNotify = async (notify: Agency['notify']): Promise<void> => { await window.tyslin.agencies.update(agency.id, { notify }); onChanged() }
   const setChannel = async (kind: Agency['channel']['kind']): Promise<void> => { await window.tyslin.agencies.update(agency.id, { channel: { kind } }); onChanged() }
   return (
-    <div className="tw flex flex-col gap-4 text-foreground">
+    <div className="flex flex-col gap-4 text-foreground">
       <Card className="gap-4 px-5 py-4">
         <div className="flex flex-col gap-1">
           <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{agency.name}</span>
@@ -34,22 +35,28 @@ export function AgencyChannelBar({ agency, lead, onChanged }: { agency: Agency; 
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor={`ach-kind-${agency.id}`}>Lead talks to you on</Label>
-          <select id={`ach-kind-${agency.id}`} className={SELECT} value={agency.channel.kind} onChange={(e) => void setChannel(e.target.value as Agency['channel']['kind'])}>
-            <option value="none">In the app only</option><option value="telegram">Telegram</option><option value="slack">Slack</option>
-          </select>
+          <Select value={agency.channel.kind} onValueChange={(v) => void setChannel(v as Agency['channel']['kind'])}>
+            <SelectTrigger id={`ach-kind-${agency.id}`} className="w-full min-w-0 bg-card"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">In the app only</SelectItem><SelectItem value="telegram">Telegram</SelectItem><SelectItem value="slack">Slack</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-col gap-2">
           <span id={`ach-notify-${agency.id}`} className="text-sm leading-none font-medium">What the Lead sends</span>
-          <div role="radiogroup" aria-labelledby={`ach-notify-${agency.id}`} className="flex flex-col gap-2">
+          <RadioGroup aria-labelledby={`ach-notify-${agency.id}`} value={agency.notify} onValueChange={(v) => void setNotify(v as Agency['notify'])} className="flex flex-col gap-2">
             {NOTIFY.map(([id, name, desc]) => (
-              <button key={id} type="button" role="radio" aria-checked={agency.notify === id} onClick={() => void setNotify(id)}
-                className={cn('flex min-h-11 flex-col gap-1 rounded-xl border bg-card px-4 py-3 text-left shadow-xs outline-none transition-[border-color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/40',
+              <Label key={id} htmlFor={`ach-notify-${agency.id}-${id}`}
+                className={cn('flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border bg-card px-4 py-3 font-normal shadow-xs transition-[border-color,box-shadow] has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
                   agency.notify === id ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong')}>
-                <strong className="text-sm font-semibold">{name}</strong>
-                <span className={HINT}>{desc}</span>
-              </button>
+                <RadioGroupItem id={`ach-notify-${agency.id}-${id}`} value={id} className="mt-0.5" />
+                <span className="flex flex-col gap-1">
+                  <strong className="text-sm font-semibold">{name}</strong>
+                  <span className={HINT}>{desc}</span>
+                </span>
+              </Label>
             ))}
-          </div>
+          </RadioGroup>
         </div>
       </Card>
 

@@ -2,6 +2,7 @@ import type { Route } from '../App'
 import { Icon } from './Icon'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from '@/components/ui/sidebar'
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
@@ -29,28 +30,45 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
     ['Memory', 'knowledge', { name: 'memory' }, route.name === 'memory'],
     ['Edit', 'settings', { name: 'agency', id: agencyId, tab: 'edit' }, route.name === 'agency' && route.tab === 'edit']
   ]
-  const item = ([label, icon, to, on]: (typeof items)[number]): JSX.Element => (
-    <button key={label} type="button" aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}
-      className={cn(
-        'flex min-h-10 w-full items-center gap-2.5 rounded-md border border-transparent px-2.5 text-left text-sm text-muted-foreground outline-none transition-colors',
-        'hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40',
-        on && 'border-border bg-card font-medium text-foreground shadow-xs hover:bg-card'
-      )}>
-      <Icon name={icon} size={16} /><span className="min-w-0 flex-1 truncate">{label}</span>
-      {label === 'Chat' && unread > 0 && <Badge variant="lime" className="h-5 min-w-5 px-1.5 font-mono" aria-label={`${unread} unread`}>{unread}</Badge>}
-    </button>
-  )
+  const item = ([label, icon, to, on]: (typeof items)[number]): JSX.Element => {
+    const badge = label === 'Chat' && unread > 0
+    return (
+      <SidebarMenuItem key={label}>
+        <SidebarMenuButton type="button" isActive={on} aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}
+          className={cn(
+            'h-10 gap-2.5 border border-transparent px-2.5 text-muted-foreground transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40',
+            'hover:bg-accent hover:text-foreground data-[active=true]:border-border data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-xs data-[active=true]:hover:bg-card',
+            badge && 'pr-10'
+          )}>
+          <Icon name={icon} size={16} /><span className="min-w-0 flex-1 truncate">{label}</span>
+        </SidebarMenuButton>
+        {badge && (
+          <SidebarMenuBadge className="right-2 peer-data-[size=default]/menu-button:top-2.5 px-0">
+            <Badge variant="lime" className="h-5 min-w-5 px-1.5 font-mono" aria-label={`${unread} unread`}>{unread}</Badge>
+          </SidebarMenuBadge>
+        )}
+      </SidebarMenuItem>
+    )
+  }
   return (
-    <nav className="tw flex w-[232px] flex-none flex-col gap-4 overflow-y-auto bg-panel p-3 text-foreground" aria-label={`${name} sections`}>
-      <div className="flex flex-col gap-1.5">
-        <span className="px-2.5 text-xs font-medium text-muted-foreground">Agency</span>
-        <span className="flex h-10 min-w-0 items-center gap-2.5 rounded-md border border-border bg-card px-2.5 shadow-xs">
-          <span className="inline-flex size-[22px] flex-none items-center justify-center rounded-sm bg-lime text-on-lime"><Icon name="agency" size={13} /></span>
-          <strong className="min-w-0 flex-1 truncate text-sm font-semibold">{name}</strong>
-        </span>
-      </div>
-      <div className="flex flex-col gap-0.5">{items.slice(0, 7).map(item)}</div>
-      <div className="mt-auto flex flex-col gap-0.5 border-t border-border pt-2.5">{items.slice(7).map(item)}</div>
-    </nav>
+    <SidebarProvider className="min-h-0 w-auto flex-none" style={{ '--sidebar-width': '232px' } as React.CSSProperties}>
+      <Sidebar collapsible="none" role="navigation" aria-label={`${name} sections`} className="gap-4 overflow-y-auto bg-sidebar p-3 text-foreground">
+        <SidebarHeader className="gap-1.5 p-0">
+          <SidebarGroupLabel className="h-auto px-2.5 text-xs font-medium text-muted-foreground">Agency</SidebarGroupLabel>
+          <span className="flex h-10 min-w-0 items-center gap-2.5 rounded-md border border-border bg-card px-2.5 shadow-xs">
+            <span className="inline-flex size-[22px] flex-none items-center justify-center rounded-sm bg-lime text-on-lime"><Icon name="agency" size={13} /></span>
+            <strong className="min-w-0 flex-1 truncate text-sm font-semibold">{name}</strong>
+          </span>
+        </SidebarHeader>
+        <SidebarContent className="gap-0">
+          <SidebarGroup className="p-0">
+            <SidebarMenu className="gap-0.5">{items.slice(0, 7).map(item)}</SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+        <SidebarFooter className="gap-0.5 border-t border-border p-0 pt-2.5">
+          <SidebarMenu className="gap-0.5">{items.slice(7).map(item)}</SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
+    </SidebarProvider>
   )
 }

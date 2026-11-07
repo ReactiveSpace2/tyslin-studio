@@ -14,6 +14,8 @@ import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -42,7 +44,9 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 
 const HINT = 'text-[13px] leading-snug text-muted-foreground'
 const SECTION_LABEL = 'font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground'
-const SELECT = 'flex h-9 w-full min-w-0 rounded-md border border-input bg-card px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30 disabled:cursor-not-allowed disabled:opacity-50'
+const SELECT = 'w-full min-w-0 bg-card'
+/** Radix Select can't use an empty value; this stands for "none" (no project, reports to you). */
+const NONE = '__none__'
 const LI = 'flex min-h-10 w-full items-center gap-2.5 border-t border-border py-2 text-left text-[13px] text-foreground first:border-t-0'
 const LI_RIGHT = 'ml-auto whitespace-nowrap font-mono text-xs text-muted-foreground'
 
@@ -119,7 +123,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
       .sort((a, b) => Number(form.skills.includes(b.name)) - Number(form.skills.includes(a.name))).slice(0, 80)
   }, [skills, skillQ, form])
 
-  if (!saved || !form) return <div className="tw p-8"><p className="text-base text-muted-foreground">This agent no longer exists.</p></div>
+  if (!saved || !form) return <div className="p-8"><p className="text-base text-muted-foreground">This agent no longer exists.</p></div>
 
   const set = <K extends keyof Agent>(k: K, v: Agent[K]): void => setForm({ ...form, [k]: v })
   const project = projects.find((p) => p.id === saved.projectId) ?? null
@@ -161,7 +165,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
   )
 
   return (
-    <div className={cn('tw flex h-full min-h-0 text-foreground', inAgency ? 'flex-col' : 'flex-row')}>
+    <div className={cn('flex h-full min-h-0 text-foreground', inAgency ? 'flex-col' : 'flex-row')}>
       {!inAgency && (
         <nav className="flex w-[220px] flex-none flex-col gap-1.5 overflow-y-auto border-r border-border px-3 py-4" aria-label="Agent sections">
           <div className="mb-2">{backButton}</div>
@@ -324,16 +328,22 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
               <Box title="Runs on">
                 <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                   <Field id="ap-engine" label="Runs on">
-                    <select id="ap-engine" className={SELECT} value={form.engine} onChange={(e) => set('engine', e.target.value as EngineId)}>
-                      <option value="builtin">Tyslin (a model with your key)</option>
-                      {engines.map((e) => <option key={e.id} value={e.id}>{e.name}{e.resolvedPath ? '' : ' (not installed)'}</option>)}
-                    </select>
+                    <Select value={form.engine} onValueChange={(v) => set('engine', v as EngineId)}>
+                      <SelectTrigger id="ap-engine" className={SELECT}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="builtin">Tyslin (a model with your key)</SelectItem>
+                        {engines.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}{e.resolvedPath ? '' : ' (not installed)'}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </Field>
                   {form.engine === 'builtin' && (
                     <Field id="ap-prov" label="Provider">
-                      <select id="ap-prov" className={SELECT} value={form.provider} onChange={(e) => { const p = e.target.value as ProviderId; setForm({ ...form, provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
-                        <option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option><option value="ollama">Ollama (local)</option>
-                      </select>
+                      <Select value={form.provider} onValueChange={(v) => { const p = v as ProviderId; setForm({ ...form, provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
+                        <SelectTrigger id="ap-prov" className={SELECT}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="anthropic">Anthropic (Claude)</SelectItem><SelectItem value="openai">OpenAI</SelectItem><SelectItem value="gemini">Google Gemini</SelectItem><SelectItem value="ollama">Ollama (local)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </Field>
                   )}
                   {form.engine === 'builtin' && (
@@ -357,32 +367,41 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
                 {inProject ? (
                   <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                     <Field id="ap-proj" label="Project">
-                      <select id="ap-proj" className={SELECT} value={form.projectId ?? ''} onChange={(e) => setForm({ ...form, projectId: e.target.value || null, leadId: null })}>
-                        <option value="">No project yet</option>
-                        {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                      <Select value={form.projectId ?? NONE} onValueChange={(v) => setForm({ ...form, projectId: v === NONE ? null : v, leadId: null })}>
+                        <SelectTrigger id="ap-proj" className={SELECT}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>No project yet</SelectItem>
+                          {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                       <span className={HINT}>An agent works in one project. Moving it leaves its team behind, reporting to you.</span>
                     </Field>
                     <Field id="ap-lead" label="Reports to">
-                      <select id="ap-lead" className={SELECT} value={form.leadId ?? ''} disabled={!form.projectId} onChange={(e) => set('leadId', e.target.value || null)}>
-                        <option value="">You</option>
-                        {projectTeam.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                      </select>
+                      <Select value={form.leadId ?? NONE} disabled={!form.projectId} onValueChange={(v) => set('leadId', v === NONE ? null : v)}>
+                        <SelectTrigger id="ap-lead" className={SELECT}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={NONE}>You</SelectItem>
+                          {projectTeam.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </Field>
                   </div>
                 ) : <p className={HINT}>Builder helps in every project; pick the project when you chat.</p>}
               </Box>
               <Box title="File changes">
-                <div role="radiogroup" aria-label="File changes" className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+                <RadioGroup aria-label="File changes" value={form.writeMode} onValueChange={(v) => set('writeMode', v as Agent['writeMode'])} className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                   {([['ask', 'Ask before writing', 'You review each change as a diff.'], ['direct', 'Write directly', 'Only for folders you can restore.']] as const).map(([m, title, hint]) => (
-                    <button key={m} type="button" role="radio" aria-checked={form.writeMode === m} onClick={() => set('writeMode', m)}
-                      className={cn('flex min-h-11 flex-col gap-2 rounded-xl border bg-card p-4 text-left shadow-xs outline-none transition-[border-color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/40',
+                    <Label key={m} htmlFor={`ap-write-${m}`}
+                      className={cn('flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border bg-card p-4 font-normal shadow-xs transition-[border-color,box-shadow] has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
                         form.writeMode === m ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong')}>
-                      <strong className="text-sm font-semibold">{title}</strong>
-                      <span className={HINT}>{hint}</span>
-                    </button>
+                      <RadioGroupItem id={`ap-write-${m}`} value={m} className="mt-0.5" />
+                      <span className="flex flex-col gap-2">
+                        <strong className="text-sm font-semibold">{title}</strong>
+                        <span className={HINT}>{hint}</span>
+                      </span>
+                    </Label>
                   ))}
-                </div>
+                </RadioGroup>
                 <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
                   <SwitchRow name="Read project files" desc="List and read files in its project folder." on={form.tools.read} onChange={(v) => set('tools', { read: v, write: v && form.tools.write })} />
                   <SwitchRow name="Change project files" desc={form.writeMode === 'ask' ? 'Each change waits for your review.' : 'Written straight to disk.'} on={form.tools.write} disabled={!form.tools.read} onChange={(v) => set('tools', { ...form.tools, write: v })} />

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { GDriveStatus } from '@shared/types'
 import { Icon } from './Icon'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 const ago = (t: number | null): string => {
@@ -39,7 +41,7 @@ export function GoogleDriveCard(): JSX.Element | null {
       <div className="flex items-center gap-2 text-sm">
         <span className="grid size-7 place-items-center rounded-md bg-muted"><Icon name="cloud" size={16} /></span>
         <strong className="font-semibold">Google Drive</strong>
-        {s.connected && <span className={cn('ml-auto size-2 rounded-full', s.syncing ? 'animate-[au-pulse_1.2s_ease-in-out_infinite] bg-lime motion-reduce:animate-none' : s.lastError ? 'bg-destructive' : 'bg-green')} aria-hidden="true" />}
+        {s.connected && <span className={cn('ml-auto size-2 rounded-full', s.syncing ? 'animate-ring-pulse bg-lime motion-reduce:animate-none' : s.lastError ? 'bg-destructive' : 'bg-green')} aria-hidden="true" />}
       </div>
       {!s.connected ? (
         <>
@@ -59,7 +61,10 @@ export function GoogleDriveCard(): JSX.Element | null {
             <Button variant="outline" size="sm" disabled={s.syncing || busy} onClick={() => void act(() => window.tyslin.gdrive.sync())}><Icon name="sync" size={12} /> Sync now</Button>
             {s.folderUrl && <Button variant="outline" size="sm" onClick={() => void window.tyslin.gdrive.openFolder()}>Open in Drive</Button>}
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" className="size-4 accent-green" checked={s.auto} onChange={(e) => void window.tyslin.gdrive.setAuto(e.target.checked)} /> Sync every {s.autoMinutes} minutes</label>
+          <div className="flex items-center gap-2">
+            <Checkbox id="gdrive-auto" checked={s.auto} onCheckedChange={(v) => void window.tyslin.gdrive.setAuto(v === true)} />
+            <Label htmlFor="gdrive-auto" className="text-xs font-normal text-muted-foreground">Sync every {s.autoMinutes} minutes</Label>
+          </div>
           <button type="button" className={LINK} onClick={() => {
             if (window.confirm('Disconnect Google Drive? Files stay in both places; syncing stops.')) void act(() => window.tyslin.gdrive.disconnect())
           }}>Disconnect</button>

@@ -32,7 +32,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
 
   return (
     // Below the title bar (44 px), which stays draggable.
-    <main className="tw fixed inset-x-0 top-[44px] bottom-0 z-[100] grid place-items-center overflow-y-auto bg-background p-6 text-foreground">
+    <main className="fixed inset-x-0 top-[44px] bottom-0 z-[100] grid place-items-center overflow-y-auto bg-background p-6 text-foreground">
       <Card className="w-full max-w-[920px] gap-0 overflow-hidden p-0 min-[820px]:grid min-[820px]:grid-cols-2">
         <section aria-labelledby="login-title" className="flex flex-col gap-6 p-10">
           <div className="flex items-center gap-3">

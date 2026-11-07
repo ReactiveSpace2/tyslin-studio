@@ -15,6 +15,10 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { ChevronRightIcon } from 'lucide-react'
 
 interface Props {
   agents: Agent[]
@@ -244,13 +248,14 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
                 <Input id="int-name" className="font-mono" value={draft.name} placeholder="e.g. deepwiki" autoFocus onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
                 <Hint>Your agents see its tools under this name. Lowercase letters, digits and dashes.</Hint>
               </Field>
-              <div className="inline-flex h-9 w-fit flex-wrap items-center gap-0.5 rounded-lg bg-accent p-[3px] text-muted-foreground" role="radiogroup" aria-label="How the server runs">
+              <ToggleGroup type="single" spacing={1} value={draft.transport} aria-label="How the server runs"
+                onValueChange={(v) => { if (v) setDraft({ ...draft, transport: v as typeof draft.transport }) }}
+                className="h-9 flex-wrap gap-0.5 rounded-lg bg-accent p-[3px] text-muted-foreground">
                 {([['http', 'Remote address'], ['stdio', 'Command on this computer']] as const).map(([v, label]) => (
-                  <button key={v} type="button" role="radio" aria-checked={draft.transport === v}
-                    className={cn('inline-flex h-full items-center rounded-md px-3 text-sm font-medium whitespace-nowrap outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40', draft.transport === v ? 'bg-card text-foreground shadow-xs' : 'hover:text-foreground')}
-                    onClick={() => setDraft({ ...draft, transport: v })}>{label}</button>
+                  <ToggleGroupItem key={v} value={v}
+                    className="h-full rounded-md px-3 text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-xs">{label}</ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
               {draft.transport === 'http' ? (
                 <>
                   <Field>
@@ -360,10 +365,13 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
                         <TableCell colSpan={cols} className="px-4 pb-3">
                           {failed && <ErrorText>{t.error}</ErrorText>}
                           {tools && (
-                            <details className="group">
-                              <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">Tools it gives your agents</summary>
-                              <div className="mt-2 flex flex-wrap gap-1.5">{t.tools!.map((n) => <Badge key={n} variant="outline" className="font-mono">{n}</Badge>)}</div>
-                            </details>
+                            <Collapsible className="group">
+                              <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40">
+                                <ChevronRightIcon className="size-3.5 transition-transform group-data-[state=open]:rotate-90 motion-reduce:transition-none" aria-hidden="true" />
+                                Tools it gives your agents
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="mt-2 flex flex-wrap gap-1.5">{t.tools!.map((n) => <Badge key={n} variant="outline" className="font-mono">{n}</Badge>)}</CollapsibleContent>
+                            </Collapsible>
                           )}
                         </TableCell>
                       </TableRow>
@@ -470,7 +478,7 @@ function Hint({ children }: { children: React.ReactNode }): JSX.Element {
   return <span className="text-xs leading-relaxed text-muted-foreground">{children}</span>
 }
 function ErrorText({ children }: { children: React.ReactNode }): JSX.Element {
-  return <p className="text-sm text-destructive" role="alert">{children}</p>
+  return <Alert variant="destructive" className="border-destructive/30 bg-destructive-soft py-2"><AlertDescription>{children}</AlertDescription></Alert>
 }
 /** A lettered tile standing in for an app's logo. */
 function Tile({ children }: { children: React.ReactNode }): JSX.Element {

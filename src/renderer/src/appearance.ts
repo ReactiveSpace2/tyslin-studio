@@ -1,7 +1,7 @@
 import type { OrgColor, Preferences } from '@shared/types'
 
 /**
- * Icon style, menu labels and accent colour, applied as data attributes on <html> so styles.css can
+ * Icon style, menu labels and accent colour, applied as data attributes on <html> so index.css can
  * switch tokens (`data-icons`, `data-rail-labels`, `data-accent`). Theme and zoom are applied by main.
  * Call `refreshAppearance()` at start-up and after any of these settings or the organization colour change.
  */

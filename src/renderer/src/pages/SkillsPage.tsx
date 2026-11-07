@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { runsOnLabel } from '../components/RunsOnBadge'
 import { track } from '../activity'
 import { Pose } from '../components/Pose'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -27,7 +28,7 @@ const itemClass = (on: boolean): string => cn(
   on ? 'border-border bg-card shadow-xs' : 'hover:bg-accent'
 )
 const ErrorBox = ({ children }: { children: React.ReactNode }): JSX.Element => (
-  <div role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive">{children}</div>
+  <Alert variant="destructive" className="border-transparent bg-destructive-soft px-3 py-2 text-[13px]"><AlertDescription>{children}</AlertDescription></Alert>
 )
 /** The GitHub icon link in the corner of a card; sits above the card's Edit overlay. */
 const SourceLink = ({ url, label }: { url: string; label: string }): JSX.Element => (

@@ -5,6 +5,8 @@ import { Icon } from '../components/Icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert } from '@/components/ui/alert'
+import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -105,10 +107,10 @@ export function MemoryPage({ agencyId, agencyName, agents }: Props): JSX.Element
       <ul className="m-0 flex list-none flex-col gap-0.5 p-0">{list.map(item)}</ul>
     </div>
   )
-  const errorBox = (text: string): JSX.Element => <div role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive">{text}</div>
+  const errorBox = (text: string): JSX.Element => <Alert variant="destructive" className="block rounded-md border-0 bg-destructive-soft px-3 py-2 text-[13px]">{text}</Alert>
 
   return (
-    <div className="tw flex h-full min-h-0 bg-background text-foreground">
+    <div className="flex h-full min-h-0 bg-background text-foreground">
       <section aria-label="Memory files" className="flex w-[340px] flex-none flex-col gap-3.5 overflow-y-auto border-r border-border px-3.5 pt-5 pb-7">
         <div className="px-1">
           <h1 className="m-0 text-xl font-semibold tracking-tight">Memory</h1>
@@ -135,7 +137,7 @@ export function MemoryPage({ agencyId, agencyName, agents }: Props): JSX.Element
             </header>
             {saved && !dirty && <span className="text-[13px] text-muted-foreground" role="status">Saved. Agents use it from their next run.</span>}
             {error && errorBox(error)}
-            <label className="sr-only" htmlFor="mem-body">{current.title} memory</label>
+            <Label className="sr-only" htmlFor="mem-body">{current.title} memory</Label>
             <Textarea id="mem-body" className="min-h-[360px] font-mono text-[13px] leading-[1.7]" value={text} spellCheck
               onChange={(e) => { setText(e.target.value); setSaved(false) }}
               onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (dirty) void save() } }} />

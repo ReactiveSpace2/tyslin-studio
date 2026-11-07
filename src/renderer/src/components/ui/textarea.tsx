@@ -2,9 +2,10 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 // shadcn/ui Textarea (new-york).
-function Textarea({ className, ...props }: React.ComponentProps<'textarea'>): JSX.Element {
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentPropsWithoutRef<'textarea'>>(function Textarea({ className, ...props }, ref) {
   return (
     <textarea
+      ref={ref}
       data-slot="textarea"
       className={cn(
         'flex min-h-16 w-full rounded-md border border-input bg-card px-3 py-2 text-sm leading-relaxed shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50',
@@ -14,6 +15,6 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>): JS
       {...props}
     />
   )
-}
+})
 
 export { Textarea }

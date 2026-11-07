@@ -8,6 +8,15 @@ import { Icon } from './Icon'
 import { useGDrive } from './GoogleDrive'
 import { ZoomControl } from './ZoomControl'
 import { WorkingDots } from './Working'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Progress } from '@/components/ui/progress'
+import { cn } from '@/lib/utils'
+
+/** A status-bar item: small, muted, a card-coloured hover; `attention` turns it green. */
+const ITEM = 'inline-flex h-[22px] py-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2'
+const itemBtn = (attention = false): string => cn(ITEM, 'text-xs font-normal text-muted-foreground hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring has-[>svg]:px-2',
+  attention && 'font-semibold text-green hover:text-green')
 
 interface Props {
   route: Route
@@ -68,7 +77,6 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
   const [open, setOpen] = useState(false)
   const [now, setNow] = useState(Date.now())
   const tasks = useTasks()
-  const menuRef = useRef<HTMLDivElement>(null)
 
   const refreshPending = (): void => { void window.tyslin.app.dashboard().then((d) => setPending(d.pendingChanges)) }
 
@@ -140,92 +148,88 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
     return () => clearInterval(t)
   }, [items.length])
 
-  // Close the list on an outside click or Escape.
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: MouseEvent): void => { if (!menuRef.current?.contains(e.target as Node)) setOpen(false) }
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
+  // Outside clicks and Escape close the list (the Popover handles both and returns focus to the button).
 
   const summary = items.length === 1 ? `${items[0].title}: ${items[0].detail}` : `${items.length} running`
 
   return (
-    <footer className="statusbar" aria-label="Status">
-      <div className="statusbar-group">
+    <footer className="flex h-7 flex-none items-center justify-between gap-3 border-t border-border bg-panel pr-2 pl-3.5 text-xs text-muted-foreground select-none" aria-label="Status">
+      <div className="flex min-w-0 items-center gap-1">
         <ZoomControl compact />
         {items.length > 0 && (
-          <div className="running" ref={menuRef}>
-            <button type="button" className="status-item status-btn status-busy" aria-haspopup="dialog" aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}>
-              <WorkingDots />
-              <span className="running-summary">{summary}</span>
-            </button>
-            <span className="sr-only" role="status">{summary}</span>
-            {open && (
-              <div className="running-panel" role="dialog" aria-label="Running">
-                <div className="running-head">
-                  <span className="section-label" style={{ padding: 0 }}>Running</span>
-                  <span className="hint">{items.length}</span>
+          <div className="relative min-w-0">
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="ghost" className={cn(itemBtn(), 'max-w-full text-foreground')}>
+                  <WorkingDots />
+                  <span className="max-w-[360px] truncate">{summary}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" sideOffset={8} aria-label="Running"
+                className="flex max-h-[60vh] w-[340px] flex-col gap-2 overflow-y-auto rounded-xl p-2.5 shadow-[0_8px_24px_var(--shadow)]">
+                <div className="flex items-center justify-between px-1">
+                  <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Running</span>
+                  <span className="text-xs text-muted-foreground">{items.length}</span>
                 </div>
-                <ul>
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                   {items.map((it) => {
                     const s = it.run && (it.run.session ?? sessions.find((x) => x.id === it.run!.sessionId))
                     return (
-                      <li key={it.id} className="running-row">
-                        <div className="running-top">
-                          <strong>{it.title}</strong>
-                          <span className="mono hint">{it.percent !== undefined ? `${Math.round(it.percent)}%` : elapsed(it.startedAt, now)}</span>
+                      <li key={it.id} className="flex flex-col gap-1.5 rounded-lg border border-border p-2.5">
+                        <div className="flex items-center justify-between gap-2 text-[13px]">
+                          <strong className="font-semibold">{it.title}</strong>
+                          <span className="font-mono text-xs text-muted-foreground">{it.percent !== undefined ? `${Math.round(it.percent)}%` : elapsed(it.startedAt, now)}</span>
                         </div>
-                        <span className="running-detail" title={it.detail}>{it.detail}</span>
-                        <span className={'running-bar' + (it.percent === undefined ? ' indeterminate' : '')} aria-hidden="true">
-                          <span style={it.percent !== undefined ? { width: `${it.percent}%` } : undefined} />
-                        </span>
+                        <span className="truncate text-xs text-muted-foreground" title={it.detail}>{it.detail}</span>
+                        {it.percent !== undefined ? (
+                          <Progress value={it.percent} aria-hidden="true"
+                            className="h-1 rounded-sm bg-accent [&>[data-slot=progress-indicator]]:rounded-sm [&>[data-slot=progress-indicator]]:bg-lime [&>[data-slot=progress-indicator]]:duration-300" />
+                        ) : (
+                          <span className="relative h-1 overflow-hidden rounded-sm bg-accent" aria-hidden="true">
+                            <span className="absolute inset-y-0 w-[35%] animate-slide rounded-sm bg-lime motion-reduce:left-0 motion-reduce:w-full motion-reduce:animate-none motion-reduce:opacity-50" />
+                          </span>
+                        )}
                         {it.run && s && (
-                          <div className="row" style={{ gap: 6 }}>
-                            <button type="button" className="btn btn-sm" onClick={() => { setOpen(false); onOpenChat(s.agentId, s.projectId, s.id) }}>Open chat</button>
-                            <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.sessions.stop(s.id)}>
+                          <div className="flex items-center gap-1.5">
+                            <Button type="button" variant="outline" size="sm" onClick={() => { setOpen(false); onOpenChat(s.agentId, s.projectId, s.id) }}>Open chat</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.sessions.stop(s.id)}>
                               <Icon name="stop" size={12} /> Stop
-                            </button>
+                            </Button>
                           </div>
                         )}
                       </li>
                     )
                   })}
                 </ul>
-              </div>
-            )}
+              </PopoverContent>
+            </Popover>
+            <span className="sr-only" role="status">{summary}</span>
           </div>
         )}
       </div>
-      <div className="statusbar-group">
-        <button type="button" className={'status-item status-btn' + (pending ? ' attention' : '')} onClick={() => onNavigate({ name: 'home', focus: 'activity' })}
+      <div className="flex min-w-0 items-center gap-1">
+        <Button type="button" variant="ghost" className={itemBtn(!!pending)} onClick={() => onNavigate({ name: 'home', focus: 'activity' })}
           title="File changes waiting for your review">
           <Icon name="file" size={12} />
           {pending ? `${pending} to review` : 'Nothing to review'}
-        </button>
+        </Button>
         {dm && (
-          <button type="button" className={'status-item status-btn' + (dm.ready ? '' : ' attention')} onClick={() => onNavigate({ name: 'settings', tab: 'models' })}
+          <Button type="button" variant="ghost" className={itemBtn(!dm.ready)} onClick={() => onNavigate({ name: 'settings', tab: 'models' })}
             title={dm.ready
               ? `Default model, used by the Leads and cards on "Default model": ${modelLabel(dm)}. Click to change it.`
               : `The default model needs a ${PROVIDER_NAME[dm.provider]} key. Click to add one.`}>
             <Icon name="agents" size={12} />
-            <span className="mono">{modelLabel(dm)}</span>
+            <span className="font-mono">{modelLabel(dm)}</span>
             {!dm.ready && <span>· add a key</span>}
-          </button>
+          </Button>
         )}
         {update && (update.state === 'ready' || update.state === 'available') ? (
-          <button type="button" className="status-item status-btn attention"
+          <Button type="button" variant="ghost" className={itemBtn(true)}
             onClick={() => void (update.state === 'ready' ? window.tyslin.updates.install() : window.tyslin.updates.openDownload())}>
             {update.state === 'ready' ? `Restart to update to v${update.version}` : `v${update.version} is out`}
-          </button>
+          </Button>
         ) : (
-          <span className="status-item mono">v{version}</span>
+          <span className={cn(ITEM, 'font-mono')}>v{version}</span>
         )}
       </div>
     </footer>

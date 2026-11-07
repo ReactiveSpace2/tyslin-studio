@@ -2,9 +2,9 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 // shadcn/ui Card (new-york).
-function Card({ className, ...props }: React.ComponentProps<'div'>): JSX.Element {
-  return <div data-slot="card" className={cn('flex flex-col gap-6 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-xs', className)} {...props} />
-}
+const Card = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<'div'>>(function Card({ className, ...props }, ref) {
+  return <div ref={ref} data-slot="card" className={cn('flex flex-col gap-6 rounded-xl border border-border bg-card py-6 text-card-foreground shadow-xs', className)} {...props} />
+})
 function CardHeader({ className, ...props }: React.ComponentProps<'div'>): JSX.Element {
   return <div data-slot="card-header" className={cn('grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto]', className)} {...props} />
 }

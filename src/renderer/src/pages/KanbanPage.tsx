@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
@@ -22,8 +24,6 @@ import { cn } from '@/lib/utils'
 const LABEL_INK = '#0F0F0D'
 /** Small mono caption used for the sheet's sections. */
 const CAPTION = 'font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase'
-/** A native select in the shadcn input look. */
-const SELECT = 'h-9 w-full min-w-0 rounded-md border border-input bg-card px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
 
 interface Props {
   agents: Agent[]
@@ -254,7 +254,7 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                         if (d?.kind === 'column') { e.preventDefault(); e.stopPropagation(); moveColumn(d.id, ci); dragItem.current = null }
                       }}>
                       <header className="group flex cursor-grab items-center gap-1.5 px-0.5 pt-0.5" draggable onDragStart={(e) => { dragItem.current = { kind: 'column', id: col.id }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', col.id) }}>
-                        <input className="h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-sm font-semibold text-foreground outline-none hover:border-border focus-visible:border-ring focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/30" value={col.title} aria-label="Column name"
+                        <Input className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-1.5 text-sm font-semibold shadow-none hover:border-border focus-visible:bg-card dark:bg-transparent" value={col.title} aria-label="Column name"
                           onChange={(e) => change((d) => ({ ...d, columns: d.columns.map((c) => (c.id === col.id ? { ...c, title: e.target.value } : c)) }))} />
                         <Badge variant="outline" className="bg-card font-mono text-muted-foreground">{col.cards.length}</Badge>
                         <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Delete column ${col.title}`} title="Delete column" onClick={() => removeColumn(col.id)}><Icon name="trash" size={12} /></Button>
@@ -328,30 +328,25 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                     </span>
                     <Button variant="ghost" size="icon" aria-label="Close card" onClick={() => setOpen(null)}><Icon name="close" size={13} /></Button>
                   </div>
-                  <textarea className="w-full resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xl leading-snug font-semibold tracking-tight text-foreground outline-none hover:border-border focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30" rows={2} value={sel.card.title} aria-label="Card title" onChange={(e) => patchCard(sel.card.id, { title: e.target.value })} />
+                  <Textarea className="min-h-0 w-full resize-none border-transparent bg-transparent px-1.5 py-1 text-xl leading-snug font-semibold tracking-tight shadow-none hover:border-border md:text-xl dark:bg-transparent" rows={2} value={sel.card.title} aria-label="Card title" onChange={(e) => patchCard(sel.card.id, { title: e.target.value })} />
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="kb-notes" className="text-[13px] text-muted-foreground">Notes</Label>
                     <Textarea id="kb-notes" rows={5} value={sel.card.notes} placeholder="What needs doing, links, acceptance criteria…" onChange={(e) => patchCard(sel.card.id, { notes: e.target.value })} />
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[13px] font-medium text-muted-foreground">Labels</span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {labels.map((l) => {
-                        const on = sel.card.labels.includes(l.id)
-                        return (
-                          <button key={l.id} type="button" aria-pressed={on}
-                            className={cn('inline-flex min-h-7 items-center gap-1 rounded-full border-[1.5px] px-2.5 text-[11px] font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40', !on && 'bg-card text-foreground')}
-                            style={{ background: on ? ORG_COLORS[l.color].fill : undefined, color: on ? LABEL_INK : undefined, borderColor: ORG_COLORS[l.color].fill }}
-                            onClick={() => patchCard(sel.card.id, { labels: on ? sel.card.labels.filter((x) => x !== l.id) : [...sel.card.labels, l.id] })}>{l.name}</button>
-                        )
-                      })}
-                      <button type="button" className="inline-flex min-h-7 items-center gap-1 rounded-full border-[1.5px] border-border bg-card px-2.5 text-[11px] font-semibold text-foreground outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => {
-                        const name = window.prompt('Label name')?.trim()
-                        if (!name) return
-                        const label = { id: uid(), name: name.slice(0, 24), color: COLORS[labels.length % COLORS.length] }
-                        change((d) => ({ ...d, labels: [...d.labels, label] }))
-                        patchCard(sel.card.id, { labels: [...sel.card.labels, label.id] })
-                      }}><Icon name="plus" size={10} /> Label</button>
+                    <span id="kb-labels" className="text-[13px] font-medium text-muted-foreground">Labels</span>
+                    <div className="flex flex-wrap items-center gap-1.5" aria-labelledby="kb-labels" role="group">
+                      {labels.filter((l) => sel.card.labels.includes(l.id)).map((l) => (
+                        <span key={l.id} className="inline-flex min-h-7 items-center rounded-full border-[1.5px] px-2.5 text-[11px] font-semibold"
+                          style={{ background: ORG_COLORS[l.color].fill, borderColor: ORG_COLORS[l.color].fill, color: LABEL_INK }}>{l.name}</span>
+                      ))}
+                      <LabelPicker labels={labels} chosen={sel.card.labels}
+                        onToggle={(id) => patchCard(sel.card.id, { labels: sel.card.labels.includes(id) ? sel.card.labels.filter((x) => x !== id) : [...sel.card.labels, id] })}
+                        onCreate={(name) => {
+                          const label = { id: uid(), name: name.slice(0, 24), color: COLORS[labels.length % COLORS.length] }
+                          change((d) => ({ ...d, labels: [...d.labels, label] }))
+                          patchCard(sel.card.id, { labels: [...sel.card.labels, label.id] })
+                        }} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -361,9 +356,12 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="kb-col" className="text-xs font-normal text-muted-foreground">Column</Label>
-                      <select id="kb-col" className={SELECT} value={sel.col.id} onChange={(e) => moveCard(sel.card.id, e.target.value, doc.columns.find((c) => c.id === e.target.value)?.cards.length ?? 0)}>
-                        {doc.columns.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-                      </select>
+                      <Select value={sel.col.id} onValueChange={(v) => moveCard(sel.card.id, v, doc.columns.find((c) => c.id === v)?.cards.length ?? 0)}>
+                        <SelectTrigger id="kb-col" className="w-full min-w-0 bg-card"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {doc.columns.map((c) => <SelectItem key={c.id} value={c.id}>{c.title || 'Untitled column'}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -406,5 +404,42 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
         )}
       </div>
     </div>
+  )
+}
+
+/** The card's label picker: every board label as a toggle, plus a new label by name. */
+function LabelPicker({ labels, chosen, onToggle, onCreate }: { labels: KanbanDoc['labels']; chosen: string[]; onToggle: (id: string) => void; onCreate: (name: string) => void }): JSX.Element {
+  const [name, setName] = useState('')
+  return (
+    <Popover onOpenChange={(o) => { if (!o) setName('') }}>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex min-h-7 items-center gap-1 rounded-full border-[1.5px] border-border bg-card px-2.5 text-[11px] font-semibold text-foreground outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40">
+          <Icon name="plus" size={10} /> Label
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="flex w-60 flex-col gap-1 p-1.5">
+        {labels.length > 0 && (
+          <ul className="m-0 flex list-none flex-col gap-0.5 p-0" aria-label="Board labels">
+            {labels.map((l) => {
+              const on = chosen.includes(l.id)
+              return (
+                <li key={l.id}>
+                  <button type="button" aria-pressed={on} onClick={() => onToggle(l.id)}
+                    className="flex min-h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-foreground outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/40">
+                    <span className="size-3 flex-none rounded-full" style={{ background: ORG_COLORS[l.color].fill }} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{l.name}</span>
+                    {on && <Icon name="check" size={12} />}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        <form className="flex items-center gap-1.5 border-t border-border p-1 pt-2 first:border-t-0 first:pt-1" onSubmit={(e) => { e.preventDefault(); const n = name.trim(); if (n) { onCreate(n); setName('') } }}>
+          <Input className="h-8 min-w-0 flex-1" value={name} maxLength={24} placeholder="New label" aria-label="Label name" onChange={(e) => setName(e.target.value)} />
+          <Button type="submit" size="sm" disabled={!name.trim()}>Add</Button>
+        </form>
+      </PopoverContent>
+    </Popover>
   )
 }

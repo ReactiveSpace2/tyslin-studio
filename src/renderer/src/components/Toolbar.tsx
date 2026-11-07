@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Account } from '@shared/types'
 import type { Route } from '../App'
 import { Icon } from './Icon'
 import { ProfileMenu } from './ProfileMenu'
 import { cn } from '@/lib/utils'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
@@ -13,7 +14,7 @@ const barBtn = (on: boolean): string => cn(
   'hover:bg-card hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40',
   on && 'border-border bg-card font-medium text-foreground shadow-xs'
 )
-const menuItem = 'flex min-h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-foreground outline-none hover:bg-muted focus-visible:bg-muted'
+const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5 text-foreground focus:bg-muted [&_svg:not([class*=\'size-\'])]:size-3.5'
 
 const DOCS = 'https://tyslin.ai'
 const ISSUES = 'https://github.com/ReactiveSpace2/tyslin-studio/issues'
@@ -34,18 +35,9 @@ export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onS
     ['Settings', 'settings', { name: 'settings' }, route.name === 'settings']
   ]
   const [help, setHelp] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!help) return
-    const onDown = (e: MouseEvent): void => { if (!ref.current?.contains(e.target as Node)) setHelp(false) }
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setHelp(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
-  }, [help])
 
   return (
-    <nav className="tw flex h-11 flex-none items-center justify-between gap-3 border-b border-border bg-panel px-3 text-foreground" aria-label="Main">
+    <nav className="flex h-11 flex-none items-center justify-between gap-3 border-b border-border bg-panel px-3 text-foreground" aria-label="Main">
       <div className="flex items-center gap-1">
         {items.map(([label, icon, to, on]) => (
           <button key={label} type="button" className={barBtn(on)} aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}>
@@ -54,19 +46,19 @@ export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onS
         ))}
       </div>
       <div className="flex items-center gap-1">
-        <div className="relative" ref={ref}>
-          <button type="button" className={cn(barBtn(help), 'w-9 justify-center px-0')} aria-label="Help" title="Help" aria-haspopup="menu" aria-expanded={help} onClick={() => setHelp((h) => !h)}>
-            <Icon name="help" size={17} />
-          </button>
-          {help && (
-            <div className="absolute top-[calc(100%+6px)] right-0 z-30 flex min-w-[230px] flex-col gap-0.5 rounded-xl border border-border bg-popover p-1.5 shadow-lg" role="menu" aria-label="Help">
-              <a role="menuitem" className={menuItem} href={DOCS} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="file" size={14} /> Guides on tyslin.ai</a>
-              <a role="menuitem" className={menuItem} href={ISSUES} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="github" size={14} /> Report a problem</a>
-              <span className="mx-1.5 my-1 h-px bg-border" aria-hidden="true" />
-              <button type="button" role="menuitem" className={menuItem} onClick={() => { setHelp(false); onNavigate({ name: 'settings', tab: 'about' }) }}><Icon name="idea" size={14} /> About Tyslin Studio</button>
-            </div>
-          )}
-        </div>
+        <DropdownMenu open={help} onOpenChange={setHelp}>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className={cn(barBtn(help), 'w-9 justify-center px-0')} aria-label="Help" title="Help">
+              <Icon name="help" size={17} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={6} className="flex min-w-[230px] flex-col gap-0.5 rounded-xl border-border p-1.5 shadow-lg" aria-label="Help">
+            <DropdownMenuItem asChild className={menuItem}><a href={DOCS} target="_blank" rel="noreferrer"><Icon name="file" size={14} /> Guides on tyslin.ai</a></DropdownMenuItem>
+            <DropdownMenuItem asChild className={menuItem}><a href={ISSUES} target="_blank" rel="noreferrer"><Icon name="github" size={14} /> Report a problem</a></DropdownMenuItem>
+            <DropdownMenuSeparator className="mx-0.5" />
+            <DropdownMenuItem className={menuItem} onSelect={() => onNavigate({ name: 'settings', tab: 'about' })}><Icon name="idea" size={14} /> About Tyslin Studio</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <ProfileMenu account={account} canSignOut={canSignOut} onProfile={onProfile} onSignOut={onSignOut} />
       </div>
     </nav>

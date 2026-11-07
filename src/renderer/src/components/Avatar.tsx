@@ -17,14 +17,17 @@ interface Props {
   size?: number
 }
 
-/** Agent character. The Builder agent uses the Tyslin mascot; others get a branded robot shape. */
+/**
+ * Agent character. The Builder agent uses the Tyslin mascot; others get a branded robot shape.
+ * In dark mode a thin light edge keeps ink robots visible.
+ */
 export function Avatar({ shape, tone, mascot: isMascot, head, size = 72 }: Props): JSX.Element {
-  if (isMascot) return <img src={mascot} width={size} height={size} alt="" style={{ objectFit: 'contain' }} />
-  if (head && HEAD_SRC[head]) return <img className="avatar-head" src={HEAD_SRC[head]} width={size} height={size} alt="" />
+  if (isMascot) return <img src={mascot} width={size} height={size} alt="" className="flex-none object-contain" style={{ width: size, height: size }} />
+  if (head && HEAD_SRC[head]) return <img className="flex-none object-contain" src={HEAD_SRC[head]} width={size} height={size} alt="" style={{ width: size, height: size }} />
   const { fill, feat } = TONES[tone]
   const stroke = '#0F0F0D'
   return (
-    <svg className="avatar-svg" width={size} height={size} viewBox="0 0 72 72" aria-hidden="true">
+    <svg className="flex-none dark:[filter:drop-shadow(0_0_0.6px_rgba(243,243,238,0.9))_drop-shadow(0_0_0.6px_rgba(243,243,238,0.6))]" width={size} height={size} viewBox="0 0 72 72" aria-hidden="true">
       {shape === 'block' && (
         <>
           <line x1="36" y1="4" x2="36" y2="12" stroke={stroke} strokeWidth="2" />

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
 type Channel = 'telegram' | 'slack' | 'discord' | 'whatsapp' | 'email'
@@ -94,22 +95,22 @@ function CodeRow({ children }: { children: React.ReactNode }): JSX.Element {
 function LinkedTable({ head, rows }: { head: string; rows: { key: string | number; name: string; onUnlink: () => void }[] }): JSX.Element | null {
   if (!rows.length) return null
   return (
-    <table className="w-full border-collapse text-sm">
-      <thead>
-        <tr>
-          <th className="border-b border-border py-2 pr-4 text-left text-xs font-medium text-muted-foreground">{head}</th>
-          <th className="w-px border-b border-border py-2"><span className="sr-only">Actions</span></th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead className="h-auto px-0 py-2 pr-4 text-xs text-muted-foreground">{head}</TableHead>
+          <TableHead className="h-auto w-px px-0 py-2"><span className="sr-only">Actions</span></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {rows.map((r) => (
-          <tr key={r.key} className="border-b border-border last:border-b-0">
-            <td className="py-2 pr-4"><span className="inline-flex items-center gap-2 text-green"><Icon name="check" size={13} />Linked: {r.name}</span></td>
-            <td className="py-2 text-right"><Button variant="ghost" size="sm" onClick={r.onUnlink}>Unlink</Button></td>
-          </tr>
+          <TableRow key={r.key} className="hover:bg-transparent">
+            <TableCell className="px-0 py-2 pr-4"><span className="inline-flex items-center gap-2 text-green"><Icon name="check" size={13} />Linked: {r.name}</span></TableCell>
+            <TableCell className="px-0 py-2 text-right"><Button variant="ghost" size="sm" onClick={r.onUnlink}>Unlink</Button></TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   )
 }
 
@@ -176,7 +177,7 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
   const errorLine = error && <span className="text-[13px] text-destructive" role="alert">{error}</span>
 
   return (
-    <div className="tw h-full overflow-y-auto text-foreground">
+    <div className="h-full overflow-y-auto text-foreground">
       <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-5 px-8 pt-7 pb-10">
         <div className="flex max-w-[720px] flex-col gap-1.5">
           <span className="font-mono text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Connectors</span>

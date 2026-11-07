@@ -6,6 +6,7 @@ import mark from '../assets/logo-mark.png'
 import { getDefaultProjectIdSafe } from './titleCrumbs'
 import wordmarkBlack from '../assets/wordmark-black.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
+import { cn } from '@/lib/utils'
 
 interface Props {
   route: Route
@@ -63,16 +64,16 @@ export function TitleBar({ route, agents, projects, onHome }: Props): JSX.Elemen
   useEffect(() => { document.title = title ? `${title} · Tyslin Studio` : 'Tyslin Studio — run your own AI agency' }, [title])
 
   return (
-    <header className={'titlebar' + (mac ? ' mac' : '')}>
-      <div className="titlebar-left" />
-      <div className="titlebar-center">
-        <button type="button" className={'titlebar-home' + (route.name === 'home' ? ' on' : '')} onClick={onHome} aria-label="Home" title="Home" aria-current={route.name === 'home' ? 'page' : undefined}>
-          <img className="titlebar-logo" src={mark} alt="" />
-          <img className="titlebar-wordmark light-only" src={wordmarkBlack} alt="" />
-          <img className="titlebar-wordmark dark-only" src={wordmarkWhite} alt="" />
+    <header className="tw drag-region grid h-11 flex-none grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-border bg-background text-foreground">
+      <div className={cn('flex min-w-0 items-center gap-0.5', mac ? 'pl-[84px]' : 'pl-3')} />
+      <div className="relative flex items-center">
+        <button type="button" className={cn('no-drag inline-flex h-9 cursor-pointer items-center gap-2.5 rounded-[10px] border border-transparent bg-transparent px-2.5 outline-none hover:border-border hover:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/40', route.name === 'home' && 'border-border bg-card')} onClick={onHome} aria-label="Home" title="Home" aria-current={route.name === 'home' ? 'page' : undefined}>
+          <img className="size-7 flex-none object-contain" src={mark} alt="" />
+          <img className="h-3.5 w-auto flex-none dark:hidden" src={wordmarkBlack} alt="" />
+          <img className="hidden h-3.5 w-auto flex-none dark:block" src={wordmarkWhite} alt="" />
         </button>
       </div>
-      <div className="titlebar-right" />
+      <div className={mac ? 'min-w-0' : 'min-w-[150px]'} />
     </header>
   )
 }

@@ -21,6 +21,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -66,7 +68,7 @@ function Group({ id, title, hint, className, children, ...rest }: { id: string; 
   )
 }
 
-/** A selectable card around a native radio (keeps arrow-key behaviour); the radio itself is visually hidden. */
+/** A selectable card around a RadioGroupItem (arrow keys move between cards); the radio itself is visually hidden. */
 const choiceCls = (on: boolean): string => cn(
   'relative flex cursor-pointer gap-3 rounded-xl border bg-card p-3.5 text-sm transition-colors has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
   on ? 'border-primary bg-lime-soft' : 'border-border hover:bg-accent'
@@ -90,17 +92,24 @@ const THEMES: [Theme, string, string][] = [
 
 /**
  * Small drawing of the app in each theme; System shows half of each. It pictures a fixed light and a fixed dark
- * screen whatever the current theme, so it keeps its own legacy `.theme-*` classes (fixed colours, styles.css).
+ * screen whatever the current theme, so its colours are the raw palette values, set as local CSS variables on each pane.
  */
+const PREVIEW_LIGHT = { '--pv-bg': '#FAFAF7', '--pv-rail': '#F3F3EE', '--pv-edge': '#E4E4DD', '--pv-ink': '#0F0F0D' } as React.CSSProperties
+const PREVIEW_DARK = { '--pv-bg': '#121210', '--pv-rail': '#1A1A17', '--pv-edge': '#33332E', '--pv-ink': '#F3F3EE' } as React.CSSProperties
+
 function ThemePreview({ theme }: { theme: Theme }): JSX.Element {
   const pane = (dark: boolean): JSX.Element => (
-    <span className={'theme-pane' + (dark ? ' dark' : '')}>
-      <span className="theme-rail" />
-      <span className="theme-body"><span className="theme-line" /><span className="theme-line short" /><span className="theme-fill" /></span>
+    <span className="flex flex-1 bg-[var(--pv-bg)]" style={{ ...(dark ? PREVIEW_DARK : PREVIEW_LIGHT), '--pv-lime': '#7DB800' } as React.CSSProperties}>
+      <span className="w-[18%] border-r border-[var(--pv-edge)] bg-[var(--pv-rail)]" />
+      <span className="flex flex-1 flex-col gap-1.5 px-2.5 py-3">
+        <span className="h-1.5 w-4/5 rounded-[3px] bg-[var(--pv-ink)] opacity-80" />
+        <span className="h-1.5 w-1/2 rounded-[3px] bg-[var(--pv-ink)] opacity-35" />
+        <span className="mt-auto h-3.5 w-[44%] rounded-[5px] bg-[var(--pv-lime)]" />
+      </span>
     </span>
   )
   return (
-    <span className="theme-preview" aria-hidden="true">
+    <span className="flex h-[88px] w-full overflow-hidden rounded-[10px] border border-border" aria-hidden="true">
       {theme === 'system' ? <>{pane(false)}{pane(true)}</> : pane(theme === 'dark')}
     </span>
   )
@@ -146,29 +155,29 @@ function AppearanceTab(): JSX.Element {
   return (
     <>
       <Group id="theme-h" title="Theme" hint="Changes apply straight away, on this computer.">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3" role="radiogroup" aria-labelledby="theme-h">
+        <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3" aria-labelledby="theme-h" value={prefs.theme} onValueChange={(v) => void save({ theme: v as Theme })}>
           {THEMES.map(([id, title, hint]) => (
             <label key={id} className={cn(choiceCls(prefs.theme === id), 'flex-col p-2.5')}>
               <ThemePreview theme={id} />
-              <input type="radio" className={radioCls} name="theme" value={id} checked={prefs.theme === id} onChange={() => void save({ theme: id })} />
+              <RadioGroupItem className={radioCls} value={id} />
               <span className="flex flex-col gap-0.5 px-1 pb-0.5">
                 <strong className="text-sm font-semibold">{title}</strong>
                 <span className={hintCls}>{hint}</span>
               </span>
             </label>
           ))}
-        </div>
+        </RadioGroup>
       </Group>
       <Group id="accent-h" title="Accent colour" hint="Used for buttons like Chat, selected items, progress bars and highlights. The Tyslin logo and robots keep their colours.">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5" role="radiogroup" aria-labelledby="accent-h">
+        <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5" aria-labelledby="accent-h" value={prefs.accent} onValueChange={(v) => void save({ accent: v as Accent })}>
           {ACCENTS.map(([id, title, hint]) => (
             <label key={id} className={cn(choiceCls(prefs.accent === id), 'items-center')}>
-              <input type="radio" className={radioCls} name="accent" value={id} checked={prefs.accent === id} onChange={() => void save({ accent: id })} />
+              <RadioGroupItem className={radioCls} value={id} />
               <span className="size-7 flex-none rounded-lg border border-border" aria-hidden="true" style={{ background: accentFill(id) }} />
               <span className="flex flex-col gap-0.5"><strong className="font-semibold">{title}</strong><span className={hintCls}>{hint}</span></span>
             </label>
           ))}
-        </div>
+        </RadioGroup>
       </Group>
       {org && (
         <Group id="orgcolor-h" title={<>Colour for {org.name}</>}
@@ -177,10 +186,10 @@ function AppearanceTab(): JSX.Element {
         </Group>
       )}
       <Group id="icons-h" title="Icons" hint="Bold strokes are easier to see at small sizes and low zoom.">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5" role="radiogroup" aria-labelledby="icons-h">
+        <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5" aria-labelledby="icons-h" value={prefs.iconStyle} onValueChange={(v) => void save({ iconStyle: v as Preferences['iconStyle'] })}>
           {([['outline', 'Outline', 'Thin, light strokes.'], ['bold', 'Bold', 'Thicker strokes.']] as const).map(([id, title, hint]) => (
             <label key={id} className={choiceCls(prefs.iconStyle === id)}>
-              <input type="radio" className={radioCls} name="icon-style" value={id} checked={prefs.iconStyle === id} onChange={() => void save({ iconStyle: id })} />
+              <RadioGroupItem className={radioCls} value={id} />
               <span className="flex flex-col gap-0.5">
                 <strong className="font-semibold">{title}</strong><span className={hintCls}>{hint}</span>
                 <span className={cn('mt-2 flex gap-3 text-foreground', id === 'bold' ? '[--icon-stroke:2.1]' : '[--icon-stroke:1.6]')} aria-hidden="true">
@@ -189,7 +198,7 @@ function AppearanceTab(): JSX.Element {
               </span>
             </label>
           ))}
-        </div>
+        </RadioGroup>
       </Group>
       <Card className="gap-0 overflow-hidden py-0">
         <div className="flex items-center gap-4 border-b border-border px-5 py-4">
@@ -227,27 +236,29 @@ function ResetBox(): JSX.Element {
       <div>
         <Button type="button" variant="destructive" onClick={() => { setOpen(true); setTyped('') }}>Reset…</Button>
       </div>
-      {open && (
-        <div className="fixed inset-0 z-10 flex items-center justify-center bg-[var(--backdrop)]" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) setOpen(false) }}>
-          <div className="flex w-[560px] max-w-[calc(100%-32px)] flex-col gap-4 rounded-2xl bg-background p-6 text-foreground shadow-lg" role="alertdialog" aria-modal="true" aria-labelledby="reset-t" aria-describedby="reset-d">
-            <h2 id="reset-t" className="text-xl font-semibold">Reset everything?</h2>
-            <div id="reset-d" className="flex flex-col gap-2 text-[13.5px] leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">
-              <p><strong>Deleted from this computer:</strong> all organizations and their agents, teams, projects, chats, tasks and skills you added; API keys, Telegram and Google Drive connections; your sign-in.</p>
-              <p><strong>Moved to the Trash</strong> (you can restore them): the Documents/Tyslin Studio folder with its boards, mind maps, designs and automations, and the same Tyslin folders inside project folders you linked. Your other files stay where they are.</p>
-              <p><strong>Then</strong> Tyslin closes and opens again: sign in, name your organization and project, and pick your provider and model.</p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="reset-confirm">Type RESET to confirm</Label>
-              <Input id="reset-confirm" className="font-mono" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} disabled={busy} autoComplete="off" />
-            </div>
-            {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={busy}>Cancel</Button>
-              <Button type="button" variant="destructive" disabled={typed.trim() !== 'RESET' || busy} onClick={() => void go()}>{busy ? 'Resetting…' : 'Reset and restart'}</Button>
-            </div>
+      <AlertDialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o) }}>
+        <AlertDialogContent className="w-[560px] gap-4 rounded-2xl border-0 sm:max-w-[560px]">
+          <AlertDialogHeader className="place-items-start text-left">
+            <AlertDialogTitle className="text-xl font-semibold">Reset everything?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="flex flex-col gap-2 text-[13.5px] leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">
+                <p><strong>Deleted from this computer:</strong> all organizations and their agents, teams, projects, chats, tasks and skills you added; API keys, Telegram and Google Drive connections; your sign-in.</p>
+                <p><strong>Moved to the Trash</strong> (you can restore them): the Documents/Tyslin Studio folder with its boards, mind maps, designs and automations, and the same Tyslin folders inside project folders you linked. Your other files stay where they are.</p>
+                <p><strong>Then</strong> Tyslin closes and opens again: sign in, name your organization and project, and pick your provider and model.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="reset-confirm">Type RESET to confirm</Label>
+            <Input id="reset-confirm" className="font-mono" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} disabled={busy} autoComplete="off" />
           </div>
-        </div>
-      )}
+          {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
+          <AlertDialogFooter>
+            <AlertDialogCancel type="button" disabled={busy}>Cancel</AlertDialogCancel>
+            <Button type="button" variant="destructive" disabled={typed.trim() !== 'RESET' || busy} onClick={() => void go()}>{busy ? 'Resetting…' : 'Reset and restart'}</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Group>
   )
 }
@@ -314,18 +325,17 @@ function AgentsTab(): JSX.Element {
   return (
     <>
       <Group id="writes-h" title="File changes for new agents" hint="The starting choice when you build an agent. Each agent can still change it in its editor.">
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5" role="radiogroup" aria-labelledby="writes-h">
+        <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5" aria-labelledby="writes-h" value={prefs.defaultWriteMode} onValueChange={(v) => void save({ defaultWriteMode: v as WriteMode }, 'Default saved')}>
           {([
             ['ask', 'Ask before writing files', 'Review a diff, accept or reject each change.'],
             ['direct', 'Write directly', 'Changes go straight to disk.']
           ] as [WriteMode, string, string][]).map(([mode, title, hint]) => (
             <label key={mode} className={choiceCls(prefs.defaultWriteMode === mode)}>
-              <input type="radio" className={radioCls} name="default-write" value={mode} checked={prefs.defaultWriteMode === mode}
-                onChange={() => void save({ defaultWriteMode: mode }, 'Default saved')} />
+              <RadioGroupItem className={radioCls} value={mode} />
               <span className="flex flex-col gap-0.5"><strong className="font-semibold">{title}</strong><span className={hintCls}>{hint}</span></span>
             </label>
           ))}
-        </div>
+        </RadioGroup>
       </Group>
       <Group id="shared-h" title="Guidelines for every agent" hint="Added to each agent's own instructions. Use it for house rules: tone, format, things to always or never do.">
         <div className="flex flex-col gap-1.5">
@@ -510,8 +520,8 @@ function AboutTab(): JSX.Element {
       </Group>
       <ResetBox />
       <section className="flex flex-col items-start gap-4 rounded-xl border border-border bg-card p-5 shadow-xs" aria-label="About">
-        <img src={stacked} alt="Tyslin" className="light-only w-24" />
-        <span className="dark-only">
+        <img src={stacked} alt="Tyslin" className="w-24 dark:hidden" />
+        <span className="hidden dark:block">
           <span className="flex w-24 flex-col items-center gap-2.5">
             <img src={mark} alt="Tyslin" className="w-20" />
             <img src={wordmarkWhite} alt="" className="w-24" />
@@ -544,7 +554,7 @@ export function SettingsPage({ initialTab = 'models', onAuthChange }: { initialT
   const title = TABS.find(([id]) => id === tab)?.[1] ?? ''
 
   return (
-    <div className="tw watermarked mx-auto flex w-full max-w-[1280px] flex-wrap gap-8 px-10 pt-8 pb-12 text-foreground">
+    <div className="relative isolate [--card:rgba(255,255,255,0.82)] dark:[--card:rgba(31,31,28,0.82)] mx-auto flex w-full max-w-[1280px] flex-wrap gap-8 px-10 pt-8 pb-12 text-foreground">
       <Watermark pose="thinking" />
       <div className="flex max-w-[220px] flex-[1_1_200px] flex-col gap-3">
         <span className="px-3 font-mono text-xs tracking-[0.08em] text-muted-foreground uppercase">Settings</span>

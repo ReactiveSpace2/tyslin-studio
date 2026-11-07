@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { clampZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from '@shared/types'
+import { Slider as SliderPrimitive } from 'radix-ui'
+import { cn } from '@/lib/utils'
 import { Icon } from './Icon'
 
 /**
@@ -42,25 +44,40 @@ function useZoom(): [number, (z: number) => void] {
   return [zoom, setZoomValue]
 }
 
-/** − slider + and a percentage that resets to 100%. `compact` is the title-bar size. */
+const FOCUS = 'outline-none focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring'
+
+/** − slider + and a percentage that resets to 100%. `compact` is the status-bar size. */
 export function ZoomControl({ compact = false }: { compact?: boolean }): JSX.Element {
   const [zoom, setZoom] = useZoom()
   const pct = Math.round(zoom * 100)
+  const btn = cn('grid cursor-pointer place-items-center rounded-md p-0 disabled:cursor-default disabled:opacity-40', FOCUS,
+    compact
+      ? 'size-5 text-muted-foreground enabled:hover:text-foreground'
+      : 'size-8 border border-border bg-card text-foreground enabled:hover:border-border-strong')
   return (
-    <div className={'zoom' + (compact ? ' compact' : '')} role="group" aria-label="Zoom">
-      <button type="button" className="zoom-btn" aria-label="Zoom out" title="Zoom out (Ctrl −)" disabled={zoom <= ZOOM_MIN}
+    <div className={cn('no-drag inline-flex items-center', compact ? 'ml-1 gap-1' : 'gap-1.5')} role="group" aria-label="Zoom">
+      <button type="button" className={btn} aria-label="Zoom out" title="Zoom out (Ctrl −)" disabled={zoom <= ZOOM_MIN}
         onClick={() => setZoom(zoom - ZOOM_STEP)}>
         <Icon name="minus" size={compact ? 12 : 14} />
       </button>
-      <input type="range" className="zoom-range" aria-label="Zoom level" aria-valuetext={`${pct}%`}
-        min={ZOOM_MIN} max={ZOOM_MAX} step={0.05} value={zoom}
-        style={{ ['--fill' as string]: `${((zoom - ZOOM_MIN) / (ZOOM_MAX - ZOOM_MIN)) * 100}%` }}
-        onChange={(e) => setZoom(Number(e.target.value))} />
-      <button type="button" className="zoom-btn" aria-label="Zoom in" title="Zoom in (Ctrl +)" disabled={zoom >= ZOOM_MAX}
+      {/* shadcn's Slider, built on the Radix primitive here so the thumb (the focusable part) carries the label and value text. */}
+      <SliderPrimitive.Root min={ZOOM_MIN} max={ZOOM_MAX} step={0.05} value={[zoom]} onValueChange={([z]) => setZoom(z)}
+        className={cn('relative flex h-4 cursor-pointer touch-none select-none items-center', compact ? 'w-20' : 'w-[220px]')}>
+        <SliderPrimitive.Track className="relative h-1 grow overflow-hidden rounded-full bg-border">
+          <SliderPrimitive.Range className="absolute h-full bg-lime" />
+        </SliderPrimitive.Track>
+        <SliderPrimitive.Thumb aria-label="Zoom level" aria-valuetext={`${pct}%`}
+          className={cn('block size-3.5 rounded-full border-2 border-foreground bg-card', FOCUS)} />
+      </SliderPrimitive.Root>
+      <button type="button" className={btn} aria-label="Zoom in" title="Zoom in (Ctrl +)" disabled={zoom >= ZOOM_MAX}
         onClick={() => setZoom(zoom + ZOOM_STEP)}>
         <Icon name="plus" size={compact ? 12 : 14} />
       </button>
-      <button type="button" className="zoom-reset mono" title="Reset to 100% (Ctrl 0)" aria-label={`Zoom ${pct}%. Reset to 100%`}
+      <button type="button" title="Reset to 100% (Ctrl 0)" aria-label={`Zoom ${pct}%. Reset to 100%`}
+        className={cn('cursor-pointer rounded-md font-mono', FOCUS,
+          compact
+            ? 'h-5 min-w-[42px] text-[11px] text-muted-foreground hover:text-foreground'
+            : 'h-8 min-w-12 border border-border bg-card px-2 text-xs text-foreground')}
         onClick={() => setZoom(1)}>
         {pct}%
       </button>

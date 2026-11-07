@@ -44,7 +44,7 @@ export function AgenciesPage({ agencies, onOpen, onBoard, onEdit, onNew }: Props
     .filter((v) => !q.trim() || v.project.name.toLowerCase().includes(q.trim().toLowerCase()))
     .filter((v) => filter === 'all' || (filter === 'paused' ? v.paused : !v.paused))
   return (
-    <div className="tw flex w-full max-w-[1280px] flex-col gap-6 px-10 pt-8 pb-12 text-foreground">
+    <div className="flex w-full max-w-[1280px] flex-col gap-6 px-10 pt-8 pb-12 text-foreground">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1.5">
           <span className="font-mono text-xs tracking-[0.08em] text-green uppercase">Studio</span>

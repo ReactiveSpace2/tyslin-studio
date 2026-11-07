@@ -31,6 +31,7 @@ import { closeAgencyTab, initCurrentProject, openAgencyTab, setCurrentProject, u
 import { UpdateNotice } from './components/UpdateNotice'
 import { Badge } from '@/components/ui/badge'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 /**
  * Screens: Home (the organization), Agencies (list, one agency, the New agency wizard), and inside an
@@ -153,12 +154,12 @@ export default function App(): JSX.Element {
   }
 
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
-  if (!auth || onboarding === null) return <div className="app"><div className="titlebar" /></div>
+  if (!auth || onboarding === null) return <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground"><div className="drag-region h-11 flex-none border-b border-border bg-background" /></div>
   // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
   if (auth.configured && !auth.account) {
     return (
-      <div className="app">
-        <div className="titlebar" />
+      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+        <div className="drag-region h-11 flex-none border-b border-border bg-background" />
         <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
       </div>
     )
@@ -166,8 +167,8 @@ export default function App(): JSX.Element {
   // First run on this computer: the agency setup wizard (organization, agency, adapter, model, skills, board, channel).
   if (onboarding) {
     return (
-      <div className="app">
-        <div className="titlebar" />
+      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+        <div className="drag-region h-11 flex-none border-b border-border bg-background" />
         <AgencyWizard firstRun firstName={auth.account?.name?.split(' ')[0]} onDone={(projectId) => {
           setOnboarding(false)
           // The tab store loads once setup is done; open the new agency's tab after it, not before.
@@ -179,7 +180,7 @@ export default function App(): JSX.Element {
   }
 
   return (
-    <div className="app">
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
       <TitleBar route={route} agents={agents} projects={projects} onHome={() => setRoute({ name: 'home' })} />
       <Toolbar
         route={route}
@@ -199,12 +200,12 @@ export default function App(): JSX.Element {
         onNewAgency={() => setRoute({ name: 'newAgency' })}
       />
       {/* Inside an agency: shadcn's "inset" dashboard layout. The sidebar sits on the panel colour and the screen is a rounded card beside it. */}
-      <div className={'app-body' + (agencyNavOn && activeAgency ? ' bg-panel' : '')}>
+      <div className={cn('flex min-h-0 flex-1', agencyNavOn && activeAgency && 'bg-panel')}>
         {agencyNavOn && activeAgency && (
           <AgencyNav agencyId={activeAgency} name={activeProject?.name ?? 'Agency'} route={route} unread={unreadByProject[activeAgency] ?? 0} leadId={activeView?.lead?.id ?? null}
             onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }} />
         )}
-        <main className={'main' + (agencyNavOn && activeAgency ? ' my-2 mr-2 rounded-xl border border-border bg-background shadow-sm' : '')}>
+        <main className={cn('min-w-0 flex-1 overflow-y-auto', agencyNavOn && activeAgency && 'my-2 mr-2 rounded-xl border border-border bg-background shadow-sm')}>
           {route.name === 'home' && (
             <OrgHome
               you={you}
@@ -323,13 +324,13 @@ export default function App(): JSX.Element {
           {route.name === 'skills' && <SkillsPage key={activeView?.agency.id ?? 'none'} agents={agents} team={activeView?.lead ? { name: activeView.project.name, members: [activeView.lead, ...activeView.workers] } : activeView ? { name: activeView.project.name, members: activeView.workers } : undefined} onAgentsChanged={() => void refresh()} />}
           {route.name === 'memory' && (activeView
             ? <MemoryPage key={activeView.agency.id} agencyId={activeView.agency.id} agencyName={activeView.project.name} agents={agents} />
-            : <div className="page"><p className="hint">Open an agency to see its memory.</p></div>)}
+            : <div className="flex max-w-[1280px] flex-col gap-6 px-10 pt-8 pb-12"><p className="text-xs text-muted-foreground">Open an agency to see its memory.</p></div>)}
           {route.name === 'integrations' && <IntegrationsPage key={activeView?.agency.id ?? 'none'} agents={agents} templateId={activeView?.agency.templateId} team={activeView ? { name: activeView.project.name, members: activeView.lead ? [activeView.lead, ...activeView.workers] : activeView.workers } : undefined} />}
           {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
         </main>
       </div>
       <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onOpenChat={openChat} />
-      <div className="update-float">
+      <div className="pointer-events-none fixed bottom-11 left-20 z-20 w-60 [&>*]:pointer-events-auto [&>*]:shadow-[0_4px_16px_var(--shadow)]">
         <UpdateNotice />
       </div>
       {addingWorker && (
@@ -370,7 +371,7 @@ function AgencyChatTabs({ tab, leadName, unread, onChat, onInbox, children }: {
 }): JSX.Element {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="tw flex flex-none items-center gap-3 border-b border-border bg-background px-6 py-2.5 text-foreground">
+      <div className="flex flex-none items-center gap-3 border-b border-border bg-background px-6 py-2.5 text-foreground">
         <TabsList aria-label="Chat">
           {onChat && (
             <TabsTrigger active={tab === 'chat'} onClick={() => { if (tab !== 'chat') onChat() }}>

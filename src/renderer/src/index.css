@@ -1,21 +1,80 @@
 /*
- * Styles entry. Tailwind v4 + shadcn/ui sit beside the original stylesheet while screens move over.
- *
- * Layer order: Tailwind's theme, the scoped base below, the original styles.css (as "legacy"), then
- * Tailwind utilities. Utilities win over legacy rules, so a screen built with Tailwind classes is not
- * overridden by old element rules (h1, button…); old screens keep their look because legacy wins over base.
- * Tailwind's global Preflight is left out on purpose: it would restyle every old screen.
+ * Styles entry: Tailwind v4 + shadcn/ui only (no other stylesheet). The Tyslin tokens below are the single source of
+ * colour; `@theme inline` maps shadcn's names onto them, so light/dark (prefers-color-scheme, set by Electron's
+ * nativeTheme from Settings → Appearance) and the accent presets (data-accent on <html>) work everywhere.
  */
-@layer theme, base, legacy, components, utilities;
-@import "tailwindcss/theme.css" layer(theme);
-@import "./styles.css" layer(legacy);
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
+@import "tw-animate-css";
 
-/*
- * shadcn/ui tokens mapped onto the Tyslin tokens in styles.css, so light, dark (prefers-color-scheme,
- * driven by Settings → Appearance) and the accent presets all keep working. Brand rule: lime is a fill
- * only, with on-lime (ink) text; green is for text and lines.
- */
+/* Tyslin brand tokens. Lime is a fill only (text on it is --on-lime); green is for text and lines. */
+:root {
+  --parchment: #fafaf7;
+  --panel: #f3f3ee;
+  --card: #ffffff;
+  --ink: #0f0f0d;
+  --muted: #5c5c57;
+  --line: #e4e4dd;
+  --line-soft: #eeeee8;
+  --lime: #7db800;
+  --lime-soft: #eef5df;
+  --green: #4a7000;
+  --danger: #a11b1b;
+  --danger-soft: #fbe3e3;
+  --on-lime: #0f0f0d;
+  --line-strong: #c9c9c0;
+  --ink-hover: #2a2a26;
+  --logo-tile: #ffffff; /* provider logos are drawn for a light tile */
+  --shadow: rgba(15, 15, 13, 0.08);
+  --backdrop: rgba(15, 15, 13, 0.35);
+  --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --chart-1: var(--lime);
+  --chart-2: var(--green);
+  --chart-3: var(--ink);
+  --chart-4: var(--line-strong);
+  --chart-5: var(--muted);
+  color-scheme: light;
+}
+
+/* Dark: ink and parchment swap; dark green fails contrast on dark, so green text and lines use lime. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --parchment: #121210;
+    --panel: #1a1a17;
+    --card: #1f1f1c;
+    --ink: #f3f3ee;
+    --muted: #a3a39b;
+    --line: #33332e;
+    --line-soft: #292925;
+    --lime-soft: #232c12;
+    --green: #7db800;
+    --danger: #f08a8a;
+    --danger-soft: #3a1c1c;
+    --line-strong: #4a4a43;
+    --ink-hover: #d9d9d2;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --backdrop: rgba(0, 0, 0, 0.6);
+    color-scheme: dark;
+  }
+}
+
+/* Appearance presets (renderer/src/appearance.ts sets data-accent / data-icons on <html>). */
+:root[data-accent="forest"] { --lime: #4a7000; --on-lime: #fafaf7; --lime-soft: #e8efda; }
+:root[data-accent="mono"] { --lime: #0f0f0d; --on-lime: #fafaf7; --lime-soft: #eeeee8; --green: #0f0f0d; }
+:root[data-accent="teal"] { --lime: #2bb3a3; --lime-soft: #ddf3f0; --green: #0b6e63; }
+:root[data-accent="amber"] { --lime: #f2b33d; --lime-soft: #fcf0d6; --green: #8a5a00; }
+:root[data-accent="coral"] { --lime: #f2836a; --lime-soft: #fce5df; --green: #a63a1f; }
+:root[data-accent="violet"] { --lime: #a992f5; --lime-soft: #eee9fd; --green: #5b3fb8; }
+@media (prefers-color-scheme: dark) {
+  :root[data-accent="forest"] { --lime-soft: #1f2a10; }
+  :root[data-accent="mono"] { --lime: #f3f3ee; --on-lime: #0f0f0d; --lime-soft: #2a2a26; --green: #f3f3ee; }
+  :root[data-accent="teal"] { --lime-soft: #10302c; --green: #2bb3a3; }
+  :root[data-accent="amber"] { --lime-soft: #33280f; --green: #f2b33d; }
+  :root[data-accent="coral"] { --lime-soft: #3a1f18; --green: #f2836a; }
+  :root[data-accent="violet"] { --lime-soft: #26203d; --green: #a992f5; }
+}
+:root[data-icons="bold"] { --icon-stroke: 2.1; }
+
 @theme inline {
   --color-background: var(--parchment);
   --color-foreground: var(--ink);
@@ -49,6 +108,33 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
+  /* shadcn Sidebar tokens */
+  --color-sidebar: var(--panel);
+  --color-sidebar-foreground: var(--ink);
+  --color-sidebar-primary: var(--ink);
+  --color-sidebar-primary-foreground: var(--parchment);
+  --color-sidebar-accent: var(--card);
+  --color-sidebar-accent-foreground: var(--ink);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--green);
+  --color-backdrop: var(--backdrop);
+
+  /* Tyslin's own motion (every one stops under prefers-reduced-motion, see the end of this file). */
+  --animate-travel: travel 2.4s linear infinite;      /* WorkingBorder: lime line round a working card (SVG stroke-dashoffset) */
+  --animate-hop: hop 1.2s ease-in-out infinite;       /* WorkingDots */
+  --animate-flow: flow .9s linear infinite;           /* org chart hand-off dashes (background-position) */
+  --animate-blink: blink 1.2s ease-in-out infinite;   /* status dot pulse */
+  --animate-slide: slide 1.4s ease-in-out infinite;   /* indeterminate progress bar */
+  --animate-ring-pulse: ring-pulse 1.6s ease-in-out infinite; /* busy sync dot */
+  --animate-dot: dot 1.2s ease-in-out infinite;       /* typing dots */
+  @keyframes travel { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+  @keyframes hop { 0%, 60%, 100% { transform: translateY(0); opacity: .35; } 30% { transform: translateY(-2px); opacity: 1; } }
+  @keyframes flow { from { background-position: 0 0; } to { background-position: 0 18px; } }
+  @keyframes blink { 50% { opacity: .3; } }
+  @keyframes slide { from { left: -35%; } to { left: 100%; } }
+  @keyframes ring-pulse { 50% { box-shadow: 0 0 0 7px var(--lime-soft); } }
+  @keyframes dot { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
   --font-sans: var(--font);
   --font-mono: var(--mono);
 
@@ -59,39 +145,18 @@
   --radius-2xl: 16px;
 }
 
-/* Chart colours (shadcn's --chart-1…5) on the Tyslin tokens, so charts follow the accent preset and dark mode. */
-:root {
-  --chart-1: var(--lime);
-  --chart-2: var(--green);
-  --chart-3: var(--ink);
-  --chart-4: var(--line-strong);
-  --chart-5: var(--muted);
+/* shadcn's base layer: borders use the border token; the window never scrolls, only the content area does. */
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html, body, #root { @apply h-full overflow-hidden; }
+  body { @apply bg-background font-sans text-[15px] text-foreground antialiased; }
 }
 
-/*
- * Preflight, scoped: only inside a `.tw` wrapper (screens rebuilt with Tailwind) and shadcn/ui parts
- * (every one carries data-slot, so popovers rendered in a portal are covered too). :where() keeps it
- * at zero specificity so any utility overrides it.
- */
-@layer base {
-  :where(.tw, .tw *, [data-slot], [data-slot] *), :where(.tw, .tw *, [data-slot], [data-slot] *)::before, :where(.tw, .tw *, [data-slot], [data-slot] *)::after {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    border: 0 solid;
-    border-color: var(--line); /* shadcn's default: borders use the border token, not currentColor */
-  }
-  :where(.tw, [data-slot]) :where(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; letter-spacing: inherit; }
-  :where(.tw, [data-slot]) :where(ol, ul, menu) { list-style: none; }
-  :where(.tw table, table[data-slot]) { border-collapse: collapse; border-spacing: 0; text-indent: 0; }
-  :where(.tw, [data-slot]) :where(img, video) { max-width: 100%; height: auto; }
-  :where(.tw, [data-slot]) :where(a) { color: inherit; text-decoration: inherit; }
-  :where(.tw button, .tw input, .tw select, .tw textarea, button[data-slot], input[data-slot], textarea[data-slot]) {
-    font: inherit;
-    color: inherit;
-    background-color: transparent;
-    border-radius: 0;
-  }
-  :where(.tw button, button[data-slot]) { cursor: pointer; }
-  :where(.tw, [data-slot]) :where(::placeholder) { color: var(--muted); opacity: 1; }
+/* Electron window dragging (the title bar): no Tailwind utility exists for -webkit-app-region. */
+@utility drag-region { -webkit-app-region: drag; user-select: none; }
+@utility no-drag { -webkit-app-region: no-drag; }
+
+/* Reduced motion: every animation and transition stops (brand rule). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

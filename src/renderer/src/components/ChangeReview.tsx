@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { diffHunks, type DiffPart } from '@shared/diff'
 import type { PendingChange } from '@shared/types'
 import { Icon } from './Icon'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
@@ -29,8 +30,8 @@ function lines(text: string): string[] {
 /** One diff line: a marker column (+, − or blank) and the text, kept as is. */
 function Line({ mark, text, kind, off }: { mark: string; text: string; kind?: 'add' | 'del'; off?: boolean }): JSX.Element {
   return (
-    <div className={cn('px-2 whitespace-pre', kind === 'add' && 'bg-lime-soft', kind === 'del' && 'bg-destructive-soft', off && 'line-through opacity-45')}>
-      <span className="inline-block w-4 text-muted-foreground select-none">{mark}</span>{text}
+    <div className={cn('px-2 whitespace-pre', kind === 'add' && 'bg-lime-soft text-green', kind === 'del' && 'bg-destructive-soft text-destructive', off && 'line-through opacity-45')}>
+      <span className={cn('inline-block w-4 select-none', kind ? 'opacity-70' : 'text-muted-foreground')} aria-hidden="true">{mark}</span>{text}
     </div>
   )
 }
@@ -62,12 +63,6 @@ export function ChangeReview({ changes, onClose, onResolved }: Props): JSX.Eleme
   const pending = changes.filter((c) => c.status === 'pending')
   const change = changes.find((c) => c.id === selected) ?? changes[0]
   const diff = change && diffs[change.id]
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   const acceptedFor = (c: PendingChange): Set<number> =>
     accepted[c.id] ?? new Set(Array.from({ length: diffs[c.id].hunkCount }, (_, i) => i))
@@ -138,16 +133,19 @@ export function ChangeReview({ changes, onClose, onResolved }: Props): JSX.Eleme
   }
 
   return (
-    <div className="tw fixed inset-0 z-10 flex items-center justify-center bg-[var(--backdrop)] text-foreground" onClick={onClose}>
-      <div className="flex h-[calc(100%-64px)] w-[1040px] max-w-[calc(100%-48px)] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-lg"
-        role="dialog" aria-modal="true" aria-labelledby="review-title" onClick={(e) => e.stopPropagation()}>
-        <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent showCloseButton={false}
+        className="flex h-[calc(100%-64px)] w-[1040px] max-w-[calc(100%-48px)] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-background p-0 text-foreground shadow-lg sm:max-w-[calc(100%-48px)]">
+        <DialogHeader className="flex-row items-center justify-between gap-3 border-b border-border px-5 py-4 text-left">
           <div className="flex flex-col gap-1">
             <span className="font-mono text-xs tracking-wider text-green uppercase">Review changes</span>
-            <h2 id="review-title" className="text-lg font-semibold tracking-tight">{changes.length} file{changes.length === 1 ? '' : 's'} changed</h2>
+            <DialogTitle className="text-lg font-semibold tracking-tight">{changes.length} file{changes.length === 1 ? '' : 's'} changed</DialogTitle>
+            <DialogDescription className="sr-only">Accept or reject each change before it is written to the project folder.</DialogDescription>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}><Icon name="close" /></Button>
-        </header>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" aria-label="Close"><Icon name="close" /></Button>
+          </DialogClose>
+        </DialogHeader>
 
         <div className="flex min-h-0 flex-1">
           <ul className="flex w-[280px] flex-none flex-col gap-1 overflow-y-auto border-r border-border bg-muted p-2.5" aria-label="Files">
@@ -189,7 +187,7 @@ export function ChangeReview({ changes, onClose, onResolved }: Props): JSX.Eleme
           <footer className="border-t border-border px-5 py-4"><span className="text-sm text-muted-foreground">These changes have been reviewed.</span></footer>
         )}
         {error && <div className="mx-5 mb-4 rounded-lg bg-destructive-soft px-3.5 py-2.5 text-sm text-destructive" role="alert">{error}</div>}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

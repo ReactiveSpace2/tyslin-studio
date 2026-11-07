@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 /** OpenRouter is hidden for now (owner, 7 Nov 2026). Its sign-in, card and model search stay in the code; set true to show them. */
@@ -31,7 +32,7 @@ const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
 const money = (n: number): string => '$' + (n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString())
 
 /** Shared look for native selects (no shadcn Select here: the native one keeps keyboard and screen-reader behaviour). */
-const selectCls = 'h-9 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+const selectCls = 'w-full min-w-0 bg-card dark:bg-card dark:hover:bg-card'
 const hintCls = 'text-[13px] leading-relaxed text-muted-foreground'
 const errorCls = 'text-[13px] text-destructive'
 const linkCls = 'self-start text-[13px] text-green underline-offset-4 hover:underline'
@@ -426,17 +427,19 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   const picked = all.find((m) => m.id === value.model)
 
   return (
-    <div className="tw grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 text-foreground">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 text-foreground">
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor={idPrefix + '-prov'} className="text-[13px]">Provider</Label>
         <div className="flex items-center gap-2.5">
           <Mark id={value.provider} size={28} />
-          <select id={idPrefix + '-prov'} className={selectCls} value={value.provider}
-            onChange={(e) => { const p = e.target.value as ProviderId; setQuery(''); onChange({ provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
-            {providers.map((p) => (
-              <option key={p} value={p}>{PROVIDER_NAME[p]}{p === 'ollama' ? ' (on this computer)' : hasKey(settings, p) ? '' : ' (not connected)'}</option>
-            ))}
-          </select>
+          <Select value={value.provider} onValueChange={(v) => { const p = v as ProviderId; setQuery(''); onChange({ provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
+            <SelectTrigger id={idPrefix + '-prov'} className={selectCls}><SelectValue /></SelectTrigger>
+            <SelectContent position="popper">
+              {providers.map((p) => (
+                <SelectItem key={p} value={p}>{PROVIDER_NAME[p]}{p === 'ollama' ? ' (on this computer)' : hasKey(settings, p) ? '' : ' (not connected)'}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -445,11 +448,13 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
           <Input type="search" aria-label="Search OpenRouter models" placeholder={`Search ${orModels!.length} models, e.g. sonnet, gpt-5, llama`}
             value={query} onChange={(e) => setQuery(e.target.value)} />
         )}
-        <select id={idPrefix + '-model'} className={cn(selectCls, 'font-mono')} value={known ? value.model : OTHER}
-          onChange={(e) => onChange({ ...value, model: e.target.value === OTHER ? '' : e.target.value })}>
-          {shown.map((m) => <option key={m.id} value={m.id}>{m.name === m.id ? m.id : `${m.name} · ${m.id}`}</option>)}
-          <option value={OTHER}>Other model…</option>
-        </select>
+        <Select value={known ? value.model : OTHER} onValueChange={(v) => onChange({ ...value, model: v === OTHER ? '' : v })}>
+          <SelectTrigger id={idPrefix + '-model'} className={cn(selectCls, 'font-mono')}><SelectValue /></SelectTrigger>
+          <SelectContent position="popper" className="max-h-[min(360px,var(--radix-select-content-available-height))]">
+            {shown.map((m) => <SelectItem key={m.id} value={m.id} className="font-mono">{m.name === m.id ? m.id : `${m.name} · ${m.id}`}</SelectItem>)}
+            <SelectItem value={OTHER}>Other model…</SelectItem>
+          </SelectContent>
+        </Select>
         {isOr && query.trim() && shown.length === 0 && <span className={hintCls}>No model matches "{query.trim()}".</span>}
         {!known && (
           <Input className="font-mono" aria-label="Model name" placeholder="Model name, e.g. gpt-4.1" value={value.model} spellCheck={false}

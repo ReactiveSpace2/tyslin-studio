@@ -1,5 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { UpdateStatus } from '@shared/types'
+import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+
+const BOX = 'flex flex-col gap-1.5 rounded-lg border border-green bg-lime-soft p-3'
+const LABEL = 'font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground'
+const TITLE = 'text-sm font-semibold'
 
 /** Sidebar card shown only when there is something to act on: a download in progress or a new version. */
 export function UpdateNotice(): JSX.Element | null {
@@ -15,35 +21,34 @@ export function UpdateNotice(): JSX.Element | null {
 
   if (status.state === 'downloading') {
     return (
-      <div className="update" role="status">
-        <span className="section-label" style={{ padding: 0 }}>Update</span>
-        <strong>Downloading {v}…</strong>
-        <div className="update-bar" aria-hidden="true">
-          <span style={{ width: `${status.percent ?? 0}%` }} />
-        </div>
+      <div className={BOX} role="status">
+        <span className={LABEL}>Update</span>
+        <strong className={TITLE}>Downloading {v}…</strong>
+        <Progress value={status.percent ?? 0} aria-hidden="true"
+          className="h-1.5 bg-card [&>[data-slot=progress-indicator]]:bg-lime [&>[data-slot=progress-indicator]]:duration-300" />
       </div>
     )
   }
   if (status.state === 'ready') {
     return (
-      <div className="update" role="status">
-        <span className="section-label" style={{ padding: 0 }}>Update ready</span>
-        <strong>{v} is ready to install</strong>
-        <button type="button" className="btn btn-lime btn-sm" onClick={() => void window.tyslin.updates.install()}>
+      <div className={BOX} role="status">
+        <span className={LABEL}>Update ready</span>
+        <strong className={TITLE}>{v} is ready to install</strong>
+        <Button variant="lime" size="sm" className="mt-0.5 self-start" onClick={() => void window.tyslin.updates.install()}>
           Restart to update
-        </button>
+        </Button>
       </div>
     )
   }
   if (status.state === 'available') {
     return (
-      <div className="update" role="status">
-        <span className="section-label" style={{ padding: 0 }}>Update available</span>
-        <strong>{v} is out</strong>
-        <span>You have v{status.currentVersion}.</span>
-        <button type="button" className="btn btn-lime btn-sm" onClick={() => void window.tyslin.updates.openDownload()}>
+      <div className={BOX} role="status">
+        <span className={LABEL}>Update available</span>
+        <strong className={TITLE}>{v} is out</strong>
+        <span className="text-xs text-muted-foreground">You have v{status.currentVersion}.</span>
+        <Button variant="lime" size="sm" className="mt-0.5 self-start" onClick={() => void window.tyslin.updates.openDownload()}>
           Download
-        </button>
+        </Button>
       </div>
     )
   }

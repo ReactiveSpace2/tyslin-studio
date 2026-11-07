@@ -28,15 +28,13 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: React.ComponentProps<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean }): JSX.Element {
-  const Comp = asChild ? Slot : 'button'
-  return <Comp data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />
-}
+// forwardRef: React 18 doesn't pass `ref` to function components, and Radix triggers (`asChild`) need the DOM node
+// to anchor menus and popovers. (shadcn's current source assumes React 19, where ref is a plain prop.)
+const Button = React.forwardRef<HTMLButtonElement, React.ComponentPropsWithoutRef<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean }>(
+  function Button({ className, variant, size, asChild = false, ...props }, ref) {
+    const Comp = asChild ? Slot : 'button'
+    return <Comp ref={ref} data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />
+  }
+)
 
 export { Button, buttonVariants }

@@ -1,5 +1,6 @@
 import type { Agent } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
+import { cn } from '@/lib/utils'
 import claudeLogo from '../assets/providers/claude.svg'
 import geminiLogo from '../assets/providers/gemini.svg'
 import ollamaLogo from '../assets/providers/ollama.svg'
@@ -44,6 +45,13 @@ const LOGOS: Partial<Record<MarkKey, { src: string; fit: 'mark' | 'icon' }>> = {
   'gemini-cli': { src: geminiLogo, fit: 'mark' }
 }
 
+const TILE = 'inline-flex flex-none items-center justify-center overflow-hidden rounded-md border border-border align-middle font-mono font-semibold leading-none tracking-[-0.02em]'
+const TONE_CLASS = {
+  ink: 'border-primary bg-primary text-primary-foreground',
+  lime: 'border-lime bg-lime text-on-lime',
+  paper: 'bg-card text-foreground'
+} as const
+
 const keyOf = (agent: Pick<Agent, 'engine' | 'provider'>): MarkKey => (agent.engine === 'builtin' ? agent.provider : agent.engine)
 
 export function runsOnLabel(agent: Pick<Agent, 'engine' | 'provider'>): string {
@@ -54,10 +62,10 @@ export function Mark({ id, size = 22 }: { id: MarkKey; size?: number }): JSX.Ele
   const m = MARKS[id]
   const logo = LOGOS[id]
   return (
-    <span className={logo ? `runs-on logo-${logo.fit}` : `runs-on tone-${m.tone}`}
+    <span className={cn(TILE, logo ? (logo.fit === 'mark' ? 'bg-[var(--logo-tile)]' : 'border-transparent') : TONE_CLASS[m.tone])}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.45), borderRadius: Math.max(6, Math.round(size * 0.26)), padding: logo?.fit === 'mark' ? Math.round(size * 0.18) : 0 }}
       aria-hidden="true">
-      {logo ? <img src={logo.src} alt="" /> : m.letters}
+      {logo ? <img src={logo.src} alt="" className={cn('block size-full', logo.fit === 'icon' ? 'object-cover' : 'object-contain')} /> : m.letters}
     </span>
   )
 }

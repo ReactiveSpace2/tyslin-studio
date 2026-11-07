@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 /** A tool call in the live run, shown as one compact line. */
@@ -139,7 +141,6 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const [text, setText] = useState('')
   const [attached, setAttached] = useState<Attachment[]>([])
   const [attachMenu, setAttachMenu] = useState(false)
-  const attachRef = useRef<HTMLDivElement>(null)
   const [files, setFiles] = useState<string[]>([])
   const [activity, setActivity] = useState<Activity[]>([])
   const [waiting, setWaiting] = useState(false)
@@ -149,7 +150,6 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const [permissions, setPermissions] = useState<Permission[]>([])
   const threadRef = useRef<HTMLDivElement>(null)
   const [switcher, setSwitcher] = useState(false)
-  const switchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void (async () => {
@@ -231,31 +231,6 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     })
   }, [session])
 
-  // Close the agent switcher on an outside click or Escape.
-  useEffect(() => {
-    if (!switcher) return
-    const onDown = (e: MouseEvent): void => { if (!switchRef.current?.contains(e.target as Node)) setSwitcher(false) }
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setSwitcher(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey) }
-  }, [switcher])
-
-  // Close the attach menu on an outside click or Escape.
-  useEffect(() => {
-    if (!attachMenu) return
-    const onDown = (e: MouseEvent): void => {
-      if (!attachRef.current?.contains(e.target as Node)) setAttachMenu(false)
-    }
-    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setAttachMenu(false) }
-    document.addEventListener('mousedown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [attachMenu])
-
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight })
   }, [messages, streaming, activity, changes])
@@ -265,7 +240,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     .filter((r) => r === liveRun || changes.some((c) => c.runId === r && c.status === 'pending'))
   const reviewing = reviewRun ? changes.filter((c) => c.runId === reviewRun) : []
 
-  if (!agent) return <div className="tw p-8 text-muted-foreground"><p>Agent not found.</p></div>
+  if (!agent) return <div className="p-8 text-muted-foreground"><p>Agent not found.</p></div>
 
   const newChat = async (): Promise<void> => {
     const s = await window.tyslin.sessions.create(agent.id, projectId)
@@ -328,7 +303,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   )
 
   return (
-    <div className="tw flex h-full min-h-0 bg-background text-foreground">
+    <div className="flex h-full min-h-0 bg-background text-foreground">
       <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
         <header className="flex min-h-[64px] flex-none items-center justify-between gap-3 border-b border-border px-6 py-2.5">
           <div className="flex min-w-0 items-center gap-3">
@@ -347,32 +322,33 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           </div>
           <div className="flex flex-none items-center gap-2">
             {team.length > 1 && (
-              <div className="relative" ref={switchRef}>
-                <Button variant="outline" size="sm" aria-haspopup="menu" aria-expanded={switcher} onClick={() => setSwitcher((o) => !o)}>
-                  <Icon name="agents" size={14} /> Switch agent <Icon name="updown" size={12} />
-                </Button>
-                {switcher && (
-                  <div className="absolute top-[calc(100%+6px)] right-0 z-30 flex max-h-[420px] w-[300px] flex-col gap-0.5 overflow-y-auto rounded-xl border border-border bg-popover p-1.5 shadow-lg"
-                    role="menu" aria-label={project ? `${project.name} team` : 'Team'}>
-                    <span className="px-2.5 pt-2 pb-1 text-xs font-medium text-muted-foreground">{project ? project.name : 'Team'}</span>
+              <DropdownMenu open={switcher} onOpenChange={setSwitcher}>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Icon name="agents" size={14} /> Switch agent <Icon name="updown" size={12} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" sideOffset={6} className="flex max-h-[420px] w-[300px] flex-col gap-0.5 rounded-xl p-1.5 shadow-lg"
+                  aria-label={project ? `${project.name} team` : 'Team'}>
+                  <DropdownMenuLabel className="px-2.5 pt-2 pb-1 text-xs font-medium text-muted-foreground">{project ? project.name : 'Team'}</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={agent.id} onValueChange={(id) => { if (id !== agent.id) onSwitch(id, projectId) }}>
                     {team.map((a) => {
                       const on = a.id === agent.id
                       return (
-                        <button key={a.id} type="button" role="menuitemradio" aria-checked={on}
-                          className={cn('flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40', on ? 'bg-lime-soft' : 'hover:bg-accent')}
-                          onClick={() => { setSwitcher(false); if (a.id !== agent.id) onSwitch(a.id, projectId) }}>
+                        <DropdownMenuRadioItem key={a.id} value={a.id}
+                          className={cn('min-h-11 gap-2.5 rounded-md px-2.5 py-1.5 [&>span:first-child]:hidden', on && 'bg-lime-soft focus:bg-lime-soft')}>
                           <span className="flex-none"><Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={26} /></span>
                           <span className="flex min-w-0 flex-1 flex-col">
                             <strong className="text-[13.5px] font-semibold">{a.name}</strong>
                             <span className="truncate text-xs text-muted-foreground">{a.description || (a.leadId ? 'Agent' : 'Lead')}</span>
                           </span>
                           {on && <Icon name="check" size={14} />}
-                        </button>
+                        </DropdownMenuRadioItem>
                       )
                     })}
-                  </div>
-                )}
-              </div>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <Button variant="outline" size="sm" onClick={newChat}><Icon name="plus" size={12} /> New chat</Button>
           </div>
@@ -463,7 +439,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
             {streaming !== null && !waiting && (
               <div className="flex items-center gap-2 pl-11 text-[13px] text-muted-foreground" role="status">
                 <span className="inline-flex gap-[3px]" aria-hidden="true">
-                  {[0, 150, 300].map((d) => <i key={d} className="size-[5px] rounded-full bg-green motion-safe:animate-pulse motion-reduce:opacity-60" style={{ animationDelay: `${d}ms` }} />)}
+                  {[0, 150, 300].map((d) => <i key={d} className="size-[5px] rounded-full bg-green animate-dot motion-reduce:animate-none motion-reduce:opacity-60" style={{ animationDelay: `${d}ms` }} />)}
                 </span>
                 {agent.name} is working…
               </div>
@@ -502,22 +478,20 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
               }}
             />
             <div className="flex items-center gap-2">
-              <div className="relative flex-none" ref={attachRef}>
-                <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Attach files or a folder" title="Attach"
-                  aria-haspopup="menu" aria-expanded={attachMenu} onClick={() => setAttachMenu((o) => !o)}>
-                  <Icon name="plus" />
-                </Button>
-                {attachMenu && (
-                  <div className="absolute bottom-[calc(100%+8px)] left-0 z-20 flex min-w-[168px] flex-col rounded-xl border border-border bg-popover p-1.5 shadow-lg" role="menu" aria-label="Attach">
-                    {(['file', 'folder'] as const).map((k, i) => (
-                      <button key={k} type="button" role="menuitem" autoFocus={i === 0} onClick={() => void attach(k)}
-                        className="flex min-h-10 items-center gap-2.5 rounded-md px-3 text-left text-sm outline-none hover:bg-accent focus-visible:bg-accent">
-                        <Icon name={k} /> {k === 'file' ? 'File' : 'Folder'}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <DropdownMenu open={attachMenu} onOpenChange={setAttachMenu}>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" variant="ghost" size="icon" className="size-8 flex-none" aria-label="Attach files or a folder" title="Attach">
+                    <Icon name="plus" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent side="top" align="start" sideOffset={8} className="min-w-[168px] rounded-xl p-1.5 shadow-lg" aria-label="Attach">
+                  {(['file', 'folder'] as const).map((k) => (
+                    <DropdownMenuItem key={k} onSelect={() => void attach(k)} className="min-h-10 gap-2.5 rounded-md px-3">
+                      <Icon name={k} /> {k === 'file' ? 'File' : 'Folder'}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Badge variant="outline" className="min-w-0 gap-1.5 bg-card">
                 <RunsOnBadge agent={agent} size={12} /><span className="truncate font-mono">{runsOn}</span>
               </Badge>
@@ -559,11 +533,15 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
             )}
           </dl>
           {agent.isMascot && agent.kind === 'agent' && (
-            <select aria-label="Project" value={projectId ?? ''} onChange={(e) => onSwitch(agent.id, e.target.value || null)}
-              className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30">
-              <option value="">No project</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <Select value={projectId ?? NO_PROJECT} onValueChange={(v) => onSwitch(agent.id, v === NO_PROJECT ? null : v)}>
+              <SelectTrigger aria-label="Project" className="w-full bg-card">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROJECT}>No project</SelectItem>
+                {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           )}
         </section>
 
@@ -639,5 +617,8 @@ function PanelHead({ id, title, count, children }: { id: string; title: string; 
   )
 }
 
-/** Markdown replies: the `md` styles plus list markers (the scoped reset removes them). */
+/** Radix Select can't use an empty value; this stands for "No project". */
+const NO_PROJECT = '__none__'
+
+/** Markdown replies: the `md` styles plus list markers (Preflight removes them). */
 const MD = 'max-w-full text-[15px] leading-[1.65] text-foreground [&_ol]:list-decimal [&_ul]:list-disc'

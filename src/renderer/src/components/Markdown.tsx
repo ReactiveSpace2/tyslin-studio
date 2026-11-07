@@ -1,4 +1,5 @@
 import { Fragment, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 
 /**
  * A small Markdown renderer for agent replies: headings, paragraphs, bold, italic, inline code, code blocks,
@@ -7,6 +8,20 @@ import { Fragment, type ReactNode } from 'react'
  */
 
 const SAFE_LINK = /^(https?:|mailto:)/i
+
+// Classes on the elements this renderer creates (no stylesheet needed).
+const C = {
+  code: 'rounded-[5px] border border-border bg-panel px-[5px] py-px font-mono text-[0.88em]',
+  pre: 'mb-2.5 overflow-x-auto rounded-lg border border-border bg-panel px-3.5 py-3 font-mono text-[13px] leading-normal',
+  h: 'mt-4 mb-1.5 text-[15.5px] font-semibold leading-[1.4]',
+  p: 'mb-2.5',
+  list: 'mb-2.5 flex flex-col gap-1 pl-[22px] marker:text-muted-foreground',
+  quote: 'mb-2.5 border-l-[3px] border-border py-0.5 pl-3 text-muted-foreground',
+  hr: 'my-3.5 border-0 border-t border-border',
+  a: 'text-green underline underline-offset-2',
+  strong: 'font-semibold',
+  em: 'italic'
+}
 
 /** Inline: `code`, **bold**, *italic* / _italic_, [text](url), bare https:// links. */
 function inline(text: string, key = 'i'): ReactNode[] {
@@ -19,13 +34,13 @@ function inline(text: string, key = 'i'): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index))
     const k = `${key}-${n++}`
     const [tok] = m
-    if (m[1]) out.push(<code key={k}>{tok.slice(1, -1)}</code>)
-    else if (m[2]) out.push(<strong key={k}>{inline(tok.slice(2, -2), k)}</strong>)
-    else if (m[3]) out.push(<em key={k}>{inline(tok.slice(1, -1), k)}</em>)
+    if (m[1]) out.push(<code key={k} className={C.code}>{tok.slice(1, -1)}</code>)
+    else if (m[2]) out.push(<strong key={k} className={C.strong}>{inline(tok.slice(2, -2), k)}</strong>)
+    else if (m[3]) out.push(<em key={k} className={C.em}>{inline(tok.slice(1, -1), k)}</em>)
     else if (m[4]) {
       const [, label, href] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok) ?? []
-      out.push(SAFE_LINK.test(href ?? '') ? <a key={k} href={href} target="_blank" rel="noreferrer">{inline(label ?? '', k)}</a> : <Fragment key={k}>{label}</Fragment>)
-    } else out.push(<a key={k} href={tok} target="_blank" rel="noreferrer">{tok}</a>)
+      out.push(SAFE_LINK.test(href ?? '') ? <a key={k} className={C.a} href={href} target="_blank" rel="noreferrer">{inline(label ?? '', k)}</a> : <Fragment key={k}>{label}</Fragment>)
+    } else out.push(<a key={k} className={C.a} href={tok} target="_blank" rel="noreferrer">{tok}</a>)
     last = m.index + tok.length
   }
   if (last < text.length) out.push(text.slice(last))
@@ -49,7 +64,7 @@ export function Markdown({ text, className }: { text: string; className?: string
       i++
       while (i < lines.length && !/^\s*```/.test(lines[i])) body.push(lines[i++])
       i++
-      blocks.push(<pre key={k++} className="md-code"><code>{body.join('\n')}</code></pre>)
+      blocks.push(<pre key={k++} className={C.pre}><code>{body.join('\n')}</code></pre>)
       continue
     }
     if (!line.trim()) { i++; continue }
@@ -57,15 +72,15 @@ export function Markdown({ text, className }: { text: string; className?: string
     if (h) {
       const level = Math.min(h[1].length + 2, 6)
       const Tag = `h${level}` as 'h3'
-      blocks.push(<Tag key={k++} className="md-h">{inline(h[2], `h${k}`)}</Tag>)
+      blocks.push(<Tag key={k++} className={C.h}>{inline(h[2], `h${k}`)}</Tag>)
       i++
       continue
     }
-    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { blocks.push(<hr key={k++} />); i++; continue }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { blocks.push(<hr key={k++} className={C.hr} />); i++; continue }
     if (/^\s*>/.test(line)) {
       const body: string[] = []
       while (i < lines.length && /^\s*>/.test(lines[i])) body.push(lines[i++].replace(/^\s*>\s?/, ''))
-      blocks.push(<blockquote key={k++}>{inline(body.join(' '), `q${k}`)}</blockquote>)
+      blocks.push(<blockquote key={k++} className={C.quote}>{inline(body.join(' '), `q${k}`)}</blockquote>)
       continue
     }
     const first = isList(line)
@@ -82,13 +97,13 @@ export function Markdown({ text, className }: { text: string; className?: string
         items.push(<li key={items.length}>{inline(body, `l${k}-${items.length}`)}</li>)
       }
       const start = ordered ? parseInt(first[2], 10) : undefined
-      blocks.push(ordered ? <ol key={k++} start={start && start !== 1 ? start : undefined}>{items}</ol> : <ul key={k++}>{items}</ul>)
+      blocks.push(ordered ? <ol key={k++} className={cn(C.list, 'list-decimal')} start={start && start !== 1 ? start : undefined}>{items}</ol> : <ul key={k++} className={cn(C.list, 'list-disc')}>{items}</ul>)
       continue
     }
     // Paragraph: until a blank line or another block starts. Single line breaks are kept.
     const para: string[] = []
     while (i < lines.length && lines[i].trim() && !/^\s*```/.test(lines[i]) && !/^#{1,4}\s/.test(lines[i]) && !isList(lines[i]) && !/^\s*>/.test(lines[i])) para.push(lines[i++])
-    blocks.push(<p key={k++}>{para.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l, `p${k}-${j}`)}</Fragment>)}</p>)
+    blocks.push(<p key={k++} className={C.p}>{para.map((l, j) => <Fragment key={j}>{j > 0 && <br />}{inline(l, `p${k}-${j}`)}</Fragment>)}</p>)
   }
-  return <div className={'md' + (className ? ' ' + className : '')}>{blocks}</div>
+  return <div className={cn('[&>:first-child]:mt-0 [&>:last-child]:mb-0', className)}>{blocks}</div>
 }

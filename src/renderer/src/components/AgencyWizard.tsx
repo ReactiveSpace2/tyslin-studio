@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,7 +47,7 @@ const packRow = (on: boolean): string => cn(
   'flex cursor-pointer items-start gap-3.5 rounded-xl border bg-card px-4 py-3.5 shadow-xs',
   on ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong'
 )
-const CHECK = 'mt-0.5 size-4 shrink-0 accent-foreground'
+const CHECK = 'mt-0.5 bg-card'
 
 function Check(): JSX.Element {
   return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-lime text-on-lime"><Icon name="check" size={12} /></span>
@@ -221,7 +223,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
 
   return (
     // Below the title bar (44 px), which stays draggable.
-    <main className="tw fixed inset-x-0 top-[44px] bottom-0 z-[100] flex justify-center overflow-y-auto bg-background px-4 pt-8 text-foreground">
+    <main className="fixed inset-x-0 top-[44px] bottom-0 z-[100] flex justify-center overflow-y-auto bg-background px-4 pt-8 text-foreground">
       <form className="mb-auto flex min-h-[calc(100%-2rem)] w-full max-w-[980px] flex-col rounded-t-2xl border border-b-0 border-border bg-card shadow-xs"
         onSubmit={(e) => { e.preventDefault(); next() }} aria-labelledby="aw-h">
         <header className="flex flex-col gap-4 border-b border-border px-7 pt-5 pb-3">
@@ -372,7 +374,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
                 : !catalog ? <p className="text-sm text-muted-foreground" role="status">Loading from GitHub…</p>
                   : (
                     <label className={packRow(d.packs.includes(CLAUDE_PACK))}>
-                      <input type="checkbox" className={CHECK} checked={d.packs.includes(CLAUDE_PACK)} onChange={() => togglePack(CLAUDE_PACK)} />
+                      <Checkbox className={CHECK} checked={d.packs.includes(CLAUDE_PACK)} onCheckedChange={() => togglePack(CLAUDE_PACK)} />
                       <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <span className="flex flex-wrap items-center gap-2"><strong className="text-sm font-semibold">Anthropic's open skills</strong><Badge variant="secondary">Apache 2.0</Badge></span>
                         <span className="text-[13px] leading-snug text-muted-foreground">The Apache 2.0 skills from github.com/anthropics/skills. Source-available ones are not installed.</span>
@@ -387,7 +389,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-2.5">
                   {packs.filter((p) => p.group !== 'claude' && p.featured).map((p) => (
                     <label key={p.id} className={cn(packRow(d.packs.includes(p.id) || p.installed), (p.installed || !p.installable) && 'cursor-default')}>
-                      <input type="checkbox" className={CHECK} disabled={p.installed || !p.installable} checked={p.installed || d.packs.includes(p.id)} onChange={() => togglePack(p.id)} />
+                      <Checkbox className={CHECK} disabled={p.installed || !p.installable} checked={p.installed || d.packs.includes(p.id)} onCheckedChange={() => togglePack(p.id)} />
                       <span className="flex min-w-0 flex-1 flex-col gap-1">
                         <strong className="text-sm font-semibold">{p.name}</strong>
                         <span className="font-mono text-xs text-muted-foreground">{[p.author, p.license || 'no licence'].join(' · ')}{p.installed ? ' · installed' : ''}</span>
@@ -484,12 +486,14 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
             {d.channel !== 'none' && (
               <fieldset className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2 rounded-xl border border-border p-4 pt-2">
                 <legend className="px-1.5 text-[13px] font-medium">What the Lead sends</legend>
+                <RadioGroup className="contents" aria-label="What the Lead sends" value={d.notify} onValueChange={(v) => set({ notify: v as typeof d.notify })}>
                 {([['all', 'Everything', 'Briefs, questions, reviews and the daily digest'], ['questions', 'Questions and reviews', 'Only when the Lead needs you'], ['digest', 'Digest only', 'One summary a day']] as const).map(([id, name, desc]) => (
                   <label key={id} className={cn('flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5', d.notify === id ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong')}>
-                    <input type="radio" name="aw-notify" className="mt-0.5 size-4 shrink-0 accent-foreground" checked={d.notify === id} onChange={() => set({ notify: id })} />
+                    <RadioGroupItem value={id} className="mt-0.5 bg-card" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="text-sm font-semibold">{name}</strong><span className="text-[13px] text-muted-foreground">{desc}</span></span>
                   </label>
                 ))}
+                </RadioGroup>
               </fieldset>
             )}
           </section>

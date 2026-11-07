@@ -8,5 +8,5 @@ const POSES = { jumping, thinking } as const
  * Settings. The page's cards are slightly see-through there so it shows behind them. Decorative only.
  */
 export function Watermark({ pose = 'jumping' }: { pose?: keyof typeof POSES }): JSX.Element {
-  return <img src={POSES[pose]} alt="" aria-hidden="true" className="page-watermark" draggable={false} />
+  return <img src={POSES[pose]} alt="" aria-hidden="true" className="pointer-events-none fixed right-[2%] bottom-9 z-[-1] h-[calc(100vh-110px)] w-auto max-w-[70vw] select-none object-contain opacity-[.24] dark:opacity-[.17]" draggable={false} />
 }

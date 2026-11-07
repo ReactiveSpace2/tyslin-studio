@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert } from '@/components/ui/alert'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
 type Filter = 'all' | 'needs' | 'review' | 'brief' | 'digest'
@@ -98,7 +100,7 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
   }
 
   return (
-    <div className="tw flex h-full min-h-0 text-foreground">
+    <div className="flex h-full min-h-0 text-foreground">
       <aside className="flex w-[300px] flex-none flex-col border-r border-border min-[901px]:w-[380px]" aria-label="Messages">
         <div className="flex flex-col gap-3 border-b border-border px-4 pt-5 pb-3">
           <span className="font-mono text-xs tracking-[0.08em] text-green uppercase">{scope.name}</span>
@@ -106,18 +108,15 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
             <h1 className="text-[26px] font-semibold tracking-tight">Inbox</h1>
             <Button size="sm" variant={briefing ? 'default' : 'outline'} disabled={!scopeLead} onClick={() => { setBriefing(true); setNote(''); setError('') }}><Icon name="plus" size={12} /> New brief</Button>
           </div>
-          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Show">
-            {FILTERS.map(([id, label]) => {
-              const on = filter === id
-              return (
-                <button key={id} type="button" role="tab" aria-selected={on} onClick={() => setFilter(id)}
-                  className={cn('inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40',
-                    on ? 'border-primary bg-primary text-primary-foreground' : id === 'needs' && counts.needs ? 'border-green bg-card text-green hover:bg-accent' : 'border-border bg-card text-foreground hover:bg-accent')}>
-                  {label}{counts[id] ? <span className="font-mono">{counts[id]}</span> : null}
-                </button>
-              )
-            })}
-          </div>
+          <ToggleGroup type="single" spacing={1.5} aria-label="Show" value={filter} onValueChange={(v) => { if (v) setFilter(v as Filter) }} className="flex-wrap">
+            {FILTERS.map(([id, label]) => (
+              <ToggleGroupItem key={id} value={id}
+                className={cn('h-8 gap-1.5 rounded-md border bg-card px-2.5 text-xs font-medium transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground',
+                  id === 'needs' && counts.needs ? 'border-green text-green' : 'border-border text-foreground')}>
+                {label}{counts[id] ? <span className="font-mono">{counts[id]}</span> : null}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {shown.length === 0 && (
@@ -247,5 +246,5 @@ function LeadIcon(): JSX.Element {
 }
 
 function ErrorLine({ children }: { children: ReactNode }): JSX.Element {
-  return <p className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive" role="alert">{children}</p>
+  return <Alert variant="destructive" className="block rounded-md border-0 bg-destructive-soft px-3 py-2 text-[13px]">{children}</Alert>
 }

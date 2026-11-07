@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AuthStatus } from '@shared/types'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 
 /** Google account status with sign in and sign out, shown in Settings → Account. */
 export function AccountBox({ onChange }: { onChange?: (s: AuthStatus) => void }): JSX.Element | null {
@@ -14,7 +16,7 @@ export function AccountBox({ onChange }: { onChange?: (s: AuthStatus) => void })
 
   if (!status) return null
   if (!status.configured) {
-    return <p className="hint">Google sign-in isn't set up in this build.</p>
+    return <p className="text-xs text-muted-foreground">Google sign-in isn't set up in this build.</p>
   }
 
   const signIn = async (): Promise<void> => {
@@ -35,32 +37,34 @@ export function AccountBox({ onChange }: { onChange?: (s: AuthStatus) => void })
 
   if (status.account) {
     return (
-      <div className="account-row">
-        <span className="account-initial" aria-hidden="true">{(status.account.name || status.account.email).slice(0, 1).toUpperCase()}</span>
-        <div className="account-who">
+      <div className="flex flex-wrap items-center gap-3">
+        <Avatar className="size-9" aria-hidden="true">
+          <AvatarFallback className="bg-lime font-bold text-on-lime">{(status.account.name || status.account.email).slice(0, 1).toUpperCase()}</AvatarFallback>
+        </Avatar>
+        <div className="mr-auto flex min-w-0 flex-col gap-0.5">
           <strong>{status.account.name}</strong>
-          <span className="mono hint">{status.account.email}</span>
+          <span className="font-mono text-xs text-muted-foreground">{status.account.email}</span>
         </div>
-        <button type="button" className="btn btn-sm" onClick={async () => {
+        <Button type="button" variant="outline" size="sm" onClick={async () => {
           const s = await window.tyslin.auth.signOut()
           setStatus(s)
           onChange?.(s)
-        }}>Sign out</button>
+        }}>Sign out</Button>
       </div>
     )
   }
 
   return (
-    <div className="account-row">
+    <div className="flex flex-wrap items-center gap-3">
       {waiting ? (
         <>
-          <span className="hint" role="status">Finish signing in in your browser…</span>
-          <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.auth.cancelSignIn()}>Cancel</button>
+          <span className="text-xs text-muted-foreground" role="status">Finish signing in in your browser…</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.auth.cancelSignIn()}>Cancel</Button>
         </>
       ) : (
-        <button type="button" className="btn" onClick={() => void signIn()}>Continue with Google</button>
+        <Button type="button" variant="outline" className="h-10 rounded-[10px]" onClick={() => void signIn()}>Continue with Google</Button>
       )}
-      {error && <span className="hint account-error" role="alert">{error}</span>}
+      {error && <span className="basis-full text-xs text-destructive" role="alert">{error}</span>}
     </div>
   )
 }
