@@ -48,6 +48,13 @@ const api: TyslinApi = {
       return () => ipcRenderer.removeListener('engines:installOutput', fn)
     }
   },
+  integrations: {
+    list: () => ipcRenderer.invoke('integrations:list'),
+    save: (input) => ipcRenderer.invoke('integrations:save', input),
+    remove: (id) => ipcRenderer.invoke('integrations:remove', id),
+    setAgents: (id, agentIds) => ipcRenderer.invoke('integrations:setAgents', id, agentIds),
+    test: (id) => ipcRenderer.invoke('integrations:test', id)
+  },
   accounts: {
     status: () => ipcRenderer.invoke('accounts:status'),
     signIn: (engine) => ipcRenderer.invoke('accounts:signIn', engine),

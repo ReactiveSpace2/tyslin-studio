@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { Readable, Writable } from 'stream'
-import { client, ndJsonStream, PROTOCOL_VERSION, RequestError, type ClientContext, type SessionUpdate, type ToolCallContent } from '@agentclientprotocol/sdk'
+import { client, ndJsonStream, PROTOCOL_VERSION, RequestError, type ClientContext, type McpServer, type SessionUpdate, type ToolCallContent } from '@agentclientprotocol/sdk'
 import type { EngineTestResult, PermissionChoice, RunEventBody } from '@shared/types'
 
 /**
@@ -120,6 +120,8 @@ export async function runAcpTurn(opts: {
   host: AcpHost
   clientVersion: string
   signal?: AbortSignal
+  /** Integrations switched on for this agent; remote ones only go to agents that support them. */
+  mcpServers?: McpServer[]
 }): Promise<string> {
   const { name, launch, host, signal } = opts
   if (signal?.aborted) throw new Error('Stopped.')
@@ -168,7 +170,9 @@ export async function runAcpTurn(opts: {
 
       let session
       try {
-        session = await agent.buildSession(launch.cwd).start()
+        const mcp = init.agentCapabilities?.mcpCapabilities
+        const mcpServers = (opts.mcpServers ?? []).filter((m) => !('type' in m) || (m.type === 'http' ? !!mcp?.http : m.type === 'sse' ? !!mcp?.sse : true))
+        session = await agent.buildSession({ cwd: launch.cwd, mcpServers }).start()
       } catch (err) {
         if (err instanceof RequestError && err.code === -32000) {
           throw new Error(`${name} needs you to sign in first. Run ${launch.command} in a terminal and follow its sign-in steps, then try again.`)

@@ -15,7 +15,7 @@ interface Props {
 }
 
 const TITLES: Partial<Record<Route['name'], string>> = {
-  home: 'Home', agencies: 'Agencies', skills: 'Skills', settings: 'Settings', kanban: 'Kanban', drive: 'Drive', connectors: 'Channel'
+  home: 'Home', agencies: 'Agencies', skills: 'Skills', settings: 'Settings', kanban: 'Kanban', drive: 'Drive', connectors: 'Channel', integrations: 'Integrations'
 }
 
 interface Crumb { label: string; to?: Route }

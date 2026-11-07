@@ -27,6 +27,41 @@ export interface EngineStatus {
   install: EngineInstall | null
 }
 
+/** An integration: an MCP server agents on external adapters can use. Secret values never leave main. */
+export interface McpServerInfo {
+  id: string
+  /** Also the server name the agent sees (lowercase letters, digits, - and _). */
+  name: string
+  /** Preset id from shared/mcpPresets.ts, or '' for one the user set up. */
+  preset: string
+  transport: 'http' | 'stdio'
+  url: string
+  command: string
+  args: string[]
+  agentIds: string[]
+  /** Names of the saved headers and environment variables (values stay encrypted in main). */
+  secretNames: string[]
+  lastTest?: { ok: boolean; at: number; tools?: string[]; error?: string }
+  createdAt: number
+}
+
+export interface McpServerInput {
+  id?: string
+  name: string
+  preset: string
+  transport: 'http' | 'stdio'
+  url?: string
+  /** stdio: the command line, e.g. "npx -y some-mcp-server". */
+  commandLine?: string
+  /** A preset's token, sent as "Authorization: Bearer <token>". Undefined keeps the saved one. */
+  token?: string
+  /** Custom http: "Name: value" lines. Undefined keeps the saved ones. */
+  headers?: string
+  /** Custom stdio: "NAME=value" lines. Undefined keeps the saved ones. */
+  env?: string
+  agentIds?: string[]
+}
+
 /** Adapters that sign in with the user's own Claude, ChatGPT or Google account. */
 export type AccountEngine = 'claude-code' | 'codex' | 'gemini-cli'
 
@@ -887,6 +922,15 @@ export interface TyslinApi {
     install(id: ExternalEngineId): Promise<{ ok: boolean; error?: string; status: EngineStatus }>
     cancelInstall(id: ExternalEngineId): Promise<void>
     onInstallOutput(cb: (o: InstallOutput) => void): () => void
+  }
+  integrations: {
+    list(): Promise<McpServerInfo[]>
+    save(input: McpServerInput): Promise<McpServerInfo>
+    remove(id: string): Promise<void>
+    /** Which agents use it (only agents on an external adapter can). */
+    setAgents(id: string, agentIds: string[]): Promise<McpServerInfo>
+    /** Connects, lists its tools and stops; the result is kept as lastTest. */
+    test(id: string): Promise<McpServerInfo>
   }
   accounts: {
     /** Sign-in state of Claude Code, Codex and Gemini CLI. */

@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
-/** Inside an agency tab: the sidebar with its own Overview, Chat (with the Lead), Inbox (the Lead's messages), Kanban, Channel, Skills, Drive and Edit. */
+/** Inside an agency tab: the sidebar with its own Overview, Chat (with the Lead), Inbox (the Lead's messages), Kanban, Channel, Skills, Integrations, Drive and Edit. */
 export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }: {
   agencyId: string
   name: string
@@ -21,6 +21,7 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
     ['Kanban', 'kanban', { name: 'kanban' }, route.name === 'kanban'],
     ['Channel', 'channel', { name: 'connectors' }, route.name === 'connectors'],
     ['Skills', 'skills', { name: 'skills' }, route.name === 'skills'],
+    ['Integrations', 'connectors', { name: 'integrations' }, route.name === 'integrations'],
     ['Drive', 'drive', { name: 'drive' }, route.name === 'drive'],
     ['Edit', 'settings', { name: 'agency', id: agencyId, tab: 'edit' }, route.name === 'agency' && route.tab === 'edit']
   ]

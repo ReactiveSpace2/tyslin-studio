@@ -16,6 +16,7 @@ import { createProjectFolder, newProjectFolderPath, defaultProject, defaultProje
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
+import { removeIntegration, saveIntegration, testIntegration } from './integrations'
 import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
@@ -29,7 +30,7 @@ import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCa
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AccountEngine, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -450,6 +451,11 @@ function registerIpc(): void {
     const r = await runInstall(id, (text) => win?.webContents.send('engines:installOutput', { id, text }))
     return { ...r, status: engineStatus(id) }
   })
+  ipcMain.handle('integrations:list', () => db.listMcpServers())
+  ipcMain.handle('integrations:save', (_e, input: McpServerInput) => saveIntegration(input))
+  ipcMain.handle('integrations:remove', (_e, id: string) => removeIntegration(id))
+  ipcMain.handle('integrations:setAgents', (_e, id: string, agentIds: string[]) => db.setMcpAgents(id, Array.isArray(agentIds) ? agentIds.map(String) : []))
+  ipcMain.handle('integrations:test', (_e, id: string) => testIntegration(id))
   ipcMain.handle('accounts:status', () => accountStatuses())
   ipcMain.handle('accounts:signIn', async (_e, engine: AccountEngine) => {
     const s = await signInAccount(engine, app.getVersion(), (url) => win?.webContents.send('accounts:signInUrl', { engine, url }))

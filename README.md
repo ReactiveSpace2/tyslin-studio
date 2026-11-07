@@ -84,9 +84,9 @@ Workers run on agents you install. Tyslin drives them over the [Agent Client Pro
 
 | Adapter | Install command the app uses | Needs |
 |---|---|---|
-| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (run `claude` once), or your Claude key in Settings → Models |
-| Codex | `npm install -g @agentclientprotocol/codex-acp` | Your OpenAI key in Settings → Models, or a ChatGPT sign-in when the agent asks |
-| Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (run `gemini` once), or your Gemini key in Settings → Models |
+| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (Settings → Models → Claude → Sign in with Claude), or your Claude key |
+| Codex | `npm install -g @agentclientprotocol/codex-acp` | A ChatGPT sign-in (Settings → Models → ChatGPT → Sign in with ChatGPT), or your OpenAI key |
+| Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (Settings → Models → Gemini → Sign in with Google), or your Gemini key |
 | Hermes | `curl -fsSL https://hermes-agent.nousresearch.com/install.sh \| bash -s -- --non-interactive` (PowerShell installer on Windows) | A model and key set up with the Hermes setup guide; on a Mac, Apple Silicon only. Each agent gets its own Hermes profile |
 | Goose | `curl -fsSL https://github.com/aaif-goose/goose/releases/download/stable/download_cli.sh \| CONFIGURE=false bash` (PowerShell script on Windows) | Run `goose configure` once to choose its model provider |
 | ZeroClaw | No installer in the app; install from github.com/zeroclaw-labs/zeroclaw | Its own setup; the app runs `zeroclaw acp` |
@@ -104,17 +104,20 @@ The Lead, and any agent on the built-in runtime, uses one of these.
 | Claude (Anthropic) | Settings → Models, Anthropic API key |
 | OpenAI | Settings → Models, OpenAI API key |
 | Gemini (Google) | Settings → Models, Gemini API key |
-| OpenRouter | Settings → Models, OpenRouter key |
 | Ollama | No key; Settings → Models, the address of Ollama running on this computer |
 
-Keys are also passed to Claude Code, Codex and Gemini CLI when you haven't signed them in yourself.
+Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's card is set to use your signed-in account.
+
+### Integrations
+
+Agents on Claude Code, Codex, Gemini CLI or Goose can use tools from other apps through MCP servers. Open an agency → Integrations: connect GitHub, Linear or Stripe with a token, or add any MCP server (a remote address or a command on this computer), then switch it on per agent. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
 
 ## Your data
 
 - One local SQLite database per organization, in the app's data folder (Settings → About → Open folder).
 - One folder per agency under `Documents/Tyslin Studio/<organization>/<agency>/`, with its board and the files its agents make.
 - API keys are encrypted with your operating system's keychain.
-- The app contacts only: the model providers and adapters you set up; GitHub, for updates, skill packs and the star count; Telegram or Slack, if you connect a channel; Google, if you sign in or connect Google Drive sync.
+- The app contacts only: the model providers and adapters you set up; GitHub, for updates, skill packs and the star count; Telegram or Slack, if you connect a channel; the MCP servers you add under Integrations; Google, if you sign in or connect Google Drive sync.
 - No analytics. Nothing is collected about how you use the app.
 
 ## Build from source

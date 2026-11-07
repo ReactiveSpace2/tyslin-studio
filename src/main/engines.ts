@@ -116,7 +116,7 @@ export const ENGINES: EngineDef[] = [
 ]
 
 /** GUI apps often start with a short PATH (notably on macOS), so look in the usual install folders too. */
-function searchDirs(): string[] {
+export function searchDirs(): string[] {
   const home = homedir()
   const extra = process.platform === 'win32'
     ? [join(home, 'AppData', 'Roaming', 'npm'), join(home, '.cargo', 'bin'), join(home, '.local', 'bin')]
@@ -134,7 +134,7 @@ function isRunnable(file: string): boolean {
   }
 }
 
-function which(program: string): string | null {
+export function which(program: string): string | null {
   if (isAbsolute(program)) return isRunnable(program) ? program : null
   const exts = process.platform === 'win32' ? ['', ...(process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map((e) => e.toLowerCase())] : ['']
   for (const dir of searchDirs()) {

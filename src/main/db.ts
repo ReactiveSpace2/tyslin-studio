@@ -7,6 +7,7 @@ import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
 import { BUILT_IN_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
+import type { McpServerInfo } from '@shared/types'
 import { HEAD_IDS } from '@shared/heads'
 import type { Agency, AgencyUpdateInput, Agent, AgentInput, ChangeStatus, ChannelMessage, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
@@ -236,6 +237,13 @@ function migrate(): void {
     schedule TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
     next_run_at INTEGER, last_run_at INTEGER, last_status TEXT, last_error TEXT NOT NULL DEFAULT '',
     last_session_id TEXT, created_at INTEGER NOT NULL
+  )`)
+  // Integrations: MCP servers the user added (Integrations screen). Secrets (headers, env values) live in secret:mcp:<id>.
+  db.exec(`CREATE TABLE IF NOT EXISTS mcp_servers (
+    id TEXT PRIMARY KEY, name TEXT NOT NULL, preset TEXT NOT NULL DEFAULT '', transport TEXT NOT NULL,
+    url TEXT NOT NULL DEFAULT '', command TEXT NOT NULL DEFAULT '', args TEXT NOT NULL DEFAULT '[]',
+    agent_ids TEXT NOT NULL DEFAULT '[]', secret_names TEXT NOT NULL DEFAULT '[]', last_test TEXT NOT NULL DEFAULT '',
+    created_at INTEGER NOT NULL
   )`)
 }
 
@@ -952,4 +960,59 @@ export function markChannelMessagesRead(ids: string[]): number {
 
 export function unreadChannelMessages(): number {
   return (db.prepare('SELECT COUNT(*) AS n FROM channel_messages WHERE read_at IS NULL').get() as { n: number }).n
+}
+
+// ---- Integrations (MCP servers) -------------------------------------------------------------------
+
+type McpRow = { id: string; name: string; preset: string; transport: string; url: string; command: string; args: string; agent_ids: string; secret_names: string; last_test: string; created_at: number }
+const parseList = (v: string): string[] => { try { const a = JSON.parse(v) as unknown; return Array.isArray(a) ? a.map(String) : [] } catch { return [] } }
+const toMcp = (r: McpRow): McpServerInfo => ({
+  id: r.id, name: r.name, preset: r.preset, transport: r.transport === 'stdio' ? 'stdio' : 'http', url: r.url, command: r.command,
+  args: parseList(r.args), agentIds: parseList(r.agent_ids), secretNames: parseList(r.secret_names),
+  lastTest: (() => { try { return r.last_test ? JSON.parse(r.last_test) as McpServerInfo['lastTest'] : undefined } catch { return undefined } })(),
+  createdAt: r.created_at
+})
+
+export function listMcpServers(): McpServerInfo[] {
+  return (db.prepare('SELECT * FROM mcp_servers ORDER BY created_at').all() as McpRow[]).map(toMcp)
+}
+
+export function getMcpServer(id: string): McpServerInfo | null {
+  const r = db.prepare('SELECT * FROM mcp_servers WHERE id = ?').get(id) as McpRow | undefined
+  return r ? toMcp(r) : null
+}
+
+export function saveMcpServer(s: Omit<McpServerInfo, 'createdAt' | 'lastTest'> & { id: string }): McpServerInfo {
+  const existing = getMcpServer(s.id)
+  if (db.prepare('SELECT 1 FROM mcp_servers WHERE name = ? AND id != ?').get(s.name, s.id)) throw new Error(`An integration called ${s.name} already exists.`)
+  if (existing) {
+    db.prepare('UPDATE mcp_servers SET name = ?, preset = ?, transport = ?, url = ?, command = ?, args = ?, agent_ids = ?, secret_names = ?, last_test = ? WHERE id = ?')
+      .run(s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames),
+        // A changed address or command makes the last test meaningless.
+        existing.url === s.url && existing.command === s.command && JSON.stringify(existing.args) === JSON.stringify(s.args) && JSON.stringify(existing.secretNames) === JSON.stringify(s.secretNames) && existing.lastTest ? JSON.stringify(existing.lastTest) : '', s.id)
+  } else {
+    db.prepare('INSERT INTO mcp_servers (id, name, preset, transport, url, command, args, agent_ids, secret_names, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(s.id, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames), Date.now())
+  }
+  return getMcpServer(s.id)!
+}
+
+export function setMcpAgents(id: string, agentIds: string[]): McpServerInfo {
+  db.prepare('UPDATE mcp_servers SET agent_ids = ? WHERE id = ?').run(JSON.stringify([...new Set(agentIds)]), id)
+  const s = getMcpServer(id)
+  if (!s) throw new Error('That integration no longer exists.')
+  return s
+}
+
+export function setMcpTest(id: string, test: NonNullable<McpServerInfo['lastTest']>): void {
+  db.prepare('UPDATE mcp_servers SET last_test = ? WHERE id = ?').run(JSON.stringify(test), id)
+}
+
+export function removeMcpServer(id: string): void {
+  db.prepare('DELETE FROM mcp_servers WHERE id = ?').run(id)
+}
+
+/** The integrations switched on for one agent. */
+export function mcpServersForAgent(agentId: string): McpServerInfo[] {
+  return listMcpServers().filter((s) => s.agentIds.includes(agentId))
 }

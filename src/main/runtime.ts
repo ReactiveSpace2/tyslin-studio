@@ -7,6 +7,7 @@ import { getAgent, getPrefs, getProject, getSetting, listAgents, type ModelMessa
 import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 import { runAcpTurn } from './acp'
+import { acpServersForAgent } from './integrations'
 import { engineLaunch, engineStatus } from './engines'
 import { BOARD_TOOLS, boardSummary } from './boardTools'
 import { getAgency } from './db'
@@ -412,6 +413,7 @@ class AcpRuntime implements AgentRuntime {
       prompt: acpPrompt(opts),
       clientVersion: app.getVersion(),
       signal: opts.signal,
+      mcpServers: acpServersForAgent(opts.agent.id),
       host: { emit: opts.emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
     })
   }
