@@ -110,7 +110,7 @@ Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's 
 
 ### Integrations
 
-Agents on Claude Code, Codex, Gemini CLI or Goose can use tools from other apps through MCP servers. Open an agency → Integrations: connect GitHub, Linear or Stripe with a token, or add any MCP server (a remote address or a command on this computer), then switch it on per agent. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
+Agents on Claude Code, Codex, Gemini CLI or Goose can use tools from other apps through MCP servers. Open an agency → Integrations: connect GitHub, Linear or Stripe with a token, search the official [MCP Registry](https://registry.modelcontextprotocol.io) and install a server from there, or add any MCP server yourself (a remote address or a command on this computer), then switch it on per agent. Each agency suggests the integrations that fit its work. Registry servers are published by companies and the community and aren't reviewed by Tyslin; check the publisher and source before installing. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
 
 ## Your data
 

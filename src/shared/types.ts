@@ -32,6 +32,10 @@ export interface McpServerInfo {
   id: string
   /** Also the server name the agent sees (lowercase letters, digits, - and _). */
   name: string
+  /** Display title ('' = use the preset's title or the name). */
+  title: string
+  /** MCP Registry name when installed from search, e.g. "io.github.owner/server"; '' otherwise. */
+  source: string
   /** Preset id from shared/mcpPresets.ts, or '' for one the user set up. */
   preset: string
   transport: 'http' | 'stdio'
@@ -48,6 +52,8 @@ export interface McpServerInfo {
 export interface McpServerInput {
   id?: string
   name: string
+  title?: string
+  source?: string
   preset: string
   transport: 'http' | 'stdio'
   url?: string
@@ -60,6 +66,44 @@ export interface McpServerInput {
   /** Custom stdio: "NAME=value" lines. Undefined keeps the saved ones. */
   env?: string
   agentIds?: string[]
+}
+
+/** A value the user fills in when installing a server from the MCP Registry. */
+export interface RegistryField {
+  /** Where it goes: a header, an environment variable, a {variable} in the URL or in a header's value. */
+  target: 'header' | 'env' | 'url-var' | 'header-var'
+  /** Header or variable name. */
+  name: string
+  /** For header-var: the header it fills, and the template, e.g. "Bearer {api_key}". */
+  header?: string
+  template?: string
+  description: string
+  required: boolean
+  secret: boolean
+  placeholder?: string
+  defaultValue?: string
+}
+
+/** One server from the official MCP Registry (registry.modelcontextprotocol.io), with the first way Tyslin can install it. */
+export interface RegistryServer {
+  /** Registry name, e.g. "io.github.owner/server"; the part before "/" is the publisher's verified namespace. */
+  name: string
+  title: string
+  description: string
+  version: string
+  repoUrl?: string
+  websiteUrl?: string
+  install: {
+    kind: 'remote' | 'npm' | 'pypi' | 'docker'
+    transport: 'http' | 'stdio'
+    /** Remote: the URL, maybe with {variables}. */
+    url?: string
+    /** Local: the command line. */
+    commandLine?: string
+    fields: RegistryField[]
+  } | null
+  /** Why it can't be installed from here, when install is null. */
+  note?: string
 }
 
 /** Adapters that sign in with the user's own Claude, ChatGPT or Google account. */
@@ -931,6 +975,8 @@ export interface TyslinApi {
     setAgents(id: string, agentIds: string[]): Promise<McpServerInfo>
     /** Connects, lists its tools and stops; the result is kept as lastTest. */
     test(id: string): Promise<McpServerInfo>
+    /** Searches the official MCP Registry (latest versions). `cursor` continues a previous page. */
+    search(query: string, cursor?: string): Promise<{ servers: RegistryServer[]; next?: string }>
   }
   accounts: {
     /** Sign-in state of Claude Code, Codex and Gemini CLI. */

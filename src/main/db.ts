@@ -245,6 +245,9 @@ function migrate(): void {
     agent_ids TEXT NOT NULL DEFAULT '[]', secret_names TEXT NOT NULL DEFAULT '[]', last_test TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL
   )`)
+  // Installed from the MCP Registry: its display title and registry name (e.g. io.github.owner/server).
+  addColumn('mcp_servers', 'title', "TEXT NOT NULL DEFAULT ''")
+  addColumn('mcp_servers', 'source', "TEXT NOT NULL DEFAULT ''")
 }
 
 /** CREATE TABLE IF NOT EXISTS never alters an existing table, so new columns go through here. */
@@ -964,10 +967,10 @@ export function unreadChannelMessages(): number {
 
 // ---- Integrations (MCP servers) -------------------------------------------------------------------
 
-type McpRow = { id: string; name: string; preset: string; transport: string; url: string; command: string; args: string; agent_ids: string; secret_names: string; last_test: string; created_at: number }
+type McpRow = { id: string; name: string; title: string; source: string; preset: string; transport: string; url: string; command: string; args: string; agent_ids: string; secret_names: string; last_test: string; created_at: number }
 const parseList = (v: string): string[] => { try { const a = JSON.parse(v) as unknown; return Array.isArray(a) ? a.map(String) : [] } catch { return [] } }
 const toMcp = (r: McpRow): McpServerInfo => ({
-  id: r.id, name: r.name, preset: r.preset, transport: r.transport === 'stdio' ? 'stdio' : 'http', url: r.url, command: r.command,
+  id: r.id, name: r.name, title: r.title ?? '', source: r.source ?? '', preset: r.preset, transport: r.transport === 'stdio' ? 'stdio' : 'http', url: r.url, command: r.command,
   args: parseList(r.args), agentIds: parseList(r.agent_ids), secretNames: parseList(r.secret_names),
   lastTest: (() => { try { return r.last_test ? JSON.parse(r.last_test) as McpServerInfo['lastTest'] : undefined } catch { return undefined } })(),
   createdAt: r.created_at
@@ -986,13 +989,13 @@ export function saveMcpServer(s: Omit<McpServerInfo, 'createdAt' | 'lastTest'> &
   const existing = getMcpServer(s.id)
   if (db.prepare('SELECT 1 FROM mcp_servers WHERE name = ? AND id != ?').get(s.name, s.id)) throw new Error(`An integration called ${s.name} already exists.`)
   if (existing) {
-    db.prepare('UPDATE mcp_servers SET name = ?, preset = ?, transport = ?, url = ?, command = ?, args = ?, agent_ids = ?, secret_names = ?, last_test = ? WHERE id = ?')
-      .run(s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames),
+    db.prepare('UPDATE mcp_servers SET title = ?, source = ?, name = ?, preset = ?, transport = ?, url = ?, command = ?, args = ?, agent_ids = ?, secret_names = ?, last_test = ? WHERE id = ?')
+      .run(s.title, s.source, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames),
         // A changed address or command makes the last test meaningless.
         existing.url === s.url && existing.command === s.command && JSON.stringify(existing.args) === JSON.stringify(s.args) && JSON.stringify(existing.secretNames) === JSON.stringify(s.secretNames) && existing.lastTest ? JSON.stringify(existing.lastTest) : '', s.id)
   } else {
-    db.prepare('INSERT INTO mcp_servers (id, name, preset, transport, url, command, args, agent_ids, secret_names, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(s.id, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames), Date.now())
+    db.prepare('INSERT INTO mcp_servers (id, title, source, name, preset, transport, url, command, args, agent_ids, secret_names, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(s.id, s.title, s.source, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames), Date.now())
   }
   return getMcpServer(s.id)!
 }

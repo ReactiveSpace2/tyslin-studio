@@ -17,6 +17,7 @@ import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, s
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
 import { removeIntegration, saveIntegration, testIntegration } from './integrations'
+import { searchRegistry } from './mcpRegistry'
 import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
@@ -456,6 +457,7 @@ function registerIpc(): void {
   ipcMain.handle('integrations:remove', (_e, id: string) => removeIntegration(id))
   ipcMain.handle('integrations:setAgents', (_e, id: string, agentIds: string[]) => db.setMcpAgents(id, Array.isArray(agentIds) ? agentIds.map(String) : []))
   ipcMain.handle('integrations:test', (_e, id: string) => testIntegration(id))
+  ipcMain.handle('integrations:search', (_e, query: string, cursor?: string) => searchRegistry(String(query ?? ''), cursor ? String(cursor) : undefined))
   ipcMain.handle('accounts:status', () => accountStatuses())
   ipcMain.handle('accounts:signIn', async (_e, engine: AccountEngine) => {
     const s = await signInAccount(engine, app.getVersion(), (url) => win?.webContents.send('accounts:signInUrl', { engine, url }))

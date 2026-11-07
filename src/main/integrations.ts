@@ -80,6 +80,7 @@ export function saveIntegration(input: McpServerInput): McpServerInfo {
 
   const saved = db.saveMcpServer({
     id, name, preset: preset?.id ?? '', transport, url, command, args,
+    title: (input.title ?? old?.title ?? '').trim().slice(0, 80), source: (input.source ?? old?.source ?? '').trim().slice(0, 200),
     agentIds: input.agentIds ?? old?.agentIds ?? [],
     secretNames: [...secrets.headers.map((h) => h.name), ...secrets.env.map((e) => e.name)]
   })

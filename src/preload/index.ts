@@ -53,7 +53,8 @@ const api: TyslinApi = {
     save: (input) => ipcRenderer.invoke('integrations:save', input),
     remove: (id) => ipcRenderer.invoke('integrations:remove', id),
     setAgents: (id, agentIds) => ipcRenderer.invoke('integrations:setAgents', id, agentIds),
-    test: (id) => ipcRenderer.invoke('integrations:test', id)
+    test: (id) => ipcRenderer.invoke('integrations:test', id),
+    search: (query, cursor) => ipcRenderer.invoke('integrations:search', query, cursor)
   },
   accounts: {
     status: () => ipcRenderer.invoke('accounts:status'),

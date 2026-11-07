@@ -301,7 +301,7 @@ export default function App(): JSX.Element {
               agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })} onChanged={() => void refresh()} />
           )}
           {route.name === 'skills' && <SkillsPage key={activeView?.agency.id ?? 'none'} agents={agents} team={activeView?.lead ? { name: activeView.project.name, members: [activeView.lead, ...activeView.workers] } : activeView ? { name: activeView.project.name, members: activeView.workers } : undefined} onAgentsChanged={() => void refresh()} />}
-          {route.name === 'integrations' && <IntegrationsPage key={activeView?.agency.id ?? 'none'} agents={agents} team={activeView ? { name: activeView.project.name, members: activeView.lead ? [activeView.lead, ...activeView.workers] : activeView.workers } : undefined} />}
+          {route.name === 'integrations' && <IntegrationsPage key={activeView?.agency.id ?? 'none'} agents={agents} templateId={activeView?.agency.templateId} team={activeView ? { name: activeView.project.name, members: activeView.lead ? [activeView.lead, ...activeView.workers] : activeView.workers } : undefined} />}
           {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
         </main>
       </div>
