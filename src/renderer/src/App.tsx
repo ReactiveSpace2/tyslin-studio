@@ -7,6 +7,7 @@ import { NewOrgModal } from './components/NewOrgModal'
 import { ChatPage } from './pages/ChatPage'
 import { SkillsPage } from './pages/SkillsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
+import { MemoryPage } from './pages/MemoryPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { InboxPage } from './pages/InboxPage'
 import { OrgHome } from './pages/OrgHome'
@@ -45,6 +46,7 @@ export type Route =
   | { name: 'connectors' }
   | { name: 'skills' }
   | { name: 'integrations' }
+  | { name: 'memory' }
   | { name: 'settings'; tab?: SettingsTab }
 
 export default function App(): JSX.Element {
@@ -129,7 +131,7 @@ export default function App(): JSX.Element {
   const openAgency = (id: string, tab: 'org' | 'chat' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
   /** A tab: Kanban, Drive, Channel and Skills stay on their screen for the new agency; anything else opens its overview. */
   const selectAgency = (id: string): void => {
-    if (route.name === 'kanban' || route.name === 'drive' || route.name === 'connectors' || route.name === 'skills' || route.name === 'integrations') return openAgencyTab(id)
+    if (route.name === 'kanban' || route.name === 'drive' || route.name === 'connectors' || route.name === 'skills' || route.name === 'integrations' || route.name === 'memory') return openAgencyTab(id)
     openAgency(id)
   }
   const closeAgency = (id: string): void => {
@@ -137,7 +139,7 @@ export default function App(): JSX.Element {
     if (route.name === 'agency' && route.id === id) setRoute(next && viewFor(next) ? { name: 'agency', id: next, tab: 'org' } : { name: 'home' })
   }
   /** Which screens show the agency sidebar. */
-  const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills', 'integrations'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency)
+  const agencyNavOn = !!activeAgency && (['kanban', 'drive', 'connectors', 'skills', 'integrations', 'memory'].includes(route.name) || (route.name === 'agency' && route.id === activeAgency)
     // A chat with one of this agency's agents keeps the agency sidebar.
     || (route.name === 'chat' && (route.projectId === activeAgency || agents.find((a) => a.id === route.agentId)?.projectId === activeAgency))
     // So does an agent's page.
@@ -301,6 +303,9 @@ export default function App(): JSX.Element {
               agents={agents} onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })} onChanged={() => void refresh()} />
           )}
           {route.name === 'skills' && <SkillsPage key={activeView?.agency.id ?? 'none'} agents={agents} team={activeView?.lead ? { name: activeView.project.name, members: [activeView.lead, ...activeView.workers] } : activeView ? { name: activeView.project.name, members: activeView.workers } : undefined} onAgentsChanged={() => void refresh()} />}
+          {route.name === 'memory' && (activeView
+            ? <MemoryPage key={activeView.agency.id} agencyId={activeView.agency.id} agencyName={activeView.project.name} agents={agents} />
+            : <div className="page"><p className="hint">Open an agency to see its memory.</p></div>)}
           {route.name === 'integrations' && <IntegrationsPage key={activeView?.agency.id ?? 'none'} agents={agents} templateId={activeView?.agency.templateId} team={activeView ? { name: activeView.project.name, members: activeView.lead ? [activeView.lead, ...activeView.workers] : activeView.workers } : undefined} />}
           {route.name === 'settings' && <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} onAuthChange={setAuth} />}
         </main>

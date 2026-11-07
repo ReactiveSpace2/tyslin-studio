@@ -108,6 +108,10 @@ The Lead, and any agent on the built-in runtime, uses one of these.
 
 Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's card is set to use your signed-in account.
 
+### Memory
+
+Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory screen or any editor; they also show in Drive and sync with Google Drive.
+
 ### Integrations
 
 Agents on Claude Code, Codex, Gemini CLI or Goose can use tools from other apps through MCP servers. Open an agency → Integrations: connect GitHub, Linear or Stripe with a token, search the official [MCP Registry](https://registry.modelcontextprotocol.io) and install a server from there, or add any MCP server yourself (a remote address or a command on this computer), then switch it on per agent. Each agency suggests the integrations that fit its work. Registry servers are published by companies and the community and aren't reviewed by Tyslin; check the publisher and source before installing. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
@@ -148,7 +152,7 @@ Output goes to `dist/`. Build each installer on its own platform; the release wo
 
 1. Runs while the app is closed: the Lead's scheduled runs and auto-run keep going when the window is shut.
 2. Cost ledger on Home: spend per agency, agent and model.
-3. File-based memory: agents that remember what they learned, in plain files.
+3. Agents that write their own memory notes and propose new skills from your feedback (memory files exist today; you write the notes).
 4. Discord and Email channels, next to Telegram and Slack.
 5. More agencies.
 6. Hosted plan: the same agencies with no setup.

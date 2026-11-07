@@ -11,6 +11,7 @@ import { acpServersForAgent } from './integrations'
 import { engineLaunch, engineStatus } from './engines'
 import { BOARD_TOOLS, boardSummary } from './boardTools'
 import { getAgency } from './db'
+import { memoryPrompt } from './memory'
 
 /**
  * AgentRuntime is the seam between Tyslin and whatever runs the agent loop.
@@ -61,6 +62,9 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   } else if (agency) {
     parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it).`)
   }
+  // Agency memory (memory/agency.md and the agent's own file), written on the Memory screen.
+  const memory = memoryPrompt(agent)
+  if (memory) parts.push(memory)
   if (project) {
     parts.push(`## Project\nYou are working in the project "${project.name}".`)
     if (project.folder) {

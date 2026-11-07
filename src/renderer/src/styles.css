@@ -1620,3 +1620,9 @@ h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .int-warn { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; border: 1px solid #d9b66a; background: #fcf4e2; color: #5c3d00; font-size: 13px; line-height: 1.45; }
 .int-warn svg { flex: none; margin-top: 2px; }
 @media (prefers-color-scheme: dark) { .int-warn { background: #2c2412; border-color: #8a6a2a; color: #f2c46d; } }
+
+/* Memory (agency menu) */
+.mem-item-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mem-body { min-height: 360px; font-size: 13.5px; line-height: 1.6; }
+.mem-help { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--panel); font-size: 13px; }
+.mem-help .hint { font-size: 13px; line-height: 1.5; }

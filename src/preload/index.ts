@@ -48,6 +48,11 @@ const api: TyslinApi = {
       return () => ipcRenderer.removeListener('engines:installOutput', fn)
     }
   },
+  memory: {
+    list: (agencyId) => ipcRenderer.invoke('memory:list', agencyId),
+    read: (agencyId, key) => ipcRenderer.invoke('memory:read', agencyId, key),
+    write: (agencyId, key, text) => ipcRenderer.invoke('memory:write', agencyId, key, text)
+  },
   integrations: {
     list: () => ipcRenderer.invoke('integrations:list'),
     save: (input) => ipcRenderer.invoke('integrations:save', input),

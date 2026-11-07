@@ -18,6 +18,7 @@ import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOu
 import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
 import { removeIntegration, saveIntegration, testIntegration } from './integrations'
 import { searchRegistry } from './mcpRegistry'
+import { listMemory, readMemory, writeMemory } from './memory'
 import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
@@ -452,6 +453,9 @@ function registerIpc(): void {
     const r = await runInstall(id, (text) => win?.webContents.send('engines:installOutput', { id, text }))
     return { ...r, status: engineStatus(id) }
   })
+  ipcMain.handle('memory:list', (_e, agencyId: string) => listMemory(String(agencyId)))
+  ipcMain.handle('memory:read', (_e, agencyId: string, key: string) => readMemory(String(agencyId), String(key)))
+  ipcMain.handle('memory:write', (_e, agencyId: string, key: string, text: string) => writeMemory(String(agencyId), String(key), String(text ?? '')))
   ipcMain.handle('integrations:list', () => db.listMcpServers())
   ipcMain.handle('integrations:save', (_e, input: McpServerInput) => saveIntegration(input))
   ipcMain.handle('integrations:remove', (_e, id: string) => removeIntegration(id))

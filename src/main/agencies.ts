@@ -9,6 +9,7 @@ import { defaultModel } from './defaultModel'
 import { newProjectFolderPath } from './studio'
 import { installPack } from './skillPacks'
 import { deleteHermesProfile } from './engines'
+import { ensureMemory } from './memory'
 
 /**
  * Agencies: a template becomes a project folder, a Lead and its workers, a board file and the Lead's
@@ -93,6 +94,9 @@ export function createAgency(input: AgencyCreateInput): Agency {
     prompt, plan: t?.plan ?? [], templateId: t?.id ?? '', leadId, projectId: project.id, adapter: input.adapter || 'template', boardPath,
     channel: { kind: input.channel ?? 'none' }, notify: input.notify ?? 'questions', budget: input.budget ?? null, autoRun: !!input.autoRun, paused: false
   })
+
+  // Memory files for the agency and each agent (memory/), filled in later on the Memory screen.
+  try { ensureMemory(agency) } catch { /* the Memory screen creates them on first open */ }
 
   // 5. The Lead's scheduled task.
   if (t && leadId) {

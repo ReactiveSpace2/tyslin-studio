@@ -16,7 +16,7 @@ import * as db from './db'
 /** True from the moment a reset starts; the scheduler checks it. */
 export let resetting = false
 
-const STUDIO_DIRS = ['boards', 'mindmaps', 'canvas', 'automations', 'workflows', 'documents', 'exports', '.tyslin-trash']
+const STUDIO_DIRS = ['memory', 'boards', 'mindmaps', 'canvas', 'automations', 'workflows', 'documents', 'exports', '.tyslin-trash']
 
 const inside = (parent: string, child: string): boolean => {
   const r = relative(parent, child)

@@ -27,6 +27,20 @@ export interface EngineStatus {
   install: EngineInstall | null
 }
 
+/** One agency memory file (Memory screen): the shared agency file or one agent's. */
+export interface MemoryFile {
+  /** 'agency' or the agent's id. */
+  key: string
+  title: string
+  /** Relative to the agency folder, e.g. "memory/quill.md". */
+  file: string
+  agentId: string | null
+  size: number
+  modifiedAt: number
+  /** Lines that are notes ("- ..."). */
+  notes: number
+}
+
 /** An integration: an MCP server agents on external adapters can use. Secret values never leave main. */
 export interface McpServerInfo {
   id: string
@@ -966,6 +980,12 @@ export interface TyslinApi {
     install(id: ExternalEngineId): Promise<{ ok: boolean; error?: string; status: EngineStatus }>
     cancelInstall(id: ExternalEngineId): Promise<void>
     onInstallOutput(cb: (o: InstallOutput) => void): () => void
+  }
+  memory: {
+    /** The agency file and one file per agent (created when missing). */
+    list(agencyId: string): Promise<MemoryFile[]>
+    read(agencyId: string, key: string): Promise<string>
+    write(agencyId: string, key: string, text: string): Promise<MemoryFile>
   }
   integrations: {
     list(): Promise<McpServerInfo[]>
