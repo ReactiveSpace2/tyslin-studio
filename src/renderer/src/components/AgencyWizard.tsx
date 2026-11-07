@@ -14,6 +14,14 @@ import claudeLogo from '../assets/providers/claude.svg'
 import geminiLogo from '../assets/providers/gemini.svg'
 import hermesLogo from '../assets/providers/hermes.png'
 import { Pose } from './Pose'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 const STEPS = ['Agency', 'Adapter', 'Model', 'Skills', 'Kanban', 'Channel', 'Review'] as const
 
@@ -23,14 +31,66 @@ const CLAUDE_PACK = 'anthropic-skills'
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 function Head({ id, size = 32 }: { id: string; size?: number }): JSX.Element {
-  return <img src={HEAD_SRC[id] ?? HEAD_SRC.smile} alt="" width={size} height={size} className="nt-head" />
+  return <img src={HEAD_SRC[id] ?? HEAD_SRC.smile} alt="" width={size} height={size} className="shrink-0 rounded-full bg-muted object-contain" style={{ width: size, height: size }} />
+}
+
+/** A step's body, a logo tile, a selectable card (ink ring when picked), a pack row and its checkbox. */
+const BODY = 'flex flex-1 flex-col gap-5 p-7'
+const TILE = 'grid size-10 shrink-0 place-items-center rounded-[10px] border border-border bg-card'
+const choice = (on: boolean): string => cn(
+  'flex min-h-11 cursor-pointer flex-col items-stretch gap-2 rounded-xl border bg-card p-4 text-left text-foreground shadow-xs outline-none transition-[border-color,box-shadow] focus-visible:ring-[3px] focus-visible:ring-ring/40',
+  on ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong'
+)
+const packRow = (on: boolean): string => cn(
+  'flex cursor-pointer items-start gap-3.5 rounded-xl border bg-card px-4 py-3.5 shadow-xs',
+  on ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong'
+)
+const CHECK = 'mt-0.5 size-4 shrink-0 accent-foreground'
+
+function Check(): JSX.Element {
+  return <span className="grid size-5 shrink-0 place-items-center rounded-full bg-lime text-on-lime"><Icon name="check" size={12} /></span>
+}
+
+function Intro({ title, children }: { title: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h1 id="aw-h" className="text-[26px] leading-tight font-semibold tracking-[-0.02em]">{title}</h1>
+      <p className="max-w-[70ch] text-sm leading-relaxed text-muted-foreground">{children}</p>
+    </div>
+  )
+}
+
+function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={htmlFor} className="text-[13px]">{label}</Label>
+      {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
+      {children}
+    </div>
+  )
+}
+
+/** A numbered setup step for the channel (lime number once done; faded until the step before it is done). */
+function ChannelStep({ n, done, off, children }: { n: number; done: boolean; off?: boolean; children: React.ReactNode }): JSX.Element {
+  return (
+    <section className={cn('flex gap-3.5 rounded-xl border border-border bg-card p-4', off && 'opacity-55')}>
+      <span className={cn('grid size-7 shrink-0 place-items-center rounded-full border font-mono text-xs', done ? 'border-transparent bg-lime text-on-lime' : 'border-border-strong text-muted-foreground')}>
+        {done ? <Icon name="check" size={13} /> : n}
+      </span>
+      <div className="flex min-w-0 flex-1 flex-col gap-2">{children}</div>
+    </section>
+  )
+}
+
+function Stem(): JSX.Element {
+  return <span aria-hidden="true" className="h-4 w-0.5 shrink-0 bg-border-strong" />
 }
 
 function AdapterMark({ id, name }: { id: AgencyAdapterId; name: string }): JSX.Element {
   const src = ADAPTER_LOGO[id]
   return src
-    ? <span className="aw-mark"><img src={src} alt="" width={26} height={26} /></span>
-    : <span className="aw-mark aw-letter mono" aria-hidden="true">{name.slice(0, 2)}</span>
+    ? <span className={TILE}><img src={src} alt="" width={26} height={26} className="size-[26px] object-contain" /></span>
+    : <span className={cn(TILE, 'border-foreground bg-primary font-mono text-[13px] font-semibold text-primary-foreground')} aria-hidden="true">{name.slice(0, 2)}</span>
 }
 
 interface Draft {
@@ -160,167 +220,178 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
   const next = (): void => { if (!canNext) return; if (step < STEPS.length - 1) setStep(step + 1); else void create() }
 
   return (
-    <main className="aw">
-      <form className="aw-card" onSubmit={(e) => { e.preventDefault(); next() }} aria-labelledby="aw-h">
-        <header className="aw-top">
-          <img src={logo} alt="" width={40} height={40} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span className="eyebrow">{firstRun ? 'Set up your agency' : 'New agency'} · step {step + 1} of {STEPS.length}</span>
-            <p className="onboard-welcome">{firstName ? `Welcome, ${firstName}` : 'Welcome'}</p>
+    // Below the title bar (44 px), which stays draggable.
+    <main className="tw fixed inset-x-0 top-[44px] bottom-0 z-[100] flex justify-center overflow-y-auto bg-background px-4 pt-8 text-foreground">
+      <form className="mb-auto flex min-h-[calc(100%-2rem)] w-full max-w-[980px] flex-col rounded-t-2xl border border-b-0 border-border bg-card shadow-xs"
+        onSubmit={(e) => { e.preventDefault(); next() }} aria-labelledby="aw-h">
+        <header className="flex flex-col gap-4 border-b border-border px-7 pt-5 pb-3">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="" width={40} height={40} className="size-10 shrink-0" />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="font-mono text-xs tracking-[0.08em] text-green uppercase">{firstRun ? 'Set up your agency' : 'New agency'} · step {step + 1} of {STEPS.length}</span>
+              <p className="text-[15px] font-semibold">{firstName ? `Welcome, ${firstName}` : 'Welcome'}</p>
+            </div>
           </div>
-          <ol className="aw-dots" aria-label="Steps">
+          <ol className="grid grid-cols-7 gap-2" aria-label="Steps">
             {STEPS.map((s, i) => (
-              <li key={s} className={i === step ? 'on' : i < step ? 'done' : ''} aria-current={i === step ? 'step' : undefined}>
-                <button type="button" title={s} aria-label={`Step ${i + 1}: ${s}`} disabled={i > step || busy} onClick={() => setStep(i)} />
+              <li key={s} aria-current={i === step ? 'step' : undefined}>
+                <button type="button" title={s} aria-label={`Step ${i + 1}: ${s}`} disabled={i > step || busy} onClick={() => setStep(i)}
+                  className={cn('group flex min-h-11 w-full flex-col justify-center gap-2 rounded-md text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 enabled:cursor-pointer disabled:cursor-default',
+                    i <= step ? 'text-foreground' : 'text-muted-foreground')}>
+                  <span aria-hidden="true" className={cn('h-1 w-full rounded-full', i < step ? 'bg-foreground' : i === step ? 'bg-lime' : 'bg-border')} />
+                  <span className={cn('truncate text-xs', i === step ? 'font-semibold' : 'font-medium', i < step && 'group-hover:underline')}>{i + 1} · {s}</span>
+                </button>
               </li>
             ))}
           </ol>
         </header>
 
         {step === 0 && (
-          <section className="aw-body">
-            <h1 id="aw-h">{firstRun || first ? 'Set up your first agency' : 'Set up a new agency'}</h1>
-            <p className="hint">You get a Lead and a team of agents with a goal, a plan, a board and a line to you. Start from a template or describe the work.</p>
-            <div className="aw-two">
+          <section className={BODY}>
+            <Intro title={firstRun || first ? 'Set up your first agency' : 'Set up a new agency'}>
+              You get a Lead and a team of agents with a goal, a plan, a board and a line to you. Start from a template or describe the work.
+            </Intro>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
               {firstRun && (
-                <div className="field">
-                  <label htmlFor="aw-org">Organization</label>
-                  <input id="aw-org" className="input" maxLength={60} value={d.org} onChange={(e) => set({ org: e.target.value })} placeholder="e.g. ReactiveSpace" />
-                </div>
+                <Field label="Organization" htmlFor="aw-org">
+                  <Input id="aw-org" maxLength={60} value={d.org} onChange={(e) => set({ org: e.target.value })} placeholder="e.g. ReactiveSpace" />
+                </Field>
               )}
-              <div className="field">
-                <label htmlFor="aw-name">Agency name</label>
-                <input id="aw-name" className="input" autoFocus maxLength={80} value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Launch Studio" />
-              </div>
+              <Field label="Agency name" htmlFor="aw-name">
+                <Input id="aw-name" autoFocus maxLength={80} value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Launch Studio" />
+              </Field>
             </div>
-            <div className="field">
-              <label htmlFor="aw-desc">What does this agency do?</label>
-              <textarea id="aw-desc" className="input" rows={2} value={d.description} onChange={(e) => set({ description: e.target.value })}
+            <Field label="What does this agency do?" htmlFor="aw-desc">
+              <Textarea id="aw-desc" rows={2} className="resize-y" value={d.description} onChange={(e) => set({ description: e.target.value })}
                 placeholder="Describe the work in a sentence or two, or start from a template below." />
-            </div>
-            <div className="field">
-              <label htmlFor="aw-goal">Goal</label>
-              <input id="aw-goal" className="input" value={d.goal} onChange={(e) => set({ goal: e.target.value })} placeholder="One sentence: what done looks like" />
-            </div>
-            <div className="field">
-              <label htmlFor="aw-prompt">Agency prompt</label>
-              <span className="hint">Every agent in this agency follows this, the Lead and the workers. Each agent also keeps its own job instructions.</span>
-              <textarea id="aw-prompt" className="input" rows={3} value={d.prompt} onChange={(e) => set({ prompt: e.target.value })}
+            </Field>
+            <Field label="Goal" htmlFor="aw-goal">
+              <Input id="aw-goal" value={d.goal} onChange={(e) => set({ goal: e.target.value })} placeholder="One sentence: what done looks like" />
+            </Field>
+            <Field label="Agency prompt" htmlFor="aw-prompt" hint="Every agent in this agency follows this, the Lead and the workers. Each agent also keeps its own job instructions.">
+              <Textarea id="aw-prompt" rows={3} className="resize-y" value={d.prompt} onChange={(e) => set({ prompt: e.target.value })}
                 placeholder="How this agency works: tools, style, what to ask you before doing." />
+            </Field>
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Start from a template</h2>
+              <Input className="w-full max-w-[260px]" type="search" placeholder="Search templates" aria-label="Search templates" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <div className="aw-tpl-head">
-              <h2 className="onboard-sub" style={{ margin: 0 }}>Start from a template</h2>
-              <input className="input aw-search" type="search" placeholder="Search templates" aria-label="Search templates" value={query} onChange={(e) => setQuery(e.target.value)} />
-            </div>
-            <div className="aw-grid" role="radiogroup" aria-label="Templates">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="radiogroup" aria-label="Templates">
               {shown.map((t) => {
                 const l = t.roster.find((m) => m.lead)!
                 const on = d.templateId === t.id
                 return (
-                  <button key={t.id} type="button" role="radio" aria-checked={on} className={'aw-tpl' + (on ? ' on' : '')} onClick={() => pickTemplate(t.id)}>
-                    <span className="aw-tpl-top"><Head id={l.head} size={30} /><strong>{t.name}</strong>{on && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
-                    <span className="hint">{t.tagline}</span>
-                    <span className="aw-tpl-foot">
-                      <span className="mono aw-small">{templateSummary(t)}</span>
-                      <span className="aw-runs" aria-label={`Runs on ${templateAdapters(t).map((id) => AGENCY_ADAPTERS.find((a) => a.id === id)!.name).join(', ')}`}>
+                  <button key={t.id} type="button" role="radio" aria-checked={on} className={cn(choice(on), 'p-3.5')} onClick={() => pickTemplate(t.id)}>
+                    <span className="flex items-center gap-2.5"><Head id={l.head} size={30} /><strong className="min-w-0 flex-1 text-sm font-semibold">{t.name}</strong>{on && <Check />}</span>
+                    <span className="text-[13px] leading-snug text-muted-foreground">{t.tagline}</span>
+                    <span className="mt-auto flex items-center justify-between gap-2">
+                      <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
+                      <span className="inline-flex shrink-0 items-center gap-1.5" aria-label={`Runs on ${templateAdapters(t).map((id) => AGENCY_ADAPTERS.find((a) => a.id === id)!.name).join(', ')}`}>
                         {templateAdapters(t).map((id) => {
                           const a = AGENCY_ADAPTERS.find((x) => x.id === id)!
                           return ADAPTER_LOGO[id]
-                            ? <img key={id} src={ADAPTER_LOGO[id]} alt="" title={a.name} width={16} height={16} />
-                            : <span key={id} className="aw-runs-letter mono" title={a.name} aria-hidden="true">{a.name.slice(0, 2)}</span>
+                            ? <img key={id} src={ADAPTER_LOGO[id]} alt="" title={a.name} width={16} height={16} className="size-4 object-contain" />
+                            : <span key={id} className="grid size-4 place-items-center rounded-sm bg-primary font-mono text-[8px] font-semibold text-primary-foreground" title={a.name} aria-hidden="true">{a.name.slice(0, 2)}</span>
                         })}
                       </span>
                     </span>
                   </button>
                 )
               })}
-              {shown.length === 0 && <p className="hint">No template matches. Describe the agency above instead.</p>}
+              {shown.length === 0 && <p className="text-sm text-muted-foreground">No template matches. Describe the agency above instead.</p>}
             </div>
           </section>
         )}
 
         {step === 1 && (
-          <section className="aw-body">
-            <h1 id="aw-h">How do your agents run?</h1>
-            <p className="hint">Your workers run on the agents you already use. Keep the template's mix or put every worker on one; the Lead runs on your default model. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.</p>
-            <button type="button" role="radio" aria-checked={d.adapter === 'template'} className={'aw-adapter aw-mix' + (d.adapter === 'template' ? ' on' : '')} onClick={() => set({ adapter: 'template' })}>
-              <span className="aw-tpl-top"><span className="aw-mark aw-letter mono" aria-hidden="true">Mix</span><span><strong>Use the template's mix</strong><span className="hint" style={{ display: 'block' }}>Recommended</span></span>
-                {d.adapter === 'template' && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
-              <span className="hint">{template ? template.roster.filter((m) => !m.lead).map((m) => `${agentName(m)}: ${adapterName(m.engine)}`).join(' · ') : 'Pick a template first; each worker then has an agent named for it.'}</span>
+          <section className={BODY}>
+            <Intro title="How do your agents run?">
+              Your workers run on the agents you already use. Keep the template's mix or put every worker on one; the Lead runs on your default model. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.
+            </Intro>
+            <button type="button" role="radio" aria-checked={d.adapter === 'template'} className={choice(d.adapter === 'template')} onClick={() => set({ adapter: 'template' })}>
+              <span className="flex items-center gap-3"><span className={cn(TILE, 'border-foreground bg-primary font-mono text-xs font-semibold text-primary-foreground')} aria-hidden="true">Mix</span>
+                <span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-semibold">Use the template's mix</strong><span className="text-xs text-muted-foreground">Recommended</span></span>
+                {d.adapter === 'template' && <Check />}</span>
+              <span className="text-[13px] leading-snug text-muted-foreground">{template ? template.roster.filter((m) => !m.lead).map((m) => `${agentName(m)}: ${adapterName(m.engine)}`).join(' · ') : 'Pick a template first; each worker then has an agent named for it.'}</span>
             </button>
-            <div className="aw-adapters" role="radiogroup" aria-label="One adapter for every worker">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3" role="radiogroup" aria-label="One adapter for every worker">
               {AGENCY_ADAPTERS.map((a) => {
                 const e = engineOf(a.id)
                 const installed = !!e?.resolvedPath
                 const on = d.adapter === a.id
                 return (
-                  <button key={a.id} type="button" role="radio" aria-checked={on} className={'aw-adapter' + (on ? ' on' : '')} onClick={() => set({ adapter: a.id })}>
-                    <span className="aw-tpl-top"><AdapterMark id={a.id} name={a.name} /><span><strong>{a.name}</strong><span className="hint" style={{ display: 'block' }}>{a.by}</span></span>
-                      {on && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
-                    <span className="hint">{a.description}</span>
-                    <span className="card-foot">
-                      <span className={'badge' + (installed ? ' green' : '')}>{installed ? 'Installed' : 'Not installed'}</span>
-                      {!installed && <span className="btn btn-sm" aria-hidden="true">Install</span>}
+                  <button key={a.id} type="button" role="radio" aria-checked={on} className={choice(on)} onClick={() => set({ adapter: a.id })}>
+                    <span className="flex items-center gap-3"><AdapterMark id={a.id} name={a.name} />
+                      <span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-semibold">{a.name}</strong><span className="text-xs text-muted-foreground">{a.by}</span></span>
+                      {on && <Check />}</span>
+                    <span className="text-[13px] leading-snug text-muted-foreground">{a.description}</span>
+                    <span className="mt-auto flex items-center justify-between gap-2">
+                      <Badge variant={installed ? 'soft' : 'secondary'}>{installed ? 'Installed' : 'Not installed'}</Badge>
+                      {!installed && <span className={buttonVariants({ variant: 'outline', size: 'sm' })} aria-hidden="true">Install</span>}
                     </span>
                   </button>
                 )
               })}
             </div>
-            <p className="hint">Install shows you the official command before anything runs. You can finish without installing; agents then wait until it's installed.</p>
+            <p className="text-xs text-muted-foreground">Install shows you the official command before anything runs. You can finish without installing; agents then wait until it's installed.</p>
           </section>
         )}
 
         {step === 2 && d.model && (
-          <section className="aw-body">
-            <h1 id="aw-h">Pick the Lead's model</h1>
-            <p className="hint">Your Lead plans and reviews with this model, and it becomes your default. Keys are encrypted on this computer and only go to their own provider. Ollama runs locally and needs no key.</p>
-            {firstRun ? <ModelKeys settings={settings} onSaved={keySaved} /> : <p className="hint">Model keys are in Settings → Models.</p>}
-            <h2 className="onboard-sub">Lead's model</h2>
-            <DefaultModelPicker settings={settings} value={d.model} onChange={(m) => set({ model: m })} idPrefix="aw-dm" />
+          <section className={BODY}>
+            <Intro title="Pick the Lead's model">
+              Your Lead plans and reviews with this model, and it becomes your default. Keys are encrypted on this computer and only go to their own provider. Ollama runs locally and needs no key.
+            </Intro>
+            {firstRun ? <ModelKeys settings={settings} onSaved={keySaved} /> : <p className="text-sm text-muted-foreground">Model keys are in Settings → Models.</p>}
+            <div className="flex max-w-[480px] flex-col gap-2">
+              <h2 className="text-lg font-semibold">Lead's model</h2>
+              <DefaultModelPicker settings={settings} value={d.model} onChange={(m) => set({ model: m })} idPrefix="aw-dm" />
+            </div>
           </section>
         )}
 
         {step === 3 && (
-          <section className="aw-body">
-            <h1 id="aw-h">Skills</h1>
-            <p className="hint">Your agents get the skills this kind of work needs, already included. Add packs for more; they install when you create the agency.</p>
+          <section className={BODY}>
+            <Intro title="Skills">
+              Your agents get the skills this kind of work needs, already included. Add packs for more; they install when you create the agency.
+            </Intro>
             {included.length > 0 && (
-              <div className="field"><span className="label">Included with {template?.name}</span>
-                <span className="nt-chips">{included.map((s) => <span key={s} className="mono">{s}</span>)}</span>
+              <div className="flex flex-col gap-2"><span className="text-[13px] font-medium">Included with {template?.name}</span>
+                <span className="flex flex-wrap gap-1.5">{included.map((s) => <Badge key={s} variant="secondary" className="font-mono text-foreground">{s}</Badge>)}</span>
               </div>
             )}
-            <div className="tabs" role="tablist" aria-label="Skill sources">
+            <TabsList aria-label="Skill sources">
               {(['claude', 'openai', 'github'] as const).map((t) => (
-                <button key={t} type="button" role="tab" aria-selected={skillTab === t} className={skillTab === t ? 'on' : ''} onClick={() => setSkillTab(t)}>
+                <TabsTrigger key={t} active={skillTab === t} onClick={() => setSkillTab(t)}>
                   {t === 'claude' ? 'Claude' : t === 'openai' ? 'OpenAI' : 'GitHub'}
-                </button>
+                </TabsTrigger>
               ))}
-            </div>
+            </TabsList>
             {skillTab === 'claude' && (
-              catalogError ? <p className="hint account-error" role="alert">Couldn't load Anthropic's skills from GitHub. {catalogError}</p>
-                : !catalog ? <p className="hint" role="status">Loading from GitHub…</p>
+              catalogError ? <p className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive" role="alert">Couldn't load Anthropic's skills from GitHub. {catalogError}</p>
+                : !catalog ? <p className="text-sm text-muted-foreground" role="status">Loading from GitHub…</p>
                   : (
-                    <label className={'aw-pack' + (d.packs.includes(CLAUDE_PACK) ? ' on' : '')}>
-                      <input type="checkbox" checked={d.packs.includes(CLAUDE_PACK)} onChange={() => togglePack(CLAUDE_PACK)} />
-                      <span>
-                        <strong>Anthropic's open skills</strong>
-                        <span className="hint" style={{ display: 'block' }}>The Apache 2.0 skills from github.com/anthropics/skills. Source-available ones are not installed.</span>
-                        <span className="nt-chips" style={{ marginTop: 8 }}>{catalog.filter((c) => c.installable).map((c) => <span key={c.folder} className="mono">{c.name}</span>)}</span>
+                    <label className={packRow(d.packs.includes(CLAUDE_PACK))}>
+                      <input type="checkbox" className={CHECK} checked={d.packs.includes(CLAUDE_PACK)} onChange={() => togglePack(CLAUDE_PACK)} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="flex flex-wrap items-center gap-2"><strong className="text-sm font-semibold">Anthropic's open skills</strong><Badge variant="secondary">Apache 2.0</Badge></span>
+                        <span className="text-[13px] leading-snug text-muted-foreground">The Apache 2.0 skills from github.com/anthropics/skills. Source-available ones are not installed.</span>
+                        <span className="mt-1.5 flex flex-wrap gap-1.5">{catalog.filter((c) => c.installable).map((c) => <Badge key={c.folder} variant="outline" className="font-mono">{c.name}</Badge>)}</span>
                       </span>
                     </label>
                   )
             )}
-            {skillTab === 'openai' && <p className="hint">OpenAI skills: coming soon.</p>}
+            {skillTab === 'openai' && <p className="text-sm text-muted-foreground">OpenAI skills: coming soon.</p>}
             {skillTab === 'github' && (
-              !packs ? <p className="hint" role="status">Loading…</p> : (
-                <div className="aw-packs">
+              !packs ? <p className="text-sm text-muted-foreground" role="status">Loading…</p> : (
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] gap-2.5">
                   {packs.filter((p) => p.group !== 'claude' && p.featured).map((p) => (
-                    <label key={p.id} className={'aw-pack' + (d.packs.includes(p.id) || p.installed ? ' on' : '')}>
-                      <input type="checkbox" disabled={p.installed || !p.installable} checked={p.installed || d.packs.includes(p.id)} onChange={() => togglePack(p.id)} />
-                      <span>
-                        <strong>{p.name}</strong>
-                        <span className="mono hint" style={{ display: 'block' }}>{[p.author, p.license || 'no licence'].join(' · ')}{p.installed ? ' · installed' : ''}</span>
-                        <span className="hint aw-clamp" style={{ display: 'block' }}>{p.description}</span>
+                    <label key={p.id} className={cn(packRow(d.packs.includes(p.id) || p.installed), (p.installed || !p.installable) && 'cursor-default')}>
+                      <input type="checkbox" className={CHECK} disabled={p.installed || !p.installable} checked={p.installed || d.packs.includes(p.id)} onChange={() => togglePack(p.id)} />
+                      <span className="flex min-w-0 flex-1 flex-col gap-1">
+                        <strong className="text-sm font-semibold">{p.name}</strong>
+                        <span className="font-mono text-xs text-muted-foreground">{[p.author, p.license || 'no licence'].join(' · ')}{p.installed ? ' · installed' : ''}</span>
+                        <span className="line-clamp-2 text-[13px] leading-snug text-muted-foreground">{p.description}</span>
                       </span>
                     </label>
                   ))}
@@ -331,98 +402,92 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
         )}
 
         {step === 4 && (
-          <section className="aw-body">
-            <h1 id="aw-h">Where the work lives</h1>
-            <p className="hint">You drop a brief in Inbox; the Lead turns it into cards, gives each one an owner and moves them along. Finished work waits in Review for you.</p>
-            <div className="aw-board" aria-label="Board preview">
+          <section className={BODY}>
+            <Intro title="Where the work lives">
+              You drop a brief in Inbox; the Lead turns it into cards, gives each one an owner and moves them along. Finished work waits in Review for you.
+            </Intro>
+            <div className="grid grid-cols-[repeat(5,minmax(150px,1fr))] gap-2.5 overflow-x-auto pb-1" aria-label="Board preview">
               {AGENCY_COLUMNS.map((c, i) => (
-                <div key={c} className="aw-col">
-                  <span className="aw-col-h">{c}<span className="mono">{i === 0 ? d.plan.length : 0}</span></span>
+                <div key={c} className="flex min-h-[240px] flex-col gap-2 rounded-xl border border-border bg-muted p-2.5">
+                  <span className="flex items-center justify-between text-[13px] font-semibold">{c}<Badge variant="outline" className="bg-card font-mono">{i === 0 ? d.plan.length : 0}</Badge></span>
                   {i === 0 && d.plan.map((p) => {
                     const m = template ? planOwner(template, p) : undefined
                     return (
-                      <div key={p} className="aw-cardp">
-                        <span>{p}</span>
-                        {m && <span className="aw-owner"><Head id={m.head} size={18} />{agentName(m)}</span>}
+                      <div key={p} className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-2.5 text-[13px] shadow-xs">
+                        <span className="font-medium">{p}</span>
+                        {m && <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Head id={m.head} size={18} />{agentName(m)}</span>}
                       </div>
                     )
                   })}
-                  {i === 0 && d.plan.length === 0 && <span className="hint aw-small">The Lead writes the first cards from your description.</span>}
+                  {i === 0 && d.plan.length === 0 && <span className="text-xs text-muted-foreground">The Lead writes the first cards from your description.</span>}
                 </div>
               ))}
             </div>
-            <label className="aw-toggle">
-              <span><strong>Let the Lead run cards automatically</strong>
-                <span className="hint" style={{ display: 'block' }}>{d.autoRun ? 'The Lead plans the cards and starts them with their owners.' : 'The Lead only plans. You start each card when you\'re ready.'}</span></span>
-              <input type="checkbox" checked={d.autoRun} onChange={(e) => set({ autoRun: e.target.checked })} />
-            </label>
+            <div className="flex items-center gap-4 rounded-xl border border-border bg-card px-[18px] py-4 shadow-xs">
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <Label htmlFor="aw-autorun" className="text-sm font-semibold">Let the Lead run cards automatically</Label>
+                <span className="text-[13px] text-muted-foreground">{d.autoRun ? 'The Lead plans the cards and starts them with their owners.' : 'The Lead only plans. You start each card when you\'re ready.'}</span>
+              </span>
+              <Switch id="aw-autorun" checked={d.autoRun} onCheckedChange={(v) => set({ autoRun: v })} />
+            </div>
           </section>
         )}
 
         {step === 5 && (
-          <section className="aw-body">
-            <h1 id="aw-h">How the Lead talks to you</h1>
-            <p className="hint">Your Lead messages you when there's news or a question: briefs, questions, work to review and digests. Only accounts you link can reply. Skip this and set it up later on the agency's Channel tab.</p>
-            <div className="aw-adapters aw-three" role="radiogroup" aria-label="Channel">
+          <section className={BODY}>
+            <Intro title="How the Lead talks to you">
+              Your Lead messages you when there's news or a question: briefs, questions, work to review and digests. Only accounts you link can reply. Skip this and set it up later on the agency's Channel tab.
+            </Intro>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3" role="radiogroup" aria-label="Channel">
               {([['telegram', 'Telegram', 'Your own bot; link your account with a one-time code.'], ['slack', 'Slack', 'A bot in your workspace, linked to one channel.'], ['none', 'Not now', 'Set it up later on the Channel tab.']] as const).map(([id, name, desc]) => (
-                <button key={id} type="button" role="radio" aria-checked={d.channel === id} className={'aw-adapter' + (d.channel === id ? ' on' : '')} onClick={() => set({ channel: id })}>
-                  <span className="aw-tpl-top"><span className="area-icon" aria-hidden="true"><Icon name={id === 'none' ? 'close' : 'chat'} size={16} /></span><strong>{name}</strong>
-                    {d.channel === id && <span className="aw-check"><Icon name="check" size={12} /></span>}</span>
-                  <span className="hint">{desc}</span>
-                  {id === 'telegram' && tg?.connected && <span className="badge green">Connected</span>}
+                <button key={id} type="button" role="radio" aria-checked={d.channel === id} className={choice(d.channel === id)} onClick={() => set({ channel: id })}>
+                  <span className="flex items-center gap-3"><span className={cn(TILE, 'border-transparent bg-muted')} aria-hidden="true"><Icon name={id === 'none' ? 'close' : 'chat'} size={16} /></span>
+                    <strong className="min-w-0 flex-1 text-sm font-semibold">{name}</strong>
+                    {id === 'telegram' && tg?.connected && <Badge variant="soft">Connected</Badge>}
+                    {d.channel === id && <Check />}</span>
+                  <span className="text-[13px] leading-snug text-muted-foreground">{desc}</span>
                 </button>
               ))}
             </div>
 
             {d.channel === 'telegram' && tg && (
-              <div className="aw-panel">
-                <section className="cn-step">
-                  <span className={'cn-num' + (tg.connected ? ' done' : '')}>{tg.connected ? <Icon name="check" size={13} /> : 1}</span>
-                  <div className="cn-body">
-                    <strong>Your bot</strong>
-                    <span className="hint">In Telegram, message BotFather, send /newbot and paste the token here. It's stored encrypted on this computer.</span>
-                    {tg.connected ? <span className="ok">Connected to {tg.botName ? `@${tg.botName}` : 'your bot'}</span> : (
-                      <div className="row">
-                        <input className="input" style={{ flex: 1, minWidth: 220 }} type="password" placeholder="Bot token" aria-label="Telegram bot token" value={tgToken} onChange={(e) => setTgToken(e.target.value)} />
-                        <button type="button" className="btn btn-primary" disabled={!tgToken.trim() || busy}
-                          onClick={() => { setBusy(true); setError(null); void window.tyslin.telegram.setToken(tgToken).then((s) => { setTg(s); setTgToken('') }, (e) => setError(errorText(e))).finally(() => setBusy(false)) }}>
-                          Connect
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </section>
-                <section className={'cn-step' + (tg.connected ? '' : ' off')}>
-                  <span className={'cn-num' + (tg.linked.length ? ' done' : '')}>{tg.linked.length ? <Icon name="check" size={13} /> : 2}</span>
-                  <div className="cn-body">
-                    <strong>Link your account</strong>
-                    {tg.linked.map((l) => <span key={l.chatId} className="ok">Linked: {l.name}</span>)}
-                    {tg.linkCode
-                      ? <div className="cn-code">Send <code className="mono">/start {tg.linkCode}</code> to {tg.botName ? `@${tg.botName}` : 'your bot'}. The code works for 10 minutes.</div>
-                      : <button type="button" className="btn" style={{ alignSelf: 'flex-start' }} disabled={!tg.connected} onClick={() => void window.tyslin.telegram.linkCode().then(setTg)}>Get a link code</button>}
-                  </div>
-                </section>
+              <div className="flex flex-col gap-2">
+                <ChannelStep n={1} done={tg.connected}>
+                  <strong className="text-sm font-semibold">Your bot</strong>
+                  <span className="text-[13px] text-muted-foreground">In Telegram, message BotFather, send /newbot and paste the token here. It's stored encrypted on this computer.</span>
+                  {tg.connected ? <span className="text-[13px] text-green">Connected to {tg.botName ? `@${tg.botName}` : 'your bot'}</span> : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Input className="min-w-[220px] flex-1" type="password" placeholder="Bot token" aria-label="Telegram bot token" value={tgToken} onChange={(e) => setTgToken(e.target.value)} />
+                      <Button type="button" disabled={!tgToken.trim() || busy}
+                        onClick={() => { setBusy(true); setError(null); void window.tyslin.telegram.setToken(tgToken).then((s) => { setTg(s); setTgToken('') }, (e) => setError(errorText(e))).finally(() => setBusy(false)) }}>
+                        Connect
+                      </Button>
+                    </div>
+                  )}
+                </ChannelStep>
+                <ChannelStep n={2} done={tg.linked.length > 0} off={!tg.connected}>
+                  <strong className="text-sm font-semibold">Link your account</strong>
+                  {tg.linked.map((l) => <span key={l.chatId} className="text-[13px] text-green">Linked: {l.name}</span>)}
+                  {tg.linkCode
+                    ? <div className="rounded-lg border border-green bg-lime-soft px-3 py-2.5 text-[13px]">Send <code className="font-mono font-semibold">/start {tg.linkCode}</code> to {tg.botName ? `@${tg.botName}` : 'your bot'}. The code works for 10 minutes.</div>
+                    : <Button type="button" variant="outline" className="self-start" disabled={!tg.connected} onClick={() => void window.tyslin.telegram.linkCode().then(setTg)}>Get a link code</Button>}
+                </ChannelStep>
               </div>
             )}
             {d.channel === 'slack' && (
-              <div className="aw-panel">
-                <section className="cn-step off">
-                  <span className="cn-num">1</span>
-                  <div className="cn-body">
-                    <strong>Your Slack bot</strong>
-                    <span className="hint">Paste the bot token from your Slack app, then link one channel with a one-time code. Do this on the agency's Channel tab once it exists.</span>
-                    <input className="input" type="password" placeholder="xoxb-…" aria-label="Slack bot token" disabled />
-                  </div>
-                </section>
-              </div>
+              <ChannelStep n={1} done={false} off>
+                <strong className="text-sm font-semibold">Your Slack bot</strong>
+                <span className="text-[13px] text-muted-foreground">Paste the bot token from your Slack app, then link one channel with a one-time code. Do this on the agency's Channel tab once it exists.</span>
+                <Input type="password" placeholder="xoxb-…" aria-label="Slack bot token" disabled />
+              </ChannelStep>
             )}
             {d.channel !== 'none' && (
-              <fieldset className="aw-notify">
-                <legend className="label">What the Lead sends</legend>
+              <fieldset className="m-0 grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2 rounded-xl border border-border p-4 pt-2">
+                <legend className="px-1.5 text-[13px] font-medium">What the Lead sends</legend>
                 {([['all', 'Everything', 'Briefs, questions, reviews and the daily digest'], ['questions', 'Questions and reviews', 'Only when the Lead needs you'], ['digest', 'Digest only', 'One summary a day']] as const).map(([id, name, desc]) => (
-                  <label key={id} className="np-choice">
-                    <input type="radio" name="aw-notify" checked={d.notify === id} onChange={() => set({ notify: id })} />
-                    <span><strong>{name}</strong><span className="hint">{desc}</span></span>
+                  <label key={id} className={cn('flex min-h-11 cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5', d.notify === id ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong')}>
+                    <input type="radio" name="aw-notify" className="mt-0.5 size-4 shrink-0 accent-foreground" checked={d.notify === id} onChange={() => set({ notify: id })} />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5"><strong className="text-sm font-semibold">{name}</strong><span className="text-[13px] text-muted-foreground">{desc}</span></span>
                   </label>
                 ))}
               </fieldset>
@@ -431,39 +496,47 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
         )}
 
         {step === 6 && (
-          <section className="aw-body">
-            <Pose pose={2} height={90} className="aw-pose" />
-            <h1 id="aw-h">Review and create</h1>
-            <p className="hint">{d.goal || d.description}</p>
-            <div className="nt-chart aw-chart">
-              <div className="nt-you"><span className="nt-u">{(firstName ?? 'Y').slice(0, 1).toUpperCase()}</span><strong>You</strong></div>
+          <section className={BODY}>
+            <div className="flex items-end gap-[18px]">
+              <Pose pose={2} height={96} />
+              <Intro title="Review and create">{d.goal || d.description}</Intro>
+            </div>
+            <div className="flex flex-col items-center gap-0 rounded-xl border border-border bg-card p-5 shadow-xs">
+              <span className="flex items-center gap-2 rounded-full border border-border py-1.5 pr-3 pl-1.5">
+                <span className="grid size-6 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground" aria-hidden="true">{(firstName ?? 'Y').slice(0, 1).toUpperCase()}</span>
+                <strong className="text-sm font-semibold">You</strong>
+              </span>
               {lead && (
                 <>
-                  <span className="nt-line" />
-                  <div className="nt-person nt-lead"><Head id={lead.head} size={40} /><span><strong>{agentName(lead)}</strong><small>Plans the work, hands out cards and reports to you · {adapterName('builtin')}</small></span></div>
+                  <Stem />
+                  <div className="flex w-full max-w-[420px] items-center gap-3 rounded-xl border-2 border-foreground bg-card px-3.5 py-2.5">
+                    <Head id={lead.head} size={40} />
+                    <span className="flex min-w-0 flex-col"><strong className="text-sm font-semibold">{agentName(lead)}</strong>
+                      <small className="text-xs leading-snug text-muted-foreground">Plans the work, hands out cards and reports to you · {adapterName('builtin')}</small></span>
+                  </div>
                 </>
               )}
               {workers.length > 0 && (
                 <>
-                  <span className="nt-line" />
-                  <div className="nt-members" style={{ gridTemplateColumns: `repeat(${workers.length}, minmax(0, 1fr))` }}>
+                  <Stem />
+                  <div className="grid w-full gap-2.5" style={{ gridTemplateColumns: `repeat(auto-fit, minmax(${workers.length > 4 ? 120 : 150}px, 1fr))` }}>
                     {workers.map((m) => (
-                      <div key={m.first} className="nt-person nt-member">
+                      <div key={m.first} className="flex flex-col items-center gap-1 rounded-xl border border-border bg-card p-3 text-center">
                         <Head id={m.head} size={36} />
-                        <strong>{agentName(m)}</strong>
-                        <small>{m.job}</small>
-                        <span className="mono nt-access">{adapterName(engineFor(m))}</span>
+                        <strong className="text-sm font-semibold">{agentName(m)}</strong>
+                        <small className="text-xs leading-snug text-muted-foreground">{m.job}</small>
+                        <Badge variant="secondary" className="mt-1 font-mono text-foreground">{adapterName(engineFor(m))}</Badge>
                       </div>
                     ))}
                   </div>
                 </>
               )}
-              {!lead && <p className="hint" style={{ marginTop: 12 }}>The Lead drafts the roster from your description after it's created.</p>}
+              {!lead && <p className="mt-3 text-sm text-muted-foreground">The Lead drafts the roster from your description after it's created.</p>}
             </div>
-            <dl className="aw-summary">
-              <dt>Folder</dt><dd className="mono">{folder}</dd>
+            <dl className="m-0 grid grid-cols-[140px_1fr] gap-x-4 gap-y-2.5 text-sm [&_dd]:m-0 [&_dd]:[overflow-wrap:anywhere] [&_dt]:text-muted-foreground">
+              <dt>Folder</dt><dd className="font-mono text-[13px]">{folder}</dd>
               <dt>Adapter</dt><dd>{adapterName(d.adapter)}{d.adapter !== 'template' && !engineOf(d.adapter)?.resolvedPath ? ' (not installed yet)' : ''}</dd>
-              <dt>Lead's model</dt><dd className="mono">{d.model ? `${PROVIDER_NAME[d.model.provider]} · ${d.model.model}` : ''}</dd>
+              <dt>Lead's model</dt><dd className="font-mono text-[13px]">{d.model ? `${PROVIDER_NAME[d.model.provider]} · ${d.model.model}` : ''}</dd>
               <dt>Skills</dt><dd>{included.length} included{d.packs.length ? `, ${d.packs.length} pack${d.packs.length > 1 ? 's' : ''} to install` : ''}</dd>
               <dt>Board</dt><dd>{AGENCY_COLUMNS.join(' → ')} · {d.plan.length} cards · {d.autoRun ? 'Lead runs cards' : 'you run cards'}</dd>
               <dt>Channel</dt><dd>{d.channel === 'none' ? 'Not now' : `${d.channel === 'telegram' ? 'Telegram' : 'Slack'} · ${d.notify === 'all' ? 'everything' : d.notify === 'questions' ? 'questions and reviews' : 'digest only'}`}</dd>
@@ -472,14 +545,14 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
           </section>
         )}
 
-        {error && <p className="login-error" role="alert">{error}</p>}
-        <footer className="onboard-actions aw-actions">
-          {step > 0 ? <button type="button" className="btn" onClick={() => setStep(step - 1)} disabled={busy}>Back</button>
-            : onCancel ? <button type="button" className="btn" onClick={onCancel} disabled={busy}>Cancel</button> : <span />}
-          <span className="hint aw-stepname">{STEPS[step]}</span>
-          <button type="submit" className="btn btn-primary" disabled={!canNext || busy}>
+        {error && <p className="mx-7 mb-4 rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive" role="alert">{error}</p>}
+        <footer className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t border-border bg-card px-7 py-4">
+          {step > 0 ? <Button type="button" variant="outline" onClick={() => setStep(step - 1)} disabled={busy}>Back</Button>
+            : onCancel ? <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>Cancel</Button> : <span />}
+          <span className="font-mono text-xs text-muted-foreground">{STEPS[step]}</span>
+          <Button type="submit" variant={step < STEPS.length - 1 ? 'default' : 'lime'} disabled={!canNext || busy}>
             {step < STEPS.length - 1 ? 'Continue' : busy ? 'Creating…' : 'Create agency'}
-          </button>
+          </Button>
         </footer>
       </form>
     </main>

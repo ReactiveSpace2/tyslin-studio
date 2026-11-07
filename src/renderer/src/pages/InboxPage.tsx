@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Agency, Agent, ChannelMessage } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Pose } from '../components/Pose'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 type Filter = 'all' | 'needs' | 'review' | 'brief' | 'digest'
 const KIND: Record<ChannelMessage['kind'], string> = { brief: 'brief', question: 'question', review: 'review', digest: 'digest' }
@@ -92,134 +98,154 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
   }
 
   return (
-    <div className="inbox">
-      <aside className="inbox-list" aria-label="Messages">
-        <div className="inbox-head">
-          <span className="eyebrow">{scope.name}</span>
-          <div className="inbox-title">
-            <h1>Inbox</h1>
-            <button type="button" className={'btn btn-sm' + (briefing ? ' btn-primary' : '')} disabled={!scopeLead} onClick={() => { setBriefing(true); setNote(''); setError('') }}><Icon name="plus" size={12} /> New brief</button>
+    <div className="tw flex h-full min-h-0 text-foreground">
+      <aside className="flex w-[300px] flex-none flex-col border-r border-border min-[901px]:w-[380px]" aria-label="Messages">
+        <div className="flex flex-col gap-3 border-b border-border px-4 pt-5 pb-3">
+          <span className="font-mono text-xs tracking-[0.08em] text-green uppercase">{scope.name}</span>
+          <div className="flex items-center justify-between gap-2.5">
+            <h1 className="text-[26px] font-semibold tracking-tight">Inbox</h1>
+            <Button size="sm" variant={briefing ? 'default' : 'outline'} disabled={!scopeLead} onClick={() => { setBriefing(true); setNote(''); setError('') }}><Icon name="plus" size={12} /> New brief</Button>
           </div>
-          <div className="inbox-filters" role="tablist" aria-label="Show">
-            {FILTERS.map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={filter === id} className={'chip' + (filter === id ? ' on' : '') + (id === 'needs' && counts.needs ? ' needs' : '')} onClick={() => setFilter(id)}>
-                {label}{counts[id] ? <span className="mono" style={{ marginLeft: 6 }}>{counts[id]}</span> : null}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Show">
+            {FILTERS.map(([id, label]) => {
+              const on = filter === id
+              return (
+                <button key={id} type="button" role="tab" aria-selected={on} onClick={() => setFilter(id)}
+                  className={cn('inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40',
+                    on ? 'border-primary bg-primary text-primary-foreground' : id === 'needs' && counts.needs ? 'border-green bg-card text-green hover:bg-accent' : 'border-border bg-card text-foreground hover:bg-accent')}>
+                  {label}{counts[id] ? <span className="font-mono">{counts[id]}</span> : null}
+                </button>
+              )
+            })}
           </div>
         </div>
-        <div className="inbox-items">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           {shown.length === 0 && (
-            <p className="hint inbox-empty">{messages.length ? 'Nothing here.' : `When ${leadFirst} has a question, work to review or a digest, it lands here.`}</p>
+            <p className="p-4 text-[13px] text-muted-foreground">{messages.length ? 'Nothing here.' : `When ${leadFirst} has a question, work to review or a digest, it lands here.`}</p>
           )}
           {shown.map((m) => {
             const a = agentById.get(m.agentId)
+            const on = current?.id === m.id
             return (
-              <button key={m.id} type="button" className={'inbox-item' + (current?.id === m.id ? ' on' : '') + (m.readAt ? '' : ' unread') + (needsYou(m) ? ' needs' : '')} onClick={() => { setSelected(m.id); setBriefing(false) }}>
-                <span className="inbox-item-top">
-                  <strong>{a?.name.replace(/\s*\(Lead\)$/, '') ?? 'Lead'}</strong>
-                  <span className="mono hint">{when(m.createdAt)}</span>
+              <button key={m.id} type="button" onClick={() => { setSelected(m.id); setBriefing(false) }}
+                className={cn('flex w-full flex-col gap-1.5 border-b border-border px-4 py-3 text-left text-foreground transition-colors outline-none hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset',
+                  on && 'bg-accent shadow-[inset_3px_0_0_var(--color-lime)]')}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant={needsYou(m) ? 'lime' : 'secondary'} className="capitalize">{KIND[m.kind]}</Badge>
+                    {m.reply && <Badge variant="outline" className="text-muted-foreground"><Icon name="check" size={10} /> answered</Badge>}
+                  </span>
+                  <span className="flex-none font-mono text-[11px] text-muted-foreground">{when(m.createdAt)}</span>
                 </span>
-                <span className="inbox-item-text">{m.text}</span>
-                <span className="row" style={{ gap: 6 }}>
-                  <span className={'kind-tag' + (needsYou(m) ? ' needs' : '')}>{KIND[m.kind]}</span>
-                  {m.reply && <span className="kind-tag"><Icon name="check" size={10} /> answered</span>}
+                <span className="flex items-center gap-2 text-sm">
+                  {!m.readAt && <span className="size-[7px] flex-none rounded-full bg-lime" aria-hidden="true" />}
+                  <strong className={m.readAt ? 'font-medium' : 'font-semibold'}>{a?.name.replace(/\s*\(Lead\)$/, '') ?? 'Lead'}</strong>
                 </span>
+                <span className="line-clamp-2 text-[13px] text-muted-foreground">{m.text}</span>
               </button>
             )
           })}
         </div>
       </aside>
 
-      <section className="inbox-detail" aria-label={briefing ? 'New brief' : 'Message'}>
+      <section className="flex min-w-0 flex-1 flex-col gap-[18px] overflow-y-auto px-6 py-6 min-[901px]:px-8 min-[901px]:py-7" aria-label={briefing ? 'New brief' : 'Message'}>
         {briefing ? (
-          <>
-            <header className="inbox-from">
-              {scopeLead ? <Avatar shape={scopeLead.shape} tone={scopeLead.tone} head={scopeLead.head} size={44} /> : <span className="area-icon"><Icon name="agency" size={16} /></span>}
-              <span className="inbox-from-text">
-                <strong>New brief for {scopeLead?.name ?? 'the Lead'}</strong>
-                <span className="hint">It goes into Inbox on {scope.name}&apos;s board, and {leadFirst} turns it into cards.</span>
+          <div className="flex w-full max-w-[760px] flex-col gap-[18px]">
+            <header className="flex items-center gap-3">
+              {scopeLead ? <Avatar shape={scopeLead.shape} tone={scopeLead.tone} head={scopeLead.head} size={44} /> : <LeadIcon />}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <strong className="text-base font-semibold">New brief for {scopeLead?.name ?? 'the Lead'}</strong>
+                <span className="text-[13px] text-muted-foreground">It goes into Inbox on {scope.name}&apos;s board, and {leadFirst} turns it into cards.</span>
               </span>
             </header>
-            <div className="field">
-              <label className="label" htmlFor="inbox-brief">What do you need?</label>
-              <textarea id="inbox-brief" className="textarea" rows={6} autoFocus value={brief} onChange={(e) => setBrief(e.target.value)}
+            <Card className="gap-2 px-3 py-2.5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
+              <Label htmlFor="inbox-brief" className="text-[13px]">What do you need?</Label>
+              <Textarea id="inbox-brief" rows={6} autoFocus value={brief} onChange={(e) => setBrief(e.target.value)} className="resize-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                 placeholder="The work, what done looks like, and anything to avoid."
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendBrief() }} />
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button variant="outline" className="min-h-11" onClick={() => setBriefing(false)}>{note ? 'Back to messages' : 'Cancel'}</Button>
+                <Button className="min-h-11" disabled={sending || !brief.trim()} onClick={() => void sendBrief()}>
+                  <Icon name="send" size={13} /> {sending ? 'Sending…' : 'Send brief'}
+                </Button>
+              </div>
+            </Card>
+            {error && <ErrorLine>{error}</ErrorLine>}
+            {note && <p className="text-[13px] text-green" role="status">{note}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" className="min-h-10" onClick={() => onOpenBoard(scope.projectId)}><Icon name="kanban" size={14} /> Open the board</Button>
             </div>
-            {error && <p className="hint account-error" role="alert">{error}</p>}
-            {note && <p className="ok" role="status">{note}</p>}
-            <div className="row inbox-send">
-              <button type="button" className="btn" onClick={() => setBriefing(false)}>{note ? 'Back to messages' : 'Cancel'}</button>
-              <button type="button" className="btn btn-primary" disabled={sending || !brief.trim()} onClick={() => void sendBrief()}>
-                <Icon name="send" size={13} /> {sending ? 'Sending…' : 'Send brief'}
-              </button>
-            </div>
-            <div className="row" style={{ gap: 8 }}>
-              <button type="button" className="btn" onClick={() => onOpenBoard(scope.projectId)}><Icon name="kanban" size={14} /> Open the board</button>
-            </div>
-          </>
+          </div>
         ) : !current ? (
-          <div className="inbox-blank">
+          <div className="m-auto flex max-w-[360px] flex-col items-center gap-2 text-center">
             <Pose pose={3} height={170} />
-            <strong>No messages yet</strong>
-            <span className="hint">{leadFirst} writes here when there&apos;s no channel, and as well as Telegram or Slack when there is. Use New brief to give {leadFirst} work.</span>
+            <strong className="text-base font-semibold">No messages yet</strong>
+            <span className="text-[13px] text-muted-foreground">{leadFirst} writes here when there&apos;s no channel, and as well as Telegram or Slack when there is. Use New brief to give {leadFirst} work.</span>
           </div>
         ) : (
-          <>
-            <header className="inbox-from">
-              {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} /> : <span className="area-icon"><Icon name="agency" size={16} /></span>}
-              <span className="inbox-from-text">
-                <strong>{lead?.name ?? 'Lead'}</strong>
-                <span className="hint">{agency?.name ?? 'Agency'} · {new Date(current.createdAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}{current.delivered ? ` · also sent on ${current.via === 'telegram' ? 'Telegram' : 'Slack'}` : ''}</span>
+          <div className="flex w-full max-w-[760px] flex-1 flex-col gap-[18px]">
+            <header className="flex items-center gap-3">
+              {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} /> : <LeadIcon />}
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <strong className="text-base font-semibold">{lead?.name ?? 'Lead'}</strong>
+                <span className="text-[13px] text-muted-foreground">{agency?.name ?? 'Agency'} · {new Date(current.createdAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}{current.delivered ? ` · also sent on ${current.via === 'telegram' ? 'Telegram' : 'Slack'}` : ''}</span>
               </span>
-              <span className={'kind-tag' + (needsYou(current) ? ' needs' : '')}>{KIND[current.kind]}</span>
+              <Badge variant={needsYou(current) ? 'lime' : 'secondary'} className="capitalize">{KIND[current.kind]}</Badge>
             </header>
 
-            <div className="card inbox-body">{current.text}</div>
+            <Card className="px-6 py-5 text-[15px] leading-relaxed whitespace-pre-wrap">{current.text}</Card>
 
             {current.reply ? (
-              <div className="inbox-answer">
-                <span className="label">Your answer · {current.repliedAt ? when(current.repliedAt) : ''}</span>
+              <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-lime-soft px-5 py-4 text-sm leading-normal">
+                <span className="text-[13px] font-medium">Your answer · {current.repliedAt ? when(current.repliedAt) : ''}</span>
                 <span>{current.reply}</span>
-                <span className="hint">Sent to {lead?.name ?? 'the Lead'}{current.cardId ? ' and noted on the card' : ''}.</span>
+                <span className="text-[13px] text-muted-foreground">Sent to {lead?.name ?? 'the Lead'}{current.cardId ? ' and noted on the card' : ''}.</span>
               </div>
             ) : (
               <>
                 {current.options.length > 0 && (
-                  <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                    {current.options.map((o) => <button key={o} type="button" className="btn" disabled={sending} onClick={() => void send(o)}>{o}</button>)}
+                  <div className="flex flex-wrap gap-2">
+                    {current.options.map((o) => <Button key={o} variant="outline" className="min-h-10" disabled={sending} onClick={() => void send(o)}>{o}</Button>)}
                   </div>
                 )}
-                <div className="field">
-                  <label className="label" htmlFor="inbox-reply">Reply to {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'}</label>
-                  <textarea id="inbox-reply" className="textarea" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)}
+                <Card className="gap-2 px-3 py-2.5 focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
+                  <Label htmlFor="inbox-reply" className="text-[13px]">Reply to {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'}</Label>
+                  <Textarea id="inbox-reply" rows={3} value={draft} onChange={(e) => setDraft(e.target.value)} className="resize-none border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
                     placeholder={current.kind === 'question' ? 'Your answer' : current.kind === 'review' ? 'Approve, or say what to change' : `Reply to ${leadFirst}`}
                     onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send(draft) }} />
-                </div>
-                {error && <p className="hint account-error" role="alert">{error}</p>}
-                <div className="row inbox-send">
-                  <span className="hint">Your answer goes to {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'}{current.cardId ? ' and onto the card' : ''}.</span>
-                  <button type="button" className="btn btn-primary" disabled={sending || !draft.trim()} onClick={() => void send(draft)}>
-                    <Icon name="send" size={13} /> {sending ? 'Sending…' : 'Send'}
-                  </button>
-                </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="text-[13px] text-muted-foreground">Your answer goes to {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'}{current.cardId ? ' and onto the card' : ''}.</span>
+                    <Button className="min-h-11" disabled={sending || !draft.trim()} onClick={() => void send(draft)}>
+                      <Icon name="send" size={13} /> {sending ? 'Sending…' : 'Send'}
+                    </Button>
+                  </div>
+                </Card>
+                {error && <ErrorLine>{error}</ErrorLine>}
               </>
             )}
 
-            <div className="row" style={{ gap: 8 }}>
-              {agency && <button type="button" className="btn" onClick={() => onOpenBoard(agency.projectId)}><Icon name="kanban" size={14} /> Open the board</button>}
+            <div className="flex gap-2">
+              {agency && <Button variant="outline" className="min-h-10" onClick={() => onOpenBoard(agency.projectId)}><Icon name="kanban" size={14} /> Open the board</Button>}
             </div>
 
             {agency && agency.channel.kind === 'none' && (
-              <div className="inbox-strip">
-                <span className="hint">No channel is set up for {agency.name}, so {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'} writes here. Add Telegram or Slack to get these on your phone.</span>
-                <button type="button" className="link-btn" onClick={() => onOpenChannel(agency.projectId)}>Set up a channel</button>
+              <div className="mt-auto flex flex-wrap items-center gap-3 rounded-xl border border-border bg-muted px-4 py-3.5">
+                <span className="min-w-0 flex-1 text-[13px] text-muted-foreground">No channel is set up for {agency.name}, so {lead?.name.replace(/\s*\(Lead\)$/, '') ?? 'the Lead'} writes here. Add Telegram or Slack to get these on your phone.</span>
+                <Button variant="link" className="h-auto px-0" onClick={() => onOpenChannel(agency.projectId)}>Set up a channel</Button>
               </div>
             )}
-          </>
+          </div>
         )}
       </section>
     </div>
   )
+}
+
+/** Stands in for the Lead's head when the Lead is gone. */
+function LeadIcon(): JSX.Element {
+  return <span className="flex size-10 flex-none items-center justify-center rounded-[10px] bg-muted text-foreground"><Icon name="agency" size={16} /></span>
+}
+
+function ErrorLine({ children }: { children: ReactNode }): JSX.Element {
+  return <p className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive" role="alert">{children}</p>
 }

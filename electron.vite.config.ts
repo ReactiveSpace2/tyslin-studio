@@ -1,6 +1,7 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {
@@ -13,7 +14,8 @@ export default defineConfig({
     resolve: { alias: { '@shared': resolve('src/shared') } }
   },
   renderer: {
-    resolve: { alias: { '@shared': resolve('src/shared') } },
-    plugins: [react()]
+    // '@' is the renderer source (shadcn/ui's alias: '@/components/ui', '@/lib/utils').
+    resolve: { alias: { '@shared': resolve('src/shared'), '@': resolve('src/renderer/src') } },
+    plugins: [react(), tailwindcss()]
   }
 })

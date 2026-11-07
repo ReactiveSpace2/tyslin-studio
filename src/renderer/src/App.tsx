@@ -29,6 +29,8 @@ import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
 import { closeAgencyTab, initCurrentProject, openAgencyTab, setCurrentProject, useCurrentProject } from './currentProject'
 import { UpdateNotice } from './components/UpdateNotice'
+import { Badge } from '@/components/ui/badge'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 /**
  * Screens: Home (the organization), Agencies (list, one agency, the New agency wizard), and inside an
@@ -196,12 +198,13 @@ export default function App(): JSX.Element {
         onCloseAgency={closeAgency}
         onNewAgency={() => setRoute({ name: 'newAgency' })}
       />
-      <div className="app-body">
+      {/* Inside an agency: shadcn's "inset" dashboard layout. The sidebar sits on the panel colour and the screen is a rounded card beside it. */}
+      <div className={'app-body' + (agencyNavOn && activeAgency ? ' bg-panel' : '')}>
         {agencyNavOn && activeAgency && (
           <AgencyNav agencyId={activeAgency} name={activeProject?.name ?? 'Agency'} route={route} unread={unreadByProject[activeAgency] ?? 0} leadId={activeView?.lead?.id ?? null}
             onNavigate={(r) => { if (r.name === 'agency') openAgencyTab(r.id); setRoute(r) }} />
         )}
-        <main className="main">
+        <main className={'main' + (agencyNavOn && activeAgency ? ' my-2 mr-2 rounded-xl border border-border bg-background shadow-sm' : '')}>
           {route.name === 'home' && (
             <OrgHome
               you={you}
@@ -366,18 +369,20 @@ function AgencyChatTabs({ tab, leadName, unread, onChat, onInbox, children }: {
   children: React.ReactNode
 }): JSX.Element {
   return (
-    <div className="chat-tabs-wrap">
-      <div className="tabs chat-tabs" role="tablist" aria-label="Chat">
-        {onChat && (
-          <button type="button" role="tab" aria-selected={tab === 'chat'} className={tab === 'chat' ? 'on' : ''} onClick={() => { if (tab !== 'chat') onChat() }}>
-            Chat{leadName ? ` with ${leadName}` : ''}
-          </button>
-        )}
-        <button type="button" role="tab" aria-selected={tab === 'inbox'} className={tab === 'inbox' ? 'on' : ''} onClick={() => { if (tab !== 'inbox') onInbox() }}>
-          Inbox{unread > 0 && <span className="tab-count mono" aria-label={`${unread} unread`}>{unread}</span>}
-        </button>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="tw flex flex-none items-center gap-3 border-b border-border bg-background px-6 py-2.5 text-foreground">
+        <TabsList aria-label="Chat">
+          {onChat && (
+            <TabsTrigger active={tab === 'chat'} onClick={() => { if (tab !== 'chat') onChat() }}>
+              Chat{leadName ? ` with ${leadName}` : ''}
+            </TabsTrigger>
+          )}
+          <TabsTrigger active={tab === 'inbox'} onClick={() => { if (tab !== 'inbox') onInbox() }}>
+            Inbox{unread > 0 && <Badge variant="lime" className="h-[18px] px-1.5 font-mono text-[11px]" aria-label={`${unread} unread`}>{unread}</Badge>}
+          </TabsTrigger>
+        </TabsList>
       </div>
-      <div className="chat-tabs-body">{children}</div>
+      <div className="flex min-h-0 flex-1 flex-col [&>*]:h-auto [&>*]:min-h-0 [&>*]:flex-1">{children}</div>
     </div>
   )
 }

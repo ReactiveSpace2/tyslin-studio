@@ -145,6 +145,8 @@ npm run dev        # the app with hot reload
 npm run typecheck  # run after every change
 ```
 
+The interface is React with Tailwind CSS v4 and shadcn/ui components (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens; some screens still use the original stylesheet while they move over.
+
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev`.
 
 Installers:

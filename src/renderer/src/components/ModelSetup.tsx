@@ -1,9 +1,15 @@
+import * as React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import type { AccountEngine, AccountStatus, EngineStatus, KeyProvider, OpenRouterAccount, OpenRouterModel, ProviderId, ProviderSettings } from '@shared/types'
 import { MODEL_SUGGESTIONS, PROVIDER_NAME } from '@shared/models'
 import { refreshDefaultModel } from '../defaultModel'
-import { Mark } from './RunsOnBadge'
+import { Mark, type MarkKey } from './RunsOnBadge'
 import { track } from '../activity'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 /** OpenRouter is hidden for now (owner, 7 Nov 2026). Its sign-in, card and model search stay in the code; set true to show them. */
 export const SHOW_OPENROUTER = false
@@ -24,8 +30,26 @@ const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
 
 const money = (n: number): string => '$' + (n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString())
 
+/** Shared look for native selects (no shadcn Select here: the native one keeps keyboard and screen-reader behaviour). */
+const selectCls = 'h-9 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+const hintCls = 'text-[13px] leading-relaxed text-muted-foreground'
+const errorCls = 'text-[13px] text-destructive'
+const linkCls = 'self-start text-[13px] text-green underline-offset-4 hover:underline'
+const sectionCls = 'flex flex-col gap-2.5 border-t border-border pt-3.5'
+const sectionLabelCls = 'text-[13px] font-medium'
+
 function Status({ on, text }: { on: boolean; text?: string }): JSX.Element {
-  return <span className={'status-pill' + (on ? ' ready' : '')}>{on && <span className="provider-dot" aria-hidden="true" />}{text ?? (on ? 'Connected' : 'Not connected')}</span>
+  return (
+    <Badge variant={on ? 'soft' : 'secondary'} className="h-6 px-2">
+      {on && <span className="size-1.5 rounded-full bg-green" aria-hidden="true" />}
+      {text ?? (on ? 'Connected' : 'Not connected')}
+    </Badge>
+  )
+}
+
+/** The box that shows an install command before it runs (install → confirm → run). */
+function InstallConfirm({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+  return <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-muted p-3.5 text-sm" role="group" aria-label={label}>{children}</div>
 }
 
 /** A password field with Save (Enter saves; no <form>, so it can sit inside one). Keys are encrypted in main and never come back to the window. */
@@ -38,11 +62,11 @@ function KeyField({ id, placeholder, label, onSave, onCancel }: { id: KeyProvide
     try { await onSave(value); setValue('') } finally { setBusy(false) }
   }
   return (
-    <div className="row provider-keyrow">
-      <input id={'k-' + id} type="password" className="input mono" autoComplete="off" placeholder={placeholder} aria-label={label + ' API key'} value={value}
+    <div className="flex items-center gap-2">
+      <Input id={'k-' + id} type="password" className="flex-1 font-mono" autoComplete="off" placeholder={placeholder} aria-label={label + ' API key'} value={value}
         onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } }} autoFocus={!!onCancel} />
-      <button type="button" className="btn btn-primary" disabled={!value.trim() || busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save key'}</button>
-      {onCancel && <button type="button" className="btn" onClick={onCancel}>Cancel</button>}
+      <Button type="button" disabled={!value.trim() || busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save key'}</Button>
+      {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>}
     </div>
   )
 }
@@ -111,85 +135,95 @@ function AccountSignIn({ info, status, engine, keySaved, onChange, onSaved, onOp
     await onSaved(on ? `Agents on ${info.engineName} use your ${info.account} account` : `Agents on ${info.engineName} use your API key`)
   }
 
+  const waitBox = (text: string, action: JSX.Element, extra?: React.ReactNode): JSX.Element => (
+    <div className="flex flex-col gap-1.5 rounded-lg bg-lime-soft px-3 py-2.5" role="status">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex-1 text-sm">{text}</span>
+        {action}
+      </div>
+      {extra}
+    </div>
+  )
+  const segBtn = (on: boolean): string => cn('inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50',
+    on ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')
+
   let body: JSX.Element
-  if (!status) body = <p className="hint">Checking {info.engineName}…</p>
+  if (!status) body = <p className={hintCls}>Checking {info.engineName}…</p>
   else if (step === 'installing') {
-    body = (
-      <div className="provider-wait-box" role="status">
-        <div className="row provider-actions">
-          <span className="provider-wait">Installing {info.engineName}…</span>
-          <button type="button" className="btn" onClick={() => void window.tyslin.engines.cancelInstall(info.engine)}>Stop</button>
-        </div>
-        {lastLine && <span className="mono provider-logline">{lastLine}</span>}
-      </div>
-    )
+    body = waitBox(`Installing ${info.engineName}…`,
+      <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.engines.cancelInstall(info.engine)}>Stop</Button>,
+      lastLine && <span className="truncate font-mono text-[11px] text-muted-foreground">{lastLine}</span>)
   } else if (step === 'signing') {
-    body = (
-      <div className="provider-wait-box" role="status">
-        <div className="row provider-actions">
-          <span className="provider-wait">Finish signing in to {info.account} in your browser…</span>
-          <button type="button" className="btn" onClick={() => void window.tyslin.accounts.cancelSignIn(info.engine)}>Cancel</button>
-        </div>
-        {url && <a className="provider-link" href={url} target="_blank" rel="noreferrer">Browser didn't open? Open the sign-in page</a>}
-      </div>
-    )
+    body = waitBox(`Finish signing in to ${info.account} in your browser…`,
+      <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.accounts.cancelSignIn(info.engine)}>Cancel</Button>,
+      url && <a className={linkCls} href={url} target="_blank" rel="noreferrer">Browser didn't open? Open the sign-in page</a>)
   } else if (!status.installed) {
     body = step === 'confirm' && engine?.install ? (
-      <div className="install-confirm" role="group" aria-label={`Install ${info.engineName}`}>
-        <strong>This will run on your computer:</strong>
-        <pre className="install-cmd">{engine.install.command}</pre>
-        <span className="hint">The official installer from {engine.install.source}, run with your user account.</span>
-        <div className="row provider-actions">
-          <button type="button" className="btn btn-primary" onClick={() => void install()}>Install</button>
-          <button type="button" className="btn" onClick={() => setStep('idle')}>Cancel</button>
+      <InstallConfirm label={`Install ${info.engineName}`}>
+        <strong className="font-medium">This will run on your computer:</strong>
+        <pre className="rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs break-all whitespace-pre-wrap">{engine.install.command}</pre>
+        <span className={hintCls}>The official installer from {engine.install.source}, run with your user account.</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={() => void install()}>Install</Button>
+          <Button type="button" variant="outline" onClick={() => setStep('idle')}>Cancel</Button>
         </div>
-      </div>
+      </InstallConfirm>
     ) : (
-      <>
-        <p className="hint">Have {info.plan}? Install {info.engineName}, then sign in with your {info.account} account. No key needed.</p>
-        <div className="row provider-actions">
-          {engine?.install
-            ? <button type="button" className="btn provider-signin-btn" onClick={() => setStep('confirm')}>Install {info.engineName}</button>
-            : onOpenEngines && <button type="button" className="btn provider-signin-btn" onClick={onOpenEngines}>Set up {info.engineName}</button>}
-        </div>
-      </>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={cn(hintCls, 'min-w-0 flex-1 basis-56')}>Have {info.plan}? Install {info.engineName}, then sign in with your {info.account} account. No key needed.</p>
+        {engine?.install
+          ? <Button type="button" variant="outline" onClick={() => setStep('confirm')}>Install {info.engineName}</Button>
+          : onOpenEngines && <Button type="button" variant="outline" onClick={onOpenEngines}>Set up {info.engineName}</Button>}
+      </div>
     )
   } else if (!status.signedIn) {
     body = (
-      <>
-        <p className="hint">Have {info.plan}? Sign in once and agents that run on {info.engineName} use your account. No key needed.</p>
-        <div className="row provider-actions">
-          <button type="button" className="btn btn-primary provider-signin-btn" onClick={() => void signIn()}>Sign in with {info.account}</button>
-        </div>
-      </>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={cn(hintCls, 'min-w-0 flex-1 basis-56')}>Have {info.plan}? Sign in once and agents that run on {info.engineName} use your account. No key needed.</p>
+        <Button type="button" onClick={() => void signIn()}>Sign in with {info.account}</Button>
+      </div>
     )
   } else {
     body = (
       <>
-        <div className="provider-account">
-          <span className="provider-dot" aria-hidden="true" />
-          <span>Signed in{status.email ? <> as <strong>{status.email}</strong></> : ''}</span>
-          {status.plan && <span className="provider-plan mono">{planName(status.plan)}</span>}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm [overflow-wrap:anywhere]">
+          <span className="size-1.5 rounded-full bg-green" aria-hidden="true" />
+          <span>Signed in{status.email ? <> as <strong className="font-medium">{status.email}</strong></> : ''}</span>
+          {status.plan && <Badge variant="lime" className="font-mono text-[11px]">{planName(status.plan)}</Badge>}
         </div>
-        <div className="provider-use" role="radiogroup" aria-label={`What agents on ${info.engineName} use`}>
-          <span className="provider-use-label">Agents on {info.engineName} use</span>
-          <div className="seg">
-            <button type="button" role="radio" aria-checked={status.useAccount} className={status.useAccount ? 'on' : ''} onClick={() => void setUse(true)}>My {info.account} account</button>
-            <button type="button" role="radio" aria-checked={!status.useAccount} className={!status.useAccount ? 'on' : ''} disabled={!keySaved}
+        <div className="flex flex-wrap items-center justify-between gap-2" role="radiogroup" aria-label={`What agents on ${info.engineName} use`}>
+          <span className="text-[13px] text-muted-foreground">Agents on {info.engineName} use</span>
+          <div className="inline-flex gap-0.5 rounded-lg bg-accent p-[3px]">
+            <button type="button" role="radio" aria-checked={status.useAccount} className={segBtn(status.useAccount)} onClick={() => void setUse(true)}>My {info.account} account</button>
+            <button type="button" role="radio" aria-checked={!status.useAccount} className={segBtn(!status.useAccount)} disabled={!keySaved}
               title={keySaved ? undefined : 'Save an API key above first'} onClick={() => void setUse(false)}>API key</button>
           </div>
         </div>
-        <p className="hint">Pick {info.engineName} under "Runs on" for an agent. To sign out, use {info.engineName} itself; Tyslin never stores your sign-in.</p>
-        {!keySaved && <p className="hint">Leads and the default model run on an API key, so save a {info.account === 'Google' ? 'Gemini' : info.account === 'ChatGPT' ? 'OpenAI' : 'Claude'} key above to use {info.account === 'Google' ? 'Gemini' : info.account} for them too.</p>}
+        <p className={hintCls}>Pick {info.engineName} under "Runs on" for an agent. To sign out, use {info.engineName} itself; Tyslin never stores your sign-in.</p>
+        {!keySaved && <p className={hintCls}>Leads and the default model run on an API key, so save a {info.account === 'Google' ? 'Gemini' : info.account === 'ChatGPT' ? 'OpenAI' : 'Claude'} key above to use {info.account === 'Google' ? 'Gemini' : info.account} for them too.</p>}
       </>
     )
   }
 
   return (
-    <div className="provider-section provider-signin">
-      <span className="provider-label">Or sign in with your account</span>
+    <div className={sectionCls}>
+      <span className={sectionLabelCls}>Or sign in with your account</span>
       {body}
-      {error && <p className="hint account-error" role="alert">{error}</p>}
+      {error && <p className={errorCls} role="alert">{error}</p>}
+    </div>
+  )
+}
+
+/** Logo tile, name, maker and status badge at the top of a provider card. */
+function ProviderHead({ id, mark, title, maker, size = 40, children }: { id: string; mark: MarkKey; title: string; maker: string; size?: number; children: React.ReactNode }): JSX.Element {
+  return (
+    <div className="flex items-center gap-3">
+      <Mark id={mark} size={size} />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <h3 id={id} className="text-[15px] font-semibold">{title}</h3>
+        <span className="text-[13px] text-muted-foreground">{maker}</span>
+      </div>
+      {children}
     </div>
   )
 }
@@ -251,91 +285,82 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
     } finally { setConnecting(false) }
   }
 
+  const cardCls = (on: boolean): string => cn('flex min-w-0 flex-col gap-4 rounded-xl border bg-card p-5 shadow-xs', on ? 'border-green' : 'border-border')
   const [or, ...rest] = KEY_PROVIDERS
   return (
-    <div className="providers">
-      {SHOW_OPENROUTER && <article className={'provider-card provider-featured' + (orSet ? ' on' : '')} aria-labelledby="pv-openrouter">
-        <div className="provider-head">
-          <Mark id="openrouter" size={40} />
-          <div className="provider-title">
-            <h3 id="pv-openrouter">{or.label}</h3>
-            <span className="provider-maker">{or.maker}</span>
-          </div>
-          {!orSet && <span className="provider-tag">Easiest start</span>}
+    <div className="tw flex flex-col gap-4 text-foreground">
+      {SHOW_OPENROUTER && <article className={cn(cardCls(orSet), !orSet && 'border-lime-soft bg-lime-soft')} aria-labelledby="pv-openrouter">
+        <ProviderHead id="pv-openrouter" mark="openrouter" title={or.label} maker={or.maker}>
+          {!orSet && <Badge variant="lime" className="font-mono text-[11px] uppercase">Easiest start</Badge>}
           <Status on={orSet && orAccount?.valid !== false} text={orSet && orAccount?.valid === false ? 'Key revoked' : undefined} />
-        </div>
-        <p className="provider-line">{or.line}</p>
+        </ProviderHead>
+        <p className="text-sm leading-relaxed text-muted-foreground">{or.line}</p>
         {orSet ? (
           <>
             {orAccount?.valid && (
-              <dl className="provider-stats">
-                {orAccount.label && <div><dt>Key</dt><dd className="mono">{orAccount.label}</dd></div>}
-                <div><dt>Spent</dt><dd className="mono">{money(orAccount.usage)}</dd></div>
-                <div><dt>Limit</dt><dd className="mono">{orAccount.limit === null ? 'None' : money(orAccount.limit)}</dd></div>
-                {orAccount.freeTier && <div><dt>Plan</dt><dd>Free tier</dd></div>}
+              <dl className="flex flex-wrap gap-x-7 gap-y-2">
+                {orAccount.label && <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Key</dt><dd className="font-mono text-[15px]">{orAccount.label}</dd></div>}
+                <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Spent</dt><dd className="font-mono text-[15px]">{money(orAccount.usage)}</dd></div>
+                <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Limit</dt><dd className="font-mono text-[15px]">{orAccount.limit === null ? 'None' : money(orAccount.limit)}</dd></div>
+                {orAccount.freeTier && <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Plan</dt><dd className="text-[15px]">Free tier</dd></div>}
               </dl>
             )}
             {editing === 'openrouter'
               ? <KeyField id="openrouter" placeholder={or.placeholder} label={or.label} onSave={(k) => saveKey('openrouter', or.label, k)} onCancel={() => setEditing(null)} />
               : (
-                <div className="row provider-actions">
-                  {orAccount?.valid === false && <button type="button" className="btn btn-primary" onClick={() => void connect()} disabled={connecting}>Connect again</button>}
-                  <a className="btn" href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Credits and usage</a>
-                  <button type="button" className="btn btn-ghost" onClick={() => setEditing('openrouter')}>Replace key</button>
-                  <button type="button" className="btn btn-ghost" onClick={() => void remove('openrouter', or.label)}>Disconnect</button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {orAccount?.valid === false && <Button type="button" onClick={() => void connect()} disabled={connecting}>Connect again</Button>}
+                  <Button asChild variant="outline"><a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Credits and usage</a></Button>
+                  <Button type="button" variant="ghost" onClick={() => setEditing('openrouter')}>Replace key</Button>
+                  <Button type="button" variant="ghost" className="text-destructive" onClick={() => void remove('openrouter', or.label)}>Disconnect</Button>
                 </div>
               )}
           </>
         ) : (
           <>
-            <div className="row provider-actions">
+            <div className="flex flex-wrap items-center gap-2">
               {connecting ? (
                 <>
-                  <span className="provider-wait" role="status">Finish signing in on openrouter.ai in your browser…</span>
-                  <button type="button" className="btn" onClick={() => void window.tyslin.settings.cancelOpenRouter()}>Cancel</button>
+                  <span className="flex-1 text-sm" role="status">Finish signing in on openrouter.ai in your browser…</span>
+                  <Button type="button" variant="outline" onClick={() => void window.tyslin.settings.cancelOpenRouter()}>Cancel</Button>
                 </>
               ) : (
                 <>
-                  <button type="button" className="btn btn-primary provider-connect" onClick={() => void connect()}>Connect with OpenRouter</button>
-                  {editing !== 'openrouter' && <button type="button" className="btn btn-ghost" onClick={() => setEditing('openrouter')}>Paste a key instead</button>}
+                  <Button type="button" size="lg" className="min-w-[220px]" onClick={() => void connect()}>Connect with OpenRouter</Button>
+                  {editing !== 'openrouter' && <Button type="button" variant="ghost" onClick={() => setEditing('openrouter')}>Paste a key instead</Button>}
                 </>
               )}
             </div>
             {editing === 'openrouter' && !connecting && <KeyField id="openrouter" placeholder={or.placeholder} label={or.label} onSave={(k) => saveKey('openrouter', or.label, k)} onCancel={() => setEditing(null)} />}
-            <p className="hint provider-fine">Opens openrouter.ai to sign in. OpenRouter makes a key for Tyslin that you can see, limit or revoke at any time on openrouter.ai/keys.</p>
+            <p className="text-xs text-muted-foreground">Opens openrouter.ai to sign in. OpenRouter makes a key for Tyslin that you can see, limit or revoke at any time on openrouter.ai/keys.</p>
           </>
         )}
-        {orError && <p className="hint account-error" role="alert">{orError}</p>}
+        {orError && <p className={errorCls} role="alert">{orError}</p>}
       </article>}
 
-      <div className="provider-grid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
         {rest.map((k) => {
           const saved = !!settings?.[k.flag]
           const acct = k.signIn && accounts.find((x) => x.engine === k.signIn!.engine)
           const viaAccount = !!acct?.signedIn && acct.useAccount
           return (
-            <article key={k.id} className={'provider-card' + (saved ? ' on' : '')} aria-labelledby={'pv-' + k.id}>
-              <div className="provider-head">
-                <Mark id={k.id} size={36} />
-                <div className="provider-title">
-                  <h3 id={'pv-' + k.id}>{k.label}</h3>
-                  <span className="provider-maker">{k.maker}</span>
-                </div>
+            <article key={k.id} className={cardCls(saved)} aria-labelledby={'pv-' + k.id}>
+              <ProviderHead id={'pv-' + k.id} mark={k.id} title={k.label} maker={k.maker}>
                 <Status on={saved || viaAccount} text={saved && viaAccount ? 'Key and account' : viaAccount ? 'Signed in' : undefined} />
-              </div>
-              <p className="provider-line">{k.line}</p>
-              <div className="provider-section">
-                <span className="provider-label">API key</span>
+              </ProviderHead>
+              <p className="text-sm leading-relaxed text-muted-foreground">{k.line}</p>
+              <div className="flex flex-col gap-1.5">
+                <span className={sectionLabelCls}>API key</span>
                 {saved && editing !== k.id ? (
-                  <div className="row provider-actions">
-                    <span className="mono provider-masked" aria-label="Key saved">••••••••••••</span>
-                    <button type="button" className="btn btn-ghost" onClick={() => setEditing(k.id)}>Replace</button>
-                    <button type="button" className="btn btn-ghost" onClick={() => void remove(k.id, k.label)}>Remove</button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex h-9 min-w-0 flex-1 items-center rounded-md border border-border bg-muted px-3 font-mono text-sm tracking-[0.1em] text-muted-foreground" aria-label="Key saved">••••••••••••</span>
+                    <Button type="button" variant="outline" onClick={() => setEditing(k.id)}>Replace</Button>
+                    <Button type="button" variant="ghost" className="text-destructive" onClick={() => void remove(k.id, k.label)}>Remove</Button>
                   </div>
                 ) : (
                   <>
                     <KeyField id={k.id} placeholder={k.placeholder} label={k.label} onSave={(key) => saveKey(k.id, k.label, key)} onCancel={saved ? () => setEditing(null) : undefined} />
-                    <a href={k.getKey} target="_blank" rel="noreferrer" className="provider-link">Get a {k.label} key</a>
+                    <a href={k.getKey} target="_blank" rel="noreferrer" className={linkCls}>Get a {k.label} key</a>
                   </>
                 )}
               </div>
@@ -347,24 +372,19 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
           )
         })}
 
-        <article className="provider-card on-device" aria-labelledby="pv-ollama">
-          <div className="provider-head">
-            <Mark id="ollama" size={36} />
-            <div className="provider-title">
-              <h3 id="pv-ollama">Ollama</h3>
-              <span className="provider-maker">On this computer</span>
+        <article className={cardCls(false)} aria-labelledby="pv-ollama">
+          <ProviderHead id="pv-ollama" mark="ollama" title="Ollama" maker="On this computer">
+            <Badge variant="secondary" className="h-6 px-2">No key needed</Badge>
+          </ProviderHead>
+          <p className="text-sm leading-relaxed text-muted-foreground">Run open models locally. Nothing leaves your machine.</p>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="k-ollama" className="text-[13px]">Ollama URL</Label>
+            <div className="flex items-center gap-2">
+              <Input id="k-ollama" className="flex-1 font-mono" value={ollama} onChange={(e) => setOllama(e.target.value)} />
+              <Button type="button" variant="outline" disabled={!ollama.trim() || ollama.trim() === settings?.ollamaUrl}
+                onClick={async () => { await window.tyslin.settings.setOllamaUrl(ollama); await onSaved('Ollama URL saved') }}>Save</Button>
             </div>
-            <Status on={false} text="No key needed" />
-          </div>
-          <p className="provider-line">Run open models locally. Nothing leaves your machine.</p>
-          <div className="provider-section">
-            <label className="provider-label" htmlFor="k-ollama">Ollama URL</label>
-            <div className="row provider-keyrow">
-              <input id="k-ollama" className="input mono" value={ollama} onChange={(e) => setOllama(e.target.value)} />
-              <button type="button" className="btn" disabled={!ollama.trim() || ollama.trim() === settings?.ollamaUrl}
-                onClick={async () => { await window.tyslin.settings.setOllamaUrl(ollama); await onSaved('Ollama URL saved') }}>Save</button>
-            </div>
-            <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="provider-link">Get Ollama</a>
+            <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className={linkCls}>Get Ollama</a>
           </div>
         </article>
       </div>
@@ -406,12 +426,12 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   const picked = all.find((m) => m.id === value.model)
 
   return (
-    <div className="dm-picker">
-      <div className="field">
-        <label htmlFor={idPrefix + '-prov'}>Provider</label>
-        <div className="dm-prov">
-          <Mark id={value.provider} size={26} />
-          <select id={idPrefix + '-prov'} className="select" value={value.provider}
+    <div className="tw grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 text-foreground">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label htmlFor={idPrefix + '-prov'} className="text-[13px]">Provider</Label>
+        <div className="flex items-center gap-2.5">
+          <Mark id={value.provider} size={28} />
+          <select id={idPrefix + '-prov'} className={selectCls} value={value.provider}
             onChange={(e) => { const p = e.target.value as ProviderId; setQuery(''); onChange({ provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
             {providers.map((p) => (
               <option key={p} value={p}>{PROVIDER_NAME[p]}{p === 'ollama' ? ' (on this computer)' : hasKey(settings, p) ? '' : ' (not connected)'}</option>
@@ -419,30 +439,30 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
           </select>
         </div>
       </div>
-      <div className="field">
-        <label htmlFor={idPrefix + '-model'}>Model</label>
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <Label htmlFor={idPrefix + '-model'} className="text-[13px]">Model</Label>
         {isOr && (
-          <input type="search" className="input" aria-label="Search OpenRouter models" placeholder={`Search ${orModels!.length} models, e.g. sonnet, gpt-5, llama`}
+          <Input type="search" aria-label="Search OpenRouter models" placeholder={`Search ${orModels!.length} models, e.g. sonnet, gpt-5, llama`}
             value={query} onChange={(e) => setQuery(e.target.value)} />
         )}
-        <select id={idPrefix + '-model'} className="select mono" value={known ? value.model : OTHER}
+        <select id={idPrefix + '-model'} className={cn(selectCls, 'font-mono')} value={known ? value.model : OTHER}
           onChange={(e) => onChange({ ...value, model: e.target.value === OTHER ? '' : e.target.value })}>
           {shown.map((m) => <option key={m.id} value={m.id}>{m.name === m.id ? m.id : `${m.name} · ${m.id}`}</option>)}
           <option value={OTHER}>Other model…</option>
         </select>
-        {isOr && query.trim() && shown.length === 0 && <span className="hint">No model matches "{query.trim()}".</span>}
+        {isOr && query.trim() && shown.length === 0 && <span className={hintCls}>No model matches "{query.trim()}".</span>}
         {!known && (
-          <input className="input mono" aria-label="Model name" placeholder="Model name, e.g. gpt-4.1" value={value.model} spellCheck={false}
+          <Input className="font-mono" aria-label="Model name" placeholder="Model name, e.g. gpt-4.1" value={value.model} spellCheck={false}
             onChange={(e) => onChange({ ...value, model: e.target.value })} autoFocus />
         )}
         {picked && (picked.context !== null || price(picked)) && (
-          <div className="dm-meta mono">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground">
             {picked.context !== null && <span>{ctx(picked.context)} context</span>}
             {price(picked) && <span>{price(picked)}</span>}
           </div>
         )}
       </div>
-      {!hasKey(settings, value.provider) && <p className="hint account-error dm-note">Connect {PROVIDER_NAME[value.provider]} first, or this model can't answer.</p>}
+      {!hasKey(settings, value.provider) && <p className={cn(errorCls, 'col-span-full')}>Connect {PROVIDER_NAME[value.provider]} first, or this model can't answer.</p>}
     </div>
   )
 }

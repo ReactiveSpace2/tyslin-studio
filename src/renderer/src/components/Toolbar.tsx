@@ -3,8 +3,17 @@ import type { Account } from '@shared/types'
 import type { Route } from '../App'
 import { Icon } from './Icon'
 import { ProfileMenu } from './ProfileMenu'
+import { cn } from '@/lib/utils'
 
 type IconName = Parameters<typeof Icon>[0]['name']
+
+/** The look of the toolbar's buttons: white with a thin outline when on (as in the agency sidebar). */
+const barBtn = (on: boolean): string => cn(
+  'inline-flex h-[34px] items-center gap-2 rounded-md border border-transparent px-3 text-[13.5px] text-muted-foreground outline-none transition-colors',
+  'hover:bg-card hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40',
+  on && 'border-border bg-card font-medium text-foreground shadow-xs'
+)
+const menuItem = 'flex min-h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-foreground outline-none hover:bg-muted focus-visible:bg-muted'
 
 const DOCS = 'https://tyslin.ai'
 const ISSUES = 'https://github.com/ReactiveSpace2/tyslin-studio/issues'
@@ -36,25 +45,25 @@ export function Toolbar({ route, onNavigate, account, canSignOut, onProfile, onS
   }, [help])
 
   return (
-    <nav className="toolbar" aria-label="Main">
-      <div className="toolbar-left">
+    <nav className="tw flex h-11 flex-none items-center justify-between gap-3 border-b border-border bg-panel px-3 text-foreground" aria-label="Main">
+      <div className="flex items-center gap-1">
         {items.map(([label, icon, to, on]) => (
-          <button key={label} type="button" className={'toolbar-btn' + (on ? ' on' : '')} aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}>
+          <button key={label} type="button" className={barBtn(on)} aria-current={on ? 'page' : undefined} onClick={() => onNavigate(to)}>
             <Icon name={icon} size={16} /> {label}
           </button>
         ))}
       </div>
-      <div className="toolbar-right">
-        <div className="help" ref={ref}>
-          <button type="button" className="toolbar-btn icon-only" aria-label="Help" title="Help" aria-haspopup="menu" aria-expanded={help} onClick={() => setHelp((h) => !h)}>
+      <div className="flex items-center gap-1">
+        <div className="relative" ref={ref}>
+          <button type="button" className={cn(barBtn(help), 'w-9 justify-center px-0')} aria-label="Help" title="Help" aria-haspopup="menu" aria-expanded={help} onClick={() => setHelp((h) => !h)}>
             <Icon name="help" size={17} />
           </button>
           {help && (
-            <div className="switch-menu help-menu" role="menu" aria-label="Help">
-              <a role="menuitem" href={DOCS} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="file" size={14} /> Guides on tyslin.ai</a>
-              <a role="menuitem" href={ISSUES} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="github" size={14} /> Report a problem</a>
-              <span className="switch-sep" aria-hidden="true" />
-              <button type="button" role="menuitem" onClick={() => { setHelp(false); onNavigate({ name: 'settings', tab: 'about' }) }}><Icon name="idea" size={14} /> About Tyslin Studio</button>
+            <div className="absolute top-[calc(100%+6px)] right-0 z-30 flex min-w-[230px] flex-col gap-0.5 rounded-xl border border-border bg-popover p-1.5 shadow-lg" role="menu" aria-label="Help">
+              <a role="menuitem" className={menuItem} href={DOCS} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="file" size={14} /> Guides on tyslin.ai</a>
+              <a role="menuitem" className={menuItem} href={ISSUES} target="_blank" rel="noreferrer" onClick={() => setHelp(false)}><Icon name="github" size={14} /> Report a problem</a>
+              <span className="mx-1.5 my-1 h-px bg-border" aria-hidden="true" />
+              <button type="button" role="menuitem" className={menuItem} onClick={() => { setHelp(false); onNavigate({ name: 'settings', tab: 'about' }) }}><Icon name="idea" size={14} /> About Tyslin Studio</button>
             </div>
           )}
         </div>

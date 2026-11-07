@@ -2,6 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { diffHunks, type DiffPart } from '@shared/diff'
 import type { PendingChange } from '@shared/types'
 import { Icon } from './Icon'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 
 const CONTEXT = 3
 
@@ -21,6 +26,15 @@ function lines(text: string): string[] {
   return l
 }
 
+/** One diff line: a marker column (+, − or blank) and the text, kept as is. */
+function Line({ mark, text, kind, off }: { mark: string; text: string; kind?: 'add' | 'del'; off?: boolean }): JSX.Element {
+  return (
+    <div className={cn('px-2 whitespace-pre', kind === 'add' && 'bg-lime-soft', kind === 'del' && 'bg-destructive-soft', off && 'line-through opacity-45')}>
+      <span className="inline-block w-4 text-muted-foreground select-none">{mark}</span>{text}
+    </div>
+  )
+}
+
 /** Unchanged text trimmed to a few lines of context around each hunk. */
 function Same({ text, first, last }: { text: string; first: boolean; last: boolean }): JSX.Element {
   const l = lines(text)
@@ -29,9 +43,9 @@ function Same({ text, first, last }: { text: string; first: boolean; last: boole
   const hidden = l.length - head.length - tail.length
   return (
     <>
-      {head.map((t, i) => <div key={'h' + i} className="dl"><span className="dm"> </span>{t}</div>)}
-      {hidden > 0 && <div className="dl gap">{hidden} unchanged line{hidden === 1 ? '' : 's'}</div>}
-      {tail.map((t, i) => <div key={'t' + i} className="dl"><span className="dm"> </span>{t}</div>)}
+      {head.map((t, i) => <Line key={'h' + i} mark=" " text={t} />)}
+      {hidden > 0 && <div className="my-1.5 rounded-md bg-muted px-2 py-0.5 font-sans text-muted-foreground">{hidden} unchanged line{hidden === 1 ? '' : 's'}</div>}
+      {tail.map((t, i) => <Line key={'t' + i} mark=" " text={t} />)}
     </>
   )
 }
@@ -96,22 +110,26 @@ export function ChangeReview({ changes, onClose, onResolved }: Props): JSX.Eleme
       while (i < parts.length && parts[i].hunk === hunk) group.push(parts[i++])
       const on = acceptedFor(c).has(hunk)
       out.push(
-        <div key={'h' + hunk} className={'hunk' + (editable && !on ? ' off' : '')}>
-          <div className="hunk-head">
-            <span className="mono">Change {hunk + 1} of {diffs[c.id].hunkCount}</span>
+        <div key={'h' + hunk} className="my-2 overflow-hidden rounded-xl border border-border">
+          <div className="flex items-center justify-between gap-2 border-b border-border bg-muted py-1.5 pr-2 pl-3 font-sans">
+            <span className="font-mono text-[11px] text-muted-foreground">Change {hunk + 1} of {diffs[c.id].hunkCount}</span>
             {editable && (
-              <div className="seg" role="group" aria-label={`Change ${hunk + 1}`}>
-                <button type="button" aria-pressed={on} className={on ? 'on' : ''} onClick={() => toggle(c, hunk, true)}>
-                  <Icon name="check" size={12} /> Accept
-                </button>
-                <button type="button" aria-pressed={!on} className={!on ? 'on' : ''} onClick={() => toggle(c, hunk, false)}>
-                  <Icon name="close" size={12} /> Reject
-                </button>
+              <div className="inline-flex overflow-hidden rounded-md border border-border bg-card" role="group" aria-label={`Change ${hunk + 1}`}>
+                {([true, false] as const).map((accept) => {
+                  const pressed = accept ? on : !on
+                  return (
+                    <button key={String(accept)} type="button" aria-pressed={pressed} onClick={() => toggle(c, hunk, accept)}
+                      className={cn('inline-flex h-9 items-center gap-1.5 px-3 text-[13px] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40', !accept && 'border-l border-border',
+                        pressed ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+                      <Icon name={accept ? 'check' : 'close'} size={12} /> {accept ? 'Accept' : 'Reject'}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
           {group.flatMap((g, gi) => lines(g.text).map((t, li) => (
-            <div key={gi + '-' + li} className={'dl ' + g.kind}><span className="dm">{g.kind === 'add' ? '+' : '−'}</span>{t}</div>
+            <Line key={gi + '-' + li} mark={g.kind === 'add' ? '+' : '−'} text={t} kind={g.kind === 'add' ? 'add' : 'del'} off={editable && !on} />
           )))}
         </div>
       )
@@ -120,51 +138,57 @@ export function ChangeReview({ changes, onClose, onResolved }: Props): JSX.Eleme
   }
 
   return (
-    <div className="backdrop" onClick={onClose}>
-      <div className="modal review" role="dialog" aria-modal="true" aria-labelledby="review-title" onClick={(e) => e.stopPropagation()}>
-        <header className="review-head">
-          <div>
-            <span className="eyebrow">Review changes</span>
-            <h2 id="review-title">{changes.length} file{changes.length === 1 ? '' : 's'} changed</h2>
+    <div className="tw fixed inset-0 z-10 flex items-center justify-center bg-[var(--backdrop)] text-foreground" onClick={onClose}>
+      <div className="flex h-[calc(100%-64px)] w-[1040px] max-w-[calc(100%-48px)] flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-lg"
+        role="dialog" aria-modal="true" aria-labelledby="review-title" onClick={(e) => e.stopPropagation()}>
+        <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div className="flex flex-col gap-1">
+            <span className="font-mono text-xs tracking-wider text-green uppercase">Review changes</span>
+            <h2 id="review-title" className="text-lg font-semibold tracking-tight">{changes.length} file{changes.length === 1 ? '' : 's'} changed</h2>
           </div>
-          <button type="button" className="btn icon-btn" aria-label="Close" onClick={onClose}><Icon name="close" /></button>
+          <Button variant="ghost" size="icon" aria-label="Close" onClick={onClose}><Icon name="close" /></Button>
         </header>
 
-        <div className="review-body">
-          <ul className="review-files" aria-label="Files">
-            {changes.map((c) => (
-              <li key={c.id}>
-                <button type="button" className={c.id === change?.id ? 'active' : ''} aria-current={c.id === change?.id} onClick={() => setSelected(c.id)}>
-                  <Icon name="file" size={14} />
-                  <span className="mono name" title={c.filePath}>{c.filePath}</span>
-                  <span className={'badge' + (c.status === 'accepted' ? ' green' : '')}>{c.original === null && c.status === 'pending' ? 'New' : STATUS_LABEL[c.status]}</span>
-                </button>
-              </li>
-            ))}
+        <div className="flex min-h-0 flex-1">
+          <ul className="flex w-[280px] flex-none flex-col gap-1 overflow-y-auto border-r border-border bg-muted p-2.5" aria-label="Files">
+            {changes.map((c) => {
+              const active = c.id === change?.id
+              return (
+                <li key={c.id}>
+                  <button type="button" aria-current={active} onClick={() => setSelected(c.id)}
+                    className={cn('flex min-h-11 w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40',
+                      active ? 'border-border bg-card shadow-xs' : 'border-transparent hover:bg-accent')}>
+                    <Icon name="file" size={14} />
+                    <span className="min-w-0 flex-1 truncate font-mono text-xs" title={c.filePath}>{c.filePath}</span>
+                    <Badge variant={c.status === 'accepted' ? 'soft' : 'outline'}>{c.original === null && c.status === 'pending' ? 'New' : STATUS_LABEL[c.status]}</Badge>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
-          <div className="diff" aria-label={change ? `Diff of ${change.filePath}` : 'Diff'}>
+          <div className="min-w-0 flex-1 overflow-auto bg-card px-5 py-4 font-mono text-xs leading-relaxed" aria-label={change ? `Diff of ${change.filePath}` : 'Diff'}>
             {change && diff && (diff.hunkCount === 0
-              ? <p className="hint">No differences.</p>
+              ? <p className="font-sans text-sm text-muted-foreground">No differences.</p>
               : renderParts(change, diff.parts))}
           </div>
         </div>
 
         {pending.length > 0 ? (
-          <footer className="review-foot">
-            <div className="field" style={{ flex: 1 }}>
-              <label htmlFor="review-note">Note for the agent (optional)</label>
-              <input id="review-note" className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Keep the old function name" />
+          <footer className="flex flex-wrap items-end gap-4 border-t border-border px-5 py-4">
+            <div className="flex min-w-[240px] flex-1 flex-col gap-2">
+              <Label htmlFor="review-note">Note for the agent (optional)</Label>
+              <Input id="review-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Keep the old function name" />
             </div>
-            <div className="row">
-              <button type="button" className="btn" disabled={busy} onClick={() => void submit(() => [])}>Reject all</button>
-              <button type="button" className="btn" disabled={busy} onClick={() => void submit((c) => [...acceptedFor(c)])}>Apply selection</button>
-              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void submit((c) => Array.from({ length: diffs[c.id].hunkCount }, (_, i) => i))}>Accept all</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" disabled={busy} onClick={() => void submit(() => [])}>Reject all</Button>
+              <Button variant="outline" disabled={busy} onClick={() => void submit((c) => [...acceptedFor(c)])}>Apply selection</Button>
+              <Button variant="lime" disabled={busy} onClick={() => void submit((c) => Array.from({ length: diffs[c.id].hunkCount }, (_, i) => i))}>Accept all</Button>
             </div>
           </footer>
         ) : (
-          <footer className="review-foot"><span className="hint">These changes have been reviewed.</span></footer>
+          <footer className="border-t border-border px-5 py-4"><span className="text-sm text-muted-foreground">These changes have been reviewed.</span></footer>
         )}
-        {error && <div className="msg-error" role="alert">{error}</div>}
+        {error && <div className="mx-5 mb-4 rounded-lg bg-destructive-soft px-3.5 py-2.5 text-sm text-destructive" role="alert">{error}</div>}
       </div>
     </div>
   )

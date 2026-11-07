@@ -1,0 +1,97 @@
+/*
+ * Styles entry. Tailwind v4 + shadcn/ui sit beside the original stylesheet while screens move over.
+ *
+ * Layer order: Tailwind's theme, the scoped base below, the original styles.css (as "legacy"), then
+ * Tailwind utilities. Utilities win over legacy rules, so a screen built with Tailwind classes is not
+ * overridden by old element rules (h1, button…); old screens keep their look because legacy wins over base.
+ * Tailwind's global Preflight is left out on purpose: it would restyle every old screen.
+ */
+@layer theme, base, legacy, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "./styles.css" layer(legacy);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/*
+ * shadcn/ui tokens mapped onto the Tyslin tokens in styles.css, so light, dark (prefers-color-scheme,
+ * driven by Settings → Appearance) and the accent presets all keep working. Brand rule: lime is a fill
+ * only, with on-lime (ink) text; green is for text and lines.
+ */
+@theme inline {
+  --color-background: var(--parchment);
+  --color-foreground: var(--ink);
+  --color-card: var(--card);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--parchment);
+  --color-secondary: var(--panel);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--panel);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--line-soft);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--danger);
+  --color-destructive-soft: var(--danger-soft);
+  --color-border: var(--line);
+  --color-border-strong: var(--line-strong);
+  --color-input: var(--line);
+  --color-ring: var(--green);
+  --color-lime: var(--lime);
+  --color-on-lime: var(--on-lime);
+  --color-lime-soft: var(--lime-soft);
+  --color-green: var(--green);
+  --color-panel: var(--panel);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font);
+  --font-mono: var(--mono);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 16px;
+}
+
+/* Chart colours (shadcn's --chart-1…5) on the Tyslin tokens, so charts follow the accent preset and dark mode. */
+:root {
+  --chart-1: var(--lime);
+  --chart-2: var(--green);
+  --chart-3: var(--ink);
+  --chart-4: var(--line-strong);
+  --chart-5: var(--muted);
+}
+
+/*
+ * Preflight, scoped: only inside a `.tw` wrapper (screens rebuilt with Tailwind) and shadcn/ui parts
+ * (every one carries data-slot, so popovers rendered in a portal are covered too). :where() keeps it
+ * at zero specificity so any utility overrides it.
+ */
+@layer base {
+  :where(.tw, .tw *, [data-slot], [data-slot] *), :where(.tw, .tw *, [data-slot], [data-slot] *)::before, :where(.tw, .tw *, [data-slot], [data-slot] *)::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    border-color: var(--line); /* shadcn's default: borders use the border token, not currentColor */
+  }
+  :where(.tw, [data-slot]) :where(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; letter-spacing: inherit; }
+  :where(.tw, [data-slot]) :where(ol, ul, menu) { list-style: none; }
+  :where(.tw table, table[data-slot]) { border-collapse: collapse; border-spacing: 0; text-indent: 0; }
+  :where(.tw, [data-slot]) :where(img, video) { max-width: 100%; height: auto; }
+  :where(.tw, [data-slot]) :where(a) { color: inherit; text-decoration: inherit; }
+  :where(.tw button, .tw input, .tw select, .tw textarea, button[data-slot], input[data-slot], textarea[data-slot]) {
+    font: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+  }
+  :where(.tw button, button[data-slot]) { cursor: pointer; }
+  :where(.tw, [data-slot]) :where(::placeholder) { color: var(--muted); opacity: 1; }
+}

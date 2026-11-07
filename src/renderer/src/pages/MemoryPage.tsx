@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import type { Agent, MemoryFile } from '@shared/types'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 
 interface Props {
   agencyId: string
@@ -76,63 +80,68 @@ export function MemoryPage({ agencyId, agencyName, agents }: Props): JSX.Element
     const a = agentOf(f)
     return (
       <li key={f.key}>
-        <button type="button" className={'sk-item' + (on ? ' on' : '')} aria-current={on ? 'true' : undefined} onClick={() => choose(f.key)}>
-          <span className="sk-item-top">
-            <span className="mem-item-name">
-              {a ? <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={22} /> : <Icon name="agency" size={16} />}
-              <span className="sk-item-name">{f.title}</span>
+        <button type="button" aria-current={on ? 'true' : undefined} onClick={() => choose(f.key)}
+          className={cn(
+            'flex min-h-11 w-full cursor-pointer flex-col gap-1 rounded-lg border border-transparent px-3 py-2.5 text-left text-foreground outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40',
+            on ? 'border-border bg-card shadow-xs' : 'hover:bg-accent'
+          )}>
+          <span className="flex w-full items-center justify-between gap-2">
+            <span className="flex min-w-0 items-center gap-2">
+              {a ? <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={22} />
+                : <span className="flex size-[22px] shrink-0 items-center justify-center rounded-md bg-lime text-on-lime"><Icon name="agency" size={14} /></span>}
+              <span className="truncate text-sm font-medium">{f.title}</span>
             </span>
-            <span className={'mono sk-item-used' + (f.notes ? ' used' : '')}>{f.notes ? plural(f.notes, 'note') : 'Empty'}</span>
+            <Badge variant={f.notes ? 'soft' : 'secondary'} className="font-mono">{f.notes ? plural(f.notes, 'note') : 'Empty'}</Badge>
           </span>
-          <span className="hint sk-item-desc mono">{f.file}</span>
+          <span className="truncate font-mono text-xs text-muted-foreground">{f.file}</span>
         </button>
       </li>
     )
   }
 
+  const group = (label: string, list: MemoryFile[]): JSX.Element | null => list.length === 0 ? null : (
+    <div className="flex flex-col gap-1.5">
+      <span className="px-1 text-xs font-medium text-muted-foreground">{label}</span>
+      <ul className="m-0 flex list-none flex-col gap-0.5 p-0">{list.map(item)}</ul>
+    </div>
+  )
+  const errorBox = (text: string): JSX.Element => <div role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive">{text}</div>
+
   return (
-    <div className="sk-page">
-      <section className="sk-list" aria-label="Memory files">
-        <div className="sk-list-head"><h1>Memory</h1></div>
-        <p className="hint" style={{ margin: 0 }}>What your agents always remember in {agencyName}. Plain files in the agency's <span className="mono">memory</span> folder, also in Drive.</p>
-        {shared.length > 0 && (
-          <div className="sk-group">
-            <span className="eyebrow">Shared</span>
-            <ul className="sk-items">{shared.map(item)}</ul>
-          </div>
-        )}
-        {people.length > 0 && (
-          <div className="sk-group">
-            <span className="eyebrow">Agents</span>
-            <ul className="sk-items">{people.map(item)}</ul>
-          </div>
-        )}
+    <div className="tw flex h-full min-h-0 bg-background text-foreground">
+      <section aria-label="Memory files" className="flex w-[340px] flex-none flex-col gap-3.5 overflow-y-auto border-r border-border px-3.5 pt-5 pb-7">
+        <div className="px-1">
+          <h1 className="m-0 text-xl font-semibold tracking-tight">Memory</h1>
+          <p className="mt-1 mb-0 text-xs leading-normal text-muted-foreground">What your agents always remember in {agencyName}. Plain files in the agency's <span className="font-mono">memory</span> folder, also in Drive.</p>
+        </div>
+        {group('Shared', shared)}
+        {group('Agents', people)}
       </section>
 
-      <section className="sk-main" aria-label="Memory file">
+      <section aria-label="Memory file" className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-7 pt-6 pb-12">
         {current && (
-          <form className="sk-editor" aria-labelledby="mem-title" onSubmit={(e) => { e.preventDefault(); void save() }}>
-            <header className="sk-editor-head">
-              <div className="sk-editor-title">
-                <span className="eyebrow">{current.key === 'agency' ? 'Every agent in the agency reads this' : `Only ${current.title} reads this`}</span>
-                <h2 id="mem-title">{current.title}</h2>
-                <span className="hint mono">{current.file}{current.modifiedAt ? ` · changed ${when(current.modifiedAt)}` : ''}</span>
+          <form className="flex max-w-[980px] flex-col gap-4" aria-labelledby="mem-title" onSubmit={(e) => { e.preventDefault(); void save() }}>
+            <header className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground">{current.key === 'agency' ? 'Every agent in the agency reads this' : `Only ${current.title} reads this`}</span>
+                <h2 id="mem-title" className="m-0 text-[22px] font-semibold tracking-tight [overflow-wrap:anywhere]">{current.title}</h2>
+                <span className="font-mono text-xs text-muted-foreground">{current.file}{current.modifiedAt ? ` · changed ${when(current.modifiedAt)}` : ''}</span>
               </div>
-              <div className="row">
-                <button type="button" className="btn" onClick={addNote}><Icon name="plus" size={14} /> Add a note</button>
-                {dirty && <button type="button" className="btn" disabled={busy} onClick={() => setText(loaded)}>Undo changes</button>}
-                <button type="submit" className="btn btn-primary" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" variant="outline" onClick={addNote}><Icon name="plus" size={14} /> Add a note</Button>
+                {dirty && <Button type="button" variant="outline" disabled={busy} onClick={() => setText(loaded)}>Undo changes</Button>}
+                <Button type="submit" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</Button>
               </div>
             </header>
-            {saved && !dirty && <span className="hint" role="status">Saved. Agents use it from their next run.</span>}
-            {error && <div className="msg-error" role="alert">{error}</div>}
+            {saved && !dirty && <span className="text-[13px] text-muted-foreground" role="status">Saved. Agents use it from their next run.</span>}
+            {error && errorBox(error)}
             <label className="sr-only" htmlFor="mem-body">{current.title} memory</label>
-            <textarea id="mem-body" className="input textarea mono mem-body" value={text} spellCheck
+            <Textarea id="mem-body" className="min-h-[360px] font-mono text-[13px] leading-[1.7]" value={text} spellCheck
               onChange={(e) => { setText(e.target.value); setSaved(false) }}
               onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); if (dirty) void save() } }} />
-            <div className="mem-help">
-              <strong>How agents use this</strong>
-              <span className="hint">
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-panel px-4 py-3.5">
+              <strong className="text-[13px] font-semibold">How agents use this</strong>
+              <span className="text-[13px] leading-normal text-muted-foreground">
                 Before every chat reply and card run, Tyslin adds the agency notes and the agent's own notes to its instructions
                 (up to about 8,000 characters; the newest notes are kept when it's longer). Write one note per line starting with "- ",
                 newest at the bottom. Text inside {'<!-- -->'} comments is left out. Soon agents will add notes here themselves.
@@ -140,7 +149,7 @@ export function MemoryPage({ agencyId, agencyName, agents }: Props): JSX.Element
             </div>
           </form>
         )}
-        {!current && error && <div className="msg-error" role="alert">{error}</div>}
+        {!current && error && errorBox(error)}
       </section>
     </div>
   )

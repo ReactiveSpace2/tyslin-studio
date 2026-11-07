@@ -13,6 +13,10 @@ import { Icon } from '../components/Icon'
 import { AGENCY_TEMPLATES, templateSummary } from '@shared/agencies'
 import { HEAD_SRC } from '../heads'
 import { money, plural, useBoardStats } from '../boardStats'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { StatCard } from '../components/StatCard'
 
 interface Props {
   you: string
@@ -31,15 +35,17 @@ interface Props {
 
 const greeting = (): string => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening' }
 
-/** Home: the organization and its agencies, then what the studio is doing. */
+/** Home: the organization and its agencies, then what the studio is doing. Built with Tailwind + shadcn/ui. */
 export function OrgHome({ you, orgName, agencies, agents, projects, sessions, focus, onOpenAgency, onAllAgencies, onNewAgency, onOpenChat }: Props): JSX.Element {
   useEffect(() => { if (focus === 'activity') document.getElementById('activity')?.scrollIntoView({ block: 'start' }) }, [focus])
   const [info, setInfo] = useState<AppInfo | null>(null)
   useEffect(() => { void window.tyslin.app.info().then(setInfo) }, [])
   const leads = agencies.filter((v) => v.lead).length
   const workers = agencies.reduce((n, v) => n + v.workers.length, 0)
+  const ready = agencies.filter((v) => agencyStatus(v).tone === 'on').length
   const boards = useBoardStats(agencies.map((v) => v.agency))
   const review = Object.values(boards).reduce((n, b) => n + b.review, 0)
+  const working = Object.values(boards).reduce((n, b) => n + b.inProgress, 0)
   const spent = Object.values(boards).reduce((n, b) => n + b.spentWeek, 0)
   // Parts that are zero are left out.
   const status = agencies.length === 0 ? 'No agencies yet.' : [
@@ -47,95 +53,158 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
     review > 0 ? `${plural(review, 'card')} waiting for your review` : '',
     spent > 0 ? `${money(spent)} spent this week` : ''
   ].filter(Boolean).join(' · ')
+  const org = orgName || 'Your organization'
+
   return (
-    <div className="page home ag-home">
-      <section className="home-hero" aria-labelledby="home-title">
-        <div className="home-intro">
-          <img src={logo} alt="Tyslin" className="home-logo light-only" />
-          <span className="home-logo-dark dark-only">
-            <img src={mark} alt="Tyslin" />
-            <img src={wordmarkWhite} alt="" />
+    <div className="tw mx-auto flex w-full max-w-[1280px] flex-col gap-10 px-10 pt-8 pb-12 text-foreground">
+      {/* Hero: same look as the social banners and the site (logo, headline, green tagline, poses 5 and 1 on a lime circle). */}
+      <section aria-labelledby="home-title" className="flex items-center justify-between gap-8">
+        <div className="flex max-w-[560px] flex-col gap-4">
+          <img src={logo} alt="Tyslin" className="light-only h-10 w-auto self-start" />
+          <span className="dark-only home-logo-dark items-center gap-2.5 self-start">
+            <img src={mark} alt="Tyslin" className="size-10" />
+            <img src={wordmarkWhite} alt="" className="h-4 w-auto" />
           </span>
-          <div className="row" style={{ gap: 8 }}>
-            <span className="badge green mono">v{info?.version ?? '…'}</span>
-            <span className="badge mono">Beta</span>
+          <div className="flex gap-2">
+            <Badge variant="outline" className="border-green font-mono text-green">v{info?.version ?? '…'}</Badge>
+            <Badge variant="secondary" className="font-mono">Beta</Badge>
           </div>
-          <h1 id="home-title">Your agencies</h1>
-          <p className="home-tagline">Every agent you run. One studio.</p>
-          <p className="lead mono home-status" role="status">{status}</p>
-          <div className="row">
-            <button type="button" className="btn btn-primary" onClick={() => (agencies.length ? onAllAgencies() : onNewAgency())}>
-              <Icon name="agency" size={14} /> {agencies.length ? `Open your ${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'Create an agency'}
-            </button>
+          <h1 id="home-title" className="text-[44px] leading-[1.05] font-semibold tracking-[-0.03em]">Your agencies</h1>
+          <p className="-mt-1 text-lg font-semibold text-green">Every agent you run. One studio.</p>
+          <p role="status" className="font-mono text-sm text-muted-foreground">{status}</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            <Button size="lg" onClick={() => (agencies.length ? onAllAgencies() : onNewAgency())}>
+              <Icon name="agency" size={16} />
+              {agencies.length ? `Open your ${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'Create an agency'}
+            </Button>
+            {agencies.length > 0 && (
+              <Button size="lg" variant="outline" onClick={() => onNewAgency()}><Icon name="plus" size={14} /> New agency</Button>
+            )}
           </div>
         </div>
-        {/* Same art as the social banners and the site's hero: two poses in front of a soft lime circle. */}
-        <div className="home-art" aria-hidden="true">
-          <span className="home-tint" />
-          <img src={tablets} alt="" className="home-m home-m5" />
-          <img src={standing} alt="" className="home-m home-m1" />
+        <div aria-hidden="true" className="relative hidden h-[400px] w-[440px] shrink-0 items-end justify-center min-[981px]:flex">
+          <span className="absolute top-0 right-0 size-[400px] rounded-full bg-lime-soft" />
+          <img src={tablets} alt="" className="relative -mr-4 h-[320px] w-auto" />
+          <img src={standing} alt="" className="relative h-[370px] w-auto" />
         </div>
       </section>
-      <header className="ag-head">
-        <div>
-          <span className="eyebrow">{orgName || 'Organization'}</span>
-          <h1>{greeting()}{you !== 'You' ? `, ${you}` : ''}</h1>
-          <p className="hint">{agencies.length ? `${orgName || 'Your organization'} runs ${plural(agencies.length, 'agency', 'agencies')}. Each has its own Lead, team, board and folder.` : `${orgName || 'Your organization'} has no agencies yet.`}</p>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={() => onNewAgency()}><Icon name="plus" size={12} /> New agency</button>
-      </header>
 
-      {agencies.length === 0 && (
-        <section className="home-first" aria-labelledby="first-title">
-          <div className="ag-sub"><h2 id="first-title">Set up your first agency</h2></div>
-          <p className="hint">Pick a template to start: you get a Lead and a team with a goal, a plan, a board and a line to you. You can change everything before it's created.</p>
-          <div className="aw-grid">
-            {AGENCY_TEMPLATES.map((t) => {
-              const l = t.roster.find((m) => m.lead)
+      <section aria-labelledby="org-title" className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-col gap-1.5">
+            <span className="font-mono text-xs tracking-[0.08em] text-green uppercase">{orgName || 'Organization'}</span>
+            <h2 id="org-title" className="text-[28px] font-semibold tracking-tight">{greeting()}{you !== 'You' ? `, ${you}` : ''}</h2>
+            <p className="text-sm text-muted-foreground">
+              {agencies.length ? `${org} runs ${plural(agencies.length, 'agency', 'agencies')}. Each has its own Lead, team, board and folder.` : `${org} has no agencies yet.`}
+            </p>
+          </div>
+        </div>
+
+        {agencies.length === 0 && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-semibold">Set up your first agency</h3>
+              <p className="text-sm text-muted-foreground">Pick a template to start: you get a Lead and a team with a goal, a plan, a board and a line to you. You can change everything before it's created.</p>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+              {AGENCY_TEMPLATES.map((t) => {
+                const l = t.roster.find((m) => m.lead)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => onNewAgency(t.id)}
+                    className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-xs transition-colors hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <img src={HEAD_SRC[l?.head ?? 'smile'] ?? HEAD_SRC.smile} alt="" width={30} height={30} />
+                      <strong className="text-sm font-semibold">{t.name}</strong>
+                    </span>
+                    <span className="text-[13px] text-muted-foreground">{t.tagline}</span>
+                    <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {agencies.length > 0 && (<>
+          <div className="grid grid-cols-2 gap-4 min-[900px]:grid-cols-4">
+            <StatCard label="Agencies" value={agencies.length} badge={`${ready} ready`} strong={`${leads} with a Lead`} muted="Each with its own board and folder" />
+            <StatCard label="Agents" value={leads + workers} badge={plural(leads, 'Lead')} strong={plural(workers, 'worker')} muted="Across all agencies" />
+            <StatCard label="In progress" value={working} strong={working ? 'Cards being worked on' : 'Nothing running'} muted="From the agency boards" />
+            <StatCard label="Waiting for review" value={review} attention={review > 0} strong={review ? 'Open the agency to review' : 'Nothing waiting'} muted="Cards in the Review column" />
+          </div>
+
+          <div className="mt-2 flex items-center justify-between">
+            <h3 className="text-base font-semibold">Your agencies</h3>
+            <Button variant="link" size="sm" className="px-0" onClick={onAllAgencies}>See all</Button>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+            {agencies.map((v) => {
+              const st = agencyStatus(v)
+              const b = boards[v.agency.id]
+              const line = b ? [
+                b.inProgress ? `${b.inProgress} in progress` : '',
+                b.review ? `${b.review} to review` : '',
+                b.inbox ? `${b.inbox} in Inbox` : ''
+              ].filter(Boolean).join(' · ') : ''
               return (
-                <button key={t.id} type="button" className="aw-tpl" onClick={() => onNewAgency(t.id)}>
-                  <span className="aw-tpl-top"><img src={HEAD_SRC[l?.head ?? 'smile'] ?? HEAD_SRC.smile} alt="" width={30} height={30} className="nt-head" /><strong>{t.name}</strong></span>
-                  <span className="hint">{t.tagline}</span>
-                  <span className="mono aw-small">{templateSummary(t)}</span>
+                <button
+                  key={v.project.id}
+                  type="button"
+                  onClick={() => onOpenAgency(v.project.id)}
+                  className="text-left focus-visible:outline-none [&:focus-visible>div]:ring-[3px] [&:focus-visible>div]:ring-ring/40"
+                >
+                  <Card className="h-full gap-4 py-5 transition-colors hover:border-border-strong">
+                    <CardHeader className="px-5">
+                      <div className="flex items-center gap-3">
+                        {v.lead
+                          ? <Avatar shape={v.lead.shape} tone={v.lead.tone} head={v.lead.head} size={40} />
+                          : <span className="flex size-10 items-center justify-center rounded-lg bg-muted"><Icon name="agency" size={16} /></span>}
+                        <div className="flex min-w-0 flex-col gap-1">
+                          <CardTitle className="truncate text-[15px]">{v.project.name}</CardTitle>
+                          <CardDescription className="text-[13px]">{v.lead ? `Lead · ${v.lead.name.replace(/\s*\(Lead\)$/i, '')}` : 'No Lead yet'}</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-4 px-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="flex -space-x-2">
+                          {v.workers.slice(0, 5).map((w) => (
+                            <span key={w.id} className="rounded-full bg-card ring-2 ring-card"><Avatar shape={w.shape} tone={w.tone} head={w.head} size={26} /></span>
+                          ))}
+                          {v.workers.length > 5 && <span className="flex size-[26px] items-center justify-center rounded-full bg-muted font-mono text-[11px] ring-2 ring-card">+{v.workers.length - 5}</span>}
+                        </span>
+                        <Badge variant={st.tone === 'on' ? 'soft' : st.tone === 'off' ? 'secondary' : 'outline'}>
+                          {st.tone === 'on' && <span className="size-1.5 rounded-full bg-green" />}
+                          {st.label}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+                        <span>{line || 'Board is clear'}</span>
+                        <span className="font-mono">{plural(v.workers.length + (v.lead ? 1 : 0), 'agent')}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </button>
               )
             })}
-          </div>
-        </section>
-      )}
-
-      {agencies.length > 0 && (<>
-      <div className="ag-stats">
-        <div className="card ag-stat"><span className="hint">Agencies</span><strong className="mono">{agencies.length}</strong></div>
-        <div className="card ag-stat"><span className="hint">Agents</span><strong className="mono">{agents.filter((a) => a.kind === 'agent' && !a.isMascot).length}</strong></div>
-        <div className="card ag-stat"><span className="hint">Leads</span><strong className="mono">{leads}</strong></div>
-        <div className="card ag-stat"><span className="hint">Workers</span><strong className="mono">{workers}</strong></div>
-      </div>
-
-      <div className="ag-sub"><h2>Your agencies</h2><button type="button" className="link-btn" onClick={onAllAgencies}>See all</button></div>
-      <div className="ag-cards">
-        {agencies.map((v) => {
-          const st = agencyStatus(v)
-          return (
-            <button key={v.project.id} type="button" className="card ag-card" onClick={() => onOpenAgency(v.project.id)}>
-              <span className="ag-card-top">
-                {v.lead ? <Avatar shape={v.lead.shape} tone={v.lead.tone} head={v.lead.head} size={36} /> : <span className="area-icon"><Icon name="agency" size={16} /></span>}
-                <span><strong>{v.project.name}</strong><span className="hint">{v.lead?.name ?? 'No Lead yet'}</span></span>
-              </span>
-              <span className="ag-team">{v.workers.slice(0, 5).map((w) => <Avatar key={w.id} shape={w.shape} tone={w.tone} head={w.head} size={24} />)}</span>
-              <span className="ag-card-foot"><span className="ag-status"><span className={'ag-dot ' + st.tone} />{st.label}</span><span className="mono hint">{v.workers.length + (v.lead ? 1 : 0)} agents</span></span>
+            <button
+              type="button"
+              onClick={() => onNewAgency()}
+              className="flex min-h-[180px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong p-5 text-center transition-colors hover:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+            >
+              <span className="flex size-9 items-center justify-center rounded-full bg-lime text-on-lime"><Icon name="plus" size={14} /></span>
+              <strong className="text-sm font-semibold">New agency</strong>
+              <span className="max-w-[220px] text-[13px] text-muted-foreground">Start from one of 20 templates or describe your own.</span>
             </button>
-          )
-        })}
-        <button type="button" className="card ag-card ag-new" onClick={() => onNewAgency()}>
-          <span className="ag-plus"><Icon name="plus" size={16} /></span>
-          <strong>New agency</strong>
-          <span className="hint">Start from one of 20 templates or describe your own.</span>
-        </button>
-      </div>
-      </>)}
+          </div>
+        </>)}
+      </section>
 
-      <Activity agents={agents} projects={projects} sessions={sessions} onOpenChat={onOpenChat} agencyCount={agencies.length} />
+      <Activity agents={agents} projects={projects} sessions={sessions} onOpenChat={onOpenChat} />
     </div>
   )
 }

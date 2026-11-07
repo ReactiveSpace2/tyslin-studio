@@ -4,6 +4,11 @@ import { useCurrentProject } from '../currentProject'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 import { Pose } from '../components/Pose'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
@@ -127,142 +132,167 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
     onDrop: (e) => { e.stopPropagation(); dropFiles(e, targetDir) }
   })
 
-  return (
-    <div className="drive">
+  const note = syncNote(gd, projectId, defaultId)
+  const empty = listing && shown.length === 0 && (q ? <p className="col-span-full p-4 text-sm text-muted-foreground">No files match.</p> : (
+    <div className="col-span-full flex flex-col items-center gap-2.5 px-4 py-6 text-center"><Pose pose={6} height={150} /><p className="max-w-[360px] text-sm text-muted-foreground">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
+  ))
 
-      <section className="dv-main" {...dropProps('main', dir)} aria-label="Files">
-        <div className="dv-bar">
-          <nav className="dv-crumbs" aria-label="Folder path">
-            <button type="button" onClick={() => go('')} {...dropProps('crumb-root', '')} className={dropping === 'crumb-root' ? 'drop' : ''}>{roots.find((r) => r.id === projectId)?.name ?? 'Project'}</button>
+  return (
+    <div className="tw flex h-full font-sans text-foreground">
+
+      <section className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto px-6 py-4" {...dropProps('main', dir)} aria-label="Files">
+        <div className="flex flex-wrap items-center justify-between gap-2.5">
+          <nav className="flex min-w-0 flex-wrap items-center gap-1 text-[15px] font-semibold" aria-label="Folder path">
+            <button type="button" onClick={() => go('')} {...dropProps('crumb-root', '')} className={crumbCls(dropping === 'crumb-root')}>{roots.find((r) => r.id === projectId)?.name ?? 'Project'}</button>
             {crumbs.map((c, i) => {
               const p = crumbs.slice(0, i + 1).join('/')
-              return <span key={p}><span aria-hidden="true">/</span><button type="button" onClick={() => go(p)} {...dropProps('crumb-' + p, p)} className={dropping === 'crumb-' + p ? 'drop' : ''}>{c}</button></span>
+              return <span key={p} className="inline-flex items-center gap-1 text-muted-foreground"><span aria-hidden="true">/</span><button type="button" onClick={() => go(p)} {...dropProps('crumb-' + p, p)} className={crumbCls(dropping === 'crumb-' + p)}>{c}</button></span>
             })}
-            {syncNote(gd, projectId, defaultId) && <small className="dv-sync">{syncNote(gd, projectId, defaultId)}</small>}
+            {note && <small className="ml-2 text-xs font-normal text-muted-foreground">{note}</small>}
           </nav>
-          <div className="row" style={{ gap: 6 }}>
+          <div className="flex flex-wrap items-center gap-1.5">
             {roots.length > 1 && (
-              <select className="select" style={{ width: 180, height: 36 }} aria-label="Agency folder" value={projectId ?? ''}
+              <select className={cn(SELECT, 'w-[180px]')} aria-label="Agency folder" value={projectId ?? ''}
                 onChange={(e) => { const r = roots.find((x) => (x.id ?? '') === e.target.value); if (r?.id) setProjectId(r.id); go('') }}>
                 {roots.map((r) => <option key={r.id ?? 'default'} value={r.id ?? ''}>{r.name}</option>)}
               </select>
             )}
-            <div className="dv-views" role="group" aria-label="View">
-              <button type="button" aria-pressed={view === 'list'} className={view === 'list' ? 'on' : ''} title="List" aria-label="List view" onClick={() => setView('list')}><Icon name="list" size={15} /></button>
-              <button type="button" aria-pressed={view === 'icons'} className={view === 'icons' ? 'on' : ''} title="Icons" aria-label="Icon view" onClick={() => setView('icons')}><Icon name="grid" size={15} /></button>
-            </div>
-            <input className="input" style={{ width: 180, height: 36 }} type="search" placeholder="Filter" aria-label="Filter files" value={q} onChange={(e) => setQ(e.target.value)} />
-            <select className="select" style={{ width: 110, height: 36 }} aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+            <Input className="w-[180px]" type="search" placeholder="Filter" aria-label="Filter files" value={q} onChange={(e) => setQ(e.target.value)} />
+            <select className={cn(SELECT, 'w-[110px]')} aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
               <option value="name">Name</option><option value="date">Modified</option><option value="size">Size</option>
             </select>
-            <button type="button" className="btn btn-sm" onClick={() => setNaming({ mode: 'folder', value: '' })}><Icon name="folder" size={13} /> New folder</button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => void act(() => window.tyslin.drive.upload(projectId, dir).then((n) => n && setNotice(`Added ${n} ${n === 1 ? 'file' : 'files'}.`)))}><Icon name="plus" size={12} /> Add files</button>
-            <button type="button" className="btn btn-sm icon-btn" aria-label="Show in file manager" title="Show in file manager" onClick={() => void window.tyslin.drive.reveal(projectId, dir)}><Icon name="drive" size={14} /></button>
+            <TabsList aria-label="View">
+              <TabsTrigger active={view === 'list'} onClick={() => setView('list')}><Icon name="list" size={14} /> List</TabsTrigger>
+              <TabsTrigger active={view === 'icons'} onClick={() => setView('icons')}><Icon name="grid" size={14} /> Icons</TabsTrigger>
+            </TabsList>
+            <Button variant="outline" size="sm" onClick={() => setNaming({ mode: 'folder', value: '' })}><Icon name="folder" size={13} /> New folder</Button>
+            <Button size="sm" onClick={() => void act(() => window.tyslin.drive.upload(projectId, dir).then((n) => n && setNotice(`Added ${n} ${n === 1 ? 'file' : 'files'}.`)))}><Icon name="plus" size={12} /> Add files</Button>
+            <Button variant="outline" size="icon" className="size-8" aria-label="Show in file manager" title="Show in file manager" onClick={() => void window.tyslin.drive.reveal(projectId, dir)}><Icon name="drive" size={14} /></Button>
           </div>
         </div>
         {naming && (
-          <form className="row dv-naming" onSubmit={(e) => { e.preventDefault(); submitName() }}>
-            <input className="input" autoFocus style={{ flex: 1 }} aria-label={naming.mode === 'folder' ? 'Folder name' : 'New name'} value={naming.value}
+          <form className="flex items-center gap-1.5" onSubmit={(e) => { e.preventDefault(); submitName() }}>
+            <Input autoFocus className="flex-1" aria-label={naming.mode === 'folder' ? 'Folder name' : 'New name'} value={naming.value}
               onChange={(e) => setNaming({ ...naming, value: e.target.value })} onKeyDown={(e) => { if (e.key === 'Escape') setNaming(null) }}
               placeholder={naming.mode === 'folder' ? 'Folder name' : 'New name'} />
-            <button type="submit" className="btn btn-primary btn-sm">{naming.mode === 'folder' ? 'Create' : 'Rename'}</button>
-            <button type="button" className="btn btn-sm" onClick={() => setNaming(null)}>Cancel</button>
+            <Button type="submit" size="sm">{naming.mode === 'folder' ? 'Create' : 'Rename'}</Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setNaming(null)}>Cancel</Button>
           </form>
         )}
-        {error && <p className="hint account-error" role="alert">{error}</p>}
-        {notice && <p className="ok" role="status">{notice} <button type="button" className="link-btn" onClick={() => setNotice(null)}>Dismiss</button></p>}
+        {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
+        {notice && <p className="text-[13px] text-green" role="status">{notice} <button type="button" className="text-green underline" onClick={() => setNotice(null)}>Dismiss</button></p>}
         {view === 'list' && (
-          <div className={'dv-table' + (dropping === 'main' ? ' drop' : '')} role="table" aria-label="Folder contents">
-            <div className="dv-row dv-head" role="row"><span role="columnheader">Name</span><span role="columnheader">Kind</span><span role="columnheader">Modified</span><span role="columnheader">Size</span></div>
+          <div className={cn('overflow-hidden rounded-xl border border-border bg-card shadow-xs', dropping === 'main' && 'outline-2 outline-offset-3 outline-green outline-dashed')} role="table" aria-label="Folder contents">
+            <div className={cn(ROW, 'min-h-9 text-xs font-medium text-muted-foreground')} role="row"><span role="columnheader">Name</span><span role="columnheader">Kind</span><span role="columnheader">Modified</span><span role="columnheader" className="text-right">Size</span></div>
             {dir && (
-              <button type="button" className="dv-row" role="row" onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
-                <span className="dv-name"><Icon name="back" size={15} /> ..</span><span /><span /><span />
+              <button type="button" className={cn(ROW, ROW_BTN)} role="row" onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
+                <span className="flex items-center gap-2.5"><Icon name="back" size={15} /> ..</span><span /><span /><span />
               </button>
             )}
             {shown.map((e) => (
-              <button key={e.path} type="button" role="row" className={'dv-row' + (sel?.path === e.path ? ' on' : '') + (dropping === e.path ? ' drop' : '')}
+              <button key={e.path} type="button" role="row" className={cn(ROW, ROW_BTN, sel?.path === e.path && 'bg-lime-soft hover:bg-lime-soft', dropping === e.path && DROP_IN)}
                 draggable onDragStart={(ev) => ev.dataTransfer.setData('application/x-tyslin-path', e.path)}
                 {...(e.isDir ? dropProps(e.path, e.path) : {})}
                 onClick={() => setSel(e)} onDoubleClick={() => openEntry(e)} onKeyDown={(ev) => { if (ev.key === 'Enter') openEntry(e) }}>
-                <span className="dv-name"><span className={'dv-ic ' + e.kind}><Icon name={ICON[e.kind]} size={15} /></span>{e.name}</span>
-                <span className="dv-muted">{LABEL[e.kind]}</span>
-                <span className="dv-muted">{when(e.updatedAt)}</span>
-                <span className="dv-muted mono">{e.isDir ? '—' : size(e.size)}</span>
+                <span className="flex min-w-0 items-center gap-2.5 font-medium"><KindIcon kind={e.kind} /><span className="truncate">{e.name}</span></span>
+                <span className={MUTED}>{LABEL[e.kind]}</span>
+                <span className={MUTED}>{when(e.updatedAt)}</span>
+                <span className={cn(MUTED, 'text-right font-mono')}>{e.isDir ? '—' : size(e.size)}</span>
               </button>
             ))}
-            {listing && shown.length === 0 && (q ? <p className="hint" style={{ padding: 16 }}>No files match.</p> : (
-              <div className="pose-empty"><Pose pose={6} height={150} /><p className="hint">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
-            ))}
+            {empty}
           </div>
         )}
         {view === 'icons' && (
-          <div className={'dv-grid' + (dropping === 'main' ? ' drop' : '')} role="list" aria-label="Folder contents">
+          <div className={cn('grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] content-start gap-3', dropping === 'main' && 'rounded-xl outline-2 outline-offset-3 outline-green outline-dashed')} role="list" aria-label="Folder contents">
             {dir && (
-              <button type="button" role="listitem" className="dv-tile" onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
-                <span className="dv-thumb"><Icon name="back" size={26} /></span>
-                <span className="dv-tile-name">Up a folder</span>
+              <button type="button" role="listitem" className={TILE} onClick={() => go(crumbs.slice(0, -1).join('/'))} {...dropProps('up', crumbs.slice(0, -1).join('/'))}>
+                <span className={THUMB}><Icon name="back" size={26} /></span>
+                <span className="line-clamp-2 text-[13px] leading-tight font-medium">Up a folder</span>
               </button>
             )}
             {shown.map((e) => (
-              <button key={e.path} type="button" role="listitem" className={'dv-tile' + (sel?.path === e.path ? ' on' : '') + (dropping === e.path ? ' drop' : '')}
+              <button key={e.path} type="button" role="listitem" className={cn(TILE, sel?.path === e.path && 'border-green bg-lime-soft ring-1 ring-green ring-inset hover:border-green', dropping === e.path && DROP_IN)}
                 draggable onDragStart={(ev) => ev.dataTransfer.setData('application/x-tyslin-path', e.path)}
                 {...(e.isDir ? dropProps(e.path, e.path) : {})}
                 aria-label={`${e.name}, ${LABEL[e.kind]}`}
                 onClick={() => setSel(e)} onDoubleClick={() => openEntry(e)} onKeyDown={(ev) => { if (ev.key === 'Enter') openEntry(e) }}>
-                <span className={'dv-thumb ' + e.kind}>
-                  {thumbs[e.path] ? <img src={thumbs[e.path]} alt="" /> : <Icon name={ICON[e.kind]} size={30} />}
+                <span className={cn(THUMB, e.kind === 'folder' && 'bg-lime-soft text-green')}>
+                  {thumbs[e.path] ? <img src={thumbs[e.path]} alt="" className="block size-full object-contain p-1.5" /> : <Icon name={ICON[e.kind]} size={30} />}
                 </span>
-                <span className="dv-tile-name">{e.name}</span>
-                <span className="dv-muted">{e.isDir ? LABEL[e.kind] : size(e.size)}</span>
+                <span className="line-clamp-2 text-[13px] leading-tight font-medium [overflow-wrap:anywhere]">{e.name}</span>
+                <span className={MUTED}>{e.isDir ? LABEL[e.kind] : size(e.size)}</span>
               </button>
             ))}
-            {listing && shown.length === 0 && (q ? <p className="hint" style={{ padding: 16 }}>No files match.</p> : (
-              <div className="pose-empty"><Pose pose={6} height={150} /><p className="hint">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
-            ))}
+            {empty}
           </div>
         )}
-        <label className="dv-hidden"><input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Show hidden files</label>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground"><input type="checkbox" className="size-4 accent-green" checked={hidden} onChange={(e) => setHidden(e.target.checked)} /> Show hidden files</label>
       </section>
 
-      <aside className="dv-side" aria-label={sel ? `${sel.name}: preview and actions` : 'Details'}>
+      <aside className="flex w-[380px] flex-none flex-col gap-3.5 overflow-y-auto border-l border-border bg-background p-5" aria-label={sel ? `${sel.name}: preview and actions` : 'Details'}>
         {!sel ? (
           <>
-            <p className="hint">Select a file or folder to preview it here. Double-click to open. Drag files onto a folder to move them, or drop files from your desktop to add them.</p>
-            <div style={{ marginTop: 'auto' }} />
+            <p className="text-sm leading-relaxed text-muted-foreground">Select a file or folder to preview it here. Double-click to open. Drag files onto a folder to move them, or drop files from your desktop to add them.</p>
+            <div className="mt-auto" />
             <GoogleDriveCard />
-            <p className="hint">Each agency&apos;s folder on this computer: documents, images, PDFs, archives and what your agents make.</p>
+            <p className="text-xs leading-relaxed text-muted-foreground">Each agency&apos;s folder on this computer: documents, images, PDFs, archives and what your agents make.</p>
           </>
         ) : (
           <>
-            <div className="dv-preview">
-              {sel.isDir && <span className={'dv-ic huge ' + sel.kind}><Icon name={ICON[sel.kind]} size={40} /></span>}
-              {!sel.isDir && !preview && <span className="hint" role="status">Loading preview…</span>}
-              {preview?.kind === 'image' && <img className="dv-img" src={preview.dataUrl} alt={sel.name} />}
-              {preview?.kind === 'text' && <pre className="dv-text">{preview.text}{preview.truncated ? '\n…' : ''}</pre>}
+            <div className="flex max-h-[420px] min-h-[220px] items-center justify-center overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+              {sel.isDir && <KindIcon kind={sel.kind} size="huge" />}
+              {!sel.isDir && !preview && <span className="text-sm text-muted-foreground" role="status">Loading preview…</span>}
+              {preview?.kind === 'image' && <img className="max-h-[400px] max-w-full object-contain" src={preview.dataUrl} alt={sel.name} />}
+              {preview?.kind === 'text' && <pre className="max-h-[418px] w-full self-stretch overflow-auto bg-card px-3.5 py-3 font-mono text-xs leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{preview.text}{preview.truncated ? '\n…' : ''}</pre>}
               {preview?.kind === 'none' && (
-                <span className="dv-none"><span className={'dv-ic huge ' + sel.kind}><Icon name={ICON[sel.kind]} size={40} /></span><span className="hint">{preview.note}</span></span>
+                <span className="flex flex-col items-center gap-2.5 p-5 text-center"><KindIcon kind={sel.kind} size="huge" /><span className="text-sm text-muted-foreground">{preview.note}</span></span>
               )}
             </div>
-            <div className="row" style={{ flexWrap: 'nowrap', gap: 10 }}>
-              <span className={'dv-ic big ' + sel.kind}><Icon name={ICON[sel.kind]} size={20} /></span>
-              <div style={{ minWidth: 0 }}><strong className="dv-title">{sel.name}</strong><span className="hint" style={{ display: 'block' }}>{LABEL[sel.kind]}{sel.isDir ? '' : ` · ${size(sel.size)}`}</span></div>
+            <div className="flex items-center gap-2.5">
+              <KindIcon kind={sel.kind} size="big" />
+              <div className="min-w-0"><strong className="block font-mono text-sm font-medium [overflow-wrap:anywhere]">{sel.name}</strong><span className="block text-xs text-muted-foreground">{LABEL[sel.kind]}{sel.isDir ? '' : ` · ${size(sel.size)}`}</span></div>
             </div>
-            <div className="dv-actions">
-              <button type="button" className="btn btn-primary" onClick={() => openEntry(sel)}>
+            <div className="grid grid-cols-2 gap-2">
+              <Button className="col-span-2" onClick={() => openEntry(sel)}>
                 {sel.isDir ? 'Open folder' : sel.kind === 'board' ? 'Open in Kanban' : 'Open'}
-              </button>
-              {!sel.isDir && ['mindmap', 'automation', 'canvas', 'board'].includes(sel.kind) && <button type="button" className="btn" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</button>}
-              <button type="button" className="btn" onClick={() => setNaming({ mode: 'rename', value: sel.name })}>Rename</button>
-              <button type="button" className="btn" onClick={() => void window.tyslin.drive.reveal(projectId, sel.path)}>Show in folder</button>
-              <button type="button" className="btn dv-delete" onClick={() => {
+              </Button>
+              {!sel.isDir && ['mindmap', 'automation', 'canvas', 'board'].includes(sel.kind) && <Button variant="outline" onClick={() => void window.tyslin.drive.open(projectId, sel.path)}>Open with app</Button>}
+              <Button variant="outline" onClick={() => setNaming({ mode: 'rename', value: sel.name })}>Rename</Button>
+              <Button variant="outline" onClick={() => void window.tyslin.drive.reveal(projectId, sel.path)}>Show in folder</Button>
+              <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => {
                 if (window.confirm(`Delete "${sel.name}"${sel.isDir ? ' and everything in it' : ''}? This can't be undone in Tyslin.`)) void act(() => window.tyslin.drive.remove(projectId, sel.path)).then(() => setSel(null))
-              }}><Icon name="trash" size={13} /> Delete</button>
+              }}><Icon name="trash" size={13} /> Delete</Button>
             </div>
-            <div className="kv dv-kv"><span>Modified</span><span>{when(sel.updatedAt)}</span><span>Path</span><span className="mono" style={{ fontSize: 12, wordBreak: 'break-all' }}>{sel.path}</span></div>
-            <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => setSel(null)}>Close preview</button>
+            <Separator />
+            <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-[13px]">
+              <dt className="text-muted-foreground">Modified</dt><dd>{when(sel.updatedAt)}</dd>
+              <dt className="text-muted-foreground">Path</dt><dd className="font-mono text-xs break-all">{sel.path}</dd>
+            </dl>
+            <Button variant="link" size="sm" className="h-auto self-start px-0" onClick={() => setSel(null)}>Close preview</Button>
           </>
         )}
       </aside>
     </div>
+  )
+}
+
+const SELECT = 'h-9 rounded-md border border-input bg-card px-2.5 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+const ROW = 'grid w-full grid-cols-[minmax(0,3fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_90px] items-center gap-3 border-b border-border px-4 text-left last:border-b-0'
+const ROW_BTN = 'min-h-11 cursor-default text-sm text-foreground outline-none hover:bg-background focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset'
+const DROP_IN = 'outline-2 -outline-offset-3 outline-green outline-dashed'
+const MUTED = 'truncate text-xs text-muted-foreground'
+const TILE = 'flex min-w-0 flex-col items-stretch gap-1.5 rounded-xl border border-border bg-card p-2.5 text-left text-foreground shadow-xs outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40'
+const THUMB = 'grid aspect-[4/3] place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground'
+const crumbCls = (drop: boolean): string => cn('rounded-md border px-1.5 py-1 text-foreground outline-none hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/40', drop ? 'border-green bg-lime-soft' : 'border-transparent')
+
+/** A file kind's icon on a tile: folders in the soft lime tint, studio files in ink, the rest muted. */
+function KindIcon({ kind, size: s = 'small' }: { kind: DriveKind; size?: 'small' | 'big' | 'huge' }): JSX.Element {
+  return (
+    <span className={cn('grid shrink-0 place-items-center bg-muted',
+      s === 'huge' ? 'size-[72px] rounded-2xl' : s === 'big' ? 'size-10 rounded-lg' : 'size-7 rounded-md',
+      kind === 'folder' ? 'bg-lime-soft text-green' : ['mindmap', 'automation', 'canvas'].includes(kind) ? 'text-foreground' : 'text-muted-foreground')}>
+      <Icon name={ICON[kind]} size={s === 'huge' ? 40 : s === 'big' ? 20 : 15} />
+    </span>
   )
 }

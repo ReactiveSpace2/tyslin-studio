@@ -1,14 +1,27 @@
-import { useState } from 'react'
+import { type ReactNode, useId, useState } from 'react'
 import type { Agency, AgencyUpdateInput, Agent } from '@shared/types'
 import { AGENCY_ADAPTERS } from '@shared/agencies'
 import type { AgencyView } from '../agencies'
 import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
-import { runsOnLabel } from '../components/RunsOnBadge'
+import { RunsOnBadge, runsOnLabel } from '../components/RunsOnBadge'
 import { WorkingBorder, WorkingDots } from '../components/Working'
-import { useAgentStatuses } from '../agentStatus'
-import { type BoardStats, firstName, plural, useBoardStats } from '../boardStats'
+import { STATUS_LABEL, useAgentStatuses } from '../agentStatus'
+import { type BoardStats, firstName, money, plural, useBoardStats } from '../boardStats'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { StatCard } from '../components/StatCard'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts'
 
 interface Props {
   view: AgencyView
@@ -51,8 +64,76 @@ function statusLine(lead: Agent | null, b: BoardStats | undefined, paused: boole
   return `${who} is waiting for a brief. Drop one in Inbox on the board.`
 }
 
-/** One agency: its overview (org chart, plan, how it runs) or its settings. The board is Kanban in its folder. */
-export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onChanged, onDeleted }: Props): JSX.Element {
+const th = 'h-10 px-4 text-xs font-medium text-muted-foreground'
+const td = 'px-4 py-3 text-sm whitespace-normal'
+const selectCls = 'h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
+const hint = 'text-[13px] leading-normal text-muted-foreground'
+
+/** Ready (soft lime), Paused or No Lead yet (muted). */
+function StatusBadge({ tone, label }: { tone: 'on' | 'off' | 'idle'; label: string }): JSX.Element {
+  return (
+    <Badge variant={tone === 'on' ? 'soft' : 'secondary'} className="gap-1.5">
+      <span className={cn('size-[7px] rounded-full', tone === 'on' ? 'bg-green' : 'bg-muted-foreground')} aria-hidden="true" />{label}
+    </Badge>
+  )
+}
+
+/** A count card (shadcn dashboard SectionCards shape, via StatCard). */
+function Stat({ label, value, sub, attention }: { label: string; value: string | number; sub: string; attention?: boolean; mono?: boolean }): JSX.Element {
+  return <StatCard label={label} value={value} attention={attention} muted={sub} />
+}
+
+const boardConfig = { cards: { label: 'Cards', color: 'var(--chart-1)' } } satisfies ChartConfig
+
+/** Cards per board column (shadcn horizontal bar chart with labels), from the board stats. */
+function BoardChart({ board }: { board: BoardStats | undefined }): JSX.Element {
+  const data = board ? [
+    { column: 'Inbox', cards: board.inbox },
+    { column: 'Planned', cards: board.planned },
+    { column: 'In progress', cards: board.inProgress },
+    { column: 'Review', cards: board.review }
+  ] : []
+  const open = data.reduce((n, d) => n + d.cards, 0)
+  return (
+    <Card aria-labelledby="board-chart-h" className="gap-3 py-5">
+      <CardHeader className="px-5">
+        <CardTitle id="board-chart-h" className="text-base">Board</CardTitle>
+        <CardDescription>Open cards by column</CardDescription>
+      </CardHeader>
+      <CardContent className="px-3">
+        {!board ? <p className="px-2 text-sm text-muted-foreground">Loading…</p> : (
+          <ChartContainer config={boardConfig} className="aspect-auto h-[170px] w-full">
+            <BarChart accessibilityLayer data={data} layout="vertical" margin={{ left: 4, right: 28 }}>
+              <XAxis type="number" dataKey="cards" hide allowDecimals={false} />
+              <YAxis dataKey="column" type="category" tickLine={false} axisLine={false} tickMargin={8} width={84} />
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Bar dataKey="cards" fill="var(--color-cards)" radius={5} minPointSize={2}>
+                <LabelList dataKey="cards" position="right" offset={8} className="fill-foreground font-mono" fontSize={12} />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+      {board && (
+        <div className="px-5 text-sm text-muted-foreground">{open ? `${plural(open, 'open card')} · ${board.review} waiting for you` : 'The board is clear.'}</div>
+      )}
+    </Card>
+  )
+}
+
+/** A labelled field: label above, control, optional hint under it. */
+function Field({ id, label, hint: note, children }: { id: string; label: string; hint?: string; children: ReactNode }): JSX.Element {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id} className="text-[13px]">{label}</Label>
+      {children}
+      {note && <span className={hint}>{note}</span>}
+    </div>
+  )
+}
+
+/** One agency: its overview (counts, team, plan, how it runs, org chart) or its settings. The board is Kanban in its folder. */
+export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onBack, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
   const st = agencyStatus(view)
   const board = useBoardStats([agency])[agency.id]
@@ -60,21 +141,116 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
   const working = (a: Agent): boolean => statuses.get(a.id)?.state === 'working'
   // A worker on a card the Lead handed out: dots run down the line from the Lead to it.
   const handOff = workers.some(working)
+  const team = [lead, ...workers].filter((a): a is Agent => !!a)
+  const workingCount = team.filter(working).length
+  const [teamView, setTeamView] = useState<'table' | 'chart'>('table')
+  const uid = useId()
+
+  const statusBadge = (a: Agent): JSX.Element => {
+    const s = statuses.get(a.id)
+    if (!s) return <span className="text-muted-foreground">…</span>
+    if (s.state === 'working') return <Badge variant="soft" className="gap-1.5"><span className="size-[7px] rounded-full bg-green" aria-hidden="true" />Working<WorkingDots /></Badge>
+    return <Badge variant={s.state === 'failed' ? 'destructive' : 'secondary'} title={s.reason || undefined}>{STATUS_LABEL[s.state]}</Badge>
+  }
+
+  const table = (
+    <div className="overflow-x-auto">
+      <Table aria-label="Team">
+        <TableHeader className="bg-muted/60"><TableRow><TableHead className={th}>Agent</TableHead><TableHead className={th}>Job</TableHead><TableHead className={th}>Runs on</TableHead><TableHead className={th}>Status</TableHead></TableRow></TableHeader>
+        <TableBody>
+          {team.map((a) => (
+            <TableRow key={a.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-muted/50">
+              <TableCell className={td}>
+                <span className="flex items-center gap-2.5">
+                  <Avatar shape={a.shape} tone={a.tone} head={a.head} size={32} />
+                  <button type="button" className="rounded-sm text-left font-semibold outline-none hover:text-green focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(a)}>{a.name}</button>
+                  {a.id === lead?.id && <Badge variant="secondary">Lead</Badge>}
+                </span>
+              </TableCell>
+              <TableCell className={cn(td, 'max-w-[320px] text-muted-foreground')}>{a.description || (a.id === lead?.id ? 'Plans the work, hands out cards and reports to you' : '')}</TableCell>
+              <TableCell className={td}><Badge variant="outline" className="gap-1.5 font-mono"><RunsOnBadge agent={a} size={14} />{runsOnLabel(a)}</Badge></TableCell>
+              <TableCell className={td}>{statusBadge(a)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {team.length === 0 && <p className={cn(hint, 'px-5 pb-5')}>No Lead yet. Add an agent to this agency and it becomes the Lead.</p>}
+    </div>
+  )
+
+  const chart = (
+    <section className="flex min-h-[420px] flex-col items-center border-t border-border bg-panel p-6" aria-label="Org chart">
+      <div className="flex items-center gap-2.5 rounded-xl border border-foreground bg-card px-3.5 py-2">
+        <span className="grid size-7 place-items-center rounded-md bg-primary text-xs font-bold text-primary-foreground">{you.slice(0, 1).toUpperCase()}</span><strong className="text-sm font-semibold">You</strong>
+      </div>
+      {lead ? (
+        <>
+          <span className="nt-line" />
+          <button type="button" className="relative flex w-[340px] max-w-full items-center gap-3 rounded-[12px] border-2 border-green bg-card px-3.5 py-2.5 text-left outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(lead)}>
+            {working(lead) && <WorkingBorder />}
+            <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} />
+            <span className="flex min-w-0 flex-col gap-0.5 text-xs leading-snug text-muted-foreground">
+              <strong className="text-sm font-semibold text-foreground">{lead.name}</strong>
+              <span>{lead.description || 'Plans the work, hands out cards and reports to you'}</span>
+              <span className="font-mono">{runsOnLabel(lead)}</span>
+              {working(lead) && <span className="inline-flex items-center text-[11.5px] font-semibold text-green">Working<WorkingDots /></span>}
+            </span>
+          </button>
+        </>
+      ) : <p className={cn(hint, 'mt-4')}>No Lead yet. Add an agent to this agency and it becomes the Lead.</p>}
+      {workers.length > 0 && (
+        <>
+          <span className={'nt-line' + (handOff ? ' flow' : '')} />
+          <div className="grid w-full max-w-[760px] gap-2.5 border-t-2 border-border-strong pt-3" style={{ gridTemplateColumns: `repeat(${Math.min(workers.length, 4)}, minmax(0, 1fr))` }}>
+            {workers.map((w) => (
+              <button key={w.id} type="button" className="relative flex flex-col items-center gap-1.5 rounded-[12px] border border-border bg-card px-2 py-3 text-center outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(w)}>
+                {working(w) && <><WorkingBorder /><span className="nt-stem flow" aria-hidden="true" /></>}
+                <Avatar shape={w.shape} tone={w.tone} head={w.head} size={38} />
+                <strong className="text-[13.5px] font-semibold">{w.name}</strong>
+                <span className="text-xs leading-snug text-muted-foreground">{w.description}</span>
+                <span className="font-mono text-[10.5px] text-muted-foreground">{runsOnLabel(w)}</span>
+                {working(w) && <span className="inline-flex items-center text-[11.5px] font-semibold text-green">Working<WorkingDots /></span>}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  )
+
   const side = (
-    <aside className="ag-side">
-      <div className="card ag-box">
-        <span className="eyebrow">Plan</span>
-        {agency.plan.length === 0 && <p className="hint">No plan yet. The Lead writes one from your first brief.</p>}
-        {agency.plan.map((p, i) => <span key={i} className="ag-plan"><span className="mono">{i + 1}</span><span>{p}</span></span>)}
-      </div>
-      <div className="card ag-box">
-        <span className="eyebrow">How it runs</span>
-        <span className="ag-kv"><span className="hint">Workers run on</span><span>{adapterName(agency.adapter)}</span></span>
-        <span className="ag-kv"><span className="hint">Cards</span><span>{agency.autoRun ? 'Lead runs them' : 'You run them'}</span></span>
-        <span className="ag-kv"><span className="hint">Channel</span><span>{channelLabel(agency.channel)}{agency.channel.kind !== 'none' ? ` · ${notifyLabel(agency.notify)}` : ''}</span></span>
-        <span className="ag-kv"><span className="hint">Budget</span><span className="mono">{agency.budget === null ? 'Not set' : `${agency.spent.toFixed(2)} of ${agency.budget}`}</span></span>
-      </div>
-      <button type="button" className="card ag-box ag-link" onClick={onBoard}><span><span className="eyebrow">Board</span><strong>Open the Kanban board</strong></span><Icon name="arrowUp" size={14} /></button>
+    <aside className="flex min-w-[260px] flex-[1_1_320px] flex-col gap-4">
+      <BoardChart board={board} />
+      <Card className="gap-3.5 px-5 py-[18px]">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-semibold">Plan</h2>
+          <span className={hint}>The Lead turns each step into cards in the Inbox.</span>
+        </div>
+        {agency.plan.length === 0 && <p className={hint}>No plan yet. The Lead writes one from your first brief.</p>}
+        {agency.plan.length > 0 && (
+          <ol className="flex flex-col gap-3">
+            {agency.plan.map((p, i) => (
+              <li key={i} className="flex gap-3 text-sm leading-normal">
+                <span className="inline-flex size-[26px] flex-none items-center justify-center rounded-full bg-primary font-mono text-xs text-primary-foreground">{i + 1}</span>
+                <span className="pt-0.5">{p}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+      <Card className="gap-2.5 px-5 py-[18px]">
+        <h2 className="text-base font-semibold">How it runs</h2>
+        <dl className="flex flex-col gap-2 text-[13.5px]">
+          <div className="flex justify-between gap-2.5"><dt className="text-muted-foreground">Workers run on</dt><dd className="text-right">{adapterName(agency.adapter)}</dd></div>
+          <div className="flex justify-between gap-2.5"><dt className="text-muted-foreground">Cards</dt><dd className="text-right">{agency.autoRun ? 'Lead runs them' : 'You run them'}</dd></div>
+          <div className="flex justify-between gap-2.5"><dt className="text-muted-foreground">Channel</dt><dd className="text-right">{channelLabel(agency.channel)}{agency.channel.kind !== 'none' ? ` · ${notifyLabel(agency.notify)}` : ''}</dd></div>
+          <div className="flex justify-between gap-2.5"><dt className="text-muted-foreground">Budget</dt><dd className="text-right font-mono">{agency.budget === null ? 'Not set' : `${agency.spent.toFixed(2)} of ${agency.budget}`}</dd></div>
+        </dl>
+      </Card>
+      <button type="button" data-slot="card" className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-5 py-4 text-left shadow-xs outline-none transition-colors hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={onBoard}>
+        <span className="flex flex-col gap-1"><span className="font-mono text-xs tracking-[0.08em] text-green uppercase">Board</span><strong className="text-sm font-semibold">Open the Kanban board</strong></span>
+        <Icon name="arrowUp" size={14} />
+      </button>
     </aside>
   )
   const [draft, setDraft] = useState<AgencyUpdateInput>({
@@ -102,149 +278,160 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
     if (!window.confirm(`Delete the agency "${agency.name}"?\n\nIts ${n} agents, their chats, the Lead's task and the board are deleted. Files in its folder stay on your computer.`)) return
     try { await window.tyslin.agencies.remove(agency.id); onDeleted() } catch (e) { setError(errorText(e)) }
   }
+  const id = (k: string): string => `${uid}-${k}`
 
   return (
-    <div className="page ag-page">
-      <header className="ag-head">
-        <div>
-          <div className="row" style={{ gap: 10 }}>
-            <h1>{tab === 'edit' ? `Edit ${agency.name}` : agency.name}</h1>
-            {tab !== 'edit' && <span className="ag-status"><span className={'ag-dot ' + st.tone} />{st.label}</span>}
-          </div>
-          {tab !== 'edit' && <p className="ag-statusline" role="status">{statusLine(lead, board, agency.paused)}</p>}
-          {tab !== 'edit' && <p className="hint">{agency.goal || agency.description}</p>}
-          {tab !== 'edit' && <p className="hint mono">{project.folder ?? 'No folder'}</p>}
-        </div>
-        <div className="row">
-          {tab === 'edit' && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</button>}
-          {tab !== 'edit' && (
-            <>
-              <button type="button" className="btn" onClick={() => void togglePause()}>{agency.paused ? 'Resume' : 'Pause'}</button>
-              <button type="button" className="btn btn-lime" disabled={!lead || agency.paused} title={lead ? `${lead.name} plans the Inbox now` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
-                <Icon name="play" size={12} /> Run
-              </button>
-            </>
-          )}
-        </div>
+    <div className="tw flex w-full flex-col text-foreground">
+      <header className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border bg-background px-6 py-2.5">
+        <nav aria-label="Breadcrumb" className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground">
+          <button type="button" className="rounded-sm outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={onBack}>Agencies</button>
+          <span aria-hidden="true">/</span><span className="truncate">{agency.name}</span>
+          <span aria-hidden="true">/</span><span className="font-medium text-foreground" aria-current="page">{tab === 'edit' ? 'Edit' : 'Overview'}</span>
+        </nav>
+        {tab === 'edit' && <Button type="button" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</Button>}
+        {tab !== 'edit' && (
+          <>
+            <Button type="button" variant="outline" onClick={() => void togglePause()}><Icon name={agency.paused ? 'play' : 'pause'} size={12} /> {agency.paused ? 'Resume' : 'Pause'}</Button>
+            <Button type="button" variant="lime" disabled={!lead || agency.paused} title={lead ? `${lead.name} plans the Inbox now` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
+              <Icon name="play" size={12} /> Run
+            </Button>
+          </>
+        )}
       </header>
-      {error && <p className="hint account-error" role="alert">{error}</p>}
 
-
-
-      {tab === 'org' && (
-        <div className="ag-split">
-          <section className="nt-chart ag-chart" aria-label="Org chart">
-            <div className="nt-you"><span className="nt-u">{you.slice(0, 1).toUpperCase()}</span><strong>You</strong></div>
-            {lead ? (
-              <>
-                <span className="nt-line" />
-                <button type="button" className={'nt-person nt-lead ag-node' + (working(lead) ? ' working' : '')} onClick={() => onOpenAgent(lead)}>
-                  {working(lead) && <WorkingBorder />}
-                  <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={44} />
-                  <span><strong>{lead.name}</strong><small>{lead.description || 'Plans the work, hands out cards and reports to you'}</small><small className="mono">{runsOnLabel(lead)}</small>
-                    {working(lead) && <small className="nt-working">Working<WorkingDots /></small>}</span>
-                </button>
-              </>
-            ) : <p className="hint" style={{ marginTop: 16 }}>No Lead yet. Add an agent to this agency and it becomes the Lead.</p>}
-            {workers.length > 0 && (
-              <>
-                <span className={'nt-line' + (handOff ? ' flow' : '')} />
-                <div className="nt-members" style={{ gridTemplateColumns: `repeat(${Math.min(workers.length, 4)}, minmax(0, 1fr))` }}>
-                  {workers.map((w) => (
-                    <button key={w.id} type="button" className={'nt-person nt-member ag-node' + (working(w) ? ' working' : '')} onClick={() => onOpenAgent(w)}>
-                      {working(w) && <><WorkingBorder /><span className="nt-stem flow" aria-hidden="true" /></>}
-                      <Avatar shape={w.shape} tone={w.tone} head={w.head} size={38} />
-                      <strong>{w.name}</strong>
-                      <small>{w.description}</small>
-                      <span className="mono nt-access">{runsOnLabel(w)}</span>
-                      {working(w) && <small className="nt-working">Working<WorkingDots /></small>}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            <button type="button" className="btn ag-add" onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</button>
-          </section>
-          {side}
-        </div>
-      )}
-
-      {tab === 'edit' && (
-        <div className="ag-split">
-          <div className="ag-col">
-            <section className="card ag-sec">
-              <h2>Basics</h2>
-              <label className="field"><span className="label">Agency name</span><input className="input" value={draft.name ?? ''} onChange={(e) => set({ name: e.target.value })} /></label>
-              <label className="field"><span className="label">What this agency does</span><textarea className="input" rows={2} value={draft.description ?? ''} onChange={(e) => set({ description: e.target.value })} placeholder="Describe the work in a sentence or two." /></label>
-              <label className="field"><span className="label">Goal</span><input className="input" value={draft.goal ?? ''} onChange={(e) => set({ goal: e.target.value })} placeholder="One sentence" /></label>
-              <label className="field"><span className="label">Agency prompt</span>
-                <span className="hint">Every agent in this agency follows this. Each agent's own job instructions are on its page. Changes apply to new chats and new agents.</span>
-                <textarea className="input" rows={4} value={draft.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} placeholder="How this agency works: tools, style, what to ask you before doing." /></label>
-            </section>
-            <section className="card ag-sec">
-              <h2>Plan</h2>
-              <p className="hint">The Lead turns each step into cards in the Inbox.</p>
-              {(draft.plan ?? []).map((p, i) => (
-                <label key={i} className="row" style={{ gap: 10, alignItems: 'center' }}>
-                  <span className="mono hint" style={{ width: 18 }}>{i + 1}</span>
-                  <input className="input" value={p} aria-label={`Plan step ${i + 1}`} onChange={(e) => set({ plan: (draft.plan ?? []).map((x, j) => (j === i ? e.target.value : x)) })} />
-                  <button type="button" className="btn btn-sm icon-btn" aria-label={`Remove step ${i + 1}`} onClick={() => set({ plan: (draft.plan ?? []).filter((_, j) => j !== i) })}><Icon name="close" size={12} /></button>
-                </label>
-              ))}
-              <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => set({ plan: [...(draft.plan ?? []), ''] })}><Icon name="plus" size={12} /> Add a step</button>
-            </section>
-            <section className="card ag-sec">
-              <h2>Roster</h2>
-              {[lead, ...workers].filter((a): a is Agent => !!a).map((a) => (
-                <div key={a.id} className="ag-roster">
-                  <Avatar shape={a.shape} tone={a.tone} head={a.head} size={34} />
-                  <span><strong>{a.name}</strong><span className="hint">{a.id === lead?.id ? 'Lead · reports to you' : `Reports to ${lead?.name ?? 'you'}`}</span></span>
-                  <span className="mono hint">{runsOnLabel(a)}</span>
-                  <span className="mono hint">{a.engine === 'builtin' ? a.model : "Engine's own model"}</span>
-                  <button type="button" className="btn btn-sm" onClick={() => onOpenAgent(a)}>Open</button>
-                </div>
-              ))}
-              <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</button>
-            </section>
+      <div className="flex w-full max-w-[1180px] flex-col gap-6 px-6 pt-7 pb-10">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[28px] font-semibold tracking-tight">{tab === 'edit' ? `Edit ${agency.name}` : agency.name}</h1>
+              {tab !== 'edit' && <StatusBadge tone={st.tone} label={st.label} />}
+            </div>
+            {tab !== 'edit' && <p className="text-[15px] font-medium" role="status">{statusLine(lead, board, agency.paused)}</p>}
+            {tab !== 'edit' && (agency.goal || agency.description) && <p className="text-sm text-muted-foreground">{agency.goal || agency.description}</p>}
+            {tab !== 'edit' && <p className="font-mono text-[13px] break-all text-muted-foreground">{project.folder ?? 'No folder'}</p>}
           </div>
-          <aside className="ag-side">
-            <section className="card ag-sec">
-              <h2>How it runs</h2>
-              <label className="field"><span className="label">New workers run on</span>
-                <select className="select" value={draft.adapter ?? 'template'} onChange={(e) => set({ adapter: e.target.value })}>
-                  <option value="template">Template's mix</option>
-                  {AGENCY_ADAPTERS.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                </select>
-                <span className="hint">Existing agents keep theirs; change one on its page.</span></label>
-              <label className="ag-check"><span>Lead runs cards automatically</span><input type="checkbox" checked={!!draft.autoRun} onChange={(e) => set({ autoRun: e.target.checked })} /></label>
-              <label className="field"><span className="label">Monthly budget</span>
-                <input className="input mono" value={draft.budget ?? ''} placeholder="Not set" inputMode="decimal"
-                  onChange={(e) => set({ budget: e.target.value.trim() === '' ? null : Number(e.target.value) })} />
-                <span className="hint">In your default model's currency. The Lead stops starting cards when it's reached. Spent so far: {agency.spent.toFixed(2)}.</span></label>
-            </section>
-            <section className="card ag-sec">
-              <h2>Channel</h2>
-              <label className="field"><span className="label">Lead talks to you on</span>
-                <select className="select" value={draft.channel?.kind ?? 'none'} onChange={(e) => set({ channel: { kind: e.target.value as Agency['channel']['kind'] } })}>
-                  <option value="none">Not now</option><option value="telegram">Telegram</option><option value="slack">Slack</option>
-                </select></label>
-              <label className="field"><span className="label">What the Lead sends</span>
-                <select className="select" value={draft.notify ?? 'questions'} onChange={(e) => set({ notify: e.target.value as Agency['notify'] })}>
-                  <option value="questions">Questions and reviews</option><option value="all">Everything</option><option value="digest">Digest only</option>
-                </select></label>
-            </section>
-            <section className="card ag-sec">
-              <h2>Folder</h2>
-              <span className="mono hint" style={{ overflowWrap: 'anywhere' }}>{project.folder ?? 'No folder'}</span>
-              <div className="row" style={{ gap: 8 }}>
-                <button type="button" className="btn btn-sm" onClick={onDrive}>Open in Drive</button>
-                <button type="button" className="btn btn-sm" style={{ color: 'var(--danger, #A12A1D)' }} onClick={() => void remove()}>Delete agency</button>
-              </div>
-            </section>
-            {saved && <p className="hint" role="status">{saved}</p>}
-          </aside>
+          {tab !== 'edit' && workingCount > 0 && <Badge variant="soft" className="gap-1.5"><span className="size-[7px] rounded-full bg-green" aria-hidden="true" />{plural(workingCount, 'agent')} working<WorkingDots /></Badge>}
         </div>
-      )}
+        {error && <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
+
+        {tab === 'org' && (
+          <>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <Stat label="Inbox" value={board ? board.inbox : '…'} sub="Briefs waiting to be planned" />
+              <Stat label="In progress" value={board ? board.inProgress : '…'} sub="Cards being worked on" />
+              <Stat label="Needs your review" value={board ? board.review : '…'} sub="Cards waiting for you" attention={!!board && board.review > 0} />
+              <Stat label="Spend, last 7 days" value={board ? money(board.spentWeek) : '…'} sub="Estimated from card logs" mono />
+            </div>
+            <div className="flex flex-wrap items-start gap-4">
+              <Card className="min-w-0 flex-[999_1_520px] gap-0 overflow-hidden py-0">
+                <CardHeader className="px-5 pt-[18px] pb-3.5">
+                  <CardTitle><h2 className="text-base font-semibold">Team</h2></CardTitle>
+                  <CardDescription>{lead ? `Workers report to ${lead.name}. Only ${firstName(lead.name)} messages you.` : 'No Lead yet.'}</CardDescription>
+                  <CardAction className="flex flex-wrap items-center gap-2">
+                    <TabsList aria-label="Team view">
+                      <TabsTrigger active={teamView === 'table'} onClick={() => setTeamView('table')}>List</TabsTrigger>
+                      <TabsTrigger active={teamView === 'chart'} onClick={() => setTeamView('chart')}>Org chart</TabsTrigger>
+                    </TabsList>
+                    <Button type="button" variant="outline" size="sm" onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</Button>
+                  </CardAction>
+                </CardHeader>
+                {teamView === 'table' ? table : chart}
+              </Card>
+              {side}
+            </div>
+          </>
+        )}
+
+        {tab === 'edit' && (
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-4">
+              <Card className="gap-3.5 px-5 py-[18px]">
+                <h2 className="text-base font-semibold">Basics</h2>
+                <Field id={id('name')} label="Agency name"><Input id={id('name')} value={draft.name ?? ''} onChange={(e) => set({ name: e.target.value })} /></Field>
+                <Field id={id('desc')} label="What this agency does"><Textarea id={id('desc')} rows={2} value={draft.description ?? ''} onChange={(e) => set({ description: e.target.value })} placeholder="Describe the work in a sentence or two." /></Field>
+                <Field id={id('goal')} label="Goal"><Input id={id('goal')} value={draft.goal ?? ''} onChange={(e) => set({ goal: e.target.value })} placeholder="One sentence" /></Field>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={id('prompt')} className="text-[13px]">Agency prompt</Label>
+                  <span className={hint} id={id('prompt-hint')}>Every agent in this agency follows this. Each agent's own job instructions are on its page. Changes apply to new chats and new agents.</span>
+                  <Textarea id={id('prompt')} aria-describedby={id('prompt-hint')} rows={4} className="resize-y" value={draft.prompt ?? ''} onChange={(e) => set({ prompt: e.target.value })} placeholder="How this agency works: tools, style, what to ask you before doing." />
+                </div>
+              </Card>
+              <Card className="gap-3.5 px-5 py-[18px]">
+                <div className="flex flex-col gap-1">
+                  <h2 className="text-base font-semibold">Plan</h2>
+                  <p className={hint}>The Lead turns each step into cards in the Inbox.</p>
+                </div>
+                {(draft.plan ?? []).map((p, i) => (
+                  <div key={i} className="flex items-center gap-2.5">
+                    <span className="w-[18px] flex-none font-mono text-[13px] text-muted-foreground">{i + 1}</span>
+                    <Input value={p} aria-label={`Plan step ${i + 1}`} onChange={(e) => set({ plan: (draft.plan ?? []).map((x, j) => (j === i ? e.target.value : x)) })} />
+                    <Button type="button" variant="outline" size="icon" className="size-8 flex-none" aria-label={`Remove step ${i + 1}`} onClick={() => set({ plan: (draft.plan ?? []).filter((_, j) => j !== i) })}><Icon name="close" size={12} /></Button>
+                  </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => set({ plan: [...(draft.plan ?? []), ''] })}><Icon name="plus" size={12} /> Add a step</Button>
+              </Card>
+              <Card className="gap-0 overflow-hidden py-0">
+                <h2 className="px-5 pt-[18px] pb-3 text-base font-semibold">Roster</h2>
+                <ul className="flex flex-col">
+                  {team.map((a) => (
+                    <li key={a.id} className="grid grid-cols-[34px_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-2.5 border-t border-border px-5 py-2.5">
+                      <Avatar shape={a.shape} tone={a.tone} head={a.head} size={34} />
+                      <span className="flex min-w-0 flex-col"><strong className="truncate text-sm font-semibold">{a.name}</strong><span className="text-xs text-muted-foreground">{a.id === lead?.id ? 'Lead · reports to you' : `Reports to ${lead?.name ?? 'you'}`}</span></span>
+                      <span className="flex min-w-0 items-center gap-1.5 font-mono text-xs text-muted-foreground"><RunsOnBadge agent={a} size={14} /><span className="truncate">{runsOnLabel(a)}</span></span>
+                      <span className="truncate font-mono text-xs text-muted-foreground">{a.engine === 'builtin' ? a.model : "Engine's own model"}</span>
+                      <Button type="button" variant="outline" size="sm" onClick={() => onOpenAgent(a)}>Open</Button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="border-t border-border px-5 py-3.5">
+                  <Button type="button" variant="outline" size="sm" onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</Button>
+                </div>
+              </Card>
+            </div>
+            <aside className="flex min-w-[260px] flex-[1_1_320px] flex-col gap-4">
+              <Card className="gap-3.5 px-5 py-[18px]">
+                <h2 className="text-base font-semibold">How it runs</h2>
+                <Field id={id('adapter')} label="New workers run on" hint="Existing agents keep theirs; change one on its page.">
+                  <select id={id('adapter')} className={selectCls} value={draft.adapter ?? 'template'} onChange={(e) => set({ adapter: e.target.value })}>
+                    <option value="template">Template's mix</option>
+                    {AGENCY_ADAPTERS.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </Field>
+                <div className="flex min-h-11 items-center justify-between gap-3">
+                  <Label htmlFor={id('auto')} className="text-sm font-normal">Lead runs cards automatically</Label>
+                  <Switch id={id('auto')} checked={!!draft.autoRun} onCheckedChange={(v) => set({ autoRun: v })} />
+                </div>
+                <Field id={id('budget')} label="Monthly budget" hint={`In your default model's currency. The Lead stops starting cards when it's reached. Spent so far: ${agency.spent.toFixed(2)}.`}>
+                  <Input id={id('budget')} className="font-mono" value={draft.budget ?? ''} placeholder="Not set" inputMode="decimal"
+                    onChange={(e) => set({ budget: e.target.value.trim() === '' ? null : Number(e.target.value) })} />
+                </Field>
+              </Card>
+              <Card className="gap-3.5 px-5 py-[18px]">
+                <h2 className="text-base font-semibold">Channel</h2>
+                <Field id={id('channel')} label="Lead talks to you on">
+                  <select id={id('channel')} className={selectCls} value={draft.channel?.kind ?? 'none'} onChange={(e) => set({ channel: { kind: e.target.value as Agency['channel']['kind'] } })}>
+                    <option value="none">Not now</option><option value="telegram">Telegram</option><option value="slack">Slack</option>
+                  </select>
+                </Field>
+                <Field id={id('notify')} label="What the Lead sends">
+                  <select id={id('notify')} className={selectCls} value={draft.notify ?? 'questions'} onChange={(e) => set({ notify: e.target.value as Agency['notify'] })}>
+                    <option value="questions">Questions and reviews</option><option value="all">Everything</option><option value="digest">Digest only</option>
+                  </select>
+                </Field>
+              </Card>
+              <Card className="gap-3.5 px-5 py-[18px]">
+                <h2 className="text-base font-semibold">Folder</h2>
+                <span className="font-mono text-[13px] [overflow-wrap:anywhere] text-muted-foreground">{project.folder ?? 'No folder'}</span>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={onDrive}>Open in Drive</Button>
+                  <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => void remove()}><Icon name="trash" size={12} /> Delete agency</Button>
+                </div>
+              </Card>
+              {saved && <p className={hint} role="status">{saved}</p>}
+            </aside>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

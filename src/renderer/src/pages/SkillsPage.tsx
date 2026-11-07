@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Agent, ClaudeSkill, Skill, SkillInput, SkillPack, SkillPackSearch } from '@shared/types'
 import { Icon } from '../components/Icon'
@@ -5,6 +6,36 @@ import { Avatar } from '../components/Avatar'
 import { runsOnLabel } from '../components/RunsOnBadge'
 import { track } from '../activity'
 import { Pose } from '../components/Pose'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+
+/** Shared Tailwind pieces for this screen. */
+const HINT = 'text-xs text-muted-foreground'
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-4'
+const SECTION_H = 'm-0 font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground'
+const LINK = 'text-green underline underline-offset-2'
+/** A list row: a real button, white with a thin border when selected. */
+const itemClass = (on: boolean): string => cn(
+  'flex min-h-11 w-full cursor-pointer flex-col items-stretch gap-1 rounded-lg border border-transparent px-3 py-2.5 text-left text-foreground outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40',
+  on ? 'border-border bg-card shadow-xs' : 'hover:bg-accent'
+)
+const ErrorBox = ({ children }: { children: React.ReactNode }): JSX.Element => (
+  <div role="alert" className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive">{children}</div>
+)
+/** The GitHub icon link in the corner of a card; sits above the card's Edit overlay. */
+const SourceLink = ({ url, label }: { url: string; label: string }): JSX.Element => (
+  <a href={url} target="_blank" rel="noreferrer" title={url.replace(/^https:\/\//, '')} aria-label={label}
+    className="relative z-[1] -mt-2 -mr-2 inline-flex size-11 flex-none items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40">
+    <Icon name="github" size={18} />
+  </a>
+)
 
 const BLANK: SkillInput = { name: '', description: '', body: '' }
 
@@ -77,76 +108,78 @@ function SkillPanel({ skill, source, sourceUrl, agents, team, onSaved, onDeleted
   }
 
   return (
-    <form className="sk-editor" aria-labelledby="sk-title" onSubmit={(e) => { e.preventDefault(); void save() }}>
-      <header className="sk-editor-head">
-        <div className="sk-editor-title">
-          <span className="eyebrow">{source}</span>
-          <h2 id="sk-title" className="mono">{form.name || 'Untitled skill'}</h2>
+    <form className="flex max-w-[980px] flex-col gap-[18px]" aria-labelledby="sk-title" onSubmit={(e) => { e.preventDefault(); void save() }}>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Badge variant="secondary">{source}</Badge>
+          <h2 id="sk-title" className="m-0 font-mono text-[22px] font-medium [overflow-wrap:anywhere]">{form.name || 'Untitled skill'}</h2>
         </div>
-        <div className="row">
+        <div className="flex flex-wrap items-center gap-2">
           {sourceUrl && (
-            <a className="btn" href={sourceUrl} target="_blank" rel="noreferrer" aria-label={`${skill.name} on GitHub (opens in your browser)`}>
-              <Icon name="github" size={16} /> GitHub
-            </a>
+            <Button asChild variant="outline">
+              <a href={sourceUrl} target="_blank" rel="noreferrer" aria-label={`${skill.name} on GitHub (opens in your browser)`}>
+                <Icon name="github" size={16} /> GitHub
+              </a>
+            </Button>
           )}
-          {skill.id && <button type="button" className="btn" disabled={busy} onClick={() => void exportFile()}>Export .md</button>}
-          {skill.id && <button type="button" className="btn" disabled={busy} onClick={() => void remove()}>Delete</button>}
-          <button type="submit" className="btn btn-primary" disabled={busy || !form.name || !form.body.trim() || (!!skill.id && !dirty)}>
+          {skill.id && <Button type="button" variant="outline" disabled={busy} onClick={() => void exportFile()}>Export .md</Button>}
+          {skill.id && <Button type="button" variant="outline" disabled={busy} onClick={() => void remove()}>Delete</Button>}
+          <Button type="submit" disabled={busy || !form.name || !form.body.trim() || (!!skill.id && !dirty)}>
             {busy ? 'Saving…' : 'Save skill'}
-          </button>
+          </Button>
         </div>
       </header>
-      {saved && !dirty && <span className="hint" role="status">Saved.</span>}
-      {error && <div className="msg-error" role="alert">{error}</div>}
+      {saved && !dirty && <span className="text-[13px] text-muted-foreground" role="status">Saved.</span>}
+      {error && <ErrorBox>{error}</ErrorBox>}
 
-      <div className="two">
-        <div className="field">
-          <label htmlFor="s-name">Name</label>
-          <input id="s-name" className="input mono" value={form.name} onChange={(e) => set('name', toSlug(e.target.value))} placeholder="meeting-notes" autoFocus={!skill.id} />
-          <span className="hint">Lowercase words joined by hyphens.</span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="s-name">Name</Label>
+          <Input id="s-name" className="font-mono" value={form.name} onChange={(e) => set('name', toSlug(e.target.value))} placeholder="meeting-notes" autoFocus={!skill.id} />
+          <span className={HINT}>Lowercase words joined by hyphens.</span>
         </div>
-        <div className="field">
-          <label htmlFor="s-desc">One-line description</label>
-          <input id="s-desc" className="input" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="What this skill helps an agent do" />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="s-desc">One-line description</Label>
+          <Input id="s-desc" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="What this skill helps an agent do" />
         </div>
       </div>
-      <div className="field">
-        <label htmlFor="s-body">Instructions</label>
-        <textarea id="s-body" className="textarea mono sk-body" rows={8} value={form.body} onChange={(e) => set('body', e.target.value)}
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="s-body">Instructions</Label>
+        <Textarea id="s-body" className="min-h-[180px] font-mono text-[13px]" rows={11} value={form.body} onChange={(e) => set('body', e.target.value)}
           placeholder={'What to produce, in what structure, and what to avoid.\nFive to eight short lines works well.'} />
-        <span className="hint">{form.body.length.toLocaleString()} / 40,000 characters · added to the instructions of every agent that uses it</span>
+        <span className={HINT}>{form.body.length.toLocaleString()} / 40,000 characters · added to the instructions of every agent that uses it</span>
       </div>
 
-      <section className="sk-users" aria-labelledby="sk-users-h">
-        <div className="sk-users-head">
-          <h3 id="sk-users-h">{team ? `Who uses it in ${team.name}` : 'Who uses it'}</h3>
-          <span className="hint">
+      <Card className="gap-0 overflow-hidden py-0" aria-labelledby="sk-users-h" role="region">
+        <div className="flex flex-col gap-0.5 px-5 pt-4 pb-3">
+          <h3 id="sk-users-h" className="m-0 text-sm font-semibold">{team ? `Who uses it in ${team.name}` : 'Who uses it'}</h3>
+          <span className={HINT}>
             {!skill.id ? 'Save the skill first, then switch it on for your agents.'
               : team ? 'Switch an agent on or off. It applies straight away.'
               : usedBy.length ? `Used by ${usedBy.map((a) => a.name).join(', ')}.` : 'Not attached to any agent yet. Open an agency to switch it on for its agents.'}
           </span>
         </div>
-        {team && (
-          <div className="sk-agents">
-            {team.members.map((a) => {
-              const on = !!skill.id && a.skills.includes(name)
-              return (
-                <div key={a.id} className={'card sk-agent' + (on ? ' on' : '')}>
-                  <span className="sk-agent-top">
-                    <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={32} />
-                    <button type="button" role="switch" aria-checked={on} aria-label={`${a.name} uses ${name || 'this skill'}`}
-                      className={'switch' + (on ? ' on' : '')} disabled={!skill.id || dirty || switching !== null} onClick={() => void toggle(a)} />
-                  </span>
-                  <strong>{a.name}</strong>
-                  <span className="mono hint">{runsOnLabel(a)}</span>
-                </div>
-              )
-            })}
+        {team && team.members.map((a) => {
+          const on = !!skill.id && a.skills.includes(name)
+          return (
+            <div key={a.id} className="flex min-h-11 items-center gap-3 border-t border-border px-5 py-2.5">
+              <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={28} />
+              <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 text-sm">
+                <strong className="font-medium">{a.name}</strong>
+                <span className="font-mono text-xs text-muted-foreground">{runsOnLabel(a)}</span>
+              </span>
+              <Switch checked={on} aria-label={`${a.name} uses ${name || 'this skill'}`}
+                disabled={!skill.id || dirty || switching !== null} onCheckedChange={() => void toggle(a)} />
+            </div>
+          )
+        })}
+        {team && ((skill.id && dirty) || elsewhere.length > 0) && (
+          <div className="flex flex-col gap-1 border-t border-border bg-muted px-5 py-2.5">
+            {skill.id && dirty && <span className={HINT}>Save your changes to switch agents on or off.</span>}
+            {elsewhere.length > 0 && <span className={HINT}>Also used by {elsewhere.map((a) => a.name).join(', ')} outside this agency.</span>}
           </div>
         )}
-        {team && skill.id && dirty && <span className="hint">Save your changes to switch agents on or off.</span>}
-        {team && elsewhere.length > 0 && <span className="hint">Also used by {elsewhere.map((a) => a.name).join(', ')} outside this agency.</span>}
-      </section>
+      </Card>
     </form>
   )
 }
@@ -170,31 +203,28 @@ function PackCard({ pack, busy, onInstall, onUninstall }: PackCardProps): JSX.El
     : pack.updateAvailable ? 'Update available'
     : `${plural(pack.skillCount, 'skill')} installed`
   return (
-    <div className="card pack-card" aria-busy={busy}>
-      <span className="skill-card-top">
-        <span className="pack-title">
-          <strong>{pack.name}</strong>
-          <span className="mono hint">
+    <Card className="min-h-40 gap-3 px-5 py-5" aria-busy={busy}>
+      <span className="flex items-start justify-between gap-2">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <strong className="text-base font-semibold [overflow-wrap:anywhere]">{pack.name}</strong>
+          <span className="font-mono text-xs text-muted-foreground">
             {[pack.author, pack.license || 'no licence', pack.stars !== undefined && `${formatStars(pack.stars)} stars`].filter(Boolean).join(' · ')}
           </span>
         </span>
-        <a className="skill-source" href={pack.url} target="_blank" rel="noreferrer"
-          title={pack.url.replace(/^https:\/\//, '')} aria-label={`${pack.name} on GitHub (opens in your browser)`}>
-          <Icon name="github" size={18} />
-        </a>
+        <SourceLink url={pack.url} label={`${pack.name} on GitHub (opens in your browser)`} />
       </span>
-      <p className="pack-desc" title={pack.description}>{pack.description || 'No description'}</p>
-      {pack.blockedReason && <span className="hint">{pack.blockedReason}</span>}
-      {pack.checkError && pack.installed && <span className="hint">Couldn't check for updates: {pack.checkError}</span>}
-      <span className="card-foot">
-        <span className="mono" role="status">{status}</span>
-        <span className="pack-actions">
-          {!pack.installed && pack.installable && <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={onInstall}>Install</button>}
-          {pack.installed && pack.updateAvailable && <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={onInstall}>Update</button>}
-          {pack.installed && <button type="button" className="btn btn-sm" disabled={busy} onClick={onUninstall}>Uninstall</button>}
+      <p className="m-0 line-clamp-3 text-sm leading-relaxed" title={pack.description}>{pack.description || 'No description'}</p>
+      {pack.blockedReason && <span className={HINT}>{pack.blockedReason}</span>}
+      {pack.checkError && pack.installed && <span className={HINT}>Couldn't check for updates: {pack.checkError}</span>}
+      <span className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+        <span className="truncate font-mono text-xs text-muted-foreground" role="status">{status}</span>
+        <span className="flex flex-none gap-1.5">
+          {!pack.installed && pack.installable && <Button type="button" size="sm" disabled={busy} onClick={onInstall}>Install</Button>}
+          {pack.installed && pack.updateAvailable && <Button type="button" size="sm" disabled={busy} onClick={onInstall}>Update</Button>}
+          {pack.installed && <Button type="button" size="sm" variant="outline" disabled={busy} onClick={onUninstall}>Uninstall</Button>}
         </span>
       </span>
-    </div>
+    </Card>
   )
 }
 
@@ -215,29 +245,33 @@ interface ClaudeListProps {
 
 /** Every skill in Anthropic's repo with its licence and whether it's installed. */
 function ClaudeList({ catalog, error, installed, onEdit }: ClaudeListProps): JSX.Element {
-  if (error) return <div className="msg-error" role="alert">Couldn't load Anthropic's skills from GitHub. {error}</div>
-  if (!catalog) return <p className="hint" role="status">Loading from GitHub…</p>
+  if (error) return <ErrorBox>Couldn't load Anthropic's skills from GitHub. {error}</ErrorBox>
+  if (!catalog) return <p className={cn(HINT, 'm-0')} role="status">Loading from GitHub…</p>
   return (
-    <div className="grid">
+    <div className={GRID}>
       {catalog.map((c) => {
         const mine = installed.get(c.name)
         const status = mine ? 'Installed' : c.installable ? 'Installs with the pack' : c.blockedReason ? 'Too long to install' : 'Read only on GitHub'
         return (
-          <div key={c.folder} className={'card skill-card' + (c.installable ? '' : ' muted-card')}>
-            <span className="skill-card-top">
-              <span className={'chip' + (mine ? ' on' : '')}>{c.name}</span>
-              <a className="skill-source" href={c.url} target="_blank" rel="noreferrer"
-                title={c.url.replace(/^https:\/\//, '')} aria-label={`${c.name} on GitHub (opens in your browser)`}>
-                <Icon name="github" size={18} />
-              </a>
+          <Card key={c.folder} className={cn('relative min-h-40 gap-3 px-5 py-5',
+            !c.installable && 'bg-muted shadow-none',
+            mine && 'hover:border-border-strong has-[button:focus-visible]:ring-[3px] has-[button:focus-visible]:ring-ring/40')}>
+            <span className="flex items-start justify-between gap-2">
+              <Badge variant={mine ? 'lime' : 'outline'} className="h-8 rounded-lg px-3 font-mono font-normal">{c.name}</Badge>
+              <SourceLink url={c.url} label={`${c.name} on GitHub (opens in your browser)`} />
             </span>
-            <p className="clamp-5" title={c.description}>{c.description || 'No description'}</p>
-            {c.blockedReason && <span className="hint">{c.blockedReason}</span>}
-            <span className="card-foot">
-              <span className="mono">{LICENSE_TEXT[c.license]} · {status}</span>
-              {mine && <button type="button" className="skill-edit mono" onClick={() => onEdit(mine)} aria-label={`Edit ${c.name}`}>Edit</button>}
+            <p className="m-0 line-clamp-5 text-sm leading-relaxed" title={c.description}>{c.description || 'No description'}</p>
+            {c.blockedReason && <span className={HINT}>{c.blockedReason}</span>}
+            <span className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-3">
+              <span className="truncate font-mono text-xs text-muted-foreground">{LICENSE_TEXT[c.license]} · {status}</span>
+              {mine && (
+                <button type="button" onClick={() => onEdit(mine)} aria-label={`Edit ${c.name}`}
+                  className="cursor-pointer border-0 bg-transparent p-0 font-mono text-xs text-muted-foreground outline-none hover:text-foreground after:absolute after:inset-0 after:rounded-xl after:content-['']">
+                  Edit
+                </button>
+              )}
             </span>
-          </div>
+          </Card>
         )
       })}
     </div>
@@ -411,37 +445,37 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
   const editSkill = (s: Skill): void => choose({ kind: 'skill', id: s.id })
 
   return (
-    <div className="sk-page">
-      <section className="sk-list" aria-label="Skills">
-        <div className="sk-list-head">
-          <h1>Skills</h1>
-          <button type="button" className="btn btn-primary" onClick={() => choose({ kind: 'new' })}><Icon name="plus" size={12} /> New skill</button>
+    <div className="tw flex h-full min-h-0 bg-background text-foreground">
+      <section aria-label="Skills" className="flex w-[360px] flex-none flex-col gap-3.5 overflow-y-auto border-r border-border px-3.5 pt-5 pb-7">
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h1 className="m-0 text-xl font-semibold tracking-tight">Skills</h1>
+          <Button type="button" size="sm" onClick={() => choose({ kind: 'new' })}><Icon name="plus" size={12} /> New skill</Button>
         </div>
-        <div className="field">
-          <label htmlFor="sk-search" className="hint">Search skills</label>
-          <input id="sk-search" type="search" className="input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or what it does" />
-        </div>
-        <div className="tabs sk-seg" role="tablist" aria-label="Skill sources">
+        <TabsList aria-label="Skill sources" className="w-full">
           {segs.map(([id, label, n]) => (
-            <button key={id} type="button" role="tab" aria-selected={seg === id} className={seg === id ? 'on' : ''} onClick={() => changeSeg(id)}>
-              {label} <span className="mono tab-count">{n}</span>
-            </button>
+            <TabsTrigger key={id} active={seg === id} onClick={() => changeSeg(id)} className="px-1.5 text-[13px]">
+              {label} <span className="font-mono text-[11px] text-muted-foreground">{n}</span>
+            </TabsTrigger>
           ))}
+        </TabsList>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="sk-search" className="px-1 text-xs font-normal text-muted-foreground">Search skills</Label>
+          <Input id="sk-search" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name or what it does" />
         </div>
 
         {(seg === 'github' || seg === 'claude') && (
-          <button type="button" className={'sk-item sk-browse' + (sel?.kind === 'browse' ? ' on' : '')} onClick={() => choose({ kind: 'browse' })}>
-            <span className="sk-item-top"><strong>{seg === 'github' ? 'Browse skill packs' : "Browse Anthropic's skills"}</strong><Icon name="github" size={14} /></span>
-            <span className="hint">{seg === 'github' ? 'Install open-source skill packs from GitHub.' : 'Install the openly licensed skills from github.com/anthropics/skills.'}</span>
+          <button type="button" className={cn(itemClass(sel?.kind === 'browse'), 'border-dashed', sel?.kind !== 'browse' && 'border-border-strong')} onClick={() => choose({ kind: 'browse' })}>
+            <span className="flex w-full items-center justify-between gap-2"><strong className="text-sm font-semibold">{seg === 'github' ? 'Browse skill packs' : "Browse Anthropic's skills"}</strong><Icon name="github" size={14} /></span>
+            <span className={HINT}>{seg === 'github' ? 'Install open-source skill packs from GitHub.' : 'Install the openly licensed skills from github.com/anthropics/skills.'}</span>
           </button>
         )}
 
-        {q && groups.every((g) => g.items.length === 0) && <div className="pose-empty"><Pose pose={4} height={120} /></div>}
+        {q && groups.every((g) => g.items.length === 0) && <div className="flex justify-center px-4 py-6"><Pose pose={4} height={120} /></div>}
         {groups.map((g) => (
-          <div key={g.label} className="sk-group">
-            <span className="section-label" style={{ padding: 0 }}>{g.label}</span>
+          <div key={g.label} className="flex flex-col gap-1.5">
+            <span className="px-1 text-xs font-medium text-muted-foreground">{g.label}</span>
             {g.items.length === 0 && (
-              <p className="hint">
+              <p className={cn(HINT, 'm-0 px-1')}>
                 {q ? `No skills match "${query}".`
                   : seg === 'agency' && g === groups[0] ? 'No skills on these agents yet. Pick one below and switch it on.'
                   : seg === 'github' ? 'Nothing installed from GitHub yet. Browse the skill packs above.'
@@ -449,18 +483,18 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
                   : 'No skills yet. Create one with New skill or import a Markdown file.'}
               </p>
             )}
-            <ul className="sk-items">
+            <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
               {g.items.map((s) => {
                 const n = usedCount(s.name)
                 const on = sel?.kind === 'skill' && sel.id === s.id
                 return (
                   <li key={s.id}>
-                    <button type="button" className={'sk-item' + (on ? ' on' : '')} aria-current={on ? 'true' : undefined} onClick={() => choose({ kind: 'skill', id: s.id })}>
-                      <span className="sk-item-top">
-                        <span className="mono sk-item-name">{s.name}</span>
-                        <span className={'mono sk-item-used' + (n ? ' used' : '')}>{n ? plural(n, 'agent') : 'Not attached'}</span>
+                    <button type="button" className={itemClass(on)} aria-current={on ? 'true' : undefined} onClick={() => choose({ kind: 'skill', id: s.id })}>
+                      <span className="flex w-full items-center justify-between gap-2">
+                        <span className="min-w-0 truncate font-mono text-[13px] font-medium">{s.name}</span>
+                        <Badge variant={n ? 'soft' : 'secondary'} className="font-mono">{n ? plural(n, 'agent') : 'Not attached'}</Badge>
                       </span>
-                      <span className="hint sk-item-desc">{s.description || 'No description'}</span>
+                      <span className="line-clamp-2 text-xs leading-snug text-muted-foreground">{s.description || 'No description'}</span>
                     </button>
                   </li>
                 )
@@ -468,22 +502,22 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
             </ul>
           </div>
         ))}
-        <button type="button" className="btn sk-import" onClick={() => void importFiles()}>Import .md</button>
+        <Button type="button" variant="outline" className="self-start" onClick={() => void importFiles()}>Import .md</Button>
       </section>
 
-      <section className="sk-main" aria-label={sel?.kind === 'browse' ? 'Browse skills' : 'Skill'}>
+      <section className="flex min-w-0 flex-1 flex-col gap-5 overflow-y-auto px-7 pt-6 pb-12" aria-label={sel?.kind === 'browse' ? 'Browse skills' : 'Skill'}>
         {notice && (
-          <div className="box" role="status">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <strong>{notice.text}</strong>
-              <button type="button" className="btn btn-sm" onClick={() => setNotice(null)}>Dismiss</button>
+          <Card className="gap-3 px-4 py-4" role="status">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <strong className="text-sm font-semibold">{notice.text}</strong>
+              <Button type="button" size="sm" variant="outline" onClick={() => setNotice(null)}>Dismiss</Button>
             </div>
             {notice.skipped.length > 0 && (
-              <ul className="hint" style={{ margin: 0, paddingLeft: 18 }}>
+              <ul className={cn(HINT, 'm-0 pl-[18px]')}>
                 {notice.skipped.map((s) => <li key={s}>Skipped {s}</li>)}
               </ul>
             )}
-          </div>
+          </Card>
         )}
 
         {(current || sel?.kind === 'new') && (
@@ -502,52 +536,52 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
         )}
 
         {!current && sel?.kind !== 'new' && sel?.kind !== 'browse' && (
-          <p className="hint sk-empty">{loaded ? 'Pick a skill on the left to read or edit it.' : 'Loading…'}</p>
+          <p className={cn(HINT, 'mt-10 mb-0 text-sm')}>{loaded ? 'Pick a skill on the left to read or edit it.' : 'Loading…'}</p>
         )}
 
         {sel?.kind === 'browse' && seg === 'github' && (
           <>
-            <section aria-labelledby="packs-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <section aria-labelledby="packs-h" className="flex flex-col gap-2.5">
               <div>
-                <h2 id="packs-h" className="section-label" style={{ padding: 0, margin: 0 }}>Skill packs</h2>
-                <p className="hint" style={{ margin: '4px 0 0' }}>Open-source skill collections, downloaded from GitHub when you install them. Updating replaces any edits you made to their skills.</p>
+                <h2 id="packs-h" className={SECTION_H}>Skill packs</h2>
+                <p className={cn(HINT, 'mt-1 mb-0')}>Open-source skill collections, downloaded from GitHub when you install them. Updating replaces any edits you made to their skills.</p>
               </div>
-              <div className="grid">
+              <div className={GRID}>
                 {githubPacks.map((p) => (
                   <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
                 ))}
               </div>
             </section>
 
-            <section aria-labelledby="discover-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <section aria-labelledby="discover-h" className="flex flex-col gap-2.5">
               <div>
-                <h2 id="discover-h" className="section-label" style={{ padding: 0, margin: 0 }}>More on GitHub</h2>
-                <p className="hint" style={{ margin: '4px 0 0' }}>
-                  Repos tagged <a href="https://github.com/topics/agent-skills" target="_blank" rel="noreferrer">agent-skills</a>, most stars first.
+                <h2 id="discover-h" className={SECTION_H}>More on GitHub</h2>
+                <p className={cn(HINT, 'mt-1 mb-0')}>
+                  Repos tagged <a className={LINK} href="https://github.com/topics/agent-skills" target="_blank" rel="noreferrer">agent-skills</a>, most stars first.
                   Their authors wrote them, not Tyslin, so read a skill before you attach it to an agent. Only repos with a licence can be installed.
                 </p>
               </div>
-              <form className="row" role="search" style={{ maxWidth: 480, flexWrap: 'nowrap' }} onSubmit={(e) => { e.preventDefault(); void discover(findQuery) }}>
+              <form className="flex max-w-[480px] items-center gap-2" role="search" onSubmit={(e) => { e.preventDefault(); void discover(findQuery) }}>
                 <label htmlFor="pack-search" className="sr-only">Search agent-skills repos</label>
-                <input id="pack-search" className="input" style={{ flex: 1, minWidth: 0 }} value={findQuery} onChange={(e) => setFindQuery(e.target.value)} placeholder="Search repos, e.g. design, seo, testing" />
-                <button type="submit" className="btn" disabled={finding}>Search</button>
+                <Input id="pack-search" className="min-w-0 flex-1" value={findQuery} onChange={(e) => setFindQuery(e.target.value)} placeholder="Search repos, e.g. design, seo, testing" />
+                <Button type="submit" variant="outline" disabled={finding}>Search</Button>
               </form>
-              {findError && <div className="msg-error" role="alert">Couldn't load repos from GitHub. {findError}</div>}
+              {findError && <ErrorBox>Couldn't load repos from GitHub. {findError}</ErrorBox>}
               {(() => {
                 // Installed packs move to the row above.
                 const list = found?.packs.filter((p) => !p.installed) ?? []
                 return (
                   <>
-                    <div className="grid" aria-busy={finding}>
+                    <div className={GRID} aria-busy={finding}>
                       {list.map((p) => (
                         <PackCard key={p.id} pack={p} busy={busyPack === p.id} onInstall={() => void installPack(p)} onUninstall={() => void uninstallPack(p)} />
                       ))}
-                      {found && !finding && list.length === 0 && <p className="hint">No repos match “{searched}”.</p>}
+                      {found && !finding && list.length === 0 && <p className={cn(HINT, 'm-0')}>No repos match “{searched}”.</p>}
                     </div>
-                    <div className="row">
-                      {finding && <span className="hint" role="status">Loading from GitHub…</span>}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {finding && <span className={HINT} role="status">Loading from GitHub…</span>}
                       {!finding && found?.nextPage && (
-                        <button type="button" className="btn" onClick={() => void discover(searched, found.nextPage)}>Show more</button>
+                        <Button type="button" variant="outline" onClick={() => void discover(searched, found.nextPage)}>Show more</Button>
                       )}
                     </div>
                   </>
@@ -559,23 +593,23 @@ export function SkillsPage({ agents, team, onAgentsChanged }: Props): JSX.Elemen
 
         {sel?.kind === 'browse' && seg === 'claude' && (
           <>
-            <section aria-labelledby="claude-h" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <section aria-labelledby="claude-h" className="flex flex-col gap-2.5">
               <div>
-                <h2 id="claude-h" className="section-label" style={{ padding: 0, margin: 0 }}>Claude skills by Anthropic</h2>
-                <p className="hint" style={{ margin: '4px 0 0' }}>
-                  From <a href="https://github.com/anthropics/skills" target="_blank" rel="noreferrer">github.com/anthropics/skills</a>.
+                <h2 id="claude-h" className={SECTION_H}>Claude skills by Anthropic</h2>
+                <p className={cn(HINT, 'mt-1 mb-0')}>
+                  From <a className={LINK} href="https://github.com/anthropics/skills" target="_blank" rel="noreferrer">github.com/anthropics/skills</a>.
                   Installing adds the open-source (Apache 2.0) skills. The document skills (docx, pdf, pptx, xlsx) are source-available, not open source, so they stay on GitHub to read.
                   Only each skill's SKILL.md is installed, not its scripts or reference files.
                 </p>
               </div>
               {claudePack && (
-                <div className="grid">
+                <div className={GRID}>
                   <PackCard pack={claudePack} busy={busyPack === claudePack.id} onInstall={() => void installPack(claudePack)} onUninstall={() => void uninstallPack(claudePack)} />
                 </div>
               )}
             </section>
-            <section aria-label="Skills in Anthropic's repo" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <h2 className="section-label" style={{ padding: 0, margin: 0 }}>In the repo</h2>
+            <section aria-label="Skills in Anthropic's repo" className="flex flex-col gap-2.5">
+              <h2 className={SECTION_H}>In the repo</h2>
               <ClaudeList catalog={catalog} error={catalogError} installed={new Map(claudeSkills.map((s) => [s.name, s]))} onEdit={editSkill} />
             </section>
           </>

@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
+import type React from 'react'
 import type { Agent, DashboardStats, Project, Session } from '@shared/types'
 import { Avatar } from './Avatar'
 import { Icon } from './Icon'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
+import { StatCard } from './StatCard'
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts'
 
 interface Props {
   agents: Agent[]
@@ -9,8 +15,6 @@ interface Props {
   /** Most recent chats, newest first. */
   sessions: Session[]
   onOpenChat: (agentId: string, projectId: string | null, sessionId?: string) => void
-  /** Agencies in the organization (the Default project isn't one). */
-  agencyCount?: number
 }
 
 const dayLabel = (day: string, style: 'short' | 'long'): string => {
@@ -31,159 +35,157 @@ const ago = (t: number): string => {
   return d === 1 ? 'yesterday' : `${d} days ago`
 }
 
-/** Single-series column chart of messages sent per day, with a hover tooltip and a table for screen readers. */
-function ActivityChart({ daily }: { daily: DashboardStats['daily'] }): JSX.Element {
-  const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(1, ...daily.map((d) => d.count))
-  const top = Math.max(4, Math.ceil(max / 4) * 4)
-  const total = daily.reduce((n, d) => n + d.count, 0)
+const messagesConfig = { messages: { label: 'Messages', color: 'var(--chart-1)' } } satisfies ChartConfig
+
+/**
+ * Messages you sent per day: shadcn's interactive bar chart (recharts). The header's two buttons pick the range and show
+ * its total; a hidden table repeats the numbers for screen readers.
+ */
+function MessagesChart({ daily }: { daily: DashboardStats['daily'] }): JSX.Element {
+  const [range, setRange] = useState<7 | 14>(14)
+  const totals = { 7: daily.slice(-7).reduce((n, d) => n + d.count, 0), 14: daily.reduce((n, d) => n + d.count, 0) }
+  const data = daily.slice(-range).map((d) => ({ day: d.day, messages: d.count }))
   return (
-    <figure className="dash-chart" aria-label={`Messages you sent per day over the last 14 days, ${total} in total`}>
-      <div className="dash-plot" onMouseLeave={() => setHover(null)}>
-        <div className="dash-grid" aria-hidden="true">
-          {[top, top / 2, 0].map((v) => <span key={v}><em>{v}</em></span>)}
+    <Card aria-labelledby="activity-h" className="gap-0 py-0">
+      <CardHeader className="flex flex-col items-stretch gap-0 border-b border-border p-0! sm:flex-row">
+        <div className="flex flex-1 flex-col justify-center gap-1 px-6 pt-4 pb-3 sm:py-5">
+          <CardTitle id="activity-h">Messages you sent</CardTitle>
+          <CardDescription>Your messages to agents, per day</CardDescription>
         </div>
-        <div className="dash-bars" aria-hidden="true">
-          {daily.map((d, i) => (
-            <div key={d.day} className={'dash-col' + (hover === i ? ' on' : '')} onMouseEnter={() => setHover(i)}>
-              <span className="dash-bar" style={{ height: `${(d.count / top) * 100}%` }} />
-              {hover === i && (
-                <span className={'dash-tip' + (i > daily.length - 4 ? ' left' : '')}>
-                  <span className="dash-tip-value"><strong className="mono">{d.count}</strong> {d.count === 1 ? 'message' : 'messages'}</span>
-                  <span>{dayLabel(d.day, 'long')}</span>
-                </span>
-              )}
-            </div>
+        <div className="flex" role="group" aria-label="Range">
+          {([7, 14] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              aria-pressed={range === r}
+              data-active={range === r}
+              onClick={() => setRange(r)}
+              className="relative flex flex-1 flex-col justify-center gap-1 border-t border-border px-6 py-4 text-left even:border-l data-[active=true]:bg-muted sm:border-t-0 sm:border-l sm:px-8 sm:py-5 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+            >
+              <span className="text-xs whitespace-nowrap text-muted-foreground">Last {r} days</span>
+              <span className="font-mono text-lg leading-none font-semibold tabular-nums sm:text-3xl">{totals[r].toLocaleString()}</span>
+            </button>
           ))}
         </div>
-      </div>
-      <div className="dash-axis" aria-hidden="true">
-        <span>{dayLabel(daily[0].day, 'short')}</span>
-        <span>{dayLabel(daily[7].day, 'short')}</span>
-        <span>Today</span>
-      </div>
-      <table className="sr-only">
-        <caption>Messages you sent per day</caption>
-        <thead><tr><th>Day</th><th>Messages</th></tr></thead>
-        <tbody>{daily.map((d) => <tr key={d.day}><td>{dayLabel(d.day, 'long')}</td><td>{d.count}</td></tr>)}</tbody>
-      </table>
-    </figure>
+      </CardHeader>
+      <CardContent className="px-2 pt-4 pb-4 sm:px-6">
+        <ChartContainer config={messagesConfig} className="aspect-auto h-[240px] w-full">
+          <BarChart accessibilityLayer data={data} margin={{ left: 12, right: 12 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} tickFormatter={(v: string) => dayLabel(v, 'short')} />
+            <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+            <ChartTooltip cursor={{ fill: 'var(--color-accent)' }} content={<ChartTooltipContent className="w-[170px]" nameKey="messages" labelFormatter={(v) => dayLabel(String(v), 'long')} />} />
+            <Bar dataKey="messages" fill="var(--color-messages)" radius={4} />
+          </BarChart>
+        </ChartContainer>
+        <table className="sr-only">
+          <caption>Messages you sent per day</caption>
+          <thead><tr><th>Day</th><th>Messages</th></tr></thead>
+          <tbody>{data.map((d) => <tr key={d.day}><td>{dayLabel(d.day, 'long')}</td><td>{d.messages}</td></tr>)}</tbody>
+        </table>
+      </CardContent>
+    </Card>
   )
 }
 
+/** A list card: title, a line under it, then rows or an empty note. */
+function ListCard({ id, title, hint, children }: { id: string; title: string; hint: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <Card aria-labelledby={id} className="gap-3 py-5">
+      <CardHeader className="px-5">
+        <CardTitle id={id} className="text-[15px]">{title}</CardTitle>
+        <CardDescription className="text-[13px]">{hint}</CardDescription>
+      </CardHeader>
+      <CardContent className="px-3">{children}</CardContent>
+    </Card>
+  )
+}
+
+const rowClass = 'flex min-h-12 w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-muted focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none'
+
 /** Home's activity section (formerly the Dashboard): counts, activity, reviews waiting, recent chats and most used. */
-export function Activity({ agents, projects, sessions, onOpenChat, agencyCount }: Props): JSX.Element {
+export function Activity({ agents, projects, sessions, onOpenChat }: Props): JSX.Element {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   useEffect(() => { void window.tyslin.app.dashboard().then(setStats) }, [sessions])
 
   const agentOf = (id: string): Agent | undefined => agents.find((a) => a.id === id)
   const projectName = (id: string | null): string | null => (id ? projects.find((p) => p.id === id)?.name ?? null : null)
-  const nAgents = agents.filter((a) => a.kind === 'agent').length
-  const nLeads = agents.filter((a) => a.kind === 'agent' && !!a.agency && !a.leadId).length
   const topMax = Math.max(1, ...(stats?.topAgents.map((t) => t.messages) ?? [1]))
-
-  const tiles: [string, string | number, string][] = stats ? [
-    ['Agents', nAgents, `${agents.filter((a) => a.kind === 'agent' && a.schedule !== 'manual').length} on a schedule`],
-    ['Leads', nLeads, nLeads === 1 ? 'plans and reviews' : 'plan and review'],
-    agencyCount === undefined
-      ? ['Projects', projects.length, projects.length === 1 ? 'linked folder' : 'linked folders']
-      : ['Agencies', agencyCount, 'in this organization'],
-    ['Chats', stats.chats, `${stats.chatsThisWeek} this week`],
-    ['Messages sent', stats.messages, `${stats.messagesThisWeek} this week`],
-    ['Waiting for review', stats.pendingChanges, stats.pendingChanges === 1 ? 'file change' : 'file changes']
-  ] : []
 
   const chatRow = (s: { sessionId: string; agentId: string; projectId: string | null; title: string }, meta: string): JSX.Element | null => {
     const a = agentOf(s.agentId)
     if (!a) return null
     return (
       <li key={s.sessionId}>
-        <button type="button" className="dash-row" onClick={() => onOpenChat(s.agentId, s.projectId, s.sessionId)}>
+        <button type="button" className={rowClass} onClick={() => onOpenChat(s.agentId, s.projectId, s.sessionId)}>
           <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={28} />
-          <span className="dash-row-text">
-            <strong>{s.title}</strong>
-            <span>{a.name}{projectName(s.projectId) ? ` · ${projectName(s.projectId)}` : ''}</span>
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <strong className="truncate text-sm font-medium">{s.title}</strong>
+            <span className="truncate text-xs text-muted-foreground">{a.name}{projectName(s.projectId) ? ` · ${projectName(s.projectId)}` : ''}</span>
           </span>
-          <span className="dash-meta mono">{meta}</span>
+          <span className="shrink-0 font-mono text-xs text-muted-foreground">{meta}</span>
         </button>
       </li>
     )
   }
+  const empty = (text: string, done?: boolean): JSX.Element => (
+    <p className="flex items-center gap-1.5 px-2 py-2 text-[13px] text-muted-foreground">{done && <Icon name="check" size={14} />}{text}</p>
+  )
 
   return (
-    <section id="activity" className="home-section home-activity" aria-labelledby="activity-title">
-      <div className="home-section-head">
-        <h2 id="activity-title">What your agencies are doing</h2>
-        <p className="hint">Activity from this computer: your agents' chats and the file changes waiting for you.</p>
+    <section id="activity" aria-labelledby="activity-title" className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1">
+        <h2 id="activity-title" className="text-xl font-semibold tracking-tight">What your agencies are doing</h2>
+        <p className="text-sm text-muted-foreground">Activity from this computer: your agents' chats and the file changes waiting for you.</p>
       </div>
 
-      {!stats ? <p className="hint">Loading…</p> : (
+      {!stats ? <p className="text-sm text-muted-foreground">Loading…</p> : (
         <>
-          <div className="dash-tiles">
-            {tiles.map(([label, value, sub]) => (
-              <div key={label} className={'dash-tile' + (label === 'Waiting for review' && stats.pendingChanges ? ' attention' : '')}>
-                <span className="dash-label">{label}</span>
-                <strong className="mono">{value}</strong>
-                <span className="hint">{sub}</span>
-              </div>
+          <div className="grid grid-cols-1 gap-4 min-[900px]:grid-cols-3">
+            {([
+              ['Chats', stats.chats, `${stats.chatsThisWeek} this week`, false],
+              ['Messages you sent', stats.messages, `${stats.messagesThisWeek} this week`, false],
+              ['File changes to review', stats.pendingChanges, stats.pendingChanges === 1 ? 'waiting in a chat' : 'waiting in chats', stats.pendingChanges > 0]
+            ] as const).map(([label, value, sub, attention]) => (
+              <StatCard key={label} label={label} value={value} attention={attention} badge={label === 'File changes to review' ? undefined : `+${label === 'Chats' ? stats.chatsThisWeek : stats.messagesThisWeek} this week`} strong={label === 'Chats' ? 'Chats with your agents' : label === 'Messages you sent' ? 'Messages to your agents' : sub} muted={label === 'File changes to review' ? 'Open the chat to accept or reject' : 'On this computer'} />
             ))}
           </div>
 
-          <section className="box" aria-labelledby="activity-h">
-            <div className="box-head">
-              <h2 id="activity-h">Messages you sent</h2>
-              <p className="hint">Last 14 days</p>
-            </div>
-            <ActivityChart daily={stats.daily} />
-          </section>
+          <MessagesChart daily={stats.daily} />
 
-          <div className="dash-cols">
-            <section className="box" aria-labelledby="reviews-h">
-              <div className="box-head">
-                <h2 id="reviews-h">Waiting for review</h2>
-                <p className="hint">File changes your agents proposed. Open the chat to accept or reject them.</p>
-              </div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-4">
+            <ListCard id="reviews-h" title="Waiting for review" hint="File changes your agents proposed. Open the chat to accept or reject them.">
               {stats.reviews.length
-                ? <ul className="dash-list">{stats.reviews.map((r) => chatRow(r, `${r.count} ${r.count === 1 ? 'change' : 'changes'}`))}</ul>
-                : <p className="hint dash-empty"><Icon name="check" size={14} /> Nothing waiting.</p>}
-            </section>
-
-            <section className="box" aria-labelledby="recent-h">
-              <div className="box-head">
-                <h2 id="recent-h">Recent chats</h2>
-                <p className="hint">Pick up where you left off.</p>
-              </div>
+                ? <ul className="flex flex-col gap-0.5">{stats.reviews.map((r) => chatRow(r, `${r.count} ${r.count === 1 ? 'change' : 'changes'}`))}</ul>
+                : empty('Nothing waiting.', true)}
+            </ListCard>
+            <ListCard id="recent-h" title="Recent chats" hint="Pick up where you left off.">
               {sessions.length
-                ? <ul className="dash-list">{sessions.slice(0, 6).map((s) => chatRow({ ...s, sessionId: s.id }, ago(s.updatedAt)))}</ul>
-                : <p className="hint dash-empty">No chats yet.</p>}
-            </section>
-
-            <section className="box" aria-labelledby="top-h">
-              <div className="box-head">
-                <h2 id="top-h">Most used</h2>
-                <p className="hint">Messages you sent in the last 30 days.</p>
-              </div>
+                ? <ul className="flex flex-col gap-0.5">{sessions.slice(0, 6).map((s) => chatRow({ ...s, sessionId: s.id }, ago(s.updatedAt)))}</ul>
+                : empty('No chats yet.')}
+            </ListCard>
+            <ListCard id="top-h" title="Most used" hint="Messages you sent in the last 30 days.">
               {stats.topAgents.length ? (
-                <ul className="dash-list">
+                <ul className="flex flex-col gap-0.5">
                   {stats.topAgents.map((t) => {
                     const a = agentOf(t.agentId)
                     if (!a) return null
                     return (
                       <li key={t.agentId}>
-                        <button type="button" className="dash-row" onClick={() => onOpenChat(a.id, null)}>
+                        <button type="button" className={rowClass} onClick={() => onOpenChat(a.id, null)}>
                           <Avatar shape={a.shape} tone={a.tone} head={a.head} mascot={a.isMascot} size={28} />
-                          <span className="dash-row-text">
-                            <strong>{a.name}</strong>
-                            <span className="dash-meter" aria-hidden="true"><span style={{ width: `${(t.messages / topMax) * 100}%` }} /></span>
+                          <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+                            <strong className="truncate text-sm font-medium">{a.name}</strong>
+                            <span aria-hidden="true" className="block h-1.5 overflow-hidden rounded-full bg-accent"><span className="block h-full rounded-full bg-lime" style={{ width: `${(t.messages / topMax) * 100}%` }} /></span>
                           </span>
-                          <span className="dash-meta mono">{t.messages}</span>
+                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{t.messages}</span>
                         </button>
                       </li>
                     )
                   })}
                 </ul>
-              ) : <p className="hint dash-empty">No messages in the last 30 days.</p>}
-            </section>
+              ) : empty('No messages in the last 30 days.')}
+            </ListCard>
           </div>
         </>
       )}

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import type { GDriveStatus } from '@shared/types'
 import { Icon } from './Icon'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 const ago = (t: number | null): string => {
   if (!t) return 'not yet'
@@ -33,40 +35,43 @@ export function GoogleDriveCard(): JSX.Element | null {
   }
 
   return (
-    <section className="gd-card" aria-label="Google Drive">
-      <div className="gd-head">
-        <span className="gd-ic"><Icon name="cloud" size={16} /></span>
-        <strong>Google Drive</strong>
-        {s.connected && <span className={'gd-dot' + (s.syncing ? ' busy' : s.lastError ? ' bad' : '')} aria-hidden="true" />}
+    <section className="tw flex flex-none flex-col gap-2 rounded-xl border border-border bg-card p-3 font-sans text-foreground shadow-xs" aria-label="Google Drive">
+      <div className="flex items-center gap-2 text-sm">
+        <span className="grid size-7 place-items-center rounded-md bg-muted"><Icon name="cloud" size={16} /></span>
+        <strong className="font-semibold">Google Drive</strong>
+        {s.connected && <span className={cn('ml-auto size-2 rounded-full', s.syncing ? 'animate-[au-pulse_1.2s_ease-in-out_infinite] bg-lime motion-reduce:animate-none' : s.lastError ? 'bg-destructive' : 'bg-green')} aria-hidden="true" />}
       </div>
       {!s.connected ? (
         <>
-          <p className="hint">Sync every project folder to your Google Drive, both ways. Tyslin only sees the files it puts there.</p>
+          <p className={HINT}>Sync every project folder to your Google Drive, both ways. Tyslin only sees the files it puts there.</p>
           {s.configured
-            ? <button type="button" className="btn btn-sm btn-primary" disabled={busy} onClick={() => void act(() => window.tyslin.gdrive.connect())}>{busy ? 'Waiting for Google…' : 'Connect Google Drive'}</button>
-            : <p className="hint">This build has no Google sign-in, so Drive sync isn't available.</p>}
-          {busy && <button type="button" className="link-btn" onClick={() => void window.tyslin.auth.cancelSignIn()}>Cancel</button>}
+            ? <Button size="sm" className="self-start" disabled={busy} onClick={() => void act(() => window.tyslin.gdrive.connect())}>{busy ? 'Waiting for Google…' : 'Connect Google Drive'}</Button>
+            : <p className={HINT}>This build has no Google sign-in, so Drive sync isn't available.</p>}
+          {busy && <button type="button" className={LINK} onClick={() => void window.tyslin.auth.cancelSignIn()}>Cancel</button>}
         </>
       ) : (
         <>
-          <p className="hint gd-line" title={s.email}>{s.email || 'Connected'}</p>
-          <p className="hint gd-line" role="status">
-            {s.syncing ? `Syncing ${s.current ?? ''}…` : s.lastError ? <span className="account-error">{s.lastError}</span> : `Synced ${ago(s.lastSync)}`}
+          <p className={cn(HINT, 'truncate')} title={s.email}>{s.email || 'Connected'}</p>
+          <p className={cn(HINT, 'truncate')} role="status">
+            {s.syncing ? `Syncing ${s.current ?? ''}…` : s.lastError ? <span className="text-destructive">{s.lastError}</span> : `Synced ${ago(s.lastSync)}`}
           </p>
-          <div className="gd-actions">
-            <button type="button" className="btn btn-sm" disabled={s.syncing || busy} onClick={() => void act(() => window.tyslin.gdrive.sync())}><Icon name="sync" size={12} /> Sync now</button>
-            {s.folderUrl && <button type="button" className="btn btn-sm" onClick={() => void window.tyslin.gdrive.openFolder()}>Open in Drive</button>}
+          <div className="flex flex-wrap gap-1.5">
+            <Button variant="outline" size="sm" disabled={s.syncing || busy} onClick={() => void act(() => window.tyslin.gdrive.sync())}><Icon name="sync" size={12} /> Sync now</Button>
+            {s.folderUrl && <Button variant="outline" size="sm" onClick={() => void window.tyslin.gdrive.openFolder()}>Open in Drive</Button>}
           </div>
-          <label className="gd-auto"><input type="checkbox" checked={s.auto} onChange={(e) => void window.tyslin.gdrive.setAuto(e.target.checked)} /> Sync every {s.autoMinutes} minutes</label>
-          <button type="button" className="link-btn gd-off" onClick={() => {
+          <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" className="size-4 accent-green" checked={s.auto} onChange={(e) => void window.tyslin.gdrive.setAuto(e.target.checked)} /> Sync every {s.autoMinutes} minutes</label>
+          <button type="button" className={LINK} onClick={() => {
             if (window.confirm('Disconnect Google Drive? Files stay in both places; syncing stops.')) void act(() => window.tyslin.gdrive.disconnect())
           }}>Disconnect</button>
         </>
       )}
-      {error && <p className="hint account-error" role="alert">{error}</p>}
+      {error && <p className={cn(HINT, 'text-destructive')} role="alert">{error}</p>}
     </section>
   )
 }
+
+const HINT = 'text-[13px] leading-[1.45] text-muted-foreground'
+const LINK = 'self-start text-[13px] text-green underline underline-offset-2 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 rounded-sm'
 
 /** A project's sync state, for its row in Drive. */
 export function syncNote(s: GDriveStatus | null, projectId: string | null, defaultId: string | null): string {

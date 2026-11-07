@@ -9,6 +9,21 @@ import { SAVE_LABEL, StudioFiles, StudioOverview, useAutosave } from '../compone
 import { modelLabel, useDefaultModel } from '../defaultModel'
 import { firstName } from '../boardStats'
 import { Pose } from '../components/Pose'
+import { Avatar } from '../components/Avatar'
+import { WorkingBorder, WorkingDots } from '../components/Working'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
+
+/** Label fills are the fixed organization colours (not themed), so their text stays ink in both themes. */
+const LABEL_INK = '#0F0F0D'
+/** Small mono caption used for the sheet's sections. */
+const CAPTION = 'font-mono text-[11px] tracking-[0.08em] text-muted-foreground uppercase'
+/** A native select in the shadcn input look. */
+const SELECT = 'h-9 w-full min-w-0 rounded-md border border-input bg-card px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30'
 
 interface Props {
   agents: Agent[]
@@ -202,32 +217,34 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
   const agentName = (id?: string): string => (!id || id === DEFAULT_MODEL_AGENT ? (dm ? modelLabel(dm) : 'Default model') : agents.find((a) => a.id === id)?.name ?? 'Missing agent')
   const total = doc?.columns.reduce((n, c) => n + c.cards.length, 0) ?? 0
 
+  const agentOf = (id?: string): Agent | undefined => (id && id !== DEFAULT_MODEL_AGENT ? agents.find((a) => a.id === id) : undefined)
+
   return (
-    <div className="studio">
+    <div className="tw flex h-full text-foreground">
       <StudioFiles kind="board" title="Kanban" newLabel="New board" allLabel="All boards" projects={projects} projectId={projectId}
         selected={file?.path ?? null} onSelect={(f) => void openFile(f)} refreshKey={refresh}
         onNew={(n) => void create(n)} onDelete={async (f) => { await window.tyslin.studio.remove(projectId, f.path); if (file?.path === f.path) void openFile(null); setRefresh((r) => r + 1) }} />
-      <div className="studio-main">
+      <div className="flex min-w-0 flex-1 flex-col">
         {!doc ? (
           <StudioOverview kind="board" title="Kanban" newLabel="New board" projectId={projectId} refreshKey={refresh}
-            intro={<>Your agency works from a board. Drop a brief in Inbox; the Lead turns it into cards and workers run them. Finished work waits in Review for you. Boards are saved in the agency's folder under <code className="mono">boards/</code>.</>}
+            intro={<>Your agency works from a board. Drop a brief in Inbox; the Lead turns it into cards and workers run them. Finished work waits in Review for you. Boards are saved in the agency's folder under <code className="font-mono">boards/</code>.</>}
             onOpen={(f) => void openFile(f)} onNew={(n) => void create(n)} />
         ) : (
           <>
-            <div className="studio-bar">
-              <strong className="studio-title">{file?.name}</strong>
-              <span className="hint">{SAVE_LABEL[save]}</span>
-              <span className="hint mono">{total} {total === 1 ? 'card' : 'cards'}</span>
-              <span style={{ flex: 1 }} />
-              <input className="input kb-search" type="search" placeholder="Filter cards" aria-label="Filter cards" value={q} onChange={(e) => setQ(e.target.value)} />
-              <button type="button" className="btn btn-sm" onClick={addColumn}><Icon name="plus" size={12} /> Column</button>
-            </div>
-            <div className="studio-split">
-              <div className="kb-board" onDragOver={(e) => { if (dragItem.current) e.preventDefault() }} onDrop={dropCard} onDragEnd={() => { dragItem.current = null; setDragOver(null) }}>
+            <header className="flex min-h-14 flex-none flex-wrap items-center gap-3 border-b border-border px-6 py-2.5">
+              <h1 className="max-w-[320px] truncate text-lg font-semibold">{file?.name}</h1>
+              <span className="text-xs text-muted-foreground">{SAVE_LABEL[save]}</span>
+              <span className="font-mono text-xs text-muted-foreground">{total} {total === 1 ? 'card' : 'cards'}</span>
+              <span className="flex-1" />
+              <Input className="w-[220px]" type="search" placeholder="Filter cards" aria-label="Filter cards" value={q} onChange={(e) => setQ(e.target.value)} />
+              <Button variant="outline" onClick={addColumn}><Icon name="plus" size={12} /> Column</Button>
+            </header>
+            <div className="flex min-h-0 flex-1">
+              <div className="flex min-w-0 flex-1 items-start gap-3.5 overflow-auto px-6 py-5" onDragOver={(e) => { if (dragItem.current) e.preventDefault() }} onDrop={dropCard} onDragEnd={() => { dragItem.current = null; setDragOver(null) }}>
                 {doc.columns.map((col, ci) => {
                   const cards = col.cards.filter(match)
                   return (
-                    <section key={col.id} className="kb-col" aria-label={col.title}
+                    <section key={col.id} className="flex max-h-full w-[280px] flex-none flex-col gap-2.5 rounded-xl border border-border bg-muted p-2.5" aria-label={col.title}
                       onDragOver={(e) => {
                         if (dragItem.current?.kind === 'column') { e.preventDefault(); return }
                         overCards(e, col.id, col.cards.length)
@@ -236,76 +253,99 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                         const d = dragItem.current
                         if (d?.kind === 'column') { e.preventDefault(); e.stopPropagation(); moveColumn(d.id, ci); dragItem.current = null }
                       }}>
-                      <header className="kb-col-head" draggable onDragStart={(e) => { dragItem.current = { kind: 'column', id: col.id }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', col.id) }}>
-                        <input className="kb-col-title" value={col.title} aria-label="Column name"
+                      <header className="group flex cursor-grab items-center gap-1.5 px-0.5 pt-0.5" draggable onDragStart={(e) => { dragItem.current = { kind: 'column', id: col.id }; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', col.id) }}>
+                        <input className="h-8 min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1.5 text-sm font-semibold text-foreground outline-none hover:border-border focus-visible:border-ring focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/30" value={col.title} aria-label="Column name"
                           onChange={(e) => change((d) => ({ ...d, columns: d.columns.map((c) => (c.id === col.id ? { ...c, title: e.target.value } : c)) }))} />
-                        <span className="kb-count mono">{col.cards.length}</span>
-                        <button type="button" className="cv-tool kb-col-del" aria-label={`Delete column ${col.title}`} title="Delete column" onClick={() => removeColumn(col.id)}><Icon name="trash" size={12} /></button>
+                        <Badge variant="outline" className="bg-card font-mono text-muted-foreground">{col.cards.length}</Badge>
+                        <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100 focus-visible:opacity-100" aria-label={`Delete column ${col.title}`} title="Delete column" onClick={() => removeColumn(col.id)}><Icon name="trash" size={12} /></Button>
                       </header>
-                      <ul className="kb-cards">
-                        {agencyId && total === 0 && ci === 0 && <li className="hint kb-empty"><Pose pose={5} height={110} />Drop a brief in Inbox and {leadName ? firstName(leadName) : 'your Lead'} will plan it.</li>}
+                      <ul className="flex min-h-2 flex-col gap-2.5 overflow-y-auto p-0.5">
+                        {agencyId && total === 0 && ci === 0 && (
+                          <li className="flex flex-col items-center gap-2 px-1 py-2.5 text-center text-[13px] leading-snug text-muted-foreground">
+                            <Pose pose={5} height={110} />Drop a brief in Inbox and {leadName ? firstName(leadName) : 'your Lead'} will plan it.
+                          </li>
+                        )}
                         {cards.map((k) => {
                           const i = col.cards.indexOf(k)
+                          const who = agentOf(k.assignee || k.agentId)
                           return (
                             <li key={k.id} onDragOver={(e) => { const r = e.currentTarget.getBoundingClientRect(); overCards(e, col.id, e.clientY < r.top + r.height / 2 ? i : i + 1) }}>
-                              {dragOver?.col === col.id && dragOver.index === i && <div className="kb-drop" />}
-                              <button type="button" className={'kb-card' + (open === k.id ? ' on' : '')} draggable onDragStart={(e) => onCardDragStart(e, k.id, col.id)} onClick={() => setOpen(k.id)}>
+                              {dragOver?.col === col.id && dragOver.index === i && <div className="-mt-0.5 mb-1.5 h-1 rounded bg-green" />}
+                              <button type="button"
+                                className={cn('relative flex w-full cursor-grab flex-col gap-2.5 rounded-xl border border-border bg-card p-3 text-left text-foreground shadow-xs transition-colors outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40',
+                                  open === k.id && 'border-foreground ring-1 ring-foreground')}
+                                draggable onDragStart={(e) => onCardDragStart(e, k.id, col.id)} onClick={() => setOpen(k.id)}>
+                                {running[k.id] && <WorkingBorder />}
                                 {k.labels.length > 0 && (
-                                  <span className="kb-labels">
-                                    {labels.filter((l) => k.labels.includes(l.id)).map((l) => <span key={l.id} className="kb-label" style={{ background: ORG_COLORS[l.color].fill }}>{l.name}</span>)}
+                                  <span className="flex flex-wrap gap-1">
+                                    {labels.filter((l) => k.labels.includes(l.id)).map((l) => <span key={l.id} className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: ORG_COLORS[l.color].fill, color: LABEL_INK }}>{l.name}</span>)}
                                   </span>
                                 )}
-                                <strong>{k.title}</strong>
-                                <span className="kb-meta">
-                                  {k.due && <span className={'mono' + (k.due < today() && ci < doc.columns.length - 1 ? ' kb-late' : '')}><Icon name="clock" size={11} /> {k.due}</span>}
-                                  {k.agentId && <span><Icon name="agents" size={11} /> {agentName(k.agentId)}</span>}
-                                  {running[k.id] && <span className="kb-running">Working…</span>}
-                                  {!running[k.id] && k.result && <span className="kb-done"><Icon name="check" size={11} /> Result</span>}
+                                <strong className="text-sm leading-snug font-semibold [overflow-wrap:anywhere]">{k.title}</strong>
+                                {k.notes.trim() && <span className="line-clamp-2 text-[13px] leading-snug text-muted-foreground">{k.notes.trim()}</span>}
+                                <span className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+                                    {k.agentId && (
+                                      <span className="inline-flex min-w-0 items-center gap-1.5 text-foreground">
+                                        {who ? <Avatar shape={who.shape} tone={who.tone} head={who.head} size={22} /> : <Icon name="agents" size={11} />}
+                                        <span className="truncate">{agentName(k.agentId)}</span>
+                                      </span>
+                                    )}
+                                    {k.due && <span className={cn('inline-flex items-center gap-1 font-mono', k.due < today() && ci < doc.columns.length - 1 && 'text-destructive')}><Icon name="clock" size={11} /> {k.due}</span>}
+                                  </span>
+                                  {running[k.id] && <Badge variant="soft">Working…<WorkingDots /></Badge>}
+                                  {!running[k.id] && k.result && <Badge variant="secondary"><Icon name="check" size={11} /> Result</Badge>}
                                 </span>
                               </button>
                             </li>
                           )
                         })}
-                        {dragOver?.col === col.id && dragOver.index >= col.cards.length && <li className="kb-drop" aria-hidden="true" />}
+                        {dragOver?.col === col.id && dragOver.index >= col.cards.length && <li className="-mt-0.5 mb-1.5 h-1 list-none rounded bg-green" aria-hidden="true" />}
                       </ul>
                       {adding === col.id ? (
-                        <form className="kb-add" onSubmit={(e) => { e.preventDefault(); addCard(col.id) }}>
-                          <textarea className="textarea" autoFocus rows={2} value={draft} placeholder="Card title" aria-label="Card title" onChange={(e) => setDraft(e.target.value)}
+                        <form className="flex flex-col gap-1.5" onSubmit={(e) => { e.preventDefault(); addCard(col.id) }}>
+                          <Textarea autoFocus rows={2} value={draft} placeholder="Card title" aria-label="Card title" onChange={(e) => setDraft(e.target.value)}
                             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addCard(col.id) } if (e.key === 'Escape') { setAdding(null); setDraft('') } }} />
-                          <div className="row" style={{ gap: 6 }}>
-                            <button type="submit" className="btn btn-sm btn-primary">Add card</button>
-                            <button type="button" className="btn btn-sm" onClick={() => { setAdding(null); setDraft('') }}>Cancel</button>
+                          <div className="flex gap-1.5">
+                            <Button type="submit" size="sm">Add card</Button>
+                            <Button type="button" size="sm" variant="outline" onClick={() => { setAdding(null); setDraft('') }}>Cancel</Button>
                           </div>
                         </form>
                       ) : (
-                        <button type="button" className="kb-add-btn" onClick={() => { setAdding(col.id); setDraft('') }}><Icon name="plus" size={12} /> Add a card</button>
+                        <Button variant="ghost" className="h-9 justify-start px-2 font-normal text-muted-foreground hover:bg-card" onClick={() => { setAdding(col.id); setDraft('') }}><Icon name="plus" size={12} /> Add a card</Button>
                       )}
                     </section>
                   )
                 })}
-                <button type="button" className="kb-col kb-new-col" onClick={addColumn}><Icon name="plus" size={14} /> Add column</button>
+                <button type="button" className="flex min-h-[52px] w-[220px] flex-none items-center justify-center gap-1.5 rounded-xl border border-dashed border-border-strong text-[13px] text-muted-foreground transition-colors outline-none hover:bg-card hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={addColumn}><Icon name="plus" size={14} /> Add column</button>
               </div>
               {sel && (
-                <aside className="studio-side kb-side" aria-label="Card">
-                  <div className="row" style={{ justifyContent: 'space-between' }}>
-                    <span className="section-label" style={{ padding: 0 }}>Card</span>
-                    <button type="button" className="cv-tool" aria-label="Close card" onClick={() => setOpen(null)}><Icon name="close" size={13} /></button>
+                <aside className="flex w-[400px] max-w-full flex-none flex-col gap-4 overflow-y-auto border-l border-border bg-card p-6 shadow-lg [&>*]:flex-none" aria-label="Card">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex flex-col gap-2">
+                      <span className={CAPTION}>Card</span>
+                      <Badge variant="secondary">{sel.col.title}</Badge>
+                    </span>
+                    <Button variant="ghost" size="icon" aria-label="Close card" onClick={() => setOpen(null)}><Icon name="close" size={13} /></Button>
                   </div>
-                  <textarea className="kb-title-edit" rows={2} value={sel.card.title} aria-label="Card title" onChange={(e) => patchCard(sel.card.id, { title: e.target.value })} />
-                  <label className="field" style={{ gap: 4 }}><span className="label">Notes</span>
-                    <textarea className="textarea" rows={5} value={sel.card.notes} placeholder="What needs doing, links, acceptance criteria…" onChange={(e) => patchCard(sel.card.id, { notes: e.target.value })} />
-                  </label>
-                  <div className="field" style={{ gap: 6 }}>
-                    <span className="label">Labels</span>
-                    <div className="kb-label-pick">
+                  <textarea className="w-full resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xl leading-snug font-semibold tracking-tight text-foreground outline-none hover:border-border focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/30" rows={2} value={sel.card.title} aria-label="Card title" onChange={(e) => patchCard(sel.card.id, { title: e.target.value })} />
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="kb-notes" className="text-[13px] text-muted-foreground">Notes</Label>
+                    <Textarea id="kb-notes" rows={5} value={sel.card.notes} placeholder="What needs doing, links, acceptance criteria…" onChange={(e) => patchCard(sel.card.id, { notes: e.target.value })} />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[13px] font-medium text-muted-foreground">Labels</span>
+                    <div className="flex flex-wrap gap-1.5">
                       {labels.map((l) => {
                         const on = sel.card.labels.includes(l.id)
                         return (
-                          <button key={l.id} type="button" className={'kb-label kb-label-btn' + (on ? ' on' : '')} aria-pressed={on} style={{ background: on ? ORG_COLORS[l.color].fill : undefined, borderColor: ORG_COLORS[l.color].fill }}
+                          <button key={l.id} type="button" aria-pressed={on}
+                            className={cn('inline-flex min-h-7 items-center gap-1 rounded-full border-[1.5px] px-2.5 text-[11px] font-semibold outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40', !on && 'bg-card text-foreground')}
+                            style={{ background: on ? ORG_COLORS[l.color].fill : undefined, color: on ? LABEL_INK : undefined, borderColor: ORG_COLORS[l.color].fill }}
                             onClick={() => patchCard(sel.card.id, { labels: on ? sel.card.labels.filter((x) => x !== l.id) : [...sel.card.labels, l.id] })}>{l.name}</button>
                         )
                       })}
-                      <button type="button" className="kb-label kb-label-btn" onClick={() => {
+                      <button type="button" className="inline-flex min-h-7 items-center gap-1 rounded-full border-[1.5px] border-border bg-card px-2.5 text-[11px] font-semibold text-foreground outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => {
                         const name = window.prompt('Label name')?.trim()
                         if (!name) return
                         const label = { id: uid(), name: name.slice(0, 24), color: COLORS[labels.length % COLORS.length] }
@@ -314,43 +354,50 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
                       }}><Icon name="plus" size={10} /> Label</button>
                     </div>
                   </div>
-                  <div className="cv-grid">
-                    <label className="cv-num"><span>Due</span><input className="input mono" type="date" value={sel.card.due ?? ''} onChange={(e) => patchCard(sel.card.id, { due: e.target.value || undefined })} /></label>
-                    <label className="cv-num"><span>Column</span>
-                      <select className="select" value={sel.col.id} onChange={(e) => moveCard(sel.card.id, e.target.value, doc.columns.find((c) => c.id === e.target.value)?.cards.length ?? 0)}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="kb-due" className="text-xs font-normal text-muted-foreground">Due</Label>
+                      <Input id="kb-due" className="px-2 font-mono" type="date" value={sel.card.due ?? ''} onChange={(e) => patchCard(sel.card.id, { due: e.target.value || undefined })} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="kb-col" className="text-xs font-normal text-muted-foreground">Column</Label>
+                      <select id="kb-col" className={SELECT} value={sel.col.id} onChange={(e) => moveCard(sel.card.id, e.target.value, doc.columns.find((c) => c.id === e.target.value)?.cards.length ?? 0)}>
                         {doc.columns.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
                       </select>
-                    </label>
+                    </div>
                   </div>
-                  <label className="field" style={{ gap: 4 }}><span className="label">Assigned to</span>
-                    <AgentSelect agents={agencyId ? agents.filter((a) => a.agency === agencyId) : agents} value={sel.card.assignee || sel.card.agentId || DEFAULT_MODEL_AGENT}
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="kb-assignee" className="text-[13px] text-muted-foreground">Assigned to</Label>
+                    <AgentSelect id="kb-assignee" agents={agencyId ? agents.filter((a) => a.agency === agencyId) : agents} value={sel.card.assignee || sel.card.agentId || DEFAULT_MODEL_AGENT}
                       onChange={(v) => patchCard(sel.card.id, agencyId ? { assignee: v === DEFAULT_MODEL_AGENT ? undefined : v, agentId: v === DEFAULT_MODEL_AGENT ? undefined : v } : { agentId: v })} />
-                  </label>
-                  <button type="button" className="btn btn-primary" disabled={!!running[sel.card.id]} onClick={() => void runCard(sel.card.id)}>
+                  </div>
+                  <Button disabled={!!running[sel.card.id]} onClick={() => void runCard(sel.card.id)}>
                     <Icon name="play" size={12} /> {running[sel.card.id] ? 'Working…' : sel.card.result ? 'Run again' : agencyId ? 'Run card' : 'Run with agent'}
-                  </button>
+                  </Button>
                   {agencyId && (sel.card.status || sel.card.cost !== undefined) && (
-                    <p className="hint mono" style={{ margin: 0 }}>
+                    <p className="font-mono text-xs text-muted-foreground">
                       {sel.card.status === 'running' ? 'Running' : sel.card.status === 'failed' ? 'Last run failed' : sel.card.status === 'done' ? 'Finished' : ''}
                       {sel.card.cost !== undefined ? ` · cost ${sel.card.cost.toFixed(4)} (estimate)` : sel.card.status === 'done' ? ' · cost not reported' : ''}
                     </p>
                   )}
-                  {errors[sel.card.id] && <p className="hint account-error" role="alert">{errors[sel.card.id]}</p>}
+                  {errors[sel.card.id] && <p className="rounded-md bg-destructive-soft px-3 py-2 text-[13px] text-destructive" role="alert">{errors[sel.card.id]}</p>}
                   {sel.card.result && (
-                    <div className="au-output">
-                      <span className="section-label" style={{ padding: 0 }}>Result</span>
-                      <pre>{sel.card.result}</pre>
+                    <div className="flex flex-col gap-2 border-t border-border pt-3">
+                      <span className={CAPTION}>Result</span>
+                      <pre className="max-h-[320px] overflow-auto rounded-lg border border-border bg-muted p-3 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap">{sel.card.result}</pre>
                     </div>
                   )}
-                  {sel.card.sessionId && <button type="button" className="link-btn" style={{ alignSelf: 'flex-start' }} onClick={() => onOpenChat(sel.card.agentId || DEFAULT_MODEL_AGENT, projectId, sel.card.sessionId)}>Open chat</button>}
+                  {sel.card.sessionId && <Button variant="link" className="h-auto self-start px-0" onClick={() => onOpenChat(sel.card.agentId || DEFAULT_MODEL_AGENT, projectId, sel.card.sessionId)}>Open chat</Button>}
                   {!!sel.card.log?.length && (
-                    <div className="kb-log">
-                      <span className="section-label" style={{ padding: 0 }}>Log</span>
-                      {sel.card.log.slice(-8).map((l, i) => <span key={i} className="hint"><span className="mono">{new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> {l.text}</span>)}
+                    <div className="flex flex-col gap-2 border-t border-border pt-3">
+                      <span className={CAPTION}>Log</span>
+                      <ol className="flex list-none flex-col gap-1.5 p-0 text-[13px] text-muted-foreground">
+                        {sel.card.log.slice(-8).map((l, i) => <li key={i}><span className="font-mono text-xs">{new Date(l.at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span> {l.text}</li>)}
+                      </ol>
                     </div>
                   )}
-                  <div className="cv-actions">
-                    <button type="button" className="btn btn-sm cv-danger" onClick={() => { if (window.confirm(`Delete "${sel.card.title}"?`)) removeCard(sel.card.id) }}><Icon name="trash" size={12} /> Delete card</button>
+                  <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+                    <Button variant="outline" size="sm" className="hover:border-destructive hover:text-destructive" onClick={() => { if (window.confirm(`Delete "${sel.card.title}"?`)) removeCard(sel.card.id) }}><Icon name="trash" size={12} /> Delete card</Button>
                   </div>
                 </aside>
               )}
