@@ -267,3 +267,33 @@ export async function testAcp(name: string, launch: AcpLaunch, clientVersion: st
     if (child.exitCode === null) child.kill()
   }
 }
+
+/**
+ * Starts the agent, runs `initialize` and then `authenticate` with one of the methods it offers (for example
+ * Codex's "chat-gpt" or Gemini CLI's "oauth-personal"; the agent opens the browser itself), and stops it.
+ * Rejects with a readable reason when the method isn't offered, the sign-in fails, or `signal` aborts.
+ */
+export async function authenticateAcp(name: string, launch: AcpLaunch, methodId: string, clientVersion: string, signal: AbortSignal, timeoutMs: number): Promise<void> {
+  const child = start(launch)
+  const stderr = stderrTail(child)
+  const died = exitWatch(child, name, stderr)
+  died.catch(() => undefined)
+  const aborted = new Promise<never>((_, reject) => {
+    if (signal.aborted) reject(new Error('Sign-in cancelled.'))
+    signal.addEventListener('abort', () => reject(new Error('Sign-in cancelled.')), { once: true })
+  })
+  aborted.catch(() => undefined)
+  try {
+    await Promise.race([died, aborted, client({ name: 'tyslin-studio' }).connectWith(connection(child), async (agent) => {
+      const init = await timeout(initialize(agent, false, clientVersion), HANDSHAKE_TIMEOUT_MS, `${name} did not answer within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`)
+      const offered = (init.authMethods ?? []) as { id?: string; methodId?: string }[]
+      if (!offered.some((m) => (m.id ?? m.methodId) === methodId)) throw new Error(`This version of ${name} doesn't offer browser sign-in. Update it, or sign in with its own command.`)
+      await timeout(agent.request('authenticate', { methodId }), timeoutMs, 'Sign-in timed out. Try again.')
+    })])
+  } catch (err) {
+    const why = await explain(err, died).catch((e: unknown) => e)
+    throw why instanceof Error ? why : new Error(String(why))
+  } finally {
+    if (child.exitCode === null) child.kill()
+  }
+}

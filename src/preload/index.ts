@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { ChannelMessage, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { AccountEngine, ChannelMessage, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -48,6 +48,17 @@ const api: TyslinApi = {
       return () => ipcRenderer.removeListener('engines:installOutput', fn)
     }
   },
+  accounts: {
+    status: () => ipcRenderer.invoke('accounts:status'),
+    signIn: (engine) => ipcRenderer.invoke('accounts:signIn', engine),
+    cancelSignIn: (engine) => ipcRenderer.invoke('accounts:cancelSignIn', engine),
+    setUseAccount: (engine, on) => ipcRenderer.invoke('accounts:setUseAccount', engine, on),
+    onSignInUrl: (cb) => {
+      const fn = (_e: unknown, o: { engine: AccountEngine; url: string }): void => cb(o)
+      ipcRenderer.on('accounts:signInUrl', fn)
+      return () => ipcRenderer.removeListener('accounts:signInUrl', fn)
+    }
+  },
   changes: {
     list: (sessionId) => ipcRenderer.invoke('changes:list', sessionId),
     resolve: (id, acceptedHunks, note) => ipcRenderer.invoke('changes:resolve', id, acceptedHunks, note)
@@ -71,7 +82,11 @@ const api: TyslinApi = {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),
     setOllamaUrl: (url) => ipcRenderer.invoke('settings:setOllamaUrl', url),
+    removeKey: (provider) => ipcRenderer.invoke('settings:removeKey', provider),
     openrouterModels: () => ipcRenderer.invoke('settings:openrouterModels'),
+    connectOpenRouter: () => ipcRenderer.invoke('settings:connectOpenRouter'),
+    cancelOpenRouter: () => ipcRenderer.invoke('settings:cancelOpenRouter'),
+    openrouterAccount: () => ipcRenderer.invoke('settings:openrouterAccount'),
     prefs: () => ipcRenderer.invoke('settings:prefs'),
     setPrefs: (p) => ipcRenderer.invoke('settings:setPrefs', p),
     onZoom: (cb) => {

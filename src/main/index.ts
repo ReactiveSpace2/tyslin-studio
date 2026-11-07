@@ -15,6 +15,8 @@ import { inWorkspace } from '@shared/scope'
 import { createProjectFolder, newProjectFolderPath, defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
+import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
+import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
@@ -27,7 +29,7 @@ import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCa
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AccountEngine, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -298,14 +300,18 @@ function emit(e: RunEvent): void {
   cardsOnRunEvent(e)
 }
 
-/** OpenRouter's public model list, cached for an hour. Empty when offline. */
-let openrouterCache: { at: number; models: { id: string; name: string }[] } | null = null
-async function openrouterModels(): Promise<{ id: string; name: string }[]> {
+/** OpenRouter's public model list with context and prices, cached for an hour. Empty when offline. */
+let openrouterCache: { at: number; models: OpenRouterModel[] } | null = null
+async function openrouterModels(): Promise<OpenRouterModel[]> {
   if (openrouterCache && Date.now() - openrouterCache.at < 3_600_000) return openrouterCache.models
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(15_000) })
-    const body = await res.json() as { data?: { id: string; name?: string }[] }
-    const models = (body.data ?? []).map((m) => ({ id: m.id, name: m.name || m.id })).sort((a, b) => a.name.localeCompare(b.name))
+    const body = await res.json() as { data?: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }[] }
+    // Prices come as dollars per token in strings; show them per million tokens.
+    const perM = (v?: string): number | null => { const n = Number(v); return v !== undefined && Number.isFinite(n) && n >= 0 ? Math.round(n * 1e6 * 100) / 100 : null }
+    const models = (body.data ?? []).map((m) => ({
+      id: m.id, name: m.name || m.id, context: m.context_length ?? null, input: perM(m.pricing?.prompt), output: perM(m.pricing?.completion)
+    })).sort((a, b) => a.name.localeCompare(b.name))
     openrouterCache = { at: Date.now(), models }
     return models
   } catch { return openrouterCache?.models ?? [] }
@@ -444,6 +450,14 @@ function registerIpc(): void {
     const r = await runInstall(id, (text) => win?.webContents.send('engines:installOutput', { id, text }))
     return { ...r, status: engineStatus(id) }
   })
+  ipcMain.handle('accounts:status', () => accountStatuses())
+  ipcMain.handle('accounts:signIn', async (_e, engine: AccountEngine) => {
+    const s = await signInAccount(engine, app.getVersion(), (url) => win?.webContents.send('accounts:signInUrl', { engine, url }))
+    win?.focus()
+    return s
+  })
+  ipcMain.handle('accounts:cancelSignIn', (_e, engine: AccountEngine) => cancelAccountSignIn(engine))
+  ipcMain.handle('accounts:setUseAccount', (_e, engine: AccountEngine, on: boolean) => setUseAccount(engine, !!on))
   ipcMain.handle('engines:cancelInstall', (_e, id: ExternalEngineId) => cancelInstall(id))
   ipcMain.handle('engines:test', async (_e, id: ExternalEngineId) => {
     try {
@@ -521,7 +535,18 @@ function registerIpc(): void {
     syncStudioAssistant()
   })
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
+  ipcMain.handle('settings:removeKey', (_e, provider: KeyProvider) => {
+    setSecret(provider, '')
+    syncStudioAssistant()
+  })
   ipcMain.handle('settings:openrouterModels', () => openrouterModels())
+  ipcMain.handle('settings:connectOpenRouter', async () => {
+    await connectOpenRouter()
+    syncStudioAssistant()
+    win?.focus()
+  })
+  ipcMain.handle('settings:cancelOpenRouter', () => cancelOpenRouter())
+  ipcMain.handle('settings:openrouterAccount', () => openRouterAccount())
   ipcMain.handle('settings:prefs', () => db.getPrefs())
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
     const next = db.setPrefs(p)

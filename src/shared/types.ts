@@ -27,6 +27,21 @@ export interface EngineStatus {
   install: EngineInstall | null
 }
 
+/** Adapters that sign in with the user's own Claude, ChatGPT or Google account. */
+export type AccountEngine = 'claude-code' | 'codex' | 'gemini-cli'
+
+/** Whether an account adapter is installed and signed in, read from the adapter's own login (never stored by Tyslin). */
+export interface AccountStatus {
+  engine: AccountEngine
+  installed: boolean
+  signedIn: boolean
+  email?: string
+  /** Plan name when the adapter reports one, e.g. "max", "plus". */
+  plan?: string
+  /** true = agents on this adapter use the account; false = the API key from Settings → Models when one is saved. */
+  useAccount: boolean
+}
+
 export interface EngineInstall {
   /** Exactly what will run, shown to the user before it does. */
   command: string
@@ -541,6 +556,24 @@ export interface ProviderSettings {
   defaultModel: DefaultModel
 }
 
+/** The saved OpenRouter key's details (GET /api/v1/key). `valid` false = the key was revoked. Dollars. */
+export interface OpenRouterAccount {
+  valid: boolean
+  label: string
+  usage: number
+  limit: number | null
+  freeTier: boolean
+}
+
+/** One model from OpenRouter's public list. Prices are dollars per million tokens; null = unknown. */
+export interface OpenRouterModel {
+  id: string
+  name: string
+  context: number | null
+  input: number | null
+  output: number | null
+}
+
 export interface DefaultModel {
   provider: ProviderId
   model: string
@@ -855,6 +888,17 @@ export interface TyslinApi {
     cancelInstall(id: ExternalEngineId): Promise<void>
     onInstallOutput(cb: (o: InstallOutput) => void): () => void
   }
+  accounts: {
+    /** Sign-in state of Claude Code, Codex and Gemini CLI. */
+    status(): Promise<AccountStatus[]>
+    /** Opens the adapter's own browser sign-in and waits for it (5 min). Afterwards agents on it use the account. */
+    signIn(engine: AccountEngine): Promise<AccountStatus>
+    cancelSignIn(engine: AccountEngine): Promise<void>
+    /** Agents on this adapter use the account (true) or the saved API key (false). */
+    setUseAccount(engine: AccountEngine, on: boolean): Promise<AccountStatus>
+    /** The sign-in page's address when the adapter prints one, so the user can open it if the browser didn't. */
+    onSignInUrl(cb: (o: { engine: AccountEngine; url: string }) => void): () => void
+  }
   changes: {
     list(sessionId: string): Promise<PendingChange[]>
     /** Applies the accepted hunks (indexes from `diffHunks`) and reports the outcome back into the run. */
@@ -889,8 +933,15 @@ export interface TyslinApi {
     get(): Promise<ProviderSettings>
     setKey(provider: KeyProvider, key: string): Promise<void>
     setOllamaUrl(url: string): Promise<void>
-    /** OpenRouter's public model list (id and name), cached for an hour; [] when offline. */
-    openrouterModels(): Promise<{ id: string; name: string }[]>
+    /** Forgets a provider's key (the provider is then "not connected"). */
+    removeKey(provider: KeyProvider): Promise<void>
+    /** OpenRouter's public model list with context and prices, cached for an hour; [] when offline. */
+    openrouterModels(): Promise<OpenRouterModel[]>
+    /** Sign in on openrouter.ai in the browser (OAuth PKCE) and save the key it hands over. */
+    connectOpenRouter(): Promise<void>
+    cancelOpenRouter(): Promise<void>
+    /** The saved OpenRouter key's label, spend and limit; null without a key or offline. */
+    openrouterAccount(): Promise<OpenRouterAccount | null>
     prefs(): Promise<Preferences>
     setPrefs(p: Partial<Preferences>): Promise<Preferences>
     /** Fires when the zoom changes anywhere (slider, Settings or keyboard shortcut). */

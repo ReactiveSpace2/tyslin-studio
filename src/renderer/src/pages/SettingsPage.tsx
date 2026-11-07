@@ -216,16 +216,14 @@ function ResetBox(): JSX.Element {
   )
 }
 
-function ModelsTab(): JSX.Element {
+function ModelsTab({ onOpenEngines }: { onOpenEngines: () => void }): JSX.Element {
   const [s, setS] = useState<ProviderSettings | null>(null)
-  const [ollama, setOllama] = useState('')
   const [pick, setPick] = useState<{ provider: ProviderId; model: string } | null>(null)
   const [saved, flash] = useFlash()
 
   const load = async (): Promise<void> => {
     const v = await window.tyslin.settings.get()
     setS(v)
-    setOllama(v.ollamaUrl)
     setPick((p) => p ?? { provider: v.defaultModel.provider, model: v.defaultModel.model })
   }
   useEffect(() => { void load() }, [])
@@ -254,23 +252,10 @@ function ModelsTab(): JSX.Element {
       </section>
       <section className="box" aria-labelledby="keys-h">
         <div className="box-head">
-          <h2 id="keys-h">API keys</h2>
-          <p className="hint">Encrypted with your system keychain. A key only ever goes to its own provider.</p>
+          <h2 id="keys-h">Model providers</h2>
+          <p className="hint">Connect one or more. Keys are encrypted with your system keychain and only ever go to their own provider.</p>
         </div>
-        <ModelKeys settings={s} onSaved={async (label) => { await load(); flash(`${label} key saved`) }} />
-      </section>
-      <section className="box" aria-labelledby="local-h">
-        <div className="box-head">
-          <h2 id="local-h">Local models</h2>
-          <p className="hint">Run models on this computer with Ollama. Nothing leaves your machine.</p>
-        </div>
-        <div className="field">
-          <label htmlFor="k-ollama">Ollama URL</label>
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input id="k-ollama" className="input mono" value={ollama} onChange={(e) => setOllama(e.target.value)} />
-            <button type="button" className="btn" onClick={async () => { await window.tyslin.settings.setOllamaUrl(ollama); flash('Ollama URL saved') }}>Save</button>
-          </div>
-        </div>
+        <ModelKeys settings={s} onSaved={async (msg) => { await load(); flash(msg) }} onOpenEngines={onOpenEngines} />
       </section>
       {saved && <span className="ok" role="status">{saved}</span>}
     </>
@@ -539,7 +524,7 @@ export function SettingsPage({ initialTab = 'models', onAuthChange }: { initialT
         ))}
       </div>
       <div className="settings" role="tabpanel" id="settings-panel" aria-labelledby={'tab-' + tab}>
-        {tab === 'models' && <ModelsTab />}
+        {tab === 'models' && <ModelsTab onOpenEngines={() => setTab('engines')} />}
         {tab === 'agents' && <AgentsTab />}
         {tab === 'engines' && <EnginesTab />}
         {tab === 'appearance' && <AppearanceTab />}

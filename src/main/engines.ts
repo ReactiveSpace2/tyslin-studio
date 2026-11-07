@@ -223,9 +223,20 @@ export function deleteHermesProfile(agent: Pick<Agent, 'id'>): void {
   try { spawnSync(path, ['profile', 'delete', name, '-y'], { timeout: 60_000, env: { ...process.env, PATH: searchDirs().join(delimiter) } }) } catch { /* left on disk */ }
 }
 
-/** Keys the adapters read from the environment, passed from Settings → Models when set. */
+/** Environment variables that hold each account adapter's API key. In account mode they're removed so the sign-in is used. */
+export const ACCOUNT_KEY_VARS: Partial<Record<ExternalEngineId, string[]>> = {
+  'claude-code': ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN'],
+  codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
+  'gemini-cli': ['GEMINI_API_KEY', 'GOOGLE_API_KEY']
+}
+
+/** Settings → Models → "Use my account": agents on this adapter run on the user's own sign-in, never a key. */
+export const usesAccount = (id: ExternalEngineId): boolean => getSetting(`engine:${id}:auth`) === 'account'
+
+/** Keys the adapters read from the environment, passed from Settings → Models when set (not in account mode). */
 function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
+  if (usesAccount(id)) return env
   const keyFor = (name: string): string | null => { try { return getKey(name) } catch { return null } }
   if (id === 'claude-code') { const k = keyFor('anthropic'); if (k && !process.env.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = k }
   if (id === 'gemini-cli') { const k = keyFor('gemini'); if (k && !process.env.GEMINI_API_KEY) env.GEMINI_API_KEY = k }
@@ -247,8 +258,22 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
     args: finalArgs,
     cwd,
     // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
-    env: { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
+    env: launchEnv(id)
   }
+}
+
+/** The adapter's environment: widened PATH, saved keys, and in account mode no key variables at all. */
+export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
+  if (usesAccount(id)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
+  return env
+}
+
+/** Absolute path of the engine's program and its default arguments, or null when it isn't installed. */
+export function engineProgram(id: ExternalEngineId): { path: string; args: string[] } | null {
+  const [program, ...args] = splitCommand(commandLine(id))
+  const path = program ? which(program) : null
+  return path ? { path, args } : null
 }
 
 const INSTALL_TIMEOUT_MS = 20 * 60 * 1000
