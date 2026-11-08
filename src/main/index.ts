@@ -57,16 +57,16 @@ async function githubStars(): Promise<{ count: number | null; url: string }> {
   return { count: stars.count, url }
 }
 
-/** Page backgrounds, matching --parchment in styles.css, so the window doesn't flash before the UI paints. */
+/** Page backgrounds, matching --parchment in index.css, so the window doesn't flash before the UI paints. */
 const BACKGROUND = { light: '#FAFAF7', dark: '#121210' }
 
-/** Height of the app's own title bar (`.titlebar` in styles.css). */
-const TITLEBAR_HEIGHT = 44
+/** Height of the app's top bar (components/TopBar.tsx, 48 px; the sign-in and setup screens use a 48 px drag bar). */
+const TITLEBAR_HEIGHT = 48
 const isMac = process.platform === 'darwin'
 
 /** Window buttons drawn by the system over the right of the title bar on Windows and Linux, in theme colours. */
 const titleBarOverlay = (): Electron.TitleBarOverlayOptions => {
-  // The title bar is 44 CSS px, so its on-screen height grows with the zoom; the buttons follow it.
+  // The top bar is 48 CSS px, so its on-screen height grows with the zoom; the buttons follow it.
   const height = Math.round(TITLEBAR_HEIGHT * db.getPrefs().zoom)
   return nativeTheme.shouldUseDarkColors
     ? { color: BACKGROUND.dark, symbolColor: '#F3F3EE', height }

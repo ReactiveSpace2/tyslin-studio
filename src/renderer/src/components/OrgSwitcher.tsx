@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ORG_COLORS, type Organization } from '@shared/types'
 import { Icon } from './Icon'
+import mark from '../assets/logo-mark.png'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
@@ -15,7 +16,7 @@ const tile = (o?: Organization): CSSProperties => ({ background: ORG_COLORS[o?.c
  * Organization switcher (in the title bar, after the screen name). The menu opens downward. Switching
  * reopens the app inside the other organization, so every screen starts fresh.
  */
-export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element {
+export function OrgSwitcher({ onNewOrg, variant = 'bar' }: { onNewOrg: () => void; /** 'sidebar': the app sidebar's header (shadcn team switcher: logo, product, organization). */ variant?: 'bar' | 'sidebar' }): JSX.Element {
   const [open, setOpen] = useState(false)
   const [orgs, setOrgs] = useState<Organization[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -46,12 +47,26 @@ export function OrgSwitcher({ onNewOrg }: { onNewOrg: () => void }): JSX.Element
     <div className="relative no-drag">
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
+          {variant === 'sidebar' ? (
+            <button type="button" className="flex h-12 w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-md px-2 text-left text-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 data-[state=open]:bg-sidebar-accent [&_svg]:text-muted-foreground"
+              aria-label={`Tyslin Studio, organization ${name}. Switch organization`}>
+              <img src={mark} alt="" className="size-8 flex-none rounded-lg border border-border bg-card object-contain" />
+              <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                <strong className="truncate text-sm font-semibold">Tyslin Studio</strong>
+                <span className="flex min-w-0 items-center gap-1.5 truncate text-xs text-muted-foreground">
+                  <span className={cn(tileBase, 'size-3 rounded-[3px] text-[8px]')} aria-hidden="true" style={tile(current)}>{initial(name)}</span>{name}
+                </span>
+              </span>
+              <Icon name="updown" size={14} />
+            </button>
+          ) : (
           <button type="button" className="inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 text-[13px] font-semibold whitespace-nowrap text-foreground outline-none hover:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/40 data-[state=open]:bg-card [&_svg]:text-muted-foreground"
             aria-label={`Organization: ${name}. Switch organization`}>
             <span className={cn(tileBase, 'size-4 rounded-[4px] text-[10px]')} aria-hidden="true" style={tile(current)}>{initial(name)}</span>
             {name}
             <Icon name="updown" size={12} />
           </button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" sideOffset={6} className="flex max-h-[60vh] w-[260px] flex-col gap-0.5 rounded-xl border-border bg-card p-1.5 shadow-lg" aria-label="Organizations">
           <DropdownMenuLabel className="px-2.5 pt-1.5 pb-1 font-mono text-[11px] font-normal tracking-[0.08em] text-muted-foreground uppercase">Organizations</DropdownMenuLabel>

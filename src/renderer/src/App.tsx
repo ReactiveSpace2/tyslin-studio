@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Agency, Agent, AuthStatus, Project, Session } from '@shared/types'
-import { TitleBar } from './components/TitleBar'
+import { TopBar } from './components/TopBar'
+import { WorkspaceBar } from './components/WorkspaceBar'
+import { AgencyNav } from './components/AgencyNav'
 import { refreshAppearance } from './appearance'
 import { StatusBar } from './components/StatusBar'
 import { NewOrgModal } from './components/NewOrgModal'
@@ -15,9 +17,6 @@ import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
 import { agencyOf, type AgencyView } from './agencies'
 import { AgencyChannelBar } from './components/AgencyChannelBar'
-import { AgencyNav } from './components/AgencyNav'
-import { Toolbar } from './components/Toolbar'
-import { WorkspaceBar } from './components/WorkspaceBar'
 import { AgentPage } from './pages/AgentPage'
 import { ConnectorsPage } from './pages/ConnectorsPage'
 import { KanbanPage } from './pages/KanbanPage'
@@ -73,6 +72,8 @@ export default function App(): JSX.Element {
   const [onboarding, setOnboarding] = useState<boolean | null>(null)
   const [orgName, setOrgName] = useState('')
   const [newOrg, setNewOrg] = useState(false)
+  const [mac, setMac] = useState(false)
+  useEffect(() => { void window.tyslin.app.info().then((i) => setMac(i.platform.startsWith('darwin'))) }, [])
   /** "Add a worker": the step-by-step agent wizard, in the active agency. */
   const [addingWorker, setAddingWorker] = useState(false)
 
@@ -154,12 +155,12 @@ export default function App(): JSX.Element {
   }
 
   // Wait for the account and setup checks so the app never flashes before the sign-in or setup screen.
-  if (!auth || onboarding === null) return <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground"><div className="drag-region h-11 flex-none border-b border-border bg-background" /></div>
+  if (!auth || onboarding === null) return <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground"><div className="drag-region h-12 flex-none border-b border-border bg-background" /></div>
   // Sign-in is required only in builds that include a Google client; self-built copies without one open straight in.
   if (auth.configured && !auth.account) {
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <div className="drag-region h-11 flex-none border-b border-border bg-background" />
+        <div className="drag-region h-12 flex-none border-b border-border bg-background" />
         <LoginScreen onSignedIn={(s) => { setAuth(s); setRoute({ name: 'home' }) }} />
       </div>
     )
@@ -168,7 +169,7 @@ export default function App(): JSX.Element {
   if (onboarding) {
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-        <div className="drag-region h-11 flex-none border-b border-border bg-background" />
+        <div className="drag-region h-12 flex-none border-b border-border bg-background" />
         <AgencyWizard firstRun firstName={auth.account?.name?.split(' ')[0]} onDone={(projectId) => {
           setOnboarding(false)
           // The tab store loads once setup is done; open the new agency's tab after it, not before.
@@ -181,12 +182,20 @@ export default function App(): JSX.Element {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-      <TitleBar route={route} agents={agents} projects={projects} onHome={() => setRoute({ name: 'home' })} />
-      <Toolbar
+      {/* Design A (8 Nov 2026): one top bar (logo, Home / Agencies / Settings, search, Help, profile), the organization and
+          open agencies as underlined tabs under it, and inside an agency its sections beside the screen as an inset card. */}
+      <TopBar
         route={route}
-        onNavigate={setRoute}
+        agents={agents}
+        projects={projects}
+        agencies={agencies}
+        mac={mac}
         account={auth.account}
         canSignOut={auth.configured && !!auth.account}
+        onNavigate={setRoute}
+        onOpenAgency={(id) => openAgency(id)}
+        onOpenChat={(agentId, projectId) => { if (projectId) openAgencyTab(projectId); openChat(agentId, projectId) }}
+        onNewAgency={() => setRoute({ name: 'newAgency' })}
         onProfile={() => setRoute({ name: 'settings', tab: 'account' })}
         onSignOut={() => { void window.tyslin.auth.signOut().then(setAuth) }}
       />
@@ -199,7 +208,6 @@ export default function App(): JSX.Element {
         onCloseAgency={closeAgency}
         onNewAgency={() => setRoute({ name: 'newAgency' })}
       />
-      {/* Inside an agency: shadcn's "inset" dashboard layout. The sidebar sits on the panel colour and the screen is a rounded card beside it. */}
       <div className={cn('flex min-h-0 flex-1', agencyNavOn && activeAgency && 'bg-panel')}>
         {agencyNavOn && activeAgency && (
           <AgencyNav agencyId={activeAgency} name={activeProject?.name ?? 'Agency'} route={route} unread={unreadByProject[activeAgency] ?? 0} leadId={activeView?.lead?.id ?? null}

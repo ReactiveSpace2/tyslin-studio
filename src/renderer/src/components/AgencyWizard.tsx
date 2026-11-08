@@ -223,7 +223,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
 
   return (
     // Below the title bar (44 px), which stays draggable.
-    <main className="fixed inset-x-0 top-[44px] bottom-0 z-[100] flex justify-center overflow-y-auto bg-background px-4 pt-8 text-foreground">
+    <main className="fixed inset-x-0 top-12 bottom-0 z-[100] flex justify-center overflow-y-auto bg-background px-4 pt-8 text-foreground">
       <form className="mb-auto flex min-h-[calc(100%-2rem)] w-full max-w-[980px] flex-col rounded-t-2xl border border-b-0 border-border bg-card shadow-xs"
         onSubmit={(e) => { e.preventDefault(); next() }} aria-labelledby="aw-h">
         <header className="flex flex-col gap-4 border-b border-border px-7 pt-5 pb-3">

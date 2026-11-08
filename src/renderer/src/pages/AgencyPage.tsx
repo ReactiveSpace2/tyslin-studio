@@ -288,20 +288,8 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
 
   return (
     <div className="flex w-full flex-col text-foreground">
-      <header className="flex min-h-14 flex-wrap items-center gap-3 border-b border-border bg-background px-6 py-2.5">
-        <Breadcrumb className="min-w-0 flex-1">
-          <BreadcrumbList className="flex-nowrap gap-2 text-sm sm:gap-2">
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <button type="button" className="rounded-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={onBack}>Agencies</button>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator>/</BreadcrumbSeparator>
-            <BreadcrumbItem className="min-w-0"><span className="truncate">{agency.name}</span></BreadcrumbItem>
-            <BreadcrumbSeparator>/</BreadcrumbSeparator>
-            <BreadcrumbItem><BreadcrumbPage className="font-medium">{tab === 'edit' ? 'Edit' : 'Overview'}</BreadcrumbPage></BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+      {/* The path is in the app header (SiteHeader); this row keeps only the page actions. */}
+      <header className="flex flex-wrap items-center justify-end gap-3 px-6 pt-4">
         {tab === 'edit' && <Button type="button" disabled={busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save'}</Button>}
         {tab !== 'edit' && (
           <>
