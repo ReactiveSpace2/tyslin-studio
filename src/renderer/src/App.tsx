@@ -15,6 +15,7 @@ import { InboxPage } from './pages/InboxPage'
 import { OrgHome } from './pages/OrgHome'
 import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
+import { LivePage } from './pages/LivePage'
 import { agencyOf, type AgencyView } from './agencies'
 import { AgencyChannelBar } from './components/AgencyChannelBar'
 import { AgentPage } from './pages/AgentPage'
@@ -39,7 +40,7 @@ import { cn } from '@/lib/utils'
 export type Route =
   | { name: 'home'; focus?: 'activity' }
   | { name: 'agencies' }
-  | { name: 'agency'; id: string; tab: 'org' | 'chat' | 'edit'; /** Inbox: the message to open. */ focus?: string }
+  | { name: 'agency'; id: string; tab: 'org' | 'live' | 'chat' | 'edit'; /** Inbox: the message to open. */ focus?: string }
   | { name: 'newAgency'; templateId?: string }
   | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
   | { name: 'editor'; agentId: string }
@@ -242,6 +243,13 @@ export default function App(): JSX.Element {
             const v = viewFor(route.id)
             if (!v) return null
             const p = v.project
+            if (route.tab === 'live') {
+              return (
+                <LivePage key={p.id} view={v} you={you}
+                  onBoard={() => { openAgencyTab(p.id); setRoute({ name: 'kanban' }) }}
+                  onInbox={() => setRoute({ name: 'agency', id: p.id, tab: 'chat' })} />
+              )
+            }
             if (route.tab === 'chat') {
               return (
                 <AgencyChatTabs tab="inbox" leadName={v.lead?.name ?? null} unread={unreadByProject[p.id] ?? 0}
@@ -267,6 +275,7 @@ export default function App(): JSX.Element {
                 you={you}
                 onTab={(tab) => setRoute({ name: 'agency', id: p.id, tab })}
                 onBoard={() => { openAgencyTab(p.id); setRoute({ name: 'kanban' }) }}
+                onLive={() => setRoute({ name: 'agency', id: p.id, tab: 'live' })}
                 onRun={(lead) => { void window.tyslin.agencies.plan(v.agency.id).then((sid) => openChat(lead.id, p.id, sid)).catch((err) => window.alert(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err))) }}
                 onOpenAgent={(a) => setRoute({ name: 'editor', agentId: a.id })}
                 onAddWorker={() => { openAgencyTab(p.id); setAddingWorker(true) }}

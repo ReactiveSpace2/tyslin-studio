@@ -6,7 +6,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
-/** Inside an agency tab: the sidebar with its own Overview, Chat (the Lead chat and the Inbox as two tabs), Kanban, Channel, Skills, Integrations, Drive, and at the foot Memory and Edit. */
+/** Inside an agency tab: the sidebar with its own Overview, Live, Chat (the Lead chat and the Inbox as two tabs), Kanban, Channel, Skills, Integrations, Drive, and at the foot Memory and Edit. */
 export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }: {
   agencyId: string
   name: string
@@ -19,6 +19,8 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
 }): JSX.Element {
   const items: [string, IconName, Route, boolean][] = [
     ['Overview', 'agency', { name: 'agency', id: agencyId, tab: 'org' }, route.name === 'agency' && route.tab === 'org'],
+    // Live: the communication map, agency chat and agent cards (pages/LivePage.tsx).
+    ['Live', 'live', { name: 'agency', id: agencyId, tab: 'live' }, route.name === 'agency' && route.tab === 'live'],
     // Chat: the Lead chat and the Inbox, as two tabs of one screen (AgencyChatTabs).
     ['Chat', 'chat', leadId ? { name: 'chat', agentId: leadId, projectId: agencyId } : { name: 'agency', id: agencyId, tab: 'chat' },
       (route.name === 'chat' && route.agentId === leadId) || (route.name === 'agency' && route.tab === 'chat')],
@@ -62,11 +64,11 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
         </SidebarHeader>
         <SidebarContent className="gap-0">
           <SidebarGroup className="p-0">
-            <SidebarMenu className="gap-0.5">{items.slice(0, 7).map(item)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">{items.slice(0, 8).map(item)}</SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="gap-0.5 border-t border-border p-0 pt-2.5">
-          <SidebarMenu className="gap-0.5">{items.slice(7).map(item)}</SidebarMenu>
+          <SidebarMenu className="gap-0.5">{items.slice(8).map(item)}</SidebarMenu>
         </SidebarFooter>
       </Sidebar>
     </SidebarProvider>

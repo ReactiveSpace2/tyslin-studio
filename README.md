@@ -14,6 +14,7 @@ A Lead agent plans the work on a Kanban board and hands it to a team of agents o
 
 - **20 agency templates:** a Lead and a team with jobs, a goal, a plan and skills, around one folder.
 - **A board and an Inbox:** briefs become cards; the Lead asks, reports and sends digests in the agency's Chat → Inbox, or on Telegram and Slack.
+- **Live:** watch an agency work: who is handing what to whom, each message as it is sent, and what every agent is doing now.
 - **Memory:** plain Markdown notes per agency and per agent, added to every run.
 - **Integrations:** tools from GitHub, Linear, Stripe and any MCP server, including search and install from the official MCP Registry.
 - **Your keys or your sign-in:** API keys for Claude, OpenAI and Gemini, local models on Ollama, or your Claude, ChatGPT or Google sign-in through Claude Code, Codex and Gemini CLI.
@@ -116,6 +117,10 @@ The Lead, and any agent on the built-in runtime, uses one of these.
 Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's card is set to use your signed-in account.
 
 **Sign in instead of a key.** Settings → Models → Claude, ChatGPT or Gemini → *Sign in with …* installs the provider's own tool if needed (Claude Code, Codex or Gemini CLI) and opens its browser sign-in, so agents on that tool use your Claude Pro/Max, ChatGPT or Google plan. The tool keeps the login; Tyslin never stores it. Leads and the default model still use an API key.
+
+### Live
+
+Open an agency and choose **Live** to watch it work. The map shows you, the Lead and the workers; when one of them sends a message, its line lights up and the message appears beside the sender. Next to it, the agency chat lists every brief, hand-off, tool call, result and question as it happens, and you can send the Lead a brief from there. Under the map, each agent's card shows what it is doing and the card it is on. Everything on the screen comes from the board, the Lead's messages and the agents' runs.
 
 ### Memory
 

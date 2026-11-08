@@ -33,6 +33,8 @@ interface Props {
   you: string
   onTab: (tab: 'org' | 'edit') => void
   onBoard: () => void
+  /** Watch live: the agency's Live screen. */
+  onLive: () => void
   /** Run: open the Lead's chat in this agency. */
   onRun: (lead: Agent) => void
   onOpenAgent: (a: Agent) => void
@@ -139,7 +141,7 @@ function Field({ id, label, hint: note, children }: { id: string; label: string;
 }
 
 /** One agency: its overview (counts, team, plan, how it runs, org chart) or its settings. The board is Kanban in its folder. */
-export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddWorker, onDrive, onBack, onChanged, onDeleted }: Props): JSX.Element {
+export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent, onAddWorker, onDrive, onBack, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
   const st = agencyStatus(view)
   const board = useBoardStats([agency])[agency.id]
@@ -334,6 +336,7 @@ export function AgencyPage({ view, tab, you, onBoard, onRun, onOpenAgent, onAddW
                       <TabsTrigger active={teamView === 'table'} onClick={() => setTeamView('table')}>List</TabsTrigger>
                       <TabsTrigger active={teamView === 'chart'} onClick={() => setTeamView('chart')}>Org chart</TabsTrigger>
                     </TabsList>
+                    <Button type="button" variant="outline" size="sm" onClick={onLive}><Icon name="live" size={12} /> Watch live</Button>
                     <Button type="button" variant="outline" size="sm" onClick={onAddWorker}><Icon name="plus" size={12} /> Add a worker</Button>
                   </CardAction>
                 </CardHeader>
