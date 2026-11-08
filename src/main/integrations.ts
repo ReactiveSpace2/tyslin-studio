@@ -162,6 +162,8 @@ function testStdio(s: McpServerInfo): Promise<string[]> {
     let buf = '', errTail = ''
     const done = (err: Error | null, tools?: string[]): void => { clearTimeout(timer); if (child.exitCode === null) child.kill(); if (err) reject(err); else resolve(tools ?? []) }
     const timer = setTimeout(() => done(new Error('The server did not answer within a minute.')), TEST_TIMEOUT_MS)
+    // A server that exits at once closes stdin; without a handler the EPIPE would be an uncaught error in main.
+    child.stdin.on('error', () => { /* reported by the exit handler */ })
     const send = (m: object): void => { child.stdin.write(JSON.stringify(m) + '\n') }
     child.stderr.on('data', (b: Buffer) => { errTail = (errTail + b.toString('utf8')).slice(-1500) })
     child.stdout.on('data', (b: Buffer) => {

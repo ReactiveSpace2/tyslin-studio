@@ -83,7 +83,9 @@ function readText(path: string, size: number): { text?: string; note?: string } 
   } finally {
     if (fd !== null) closeSync(fd)
   }
-  const text = readFileSync(path, 'utf8')
+  let text: string
+  // Moved, deleted or locked since it was picked: note it rather than failing the whole message.
+  try { text = readFileSync(path, 'utf8') } catch { return { note: 'could not be read' } }
   return text.length > MAX_FILE_CHARS
     ? { text: text.slice(0, MAX_FILE_CHARS), note: `cut to the first ${MAX_FILE_CHARS.toLocaleString('en')} characters` }
     : { text }

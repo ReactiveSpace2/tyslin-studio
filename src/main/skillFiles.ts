@@ -7,7 +7,8 @@ export const MAX_SKILL_CHARS = 40_000
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 
 export function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64)
+  // Cut before trimming, so a cut at a hyphen doesn't leave a name ending in "-" (which validateSkill refuses).
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 64).replace(/^-+|-+$/g, '')
 }
 
 /** Returns a reason the skill can't be saved, or null. */

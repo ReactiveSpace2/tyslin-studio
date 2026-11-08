@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import type { Agency, Agent, KanbanCard, KanbanDoc } from '@shared/types'
 import type { ToolCall, ToolDef, ToolResult } from './tools'
@@ -34,7 +34,10 @@ export function readBoard(agency: Agency): KanbanDoc | null {
 export function writeBoard(agency: Agency, doc: KanbanDoc): void {
   const file = boardFile(agency)
   if (!file) throw new Error('This agency has no board file.')
-  writeFileSync(file, JSON.stringify(doc, null, 2), 'utf8')
+  // Write to a temporary file and rename, so a crash mid-write never leaves a half-written (unreadable) board.
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8')
+  renameSync(tmp, file)
   onBoardChanged(agency.projectId, agency.boardPath)
 }
 

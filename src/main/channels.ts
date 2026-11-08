@@ -91,7 +91,8 @@ function deliver(sessionId: string, text: string): void {
       retry ??= setInterval(() => {
         const next = queued.shift()
         if (!next) { clearInterval(retry!); retry = null; return }
-        try { deps!.startRun(next.sessionId, next.text) } catch { queued.unshift(next) }
+        // Only a busy Lead is worth waiting for; any other error (chat or Lead deleted) would retry forever.
+        try { deps!.startRun(next.sessionId, next.text) } catch (e) { if (e instanceof Error && /still working/.test(e.message)) queued.unshift(next) }
       }, 5000)
     } else throw err
   }

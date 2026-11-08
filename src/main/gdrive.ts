@@ -120,9 +120,9 @@ const trash = (id: string): Promise<unknown> => call(`/drive/v3/files/${encodeUR
 interface Local { abs: string; size: number; mtime: number }
 
 /** Files in the project folder that sync (no hidden files or folders, no node_modules, nothing over 100 MB). */
-function scan(root: string): { files: Map<string, Local>; skipped: number } {
+function scan(root: string): { files: Map<string, Local>; skipped: Set<string> } {
   const files = new Map<string, Local>()
-  let skipped = 0
+  const skipped = new Set<string>()
   const walk = (dir: string): void => {
     for (const name of readdirSync(dir)) {
       if (name.startsWith('.') || name === 'node_modules') continue
@@ -131,8 +131,9 @@ function scan(root: string): { files: Map<string, Local>; skipped: number } {
       try { st = statSync(abs) } catch { continue }
       if (st.isDirectory()) walk(abs)
       else if (st.isFile()) {
-        if (st.size > MAX_SIZE) { skipped++; continue }
-        files.set(relative(root, abs).split(sep).join('/'), { abs, size: st.size, mtime: st.mtimeMs })
+        const rel = relative(root, abs).split(sep).join('/')
+        if (st.size > MAX_SIZE) { skipped.add(rel); continue }
+        files.set(rel, { abs, size: st.size, mtime: st.mtimeMs })
       }
     }
   }
@@ -151,9 +152,13 @@ function trashLocal(root: string, rel: string): void {
   renameSync(from, to)
 }
 
-const conflictName = (rel: string): string => {
+/** "name (Google Drive).ext", or "name (Google Drive 2).ext" and so on when an earlier conflict copy is there. */
+const conflictName = (root: string, rel: string): string => {
   const ext = extname(rel)
-  return `${rel.slice(0, rel.length - ext.length)} (Google Drive)${ext}`
+  const stem = rel.slice(0, rel.length - ext.length)
+  let name = `${stem} (Google Drive)${ext}`
+  for (let i = 2; existsSync(join(root, name)); i++) name = `${stem} (Google Drive ${i})${ext}`
+  return name
 }
 
 let syncing: string | null = null
@@ -250,7 +255,7 @@ async function syncProject(p: Project, parent: string): Promise<number> {
     db.gsyncSetProject({ ...state, folderId })
   }
   let base = db.gsyncFiles(p.id)
-  const { files: local } = scan(root)
+  const { files: local, skipped: tooLarge } = scan(root)
   const remote = await tree(folderId)
   // Safety: an emptied side never deletes the other side's files.
   if (base.size && !remote.files.size) { for (const path of base.keys()) db.gsyncSetFile(p.id, { path, remove: true }); base = new Map() }
@@ -293,6 +298,8 @@ async function syncProject(p: Project, parent: string): Promise<number> {
   const paths = new Set([...local.keys(), ...remote.files.keys(), ...base.keys()])
   let inSync = 0
   for (const rel of paths) {
+    // Still here but now over 100 MB: not synced, and not a deletion either (the Drive copy stays as it is).
+    if (tooLarge.has(rel)) continue
     const l = local.get(rel)
     const r = remote.files.get(rel)
     const b = base.get(rel)
@@ -316,7 +323,7 @@ async function syncProject(p: Project, parent: string): Promise<number> {
     else {
       // Changed on both sides (or never synced): keep both. The Drive copy lands beside the local file,
       // which then replaces the Drive version; the copy uploads on the next sync.
-      await pull(rel, r!, conflictName(rel))
+      await pull(rel, r!, conflictName(root, rel))
       await push(rel, l!, r)
       inSync++
     }

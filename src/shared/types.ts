@@ -931,6 +931,13 @@ export interface UpdateStatus {
   error?: string
 }
 
+/** `sessions.status`: shown when a chat opens, since run events sent before it subscribed are missed. */
+export interface SessionStatus {
+  running: boolean
+  /** The agent's last run error (agents.last_error), '' when it worked or never ran. */
+  lastError: string
+}
+
 export interface TyslinApi {
   agents: {
     list(): Promise<Agent[]>
@@ -968,6 +975,8 @@ export interface TyslinApi {
     onEvent(cb: (e: RunEvent) => void): () => void
     /** Stops the session's running reply, if any. */
     stop(sessionId: string): Promise<void>
+    /** Whether a reply is running in this chat now, and how its agent's latest run ended ('' = fine). */
+    status(sessionId: string): Promise<SessionStatus>
     /** Answers an external agent's permission request; null declines. */
     answerPermission(permissionId: string, choiceId: string | null): Promise<void>
   }

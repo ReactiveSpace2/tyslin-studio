@@ -29,7 +29,13 @@ function canAutoInstall(): boolean {
 
 function set(next: Partial<UpdateStatus>): void {
   status = { ...status, ...next }
-  win?.webContents.send('updates:status', status)
+  // The window can be closed (macOS keeps the app running) or replaced by a new one.
+  if (win && !win.isDestroyed()) win.webContents.send('updates:status', status)
+}
+
+/** Follows the app's current window, so status updates reach a window reopened on macOS. */
+export function setUpdaterWindow(window: BrowserWindow): void {
+  win = window
 }
 
 export function getUpdateStatus(): UpdateStatus {

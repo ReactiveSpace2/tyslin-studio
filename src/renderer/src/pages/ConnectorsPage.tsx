@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useListed } from '../currentProject'
 
 type Channel = 'telegram' | 'slack' | 'discord' | 'whatsapp' | 'email'
 
@@ -119,6 +120,7 @@ function LinkedTable({ head, rows }: { head: string; rows: { key: string | numbe
  * polled from this computer, linked accounts only); the others are marked honestly.
  */
 export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props): JSX.Element {
+  const listed = useListed()
   const [pick, setPick] = useState<Channel>('telegram')
   const [tg, setTg] = useState<TelegramStatus | null>(null)
   const [sl, setSl] = useState<SlackStatus | null>(null)
@@ -146,23 +148,26 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
       setBusy(false)
     }
   }
+  /** Runs a channel call and shows its error instead of failing silently. */
+  const run = async <T,>(fn: () => Promise<T>, apply: (v: T) => void): Promise<void> => {
+    setError(null)
+    try { apply(await fn()) } catch (e) { setError(errorText(e)) }
+  }
   const disconnect = async (): Promise<void> => {
     if (!window.confirm('Disconnect Telegram? Linked accounts are forgotten and agents stop answering there.')) return
-    setTg(await window.tyslin.telegram.setToken(''))
+    await run(() => window.tyslin.telegram.setToken(''), setTg)
   }
-  const setNotify = async (p: Partial<TelegramNotify>): Promise<void> => setTg(await window.tyslin.telegram.setNotify(p))
+  const setNotify = (p: Partial<TelegramNotify>): Promise<void> => run(() => window.tyslin.telegram.setNotify(p), setTg)
   const saveSlack = async (): Promise<void> => {
     setBusy(true); setError(null)
     try { setSl(await window.tyslin.slack.setToken(slToken)); setSlToken('') } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
   }
   const disconnectSlack = async (): Promise<void> => {
     if (!window.confirm('Disconnect Slack? Linked channels are forgotten and Leads stop answering there.')) return
-    setSl(await window.tyslin.slack.setToken(''))
+    await run(() => window.tyslin.slack.setToken(''), setSl)
   }
-  const toggleAgent = async (a: Agent): Promise<void> => {
-    await window.tyslin.agents.save({ ...a, channels: { ...a.channels, telegram: !a.channels.telegram } })
-    onChanged()
-  }
+  const toggleAgent = (a: Agent): Promise<void> =>
+    run(() => window.tyslin.agents.save({ ...a, channels: { ...a.channels, telegram: !a.channels.telegram } }), () => onChanged())
 
   const CHANNELS: [Channel, string, string, string, string][] = [
     ['telegram', 'Telegram', 'Chat, task results and approvals from your phone', tg?.connected ? 'Connected' : 'Set up', tg?.connected ? 'green' : ''],
@@ -171,7 +176,8 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
     ['whatsapp', 'WhatsApp', 'Needs a public address for messages', 'Hosted plan', 'soon'],
     ['email', 'Email', 'An inbox address for each agent', 'Coming soon', 'soon']
   ]
-  const team = agents.filter((a) => a.kind === 'agent' || a.kind === 'assistant')
+  // The open agency's (project's) own agents; Builder and the Studio helper are never listed (as elsewhere).
+  const team = agents.filter((a) => (a.kind === 'agent' || a.kind === 'assistant') && listed(a))
   const current = CHANNELS.find((c) => c[0] === pick)!
   const head = (action?: React.ReactNode): JSX.Element => <ChannelHead name={current[1]} desc={current[2]} badge={current[3]} kind={current[4]} action={action} />
   const errorLine = error && <span className="text-[13px] text-destructive" role="alert">{error}</span>
@@ -187,7 +193,7 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
 
         <TabsList aria-label="Channels" className="h-auto flex-wrap">
           {CHANNELS.map(([id, name, , , kind]) => (
-            <TabsTrigger key={id} active={pick === id} onClick={() => setPick(id)} className="h-[30px] flex-none">
+            <TabsTrigger key={id} active={pick === id} onClick={() => { setPick(id); setError(null) }} className="h-[30px] flex-none">
               <Icon name={id === 'email' ? 'file' : 'chat'} size={14} />{name}
               {kind === 'green' && <span className="size-1.5 rounded-full bg-green" aria-label="Connected" role="img" />}
             </TabsTrigger>
@@ -223,14 +229,14 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
                   <Step n={2} done={tg.linked.length > 0} off={!tg.connected} title="Link your account"
                     hint="Only linked accounts can talk to your agents; messages from anyone else are ignored."
                     action={!tg.linkCode && (
-                      <Button size="sm" disabled={!tg.connected} onClick={() => void window.tyslin.telegram.linkCode().then(setTg)}>
+                      <Button size="sm" disabled={!tg.connected} onClick={() => void run(() => window.tyslin.telegram.linkCode(), setTg)}>
                         {tg.linked.length ? 'Link another account' : 'Get a link code'}
                       </Button>
                     )}>
                     {tg.linkCode && (
                       <CodeRow>Send <code>/start {tg.linkCode}</code> to {tg.botName ? `@${tg.botName}` : 'your bot'} from your Telegram. The code works for 10 minutes.</CodeRow>
                     )}
-                    <LinkedTable head="Account" rows={tg.linked.map((l) => ({ key: l.chatId, name: l.name, onUnlink: () => void window.tyslin.telegram.unlink(l.chatId).then(setTg) }))} />
+                    <LinkedTable head="Account" rows={tg.linked.map((l) => ({ key: l.chatId, name: l.name, onUnlink: () => void run(() => window.tyslin.telegram.unlink(l.chatId), setTg) }))} />
                   </Step>
                 </Card>
 
@@ -291,12 +297,12 @@ export function ConnectorsPage({ agents, onOpenAgent, onChanged, header }: Props
                   <Step n={2} done={sl.linked.length > 0} off={!sl.connected} title="Link a channel"
                     hint={`Invite the bot to the channel (/invite @${sl.botName || 'yourbot'}), then post the code there. Only linked channels can talk to your Leads; everything else is ignored.`}
                     action={!sl.linkCode && (
-                      <Button size="sm" disabled={!sl.connected} onClick={() => void window.tyslin.slack.linkCode().then(setSl)}>
+                      <Button size="sm" disabled={!sl.connected} onClick={() => void run(() => window.tyslin.slack.linkCode(), setSl)}>
                         {sl.linked.length ? 'Link another channel' : 'Get a link code'}
                       </Button>
                     )}>
                     {sl.linkCode && <CodeRow>Post <code>tyslin {sl.linkCode}</code> in the channel. The code works for 10 minutes.</CodeRow>}
-                    <LinkedTable head="Channel" rows={sl.linked.map((l) => ({ key: l.channelId, name: `#${l.name}`, onUnlink: () => void window.tyslin.slack.unlink(l.channelId).then(setSl) }))} />
+                    <LinkedTable head="Channel" rows={sl.linked.map((l) => ({ key: l.channelId, name: `#${l.name}`, onUnlink: () => void run(() => window.tyslin.slack.unlink(l.channelId), setSl) }))} />
                   </Step>
                 </Card>
 

@@ -15,6 +15,8 @@ import { boardHooks, findCard, log, moveCard, patchCard, readBoard, writeBoard }
 interface Deps {
   startRun: (sessionId: string, text: string) => { runId: string; done: Promise<{ ok: boolean; error?: string }> }
   runTask: (t: ScheduledTask, scheduled: boolean) => string
+  /** Throws why this agent can't run now (paused, no model key), before any chat is created. */
+  checkReady: (agent: Agent) => void
 }
 let deps: Deps | null = null
 export function initCards(d: Deps): void {
@@ -58,6 +60,7 @@ export async function runCard(agencyId: string, cardId: string): Promise<string>
   const agentId = hit.card.assignee || hit.card.agentId || agency.leadId
   const agent = agentId ? db.getAgent(agentId) : null
   if (!agent) throw new Error('Give the card to someone on the roster first.')
+  deps.checkReady(agent)
 
   const session = db.createSession(agent.id, agency.projectId)
   const { runId, done } = deps.startRun(session.id, cardPrompt(agency, hit.card.title, hit.card.notes, hit.column.title, hit.card.parentCard))
@@ -120,7 +123,11 @@ export async function runNext(agency: Agency): Promise<void> {
   const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned')
   const next = planned?.cards.find((k) => (k.assignee || k.agentId) && !k.status)
   if (!next) return
-  try { await runCard(agency.id, next.id) } catch { /* logged on the card by the next attempt */ }
+  try { await runCard(agency.id, next.id) } catch (err) {
+    // Mark it so auto-run moves on to the next card instead of retrying this one forever.
+    const msg = err instanceof Error ? err.message : String(err)
+    patchCard(agency, next.id, (card) => { card.status = 'failed'; log(card, `Could not start: ${msg.slice(0, 200)}`) })
+  }
 }
 
 /** Run events: token counts for card runs, and the Lead finishing (which starts auto-run). */
@@ -166,6 +173,9 @@ export function planNow(agencyId: string): string {
   if (task) return deps.runTask(task, false)
   const prompt = AGENCY_TEMPLATES.find((t) => t.id === agency.templateId)?.leadTask.prompt
     ?? 'Read the Inbox and Review columns. Plan new briefs into cards with assignees in Planned, review finished cards, and send the boss a digest.'
+  const lead = db.getAgent(agency.leadId)
+  if (!lead) throw new Error('This agency has no Lead yet.')
+  deps.checkReady(lead)
   const session = db.createSession(agency.leadId, agency.projectId)
   deps.startRun(session.id, prompt)
   db.setSessionTitle(session.id, `${agency.name}: plan the Inbox`)

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'path'
 import { applyHunks, diffHunks } from '@shared/diff'
 import type { Agency, Agent, PendingChange, Project, RunEventBody } from '@shared/types'
@@ -109,6 +109,17 @@ function safePath(folder: string, p: unknown): { abs: string; rel: string } {
   const rel = relative(folder, abs)
   if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error(`${p} is outside the project folder`)
   if (rel.split(sep).includes('.git')) throw new Error('The .git folder is off limits')
+  // A symlink inside the folder (or a dangling one) could still lead outside it: check where the path really goes.
+  let probe = abs
+  for (;;) {
+    try { lstatSync(probe); break } catch { /* not there yet: check its parent */ }
+    const up = dirname(probe)
+    if (up === probe) break
+    probe = up
+  }
+  let real: string
+  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error(`${p} is outside the project folder`) }
+  if (real.startsWith('..') || isAbsolute(real)) throw new Error(`${p} is outside the project folder`)
   return { abs, rel }
 }
 

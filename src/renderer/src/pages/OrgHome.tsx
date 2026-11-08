@@ -13,6 +13,7 @@ import { Icon } from '../components/Icon'
 import { AGENCY_TEMPLATES, templateSummary } from '@shared/agencies'
 import { HEAD_SRC } from '../heads'
 import { money, plural, useBoardStats } from '../boardStats'
+import { STATUS_LABEL, useAgentStatuses } from '../agentStatus'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,7 +43,13 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
   useEffect(() => { void window.tyslin.app.info().then(setInfo) }, [])
   const leads = agencies.filter((v) => v.lead).length
   const workers = agencies.reduce((n, v) => n + v.workers.length, 0)
-  const ready = agencies.filter((v) => agencyStatus(v).tone === 'on').length
+  const statuses = useAgentStatuses()
+  /** Ready only when the Lead can run; a Lead that needs setup or whose last run failed says so. */
+  const statusOf = (v: AgencyView): { label: string; tone: 'on' | 'off' | 'idle' | 'warn'; reason?: string } => {
+    const s = v.lead && !v.paused ? statuses.get(v.lead.id) : undefined
+    return s && (s.state === 'setup' || s.state === 'failed') ? { label: STATUS_LABEL[s.state], tone: 'warn', reason: s.reason } : agencyStatus(v)
+  }
+  const ready = agencies.filter((v) => statusOf(v).tone === 'on').length
   const boards = useBoardStats(agencies.map((v) => v.agency))
   const review = Object.values(boards).reduce((n, b) => n + b.review, 0)
   const working = Object.values(boards).reduce((n, b) => n + b.inProgress, 0)
@@ -143,7 +150,7 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
             {agencies.map((v) => {
-              const st = agencyStatus(v)
+              const st = statusOf(v)
               const b = boards[v.agency.id]
               const line = b ? [
                 b.inProgress ? `${b.inProgress} in progress` : '',
@@ -177,7 +184,7 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
                           ))}
                           {v.workers.length > 5 && <span className="flex size-[26px] items-center justify-center rounded-full bg-muted font-mono text-[11px] ring-2 ring-card">+{v.workers.length - 5}</span>}
                         </span>
-                        <Badge variant={st.tone === 'on' ? 'soft' : st.tone === 'off' ? 'secondary' : 'outline'}>
+                        <Badge variant={st.tone === 'on' ? 'soft' : st.tone === 'warn' ? 'destructive' : st.tone === 'off' ? 'secondary' : 'outline'} title={st.reason || undefined}>
                           {st.tone === 'on' && <span className="size-1.5 rounded-full bg-green" />}
                           {st.label}
                         </Badge>

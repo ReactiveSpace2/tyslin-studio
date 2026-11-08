@@ -226,6 +226,12 @@ export function notifyTask(taskName: string, agentName: string, ok: boolean, err
   for (const l of links()) void send(l.chatId, text)
 }
 
+/**
+ * Messages are handled one after another (each waits for its agent's reply), but off the polling loop: the
+ * loop must keep reading updates, or an Approve/Decline button pressed for the running reply would never arrive.
+ */
+let messageQueue: Promise<void> = Promise.resolve()
+
 async function loop(signal: AbortSignal): Promise<void> {
   let offset = Number(db.getSetting('telegram:offset') || 0)
   while (!signal.aborted) {
@@ -236,7 +242,7 @@ async function loop(signal: AbortSignal): Promise<void> {
       for (const u of updates) {
         offset = u.update_id + 1
         db.setSetting('telegram:offset', String(offset))
-        if (u.message) await onMessage(u.message).catch(() => {})
+        if (u.message) { const m = u.message; messageQueue = messageQueue.then(() => onMessage(m)).catch(() => {}) }
         if (u.callback_query) await onCallback(u.callback_query).catch(() => {})
       }
     } catch (err) {
@@ -290,6 +296,8 @@ export async function setTelegramToken(value: string): Promise<TelegramStatus> {
   const res: GetMe = await fetch(`${API}/bot${t}/getMe`).then((r) => r.json() as Promise<GetMe>)
     .catch((): GetMe => ({ ok: false, description: 'Could not reach Telegram.' }))
   if (!res.ok || !res.result) throw new Error(res.description === 'Unauthorized' ? 'Telegram didn\'t accept that token. Copy it again from BotFather.' : res.description || 'Telegram didn\'t accept that token.')
+  // Update ids belong to a bot: another bot's saved offset would skip (and confirm away) the new bot's messages.
+  if (token() !== t) db.setSetting('telegram:offset', '0')
   setSecret('telegram', t)
   botName = res.result.username
   lastError = ''

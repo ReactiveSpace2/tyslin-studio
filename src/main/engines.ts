@@ -288,7 +288,9 @@ export function runInstall(id: ExternalEngineId, onOutput: (text: string) => voi
   if (!recipe) return Promise.resolve({ ok: false, error: `Tyslin can't install ${def(id).name}; follow its setup guide.` })
   if (installing.has(id)) return Promise.resolve({ ok: false, error: 'An install is already running.' })
   const win = process.platform === 'win32'
-  if (!win && !which('curl')) return Promise.resolve({ ok: false, error: 'curl is needed to download the installer. Install curl and try again.' })
+  // Only the download-script installers need curl; the npm ones need npm instead.
+  if (!win && /\bcurl\b/.test(recipe.command) && !which('curl')) return Promise.resolve({ ok: false, error: 'curl is needed to download the installer. Install curl and try again.' })
+  if (/^npm\b/.test(recipe.command) && !which('npm')) return Promise.resolve({ ok: false, error: 'npm is needed to install this adapter. Install Node.js (which includes npm) and try again.' })
 
   onOutput(`$ ${recipe.command}\n\n`)
   const child = win

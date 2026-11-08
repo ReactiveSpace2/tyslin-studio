@@ -354,6 +354,7 @@ export default function App(): JSX.Element {
         <CreateAgentModal
           agents={agents}
           projects={projects}
+          agency={activeView ? { id: activeView.agency.id, projectId: activeView.project.id, leadId: activeView.lead?.id ?? null } : undefined}
           onClose={() => setAddingWorker(false)}
           onCreated={() => void refresh()}
           onChat={(a) => { setAddingWorker(false); openChat(a.id, null) }}

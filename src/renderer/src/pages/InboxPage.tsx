@@ -56,7 +56,7 @@ export function InboxPage({ agency: scope, agencies, agents, focusId, onOpenBoar
 
   const load = (): void => { void window.tyslin.channels.list(scope.id).then(setMessages) }
   useEffect(() => { load(); return window.tyslin.channels.onMessage((m) => { if (m.agencyId === scope.id) load() }) }, [scope.id])
-  useEffect(() => { if (focusId) setSelected(focusId) }, [focusId])
+  useEffect(() => { if (focusId) { setSelected(focusId); setBriefing(false) } }, [focusId])
 
   const agencyById = useMemo(() => new Map(agencies.map((a) => [a.id, a])), [agencies])
   const agentById = useMemo(() => new Map(agents.map((a) => [a.id, a])), [agents])

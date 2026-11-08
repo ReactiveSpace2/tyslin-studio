@@ -74,42 +74,50 @@ export function createAgency(input: AgencyCreateInput): Agency {
   for (const sub of t?.folders ?? []) mkdirSync(join(folder, sub), { recursive: true })
   const project = db.createProject(name, folder)
   const agencyId = randomUUID()
+  let inserted = false
+  try {
+    // 2. Lead, then workers reporting to it.
+    let leadId: string | null = null
+    if (t) {
+      const lead = t.roster.find((m) => m.lead)
+      if (lead) leadId = db.saveAgent(memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId)).id
+      for (const m of t.roster.filter((x) => !x.lead)) db.saveAgent(memberAgent(t, m, prompt, engineFor(m, input.adapter), project.id, leadId, agencyId))
+    }
 
-  // 2. Lead, then workers reporting to it.
-  let leadId: string | null = null
-  if (t) {
-    const lead = t.roster.find((m) => m.lead)
-    if (lead) leadId = db.saveAgent(memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId)).id
-    for (const m of t.roster.filter((x) => !x.lead)) db.saveAgent(memberAgent(t, m, prompt, engineFor(m, input.adapter), project.id, leadId, agencyId))
+    // 3. The board, with the starter cards in Inbox.
+    const boardPath = join('boards', `${safeFile(name)}.board.json`).split('\\').join('/')
+    mkdirSync(join(folder, 'boards'), { recursive: true })
+    writeFileSync(join(folder, boardPath), JSON.stringify(boardDoc(t, agencyId), null, 2), 'utf8')
+
+    // 4. The agency row.
+    const agency = db.insertAgency({
+      id: agencyId, name, description: String(input.description ?? '').trim() || t?.tagline || '', goal: String(input.goal ?? '').trim() || t?.goal || '',
+      prompt, plan: t?.plan ?? [], templateId: t?.id ?? '', leadId, projectId: project.id, adapter: input.adapter || 'template', boardPath,
+      channel: { kind: input.channel ?? 'none' }, notify: input.notify ?? 'questions', budget: input.budget ?? null, autoRun: !!input.autoRun, paused: false
+    })
+    inserted = true
+
+    // Memory files for the agency and each agent (memory/), filled in later on the Memory screen.
+    try { ensureMemory(agency) } catch { /* the Memory screen creates them on first open */ }
+
+    // 5. The Lead's scheduled task.
+    if (t && leadId) {
+      db.saveTask({
+        name: `${name}: ${t.leadTask.prompt.split('.')[0]}`.slice(0, 80),
+        prompt: t.leadTask.prompt, agentId: leadId, projectId: project.id, schedule: t.leadTask.schedule, enabled: true
+      }, nextRunAfter(t.leadTask.schedule, Date.now()))
+    }
+
+    // 6. Skill packs, in the background.
+    for (const id of input.packs ?? []) void installPack(id).catch(() => { /* shown on the Skills page */ })
+
+    return agency
+  } catch (err) {
+    // A half-made agency (some agents, no row or no board) would linger with no way to remove it: undo the
+    // database side. Files already written stay in the new folder.
+    try { if (inserted) db.removeAgency(agencyId); else db.removeProject(project.id, null) } catch { /* best effort */ }
+    throw err
   }
-
-  // 3. The board, with the starter cards in Inbox.
-  const boardPath = join('boards', `${safeFile(name)}.board.json`).split('\\').join('/')
-  mkdirSync(join(folder, 'boards'), { recursive: true })
-  writeFileSync(join(folder, boardPath), JSON.stringify(boardDoc(t, agencyId), null, 2), 'utf8')
-
-  // 4. The agency row.
-  const agency = db.insertAgency({
-    id: agencyId, name, description: String(input.description ?? '').trim() || t?.tagline || '', goal: String(input.goal ?? '').trim() || t?.goal || '',
-    prompt, plan: t?.plan ?? [], templateId: t?.id ?? '', leadId, projectId: project.id, adapter: input.adapter || 'template', boardPath,
-    channel: { kind: input.channel ?? 'none' }, notify: input.notify ?? 'questions', budget: input.budget ?? null, autoRun: !!input.autoRun, paused: false
-  })
-
-  // Memory files for the agency and each agent (memory/), filled in later on the Memory screen.
-  try { ensureMemory(agency) } catch { /* the Memory screen creates them on first open */ }
-
-  // 5. The Lead's scheduled task.
-  if (t && leadId) {
-    db.saveTask({
-      name: `${name}: ${t.leadTask.prompt.split('.')[0]}`.slice(0, 80),
-      prompt: t.leadTask.prompt, agentId: leadId, projectId: project.id, schedule: t.leadTask.schedule, enabled: true
-    }, nextRunAfter(t.leadTask.schedule, Date.now()))
-  }
-
-  // 6. Skill packs, in the background.
-  for (const id of input.packs ?? []) void installPack(id).catch(() => { /* shown on the Skills page */ })
-
-  return agency
 }
 
 export function updateAgency(id: string, input: AgencyUpdateInput): Agency {

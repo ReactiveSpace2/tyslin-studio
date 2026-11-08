@@ -111,9 +111,16 @@ async function poll(signal: AbortSignal): Promise<void> {
     }
   }
   // Linked channels: new human messages since the last one seen.
+  let channelError = ''
   for (const l of links()) {
     const oldest = db.getSetting(`slack:ts:${l.channelId}`) || String(Date.now() / 1000)
-    const h = await call<History>('conversations.history', { channel: l.channelId, oldest, limit: 20 }, signal)
+    // One channel the bot was removed from (or that was archived) must not stop the others being read.
+    let h: History
+    try { h = await call<History>('conversations.history', { channel: l.channelId, oldest, limit: 20 }, signal) } catch (err) {
+      if (signal.aborted) throw err
+      channelError = `#${l.name}: ${err instanceof Error ? err.message : String(err)}`
+      continue
+    }
     const fresh = (h.messages ?? []).filter((m) => !m.bot_id && m.user !== botUserId && !m.subtype && (m.text ?? '').trim()).sort((a, b) => Number(a.ts) - Number(b.ts))
     for (const m of fresh) {
       db.setSetting(`slack:ts:${l.channelId}`, m.ts)
@@ -121,6 +128,7 @@ async function poll(signal: AbortSignal): Promise<void> {
     }
     if (!fresh.length && h.messages?.length) db.setSetting(`slack:ts:${l.channelId}`, h.messages.map((m) => m.ts).sort().pop()!)
   }
+  if (channelError) throw new Error(channelError)
 }
 
 async function loop(signal: AbortSignal): Promise<void> {

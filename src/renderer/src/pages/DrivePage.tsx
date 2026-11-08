@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DriveEntry, DriveKind, DriveListing, DrivePreview, Project } from '@shared/types'
 import { useCurrentProject } from '../currentProject'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
@@ -60,15 +60,34 @@ export function DrivePage({ projects, onOpenIn }: Props): JSX.Element {
   const [thumbs, setThumbs] = useState<Record<string, string>>({})
 
   useEffect(() => { void window.tyslin.studio.defaultProject().then((p) => { setDefaultId(p.id); setDefaultName(p.name) }) }, [])
+  /** Bumped by every load, so a slow listing for a folder you already left can't replace the current one. */
+  const loadSeq = useRef(0)
   const load = (): void => {
+    const n = ++loadSeq.current
     setError(null)
-    window.tyslin.drive.list(projectId, dir, hidden).then(setListing).catch((e) => { setListing(null); setError(errorText(e)) })
+    window.tyslin.drive.list(projectId, dir, hidden)
+      .then((l) => { if (n === loadSeq.current) setListing(l) })
+      .catch((e) => { if (n === loadSeq.current) { setListing(null); setError(errorText(e)) } })
   }
+  // Another agency opened while Drive is showing: start at its root (the old folder path and selection belong to the old one).
+  const shownProject = useRef(projectId)
+  useEffect(() => {
+    if (shownProject.current === projectId) return
+    shownProject.current = projectId
+    setDir('')
+    setSel(null)
+    setThumbs({})
+  }, [projectId])
   useEffect(load, [projectId, dir, hidden])
   useEffect(() => {
     setPreview(null)
-    if (sel && !sel.isDir) void window.tyslin.drive.preview(projectId, sel.path).then(setPreview).catch(() => setPreview({ kind: 'none', note: 'Could not read this file.' }))
-  }, [sel?.path])
+    if (!sel || sel.isDir) return
+    let live = true
+    void window.tyslin.drive.preview(projectId, sel.path)
+      .then((p) => { if (live) setPreview(p) })
+      .catch(() => { if (live) setPreview({ kind: 'none', note: 'Could not read this file.' }) })
+    return () => { live = false }
+  }, [sel?.path, projectId])
 
   const allRoots = [{ id: defaultId, name: defaultName }, ...projects.filter((p) => p.folder && p.id !== defaultId).map((p) => ({ id: p.id as string | null, name: p.name }))]
   // An agency tab is open: its Drive shows only that agency's folder.

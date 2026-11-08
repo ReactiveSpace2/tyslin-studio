@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Agent, AgentTestResult, DashboardStats, EngineId, EngineStatus, Preferences, Project, ProviderId, ScheduledTask, Session, Skill, TelegramStatus } from '@shared/types'
 import { describeSchedule } from '@shared/schedule'
 import { refreshStatuses, useAgentStatuses } from '../agentStatus'
@@ -105,7 +105,18 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
   const [error, setError] = useState<string | null>(null)
   const statuses = useAgentStatuses()
 
-  useEffect(() => { setForm(saved ?? null) }, [saved?.updatedAt, agentId])
+  // A new saved copy (after Save, Pause/Resume or a change elsewhere) keeps the edits not saved yet.
+  const prevSaved = useRef(saved)
+  useEffect(() => {
+    const prev = prevSaved.current
+    prevSaved.current = saved
+    setForm((f) => {
+      if (!saved) return null
+      if (!f || !prev || f.id !== saved.id) return saved
+      const edits = Object.fromEntries(Object.entries(f).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(prev[k as keyof Agent])))
+      return { ...saved, ...edits, updatedAt: saved.updatedAt }
+    })
+  }, [saved?.updatedAt, agentId])
   useEffect(() => {
     void window.tyslin.skills.list().then(setSkills)
     void window.tyslin.engines.list().then(setEngines)
@@ -145,8 +156,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
   }
   const remove = async (): Promise<void> => {
     if (!window.confirm(`Delete ${saved.name}? Its chats and scheduled tasks are deleted too.`)) return
-    await window.tyslin.agents.remove(saved.id)
-    onDeleted()
+    try { await window.tyslin.agents.remove(saved.id); onDeleted() } catch (e) { setError(errorText(e)) }
   }
   const runTest = async (): Promise<void> => {
     setTesting(true)
@@ -367,7 +377,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
                 {inProject ? (
                   <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
                     <Field id="ap-proj" label="Project">
-                      <Select value={form.projectId ?? NONE} onValueChange={(v) => setForm({ ...form, projectId: v === NONE ? null : v, leadId: null })}>
+                      <Select value={form.projectId ?? NONE} onValueChange={(v) => setForm({ ...form, projectId: v === NONE ? null : v, leadId: null, agency: v === saved.projectId ? saved.agency : null })}>
                         <SelectTrigger id="ap-proj" className={SELECT}><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value={NONE}>No project yet</SelectItem>

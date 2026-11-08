@@ -97,15 +97,17 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
   useEffect(() => {
     const q = query.trim()
     if (!q) { setResults(null); setSearchError(''); return }
+    // A slower answer for an older query must not replace the results for what is typed now.
+    let live = true
     const t = setTimeout(() => {
       setSearching(true)
       setSearchError('')
       window.tyslin.integrations.search(q)
-        .then((r) => setResults({ q, ...r }))
-        .catch((err) => { setResults(null); setSearchError(errText(err)) })
-        .finally(() => setSearching(false))
+        .then((r) => { if (live) setResults({ q, ...r }) })
+        .catch((err) => { if (live) { setResults(null); setSearchError(errText(err)) } })
+        .finally(() => { if (live) setSearching(false) })
     }, 350)
-    return () => clearTimeout(t)
+    return () => { live = false; clearTimeout(t); setSearching(false) }
   }, [query])
   const more = async (): Promise<void> => {
     if (!results?.next) return
@@ -121,6 +123,9 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0)
   }
 
+  /** The latest list, for handlers that run after an await (two quick switch flips must not undo each other). */
+  const listRef = useRef<McpServerInfo[] | null>(null)
+  listRef.current = list
   const load = async (): Promise<void> => setList(await window.tyslin.integrations.list())
   useEffect(() => { void load() }, [])
   const replace = (s: McpServerInfo): void => setList((l) => (l ?? []).some((x) => x.id === s.id) ? l!.map((x) => (x.id === s.id ? s : x)) : [...(l ?? []), s])
@@ -147,16 +152,28 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
   }
   const test = async (id: string): Promise<void> => {
     setTesting(id)
-    try { replace(await window.tyslin.integrations.test(id)) } finally { setTesting(null) }
+    try {
+      const r = await window.tyslin.integrations.test(id)
+      // Removed while the test ran: don't bring it back.
+      if (r) setList((l) => (l ?? []).map((x) => (x.id === r.id ? r : x)))
+    } catch (err) { setError(errText(err)) } finally { setTesting((t) => (t === id ? null : t)) }
   }
   const remove = async (s: McpServerInfo): Promise<void> => {
     if (!window.confirm(`Remove ${titleOf(s)}? Agents stop using it and its saved token is deleted.`)) return
-    await window.tyslin.integrations.remove(s.id)
-    setList((l) => (l ?? []).filter((x) => x.id !== s.id))
+    try {
+      await window.tyslin.integrations.remove(s.id)
+      setList((l) => (l ?? []).filter((x) => x.id !== s.id))
+      if (draft?.id === s.id) setDraft(null)
+    } catch (err) { setError(errText(err)) }
   }
   const toggle = async (s: McpServerInfo, a: Agent): Promise<void> => {
-    const ids = s.agentIds.includes(a.id) ? s.agentIds.filter((x) => x !== a.id) : [...s.agentIds, a.id]
-    replace(await window.tyslin.integrations.setAgents(s.id, ids))
+    const cur = listRef.current?.find((x) => x.id === s.id)?.agentIds ?? s.agentIds
+    const ids = cur.includes(a.id) ? cur.filter((x) => x !== a.id) : [...cur, a.id]
+    // Show the flip straight away, so a second flip builds on it.
+    const optimistic = { ...s, agentIds: ids }
+    listRef.current = (listRef.current ?? []).map((x) => (x.id === s.id ? { ...x, agentIds: ids } : x))
+    replace(listRef.current.find((x) => x.id === s.id) ?? optimistic)
+    try { replace(await window.tyslin.integrations.setAgents(s.id, ids)) } catch (err) { setError(errText(err)); void load() }
   }
   const edit = (s: McpServerInfo): void => {
     setError('')
@@ -184,6 +201,7 @@ export function IntegrationsPage({ agents, team, templateId }: Props): JSX.Eleme
           Agents on {ADAPTERS} can use them.
         </p>
       </header>
+      {!draft && error && <ErrorText>{error}</ErrorText>}
 
       {draft?.registry && draft.registry.install && (
         <section ref={formRef} className="flex scroll-mt-4 flex-col gap-4 rounded-xl border border-border bg-card p-5 shadow-xs" aria-labelledby="int-form-h">

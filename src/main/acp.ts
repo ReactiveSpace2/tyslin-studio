@@ -159,6 +159,9 @@ export async function runAcpTurn(opts: {
   const stop = (): void => {
     if (child.exitCode === null && !child.killed) child.kill()
   }
+  // Stopped while the agent is still starting (the handshake can take up to 30 s): there is no session to
+  // cancel yet, and an abort listener added later never fires, so stop the process now.
+  signal?.addEventListener('abort', stop, { once: true })
 
   try {
     return await Promise.race([died, app.connectWith(connection(child), async (agent) => {
@@ -179,6 +182,8 @@ export async function runAcpTurn(opts: {
         }
         throw err
       }
+      signal?.removeEventListener('abort', stop)
+      if (signal?.aborted) throw new Error('Stopped.')
 
       const onAbort = (): void => {
         void agent.notify('session/cancel', { sessionId: session.sessionId }).catch(() => undefined)
@@ -209,6 +214,7 @@ export async function runAcpTurn(opts: {
   } catch (err) {
     return await explain(err, died)
   } finally {
+    signal?.removeEventListener('abort', stop)
     stop()
   }
 }

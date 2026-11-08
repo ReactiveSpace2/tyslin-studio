@@ -25,14 +25,14 @@ import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from '
 import { pickAttachments, prepareAttachments } from './attachments'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
-import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload } from './updater'
+import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, Session, SessionStatus, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -93,13 +93,43 @@ function applyTheme(): void {
  * Saves the user's message and starts the agent's reply in the background (chat and scheduled tasks).
  * The renderer follows the run through run events; `done` settles when the run ends.
  */
-function startRun(sessionId: string, text: string, attachments: ReturnType<typeof prepareAttachments> = { attachments: [], context: '' }): { runId: string; done: Promise<{ ok: boolean; error?: string }> } {
+/** Throws the reason a message can't start in this chat right now (missing, busy, paused). */
+function checkCanRun(sessionId: string): { session: Session; agent: Agent } {
   const session = db.getSession(sessionId)
   if (!session) throw new Error('Session not found')
   const agent = db.getAgent(session.agentId)
   if (!agent) throw new Error('Agent not found')
   if (activeRuns.has(sessionId)) throw new Error(`${agent.name} is still working on the last message.`)
+  checkAgentReady(agent)
+  return { session, agent }
+}
+
+/**
+ * Refuses up front when the agent can't run: paused, or on Tyslin's own runtime without its provider's key
+ * (otherwise the run fails after the message is saved, often before any chat screen is listening).
+ */
+function checkAgentReady(agent: Agent): void {
   if (agent.paused) throw new Error(`${agent.name} is paused. Resume it on its page to chat or run tasks.`)
+  if (agent.engine === 'builtin' && agent.provider !== 'ollama' && !getSecret(agent.provider)) {
+    throw new Error(`No ${PROVIDER_NAMES[agent.provider] ?? agent.provider} key yet. Add one in Settings → Models.`)
+  }
+}
+
+/** Stops every reply in progress for these agents (before they are deleted). */
+function stopRunsOf(agentIds: string[]): void {
+  const ids = new Set(agentIds)
+  for (const [sid, r] of activeRuns) {
+    const agentId = db.getSession(sid)?.agentId
+    if (agentId && ids.has(agentId)) {
+      r.controller.abort()
+      expireRunChanges(r.runId)
+      cancelRunPermissions(r.runId)
+    }
+  }
+}
+
+function startRun(sessionId: string, text: string, attachments: ReturnType<typeof prepareAttachments> = { attachments: [], context: '' }): { runId: string; done: Promise<{ ok: boolean; error?: string }> } {
+  const { session, agent } = checkCanRun(sessionId)
   db.addMessage(sessionId, 'user', text, attachments)
   const project = session.projectId && agent.kind === 'agent' ? db.getProject(session.projectId) : null
   const runId = randomUUID()
@@ -146,6 +176,9 @@ function runTask(t: ScheduledTask, scheduled: boolean): string {
   const now = Date.now()
   const next = scheduled ? nextRunAfter(t.schedule, now) : undefined
   try {
+    // A paused agent (or one without its key) would otherwise leave an empty chat behind on every scheduled run.
+    const agent = db.getAgent(t.agentId)
+    if (agent) checkAgentReady(agent)
     const s = db.createSession(t.agentId, t.projectId)
     const { done } = startRun(s.id, t.prompt)
     db.setSessionTitle(s.id, t.name)
@@ -176,7 +209,7 @@ function startScheduler(): void {
   setInterval(safe, 30_000)
 }
 
-const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini' }
+const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter' }
 
 /** Why an agent can't run right now, or '' when it can (missing key, engine not installed). */
 function setupProblem(a: Agent): string {
@@ -253,6 +286,7 @@ async function askAgent(agentId: string, projectId: string | null, prompt: strin
       throw new Error(`${agent.name} belongs to another project. Pick one from ${where.name}.`)
     }
     const project = agent.kind === 'agent' ? projectFor(projectId) : null
+    checkAgentReady(agent)
     const s = db.createSession(agent.id, project?.id ?? null)
     onSession?.(s.id)
     const { done } = startRun(s.id, prompt)
@@ -270,7 +304,7 @@ function createWindow(): void {
   applyTheme()
   // No File/Edit/View menu bar on Windows and Linux; the app draws its own title bar. macOS keeps its menu in the system bar.
   if (!isMac) Menu.setApplicationMenu(null)
-  win = new BrowserWindow({
+  const w = new BrowserWindow({
     width: 1360,
     height: 880,
     minWidth: 900,
@@ -287,6 +321,10 @@ function createWindow(): void {
       sandbox: false
     }
   })
+  win = w
+  // On macOS the app keeps running with no window; sending to a destroyed one throws (scheduler, updater, channels).
+  w.on('closed', () => { if (win === w) win = null })
+  setUpdaterWindow(w)
   // Zoom survives reloads (the shortcuts live in the renderer, ZoomControl.tsx).
   win.webContents.on('did-finish-load', applyZoom)
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -321,7 +359,7 @@ async function openrouterModels(): Promise<OpenRouterModel[]> {
 }
 
 function initAgencies(): void {
-  initCards({ startRun, runTask })
+  initCards({ startRun, runTask, checkReady: checkAgentReady })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
   // Every Lead → boss message goes through the gateway (Lead-only, the agency's notify setting, Telegram or Slack).
   boardHooks.messageBoss = (agency, from, kind, text, extras) => sendToBoss(agency, from, kind, text, extras)
@@ -394,6 +432,8 @@ function registerIpc(): void {
     if (isStudioAssistant(id)) throw new Error('Studio runs your default model for cards and the agency screens, so it stays. Change its model in Settings → Models.')
     const gone = db.getAgent(id)
     if (gone?.engine === 'hermes') deleteHermesProfile(gone)
+    // Its chats are deleted with it, so a reply still running would only fail on save.
+    if (gone && !gone.isMascot) stopRunsOf([id])
     db.removeAgent(id)
   })
   ipcMain.handle('agents:statuses', () => agentStatuses())
@@ -418,7 +458,13 @@ function registerIpc(): void {
   ipcMain.handle('projects:remove', (_e, id: string) => {
     const def = db.getSetting('project:default')
     // Stop anything still replying in that project first.
-    for (const [sid, r] of activeRuns) { if (db.getSession(sid)?.projectId === id) r.controller.abort() }
+    // Aborting alone leaves a run waiting on a review or permission forever (and blocks switching organizations).
+    for (const [sid, r] of activeRuns) {
+      if (db.getSession(sid)?.projectId !== id) continue
+      r.controller.abort()
+      expireRunChanges(r.runId)
+      cancelRunPermissions(r.runId)
+    }
     return db.removeProject(id, def)
   })
   ipcMain.handle('projects:pickFolder', async () => {
@@ -435,6 +481,8 @@ function registerIpc(): void {
   ipcMain.handle('sessions:messages', (_e, id: string) => db.listMessages(id))
   ipcMain.handle('attachments:pick', (_e, kind: 'file' | 'folder') => pickAttachments(win!, kind === 'folder' ? 'folder' : 'file'))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
+    // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.
+    checkCanRun(sessionId)
     startRun(sessionId, text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
   })
   ipcMain.handle('sessions:stop', (_e, sessionId: string) => {
@@ -444,6 +492,10 @@ function registerIpc(): void {
     // Unblock a run that is waiting on the user, so it can wind down.
     expireRunChanges(run.runId)
     cancelRunPermissions(run.runId)
+  })
+  ipcMain.handle('sessions:status', (_e, sessionId: string): SessionStatus => {
+    const session = db.getSession(String(sessionId ?? ''))
+    return { running: activeRuns.has(String(sessionId ?? '')), lastError: session ? db.agentLastError(session.agentId) : '' }
   })
   ipcMain.handle('sessions:answerPermission', (_e, permissionId: string, choiceId: string | null) => answerPermission(permissionId, choiceId))
 
@@ -613,7 +665,12 @@ function registerIpc(): void {
     return a
   })
   ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
-  ipcMain.handle('agencies:remove', (_e, id: string) => { removeAgency(id); win?.webContents.send('tasks:changed') })
+  ipcMain.handle('agencies:remove', (_e, id: string) => {
+    stopRunsOf(db.listAgents().filter((a) => a.agency === id).map((a) => a.id))
+    removeAgency(id)
+    win?.webContents.send('tasks:changed')
+    updateBadge()
+  })
   ipcMain.handle('agencies:plan', (_e, id: string) => planNow(id))
   ipcMain.handle('agencies:brief', (_e, id: string, text: string) => briefLead(String(id ?? ''), String(text ?? '')))
   ipcMain.handle('slack:status', () => slackStatus())

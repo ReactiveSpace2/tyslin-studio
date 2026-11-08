@@ -16,7 +16,11 @@ export function setSecret(name: string, value: string): void {
 export function getSecret(name: string): string | null {
   const raw = getSetting(`secret:${name}`)
   if (!raw) return null
-  if (raw.startsWith('enc:')) return safeStorage.decryptString(Buffer.from(raw.slice(4), 'base64'))
+  // A key encrypted under another OS keychain (a copied data folder, a reset keyring) can't be decrypted:
+  // treat it as missing so Settings and agent statuses keep working and the user can enter it again.
+  if (raw.startsWith('enc:')) {
+    try { return safeStorage.decryptString(Buffer.from(raw.slice(4), 'base64')) } catch { return null }
+  }
   if (raw.startsWith('plain:')) return raw.slice(6)
   return null
 }

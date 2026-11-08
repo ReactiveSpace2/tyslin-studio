@@ -170,7 +170,11 @@ export function KanbanPage({ agents, projects, onOpenChat, initial, agencyId, le
     if (agencyId) {
       // Through the agency: the main process runs it, writes the result, cost and log on the card and moves it.
       setRunning((r) => ({ ...r, [id]: true })); setErrors((e) => ({ ...e, [id]: '' }))
-      try { await window.tyslin.cards.run(agencyId, id) } catch (err) {
+      try {
+        // The main process reads the card from the file: write unsaved edits (a new card, a new assignee) first.
+        if (dirty && file && docRef.current) { await window.tyslin.studio.write(projectId, { path: file.path }, JSON.stringify(docRef.current, null, 2)); setDirty(false) }
+        await window.tyslin.cards.run(agencyId, id)
+      } catch (err) {
         setRunning((m) => ({ ...m, [id]: false }))
         setErrors((e) => ({ ...e, [id]: err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err) }))
       }

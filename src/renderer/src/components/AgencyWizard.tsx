@@ -219,6 +219,10 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
       setError(errorText(e)); setBusy(false)
     }
   }
+  const connectTelegram = (): void => {
+    setBusy(true); setError(null)
+    void window.tyslin.telegram.setToken(tgToken).then((s) => { setTg(s); setTgToken('') }, (e) => setError(errorText(e))).finally(() => setBusy(false))
+  }
   const next = (): void => { if (!canNext) return; if (step < STEPS.length - 1) setStep(step + 1); else void create() }
 
   return (
@@ -276,7 +280,8 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
             </Field>
             <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Start from a template</h2>
-              <Input className="w-full max-w-[260px]" type="search" placeholder="Search templates" aria-label="Search templates" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Input className="w-full max-w-[260px]" type="search" placeholder="Search templates" aria-label="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} />
             </div>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="radiogroup" aria-label="Templates">
               {shown.map((t) => {
@@ -459,9 +464,9 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
                   <span className="text-[13px] text-muted-foreground">In Telegram, message BotFather, send /newbot and paste the token here. It's stored encrypted on this computer.</span>
                   {tg.connected ? <span className="text-[13px] text-green">Connected to {tg.botName ? `@${tg.botName}` : 'your bot'}</span> : (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Input className="min-w-[220px] flex-1" type="password" placeholder="Bot token" aria-label="Telegram bot token" value={tgToken} onChange={(e) => setTgToken(e.target.value)} />
-                      <Button type="button" disabled={!tgToken.trim() || busy}
-                        onClick={() => { setBusy(true); setError(null); void window.tyslin.telegram.setToken(tgToken).then((s) => { setTg(s); setTgToken('') }, (e) => setError(errorText(e))).finally(() => setBusy(false)) }}>
+                      <Input className="min-w-[220px] flex-1" type="password" placeholder="Bot token" aria-label="Telegram bot token" value={tgToken} onChange={(e) => setTgToken(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (tgToken.trim() && !busy) connectTelegram() } }} />
+                      <Button type="button" disabled={!tgToken.trim() || busy} onClick={connectTelegram}>
                         Connect
                       </Button>
                     </div>

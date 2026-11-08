@@ -139,6 +139,8 @@ export function switchOrg(id: string): void {
   if (id === DEFAULT_ORG) db = home
   else openOrgDb(id)
   setSetting('org:current', id)
+  // Switching needs every reply stopped, so changes still pending here (from an earlier launch) can't be answered.
+  expireStaleChanges()
 }
 
 function migrate(): void {
@@ -373,6 +375,11 @@ export function setAgentRunResult(id: string, error: string): void {
   db.prepare('UPDATE agents SET last_run_at = ?, last_error = ? WHERE id = ?').run(Date.now(), error.slice(0, 300), id)
 }
 
+/** How the agent's latest run ended: its error, or '' when it worked (or never ran). */
+export function agentLastError(id: string): string {
+  return (db.prepare('SELECT last_error AS e FROM agents WHERE id = ?').get(id) as { e: string } | undefined)?.e ?? ''
+}
+
 /** Last error, last chat activity and scheduled-task count per agent. */
 export function agentStats(): Map<string, { lastError: string; lastActive: number | null; tasks: number }> {
   const out = new Map<string, { lastError: string; lastActive: number | null; tasks: number }>()
@@ -404,6 +411,8 @@ export function removeProject(id: string, defaultId: string | null): { agents: n
   const members = (db.prepare('SELECT id FROM agents WHERE project_id = ? AND is_mascot = 0').all(id) as { id: string }[]).map((r) => r.id)
   db.transaction(() => {
     for (const a of members) removeAgent(a)
+    // Its agencies go with the project (ON DELETE CASCADE); their Lead messages would otherwise stay unread forever.
+    db.prepare('DELETE FROM channel_messages WHERE agency_id IN (SELECT id FROM agencies WHERE project_id = ?)').run(id)
     db.prepare('DELETE FROM gsync_files WHERE project_id = ?').run(id)
     db.prepare('DELETE FROM gsync_projects WHERE project_id = ?').run(id)
     db.prepare('DELETE FROM projects WHERE id = ?').run(id)
@@ -661,7 +670,7 @@ export function expireStaleChanges(): void {
   db.prepare("UPDATE pending_changes SET status = 'expired' WHERE status = 'pending'").run()
 }
 
-const PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama']
+const PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama', 'openrouter']
 
 export function getPrefs(): Preferences {
   return {
@@ -911,6 +920,8 @@ export function removeAgency(id: string): void {
   const members = (db.prepare('SELECT id FROM agents WHERE agency = ? OR (project_id = ? AND is_mascot = 0)').all(id, a.projectId) as { id: string }[]).map((r) => r.id)
   db.transaction(() => {
     for (const m of members) removeAgent(m)
+    // Its Lead's messages can't be opened any more, so they'd keep the unread count (and app badge) up forever.
+    db.prepare('DELETE FROM channel_messages WHERE agency_id = ?').run(id)
     db.prepare('DELETE FROM agencies WHERE id = ?').run(id)
     db.prepare('DELETE FROM gsync_files WHERE project_id = ?').run(a.projectId)
     db.prepare('DELETE FROM gsync_projects WHERE project_id = ?').run(a.projectId)

@@ -34,6 +34,7 @@ const api: TyslinApi = {
       return () => ipcRenderer.removeListener('run-event', fn)
     },
     stop: (sessionId) => ipcRenderer.invoke('sessions:stop', sessionId),
+    status: (sessionId) => ipcRenderer.invoke('sessions:status', sessionId),
     answerPermission: (permissionId, choiceId) => ipcRenderer.invoke('sessions:answerPermission', permissionId, choiceId)
   },
   engines: {

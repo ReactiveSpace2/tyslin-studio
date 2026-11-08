@@ -63,7 +63,8 @@ function packageInstall(p: Pkg): RegistryServer['install'] {
   }))
   let parts: string[]
   if (p.registryType === 'npm') parts = ['npx', '-y', ...runArgs, p.version ? `${p.identifier}@${p.version}` : p.identifier, ...pkgArgs]
-  else if (p.registryType === 'pypi') parts = runArgs.length ? ['uvx', ...runArgs, ...pkgArgs] : ['uvx', p.version ? `${p.identifier}==${p.version}` : p.identifier, ...pkgArgs]
+  // Runtime arguments go to uvx before the package; the package itself is always named (as the command when --from is given).
+  else if (p.registryType === 'pypi') parts = ['uvx', ...runArgs, p.version && !runArgs.includes('--from') ? `${p.identifier}==${p.version}` : p.identifier, ...pkgArgs]
   else if (p.registryType === 'oci') parts = ['docker', 'run', '-i', '--rm', ...fields.flatMap((f) => ['-e', f.name]), ...runArgs, p.identifier, ...pkgArgs]
   else return null
   const kind = p.registryType === 'npm' ? 'npm' : p.registryType === 'pypi' ? 'pypi' : 'docker'

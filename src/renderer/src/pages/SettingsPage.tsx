@@ -44,9 +44,13 @@ const UPDATE_TEXT: Record<UpdateStatus['state'], string> = {
 
 function useFlash(): [string | null, (msg: string) => void] {
   const [msg, setMsg] = useState<string | null>(null)
+  // One timer at a time, so an older flash can't hide a newer one early; cleared when the tab closes.
+  const timer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => clearTimeout(timer.current), [])
   return [msg, (m) => {
     setMsg(m)
-    setTimeout(() => setMsg(null), 2500)
+    clearTimeout(timer.current)
+    timer.current = setTimeout(() => setMsg(null), 2500)
   }]
 }
 

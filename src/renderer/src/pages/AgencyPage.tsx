@@ -77,12 +77,15 @@ const hint = 'text-[13px] leading-normal text-muted-foreground'
 const LINE = 'h-5 w-0.5 flex-none bg-border-strong'
 const FLOW = 'w-[3px] bg-transparent bg-[repeating-linear-gradient(to_bottom,var(--lime)_0_4px,transparent_4px_9px)] bg-[length:3px_18px] animate-flow motion-reduce:animate-none motion-reduce:bg-none motion-reduce:bg-lime'
 
-/** Ready (soft lime), Paused or No Lead yet (muted). */
-function StatusBadge({ tone, label }: { tone: 'on' | 'off' | 'idle'; label: string }): JSX.Element {
+/** Ready (soft lime), Paused or No Lead yet (muted), or the Lead's problem (Needs setup, Last run failed) with its reason. */
+function StatusBadge({ tone, label, reason }: { tone: 'on' | 'off' | 'idle' | 'warn'; label: string; reason?: string }): JSX.Element {
   return (
-    <Badge variant={tone === 'on' ? 'soft' : 'secondary'} className="gap-1.5">
-      <span className={cn('size-[7px] rounded-full', tone === 'on' ? 'bg-green' : 'bg-muted-foreground')} aria-hidden="true" />{label}
-    </Badge>
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <Badge variant={tone === 'on' ? 'soft' : tone === 'warn' ? 'destructive' : 'secondary'} className="gap-1.5" title={reason || undefined}>
+        <span className={cn('size-[7px] rounded-full', tone === 'on' ? 'bg-green' : tone === 'warn' ? 'bg-current' : 'bg-muted-foreground')} aria-hidden="true" />{label}
+      </Badge>
+      {tone === 'warn' && reason && <span className="text-[13px] text-destructive">{reason}</span>}
+    </span>
   )
 }
 
@@ -143,9 +146,14 @@ function Field({ id, label, hint: note, children }: { id: string; label: string;
 /** One agency: its overview (counts, team, plan, how it runs, org chart) or its settings. The board is Kanban in its folder. */
 export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent, onAddWorker, onDrive, onBack, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
-  const st = agencyStatus(view)
   const board = useBoardStats([agency])[agency.id]
   const statuses = useAgentStatuses()
+  // "Ready" only when the Lead can run: a Lead that needs setup (no key, engine missing) or whose last run failed says so.
+  const leadStatus = lead ? statuses.get(lead.id) : undefined
+  const leadBlocked = !agency.paused && (leadStatus?.state === 'setup' || leadStatus?.state === 'failed')
+  const st = leadBlocked && leadStatus
+    ? { label: STATUS_LABEL[leadStatus.state], tone: 'warn' as const, reason: leadStatus.reason }
+    : { ...agencyStatus(view), reason: '' }
   const working = (a: Agent): boolean => statuses.get(a.id)?.state === 'working'
   // A worker on a card the Lead handed out: dots run down the line from the Lead to it.
   const handOff = workers.some(working)
@@ -266,14 +274,19 @@ export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent
     adapter: agency.adapter, channel: agency.channel, notify: agency.notify, budget: agency.budget, autoRun: agency.autoRun
   })
   const set = (p: AgencyUpdateInput): void => setDraft((d) => ({ ...d, ...p }))
+  // Kept as typed text, so "12." or "0.5" can be entered; turned into a number on save.
+  const [budgetText, setBudgetText] = useState(agency.budget === null ? '' : String(agency.budget))
   const [saved, setSaved] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   const save = async (): Promise<void> => {
-    setError(null); setSaved(null); setBusy(true)
+    setError(null); setSaved(null)
+    const budget = budgetText.trim() === '' ? null : Number(budgetText.trim())
+    if (budget !== null && (!Number.isFinite(budget) || budget < 0)) { setError('The monthly budget must be a number, or empty for none.'); return }
+    setBusy(true)
     try {
-      await window.tyslin.agencies.update(agency.id, draft)
+      await window.tyslin.agencies.update(agency.id, { ...draft, budget })
       setSaved('Saved.')
       onChanged()
     } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
@@ -296,7 +309,8 @@ export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent
         {tab !== 'edit' && (
           <>
             <Button type="button" variant="outline" onClick={() => void togglePause()}><Icon name={agency.paused ? 'play' : 'pause'} size={12} /> {agency.paused ? 'Resume' : 'Pause'}</Button>
-            <Button type="button" variant="lime" disabled={!lead || agency.paused} title={lead ? `${lead.name} plans the Inbox now` : 'Add a Lead first'} onClick={() => lead && onRun(lead)}>
+            <Button type="button" variant="lime" disabled={!lead || agency.paused || leadStatus?.state === 'setup'}
+              title={!lead ? 'Add a Lead first' : leadStatus?.state === 'setup' ? `${lead.name} needs setup: ${leadStatus.reason || 'open its page'}` : `${lead.name} plans the Inbox now`} onClick={() => lead && onRun(lead)}>
               <Icon name="play" size={12} /> Run
             </Button>
           </>
@@ -308,7 +322,7 @@ export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent
           <div className="flex min-w-0 flex-col gap-1.5">
             <div className="flex flex-wrap items-center gap-2.5">
               <h1 className="text-[28px] font-semibold tracking-tight">{tab === 'edit' ? `Edit ${agency.name}` : agency.name}</h1>
-              {tab !== 'edit' && <StatusBadge tone={st.tone} label={st.label} />}
+              {tab !== 'edit' && <StatusBadge tone={st.tone} label={st.label} reason={st.reason} />}
             </div>
             {tab !== 'edit' && <p className="text-[15px] font-medium" role="status">{statusLine(lead, board, agency.paused)}</p>}
             {tab !== 'edit' && (agency.goal || agency.description) && <p className="text-sm text-muted-foreground">{agency.goal || agency.description}</p>}
@@ -410,8 +424,8 @@ export function AgencyPage({ view, tab, you, onBoard, onLive, onRun, onOpenAgent
                   <Switch id={id('auto')} checked={!!draft.autoRun} onCheckedChange={(v) => set({ autoRun: v })} />
                 </div>
                 <Field id={id('budget')} label="Monthly budget" hint={`In your default model's currency. The Lead stops starting cards when it's reached. Spent so far: ${agency.spent.toFixed(2)}.`}>
-                  <Input id={id('budget')} className="font-mono" value={draft.budget ?? ''} placeholder="Not set" inputMode="decimal"
-                    onChange={(e) => set({ budget: e.target.value.trim() === '' ? null : Number(e.target.value) })} />
+                  <Input id={id('budget')} className="font-mono" value={budgetText} placeholder="Not set" inputMode="decimal"
+                    onChange={(e) => setBudgetText(e.target.value)} />
                 </Field>
               </Card>
               <Card className="gap-3.5 px-5 py-[18px]">

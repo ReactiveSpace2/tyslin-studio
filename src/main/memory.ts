@@ -118,7 +118,8 @@ export function writeMemory(agencyId: string, key: string, text: string): Memory
   const { path } = resolve(agencyId, key)
   // Keep the id tag on an agent's file so a rename still finds it.
   const tag = key === 'agency' ? '' : idTag(key)
-  const body = tag && !text.includes(tag) ? `${tag}\n${text}` : text
+  // agentFileName only looks at the start of a file, so a tag moved further down counts as missing.
+  const body = tag && !text.slice(0, 200).includes(tag) ? `${tag}\n${text}` : text
   writeFileSync(path, body.endsWith('\n') ? body : body + '\n', 'utf8')
   return listMemory(agencyId).find((f) => f.key === key)!
 }

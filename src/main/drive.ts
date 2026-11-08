@@ -1,5 +1,5 @@
 import { dialog, shell, type BrowserWindow } from 'electron'
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from 'fs'
+import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, statSync } from 'fs'
 import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'path'
 import type { DriveEntry, DriveKind, DriveListing, DrivePreview } from '@shared/types'
 import { projectFor } from './studio'
@@ -80,7 +80,11 @@ export function drivePreview(projectId: string | null, path: string): DrivePrevi
     if (st.size > MAX_IMAGE) return { kind: 'none', note: 'Too large to preview.' }
     return { kind: 'image', dataUrl: `data:${MIME[ext]};base64,${readFileSync(abs).toString('base64')}` }
   }
-  const buf = readFileSync(abs, { flag: 'r' }).subarray(0, MAX_TEXT)
+  if (st.isDirectory()) return { kind: 'none', note: 'No preview for a folder.' }
+  // Read only the start: a multi-gigabyte video or archive must not be loaded whole into memory.
+  const buf = Buffer.alloc(Math.min(st.size, MAX_TEXT))
+  const fd = openSync(abs, 'r')
+  try { readSync(fd, buf, 0, buf.length, 0) } finally { closeSync(fd) }
   if (buf.subarray(0, 8000).includes(0)) return { kind: 'none', note: 'No preview for this kind of file.' }
   return { kind: 'text', text: buf.toString('utf8'), truncated: st.size > MAX_TEXT }
 }

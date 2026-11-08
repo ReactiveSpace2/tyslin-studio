@@ -28,6 +28,8 @@ interface Props {
   onTask: (a: Agent) => void
   onOpen: (a: Agent) => void
   onAskBuilder: () => void
+  /** "Add a worker" inside an agency: the new agent joins it and reports to its Lead. */
+  agency?: { id: string; projectId: string; leadId: string | null }
 }
 
 const STEPS = ['Basics', 'Runs on', 'Instructions', 'Skills', 'Access', 'Test & finish'] as const
@@ -42,14 +44,15 @@ const NONE = '__none'
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
 /** New agent in six short steps, with a real test before it is created. */
-export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat, onTask, onOpen, onAskBuilder }: Props): JSX.Element {
+export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat, onTask, onOpen, onAskBuilder, agency }: Props): JSX.Element {
   const [step, setStep] = useState(0)
   const [form, setForm] = useState<AgentInput>({
     kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime',
     // New agents start on the default model.
     provider: getDefaultModel()?.provider ?? 'anthropic', model: getDefaultModel()?.model ?? 'claude-sonnet-5-5',
     skills: [], schedule: 'manual', engine: 'builtin', writeMode: 'ask', isMascot: false,
-    projectId: getCurrentProject(), leadId: null, tools: { read: true, write: true }, channels: { telegram: false }, head: 'smile'
+    projectId: agency?.projectId ?? getCurrentProject(), leadId: agency?.leadId ?? null, agency: agency?.id ?? null,
+    tools: { read: true, write: true }, channels: { telegram: false }, head: 'smile'
   })
   const [keys, setKeys] = useState<ProviderSettings | null>(null)
   const [engines, setEngines] = useState<EngineStatus[]>([])
@@ -227,7 +230,7 @@ export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat,
                 <div className="grid grid-cols-2 gap-4">
                   <div className={fieldCls}>
                     <Label htmlFor="ca-proj">Project</Label>
-                    <Select value={form.projectId ?? NONE} onValueChange={(v) => setForm((f) => ({ ...f, projectId: v === NONE ? null : v, leadId: null }))}>
+                    <Select value={form.projectId ?? NONE} onValueChange={(v) => setForm((f) => ({ ...f, projectId: v === NONE ? null : v, leadId: agency && v === agency.projectId ? agency.leadId : null, agency: agency && v === agency.projectId ? agency.id : null }))}>
                       <SelectTrigger id="ca-proj" className="h-10 w-full bg-card"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>No project yet</SelectItem>

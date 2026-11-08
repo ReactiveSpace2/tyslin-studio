@@ -150,22 +150,41 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const [permissions, setPermissions] = useState<Permission[]>([])
   const threadRef = useRef<HTMLDivElement>(null)
   const [switcher, setSwitcher] = useState(false)
+  /** The open chat's id, for async work that finishes after a switch. */
+  const sessionRef = useRef<string | null>(null)
+  sessionRef.current = session?.id ?? null
+  /** A chat `send` just created: its first message is already on screen and must not be reset. */
+  const freshRef = useRef<string | null>(null)
+  const creating = useRef(false)
+
+  const listSessions = async (): Promise<Session[]> =>
+    (await window.tyslin.sessions.list(agentId)).filter((s) => s.projectId === projectId)
 
   useEffect(() => {
-    void (async () => {
-      const all = (await window.tyslin.sessions.list(agentId)).filter((s) => s.projectId === projectId)
+    let live = true
+    void listSessions().then((all) => {
+      if (!live) return
       setSessions(all)
       setSession(all.find((s) => s.id === sessionId) ?? all[0] ?? null)
-    })()
-    if (projectId) void window.tyslin.projects.files(projectId).then(setFiles)
+    })
+    if (projectId) void window.tyslin.projects.files(projectId).then((f) => { if (live) setFiles(f) })
     else setFiles([])
+    return () => { live = false }
   }, [agentId, projectId])
 
-  // A chat picked in the sidebar for the same agent and project.
+  // A chat picked in the sidebar for the same agent and project (it may be newer than our list).
   useEffect(() => {
     if (!sessionId || sessionId === session?.id) return
     const picked = sessions.find((s) => s.id === sessionId)
-    if (picked) setSession(picked)
+    if (picked) { setSession(picked); return }
+    let live = true
+    void listSessions().then((all) => {
+      const found = all.find((s) => s.id === sessionId)
+      if (!live || !found) return
+      setSessions(all)
+      setSession(found)
+    })
+    return () => { live = false }
   }, [sessionId])
 
   useEffect(() => {
@@ -175,6 +194,11 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const loadChanges = (id: string): Promise<void> => window.tyslin.changes.list(id).then(setChanges)
 
   useEffect(() => {
+    // `send` created this chat and already shows the message and the working state.
+    if (session && freshRef.current === session.id) {
+      freshRef.current = null
+      return
+    }
     setError(null)
     setStreaming(null)
     setActivity([])
@@ -182,8 +206,15 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     setLiveRun(null)
     setPermissions([])
     if (session) {
-      void window.tyslin.sessions.messages(session.id).then(setMessages)
-      void loadChanges(session.id)
+      const id = session.id
+      // A reply may have started (or failed) before this screen was listening, e.g. Run on the agency page.
+      void Promise.all([window.tyslin.sessions.messages(id), window.tyslin.sessions.status(id)]).then(([m, st]) => {
+        if (sessionRef.current !== id) return
+        setMessages(m)
+        if (st.running) setStreaming((s) => s ?? '')
+        else if (st.lastError && m[m.length - 1]?.role === 'user') setError(st.lastError)
+      })
+      void window.tyslin.changes.list(id).then((c) => { if (sessionRef.current === id) setChanges(c) })
     } else {
       setMessages([])
       setChanges([])
@@ -212,7 +243,10 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           break
         case 'approval_needed':
           if ('permissionId' in e) setPermissions((p) => [...p, { id: e.permissionId, title: e.title, choices: e.choices }])
-          else await loadChanges(session.id)
+          else {
+            const c = await window.tyslin.changes.list(session.id)
+            if (sessionRef.current === session.id) setChanges(c)
+          }
           break
         case 'state_update':
           setWaiting(e.status === 'waiting_for_review')
@@ -223,8 +257,16 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           setWaiting(false)
           setPermissions([])
           if (e.type === 'run_error') setError(e.error)
-          setMessages(await window.tyslin.sessions.messages(session.id))
-          await loadChanges(session.id)
+          {
+            const id = session.id
+            const [m, c, all] = await Promise.all([window.tyslin.sessions.messages(id), window.tyslin.changes.list(id), listSessions()])
+            // The user may have opened another chat meanwhile.
+            if (sessionRef.current === id) {
+              setMessages(m)
+              setChanges(c)
+              setSessions(all)
+            }
+          }
           onSessionsChanged()
           break
       }
@@ -263,12 +305,20 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   const send = async (): Promise<void> => {
     const t = text.trim()
     const sending = attached
-    if ((!t && !sending.length) || streaming !== null) return
+    if ((!t && !sending.length) || streaming !== null || creating.current) return
     let s = session
     if (!s) {
-      s = await window.tyslin.sessions.create(agent.id, projectId)
+      // Enter pressed twice before the chat exists would otherwise make two chats and send twice.
+      creating.current = true
+      try { s = await window.tyslin.sessions.create(agent.id, projectId) } finally { creating.current = false }
+      freshRef.current = s.id
       setSessions((list) => [s!, ...list])
       setSession(s)
+      setChanges([])
+      setActivity([])
+      setPermissions([])
+      setLiveRun(null)
+      setWaiting(false)
     }
     setText('')
     setAttached([])
@@ -280,6 +330,10 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
       // The message is saved by now, and the first one renames the chat.
       onSessionsChanged()
     } catch (err) {
+      // Nothing was saved (busy, paused, ...): drop the optimistic message and give the text back.
+      setMessages((m) => m.filter((x) => x.id !== 'pending'))
+      setText((cur) => cur || t)
+      setAttached((cur) => (cur.length ? cur : sending))
       setStreaming(null)
       setError(err instanceof Error ? err.message : String(err))
     }
