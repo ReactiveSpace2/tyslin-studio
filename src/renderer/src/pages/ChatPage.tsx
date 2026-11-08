@@ -335,7 +335,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
       setText((cur) => cur || t)
       setAttached((cur) => (cur.length ? cur : sending))
       setStreaming(null)
-      setError(err instanceof Error ? err.message : String(err))
+      setError(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err))
     }
   }
 

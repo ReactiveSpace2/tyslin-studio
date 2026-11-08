@@ -5,6 +5,7 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { RunsOnBadge, runsOnLabel } from '../components/RunsOnBadge'
 import { plural } from '../boardStats'
+import { STATUS_LABEL, useAgentStatuses } from '../agentStatus'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -27,11 +28,11 @@ const FILTERS: [Filter, string][] = [['all', 'All'], ['active', 'Active'], ['pau
 const th = 'h-10 px-4 text-xs font-medium text-muted-foreground'
 const td = 'px-4 py-3 text-sm whitespace-normal'
 
-/** Status as a badge: Ready (soft lime), Paused or No Lead yet (muted). */
-function StatusBadge({ tone, label }: { tone: 'on' | 'off' | 'idle'; label: string }): JSX.Element {
+/** Status as a badge: Ready (soft lime), Needs setup / Last run failed (destructive), Paused or No Lead yet (muted). */
+function StatusBadge({ tone, label, reason }: { tone: 'on' | 'off' | 'idle' | 'warn'; label: string; reason?: string }): JSX.Element {
   return (
-    <Badge variant={tone === 'on' ? 'soft' : 'secondary'} className="gap-1.5">
-      <span className={cn('size-[7px] rounded-full', tone === 'on' ? 'bg-green' : 'bg-muted-foreground')} aria-hidden="true" />{label}
+    <Badge variant={tone === 'on' ? 'soft' : tone === 'warn' ? 'destructive' : 'secondary'} className="gap-1.5" title={reason || undefined}>
+      <span className={cn('size-[7px] rounded-full', tone === 'on' ? 'bg-green' : tone === 'warn' ? 'bg-destructive' : 'bg-muted-foreground')} aria-hidden="true" />{label}
     </Badge>
   )
 }
@@ -40,6 +41,12 @@ function StatusBadge({ tone, label }: { tone: 'on' | 'off' | 'idle'; label: stri
 export function AgenciesPage({ agencies, onOpen, onBoard, onEdit, onNew }: Props): JSX.Element {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const statuses = useAgentStatuses()
+  /** Ready only when the Lead can run (same rule as Home and the agency page). */
+  const statusOf = (v: AgencyView): { label: string; tone: 'on' | 'off' | 'idle' | 'warn'; reason?: string } => {
+    const s = v.lead && !v.paused ? statuses.get(v.lead.id) : undefined
+    return s && (s.state === 'setup' || s.state === 'failed') ? { label: STATUS_LABEL[s.state], tone: 'warn', reason: s.reason } : agencyStatus(v)
+  }
   const shown = agencies
     .filter((v) => !q.trim() || v.project.name.toLowerCase().includes(q.trim().toLowerCase()))
     .filter((v) => filter === 'all' || (filter === 'paused' ? v.paused : !v.paused))
@@ -75,7 +82,7 @@ export function AgenciesPage({ agencies, onOpen, onBoard, onEdit, onNew }: Props
             </TableHeader>
             <TableBody>
               {shown.map((v) => {
-                const st = agencyStatus(v)
+                const st = statusOf(v)
                 return (
                   <TableRow key={v.project.id} className="transition-colors last:[&>td]:border-b-0 hover:bg-muted/50">
                     <TableCell className={cn(td, 'max-w-[320px]')}>
@@ -100,7 +107,7 @@ export function AgenciesPage({ agencies, onOpen, onBoard, onEdit, onNew }: Props
                         {v.workers.length > 5 && <span className="ml-3 font-mono text-xs text-muted-foreground">+{v.workers.length - 5}</span>}
                       </span>
                     </TableCell>
-                    <TableCell className={td}><StatusBadge tone={st.tone} label={st.label} /></TableCell>
+                    <TableCell className={td}><StatusBadge tone={st.tone} label={st.label} reason={st.reason} /></TableCell>
                     <TableCell className={td}>
                       <span className="flex justify-end gap-1.5">
                         <Button type="button" variant="outline" size="sm" onClick={() => onBoard(v.project.id)}>Board</Button>
