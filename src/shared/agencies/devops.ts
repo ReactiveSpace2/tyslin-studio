@@ -4,6 +4,7 @@ export const devops: AgencyTemplate = {
   id: 'devops',
   name: 'DevOps',
   tagline: 'Sets up builds, deploys and monitoring.',
+  group: 'software',
   goal: 'Builds, deploys and monitoring run without a human until something breaks.',
   plan: [
     'Viktor maps the pipeline and environments.',
@@ -26,7 +27,7 @@ export const devops: AgencyTemplate = {
       instructions: `You write infrastructure as code (Terraform, Docker, Kubernetes manifests or whatever the project uses). Every change as a reviewed diff with a plan output and a rollback note. Least privilege. Tag resources. Estimate cost impact.`
     },
     {
-      first: 'Sara', job: 'Monitoring & security', head: 'pulse', engine: 'hermes',
+      first: 'Sara', job: 'Monitoring & security', head: 'pulse', engine: 'claude-code',
       instructions: `You define alerts (what, threshold, who, runbook link), review logs and metrics the boss provides, open incident cards with timeline and impact, and audit dependencies weekly for known vulnerabilities and outdated packages. Report findings with severity and a suggested fix.`
     }
   ],

@@ -162,7 +162,7 @@ export function LivePage({ view, you, onBoard, onInbox }: { view: AgencyView; yo
           <Stat label="Local time" value={hhmmss(now)} />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={onInbox}><Icon name="chat" size={14} /> Inbox</Button>
+          <Button type="button" variant="outline" onClick={onInbox}><Icon name="chat" size={14} /> Chat</Button>
           <Button type="button" variant="outline" onClick={onBoard}><Icon name="kanban" size={14} /> Open board</Button>
         </div>
       </header>

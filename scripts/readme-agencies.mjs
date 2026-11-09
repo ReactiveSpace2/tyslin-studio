@@ -12,12 +12,13 @@ const dir = await mkdtemp(join(tmpdir(), 'tyslin-readme-'))
 try {
   const out = join(dir, 'agencies.mjs')
   await build({ entryPoints: [join(root, 'src/shared/agencies.ts')], bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'error' })
-  const { AGENCY_TEMPLATES, AGENCY_ADAPTERS, templateAdapters } = await import(pathToFileURL(out).href)
+  const { AGENCY_TEMPLATES, AGENCY_ADAPTERS, AGENCY_GROUPS, templateAdapters } = await import(pathToFileURL(out).href)
   const cell = (s) => String(s).replace(/\|/g, '\\|')
   const adapterName = (id) => AGENCY_ADAPTERS.find((a) => a.id === id)?.name ?? id
+  const groupName = (id) => AGENCY_GROUPS.find((g) => g.id === id)?.title ?? id
   const rows = AGENCY_TEMPLATES.map((t) =>
-    `| ${cell(t.name)} | ${cell(t.tagline)} | ${cell(t.roster.find((m) => m.lead)?.first ?? '')} | ${t.roster.length} | ${templateAdapters(t).map(adapterName).join(', ')} |`)
-  const table = ['| Agency | What it does | Lead | Agents | Adapters |', '|---|---|---|---|---|', ...rows].join('\n')
+    `| ${cell(t.name)} | ${cell(groupName(t.group))} | ${cell(t.tagline)} | ${cell(t.roster.find((m) => m.lead)?.first ?? '')} | ${t.roster.length} | ${templateAdapters(t).map(adapterName).join(', ')} | ${t.comingSoon ? 'Coming soon' : 'Available'} |`)
+  const table = ['| Agency | Group | What it does | Lead | Agents | Adapters | Status |', '|---|---|---|---|---|---|---|', ...rows].join('\n')
   console.log(table)
   if (process.argv.includes('--write')) {
     const readmePath = join(root, 'README.md')

@@ -28,7 +28,7 @@ import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts'
 
 interface Props {
   view: AgencyView
-  /** org: the overview (org chart); edit: the agency's settings. The Inbox is its own screen (InboxPage). */
+  /** org: the overview (org chart); edit: the agency's settings. Chat is the Lead's chat (ChatPage). */
   tab: 'org' | 'edit'
   you: string
   onTab: (tab: 'org' | 'edit') => void

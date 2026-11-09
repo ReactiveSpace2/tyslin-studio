@@ -11,7 +11,6 @@ import { SkillsPage } from './pages/SkillsPage'
 import { IntegrationsPage } from './pages/IntegrationsPage'
 import { MemoryPage } from './pages/MemoryPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
-import { InboxPage } from './pages/InboxPage'
 import { OrgHome } from './pages/OrgHome'
 import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
@@ -29,8 +28,7 @@ import { DEFAULT_MODEL_AGENT } from '@shared/models'
 import { getDefaultModel, refreshDefaultModel } from './defaultModel'
 import { closeAgencyTab, initCurrentProject, openAgencyTab, setCurrentProject, useCurrentProject } from './currentProject'
 import { UpdateNotice } from './components/UpdateNotice'
-import { Badge } from '@/components/ui/badge'
-import { TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { needsYou } from './components/LeadChannel'
 import { cn } from '@/lib/utils'
 
 /**
@@ -42,7 +40,7 @@ export type Route =
   | { name: 'agencies' }
   | { name: 'agency'; id: string; tab: 'org' | 'live' | 'chat' | 'edit'; /** Inbox: the message to open. */ focus?: string }
   | { name: 'newAgency'; templateId?: string }
-  | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string }
+  | { name: 'chat'; agentId: string; projectId: string | null; sessionId?: string; /** A Lead message to scroll to. */ focus?: string }
   | { name: 'editor'; agentId: string }
   | { name: 'kanban'; open?: { projectId: string; path: string } }
   | { name: 'drive' }
@@ -58,12 +56,13 @@ export default function App(): JSX.Element {
   const [projects, setProjects] = useState<Project[]>([])
   const [agencyRows, setAgencyRows] = useState<Agency[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
-  /** Unread Lead messages by agency id: counts on the agency tabs and on each agency's Inbox. */
+  /** Questions and reviews waiting on you, by agency id: counts on the agency tabs and on each agency's Chat. */
   const [unreadBy, setUnreadBy] = useState<Record<string, number>>({})
   const countUnread = (): void => {
     void window.tyslin.channels.list().then((ms) => {
       const c: Record<string, number> = {}
-      for (const m of ms) if (!m.readAt) c[m.agencyId] = (c[m.agencyId] ?? 0) + 1
+      // What waits on you: unanswered questions and reviews (shown on the agency tab and the Chat item).
+      for (const m of ms) if (needsYou(m)) c[m.agencyId] = (c[m.agencyId] ?? 0) + 1
       setUnreadBy(c)
     })
   }
@@ -112,14 +111,17 @@ export default function App(): JSX.Element {
   // without an agency; it isn't an agency itself.
   const [currentProject] = useCurrentProject()
   useEffect(() => { if (auth && onboarding === false) void initCurrentProject() }, [auth, onboarding, projects.length])
-  // Unread counts follow new messages, replies and reads; a clicked desktop notification opens that agency's Inbox.
+  // Counts follow new messages and replies; a clicked desktop notification opens that agency's Lead chat at the message.
   useEffect(() => {
     countUnread()
     const offMsg = window.tyslin.channels.onMessage(countUnread)
     const offOpen = window.tyslin.channels.onOpen((id) => {
       void window.tyslin.channels.list().then((ms) => {
         const a = agencyRowsRef.current.find((x) => x.id === ms.find((m) => m.id === id)?.agencyId)
-        if (a) { openAgencyTab(a.projectId); setRoute({ name: 'agency', id: a.projectId, tab: 'chat', focus: id }) }
+        if (!a) return
+        openAgencyTab(a.projectId)
+        // The Lead's chat is the agency's conversation: open it at that message.
+        setRoute(a.leadId ? { name: 'chat', agentId: a.leadId, projectId: a.projectId, focus: id } : { name: 'agency', id: a.projectId, tab: 'org' })
       })
     })
     const t = setInterval(countUnread, 15_000)
@@ -133,6 +135,32 @@ export default function App(): JSX.Element {
   const activeView = viewFor(currentProject)
   const activeAgency = activeView?.project.id ?? null
   const activeProject = activeView?.project ?? null
+  /** A chat screen. For an agency's Lead it is the agency's one conversation: Lead messages, board, channel. */
+  const renderChat = (r: { agentId: string; projectId: string | null; sessionId?: string; focus?: string }): JSX.Element => {
+    const v = viewFor(r.projectId)
+    const lead = v && v.lead?.id === r.agentId ? v : null
+    return (
+      <ChatPage
+        key={r.agentId + (r.projectId ?? '')}
+        agentId={r.agentId}
+        projectId={r.projectId}
+        sessionId={r.sessionId}
+        agents={agents}
+        projects={projects}
+        onSwitch={(agentId, projectId) => openChat(agentId, projectId)}
+        onSessionChange={(id) => setRoute((cur) => (cur.name === 'chat' && cur.sessionId !== id ? { ...cur, sessionId: id } : cur))}
+        onSessionsChanged={() => void refreshSessions()}
+        onSettings={() => setRoute({ name: 'settings' })}
+        onOpenDrive={activeView ? () => { openAgencyTab(activeView.project.id); setRoute({ name: 'drive' }) } : undefined}
+        agency={lead?.agency ?? null}
+        focus={r.focus}
+        onCountChange={countUnread}
+        onOpenKanban={lead ? () => { openAgencyTab(lead.project.id); setRoute({ name: 'kanban' }) } : undefined}
+        onChannelSetup={lead ? () => { openAgencyTab(lead.project.id); setRoute({ name: 'connectors' }) } : undefined}
+        onAgencyChanged={() => void refresh()}
+      />
+    )
+  }
   const openAgency = (id: string, tab: 'org' | 'chat' | 'edit' = 'org'): void => { openAgencyTab(id); setRoute({ name: 'agency', id, tab }) }
   /** A tab: Kanban, Drive, Channel and Skills stay on their screen for the new agency; anything else opens its overview. */
   const selectAgency = (id: string): void => {
@@ -251,20 +279,13 @@ export default function App(): JSX.Element {
               )
             }
             if (route.tab === 'chat') {
+              // Chat is the Lead's chat; an agency without a Lead has no one to talk to yet.
+              if (v.lead) return renderChat({ agentId: v.lead.id, projectId: p.id, focus: route.focus })
               return (
-                <AgencyChatTabs tab="inbox" leadName={v.lead?.name ?? null} unread={unreadByProject[p.id] ?? 0}
-                  onChat={v.lead ? () => openChat(v.lead!.id, p.id) : null} onInbox={() => undefined}>
-                <InboxPage
-                  key={p.id}
-                  agency={v.agency}
-                  agencies={agencyRows}
-                  agents={agents}
-                  focusId={route.focus}
-                  onOpenBoard={(id) => { openAgencyTab(id); setRoute({ name: 'kanban' }) }}
-                  onOpenChannel={(id) => { openAgencyTab(id); setRoute({ name: 'connectors' }) }}
-                  onCountChange={countUnread}
-                />
-                </AgencyChatTabs>
+                <div className="flex flex-col gap-2 px-10 pt-8 pb-12 text-foreground">
+                  <h1 className="text-[22px] font-semibold tracking-tight">No Lead yet</h1>
+                  <p className="text-sm text-muted-foreground">{p.name} has no Lead to talk to. Add one on the Overview.</p>
+                </div>
               )
             }
             return (
@@ -286,32 +307,7 @@ export default function App(): JSX.Element {
               />
             )
           })()}
-          {route.name === 'chat' && (() => {
-            // The agency Lead's chat sits under Chat's first tab, next to the Inbox.
-            const v = activeView && activeView.lead && route.agentId === activeView.lead.id ? activeView : null
-            const chat = (
-            <ChatPage
-              key={route.agentId + (route.projectId ?? '')}
-              agentId={route.agentId}
-              projectId={route.projectId}
-              sessionId={route.sessionId}
-              agents={agents}
-              projects={projects}
-              onSwitch={(agentId, projectId) => openChat(agentId, projectId)}
-              onSessionChange={(id) => setRoute((r) => (r.name === 'chat' && r.sessionId !== id ? { ...r, sessionId: id } : r))}
-              onSessionsChanged={() => void refreshSessions()}
-              onSettings={() => setRoute({ name: 'settings' })}
-              onOpenDrive={activeView ? () => { openAgencyTab(activeView.project.id); setRoute({ name: 'drive' }) } : undefined}
-            />
-            )
-            if (!v) return chat
-            return (
-              <AgencyChatTabs tab="chat" leadName={v.lead!.name} unread={unreadByProject[v.project.id] ?? 0}
-                onChat={() => undefined} onInbox={() => setRoute({ name: 'agency', id: v.project.id, tab: 'chat' })}>
-                {chat}
-              </AgencyChatTabs>
-            )
-          })()}
+          {route.name === 'chat' && renderChat(route)}
           {route.name === 'editor' && (
             <AgentPage
               key={route.agentId}
@@ -374,34 +370,6 @@ export default function App(): JSX.Element {
         />
       )}
       {newOrg && <NewOrgModal onClose={() => setNewOrg(false)} />}
-    </div>
-  )
-}
-
-/** Chat in an agency: the Lead chat and the Inbox as two tabs above whichever is open. */
-function AgencyChatTabs({ tab, leadName, unread, onChat, onInbox, children }: {
-  tab: 'chat' | 'inbox'
-  leadName: string | null
-  unread: number
-  onChat: (() => void) | null
-  onInbox: () => void
-  children: React.ReactNode
-}): JSX.Element {
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-none items-center gap-3 border-b border-border bg-background px-6 py-2.5 text-foreground">
-        <TabsList aria-label="Chat">
-          {onChat && (
-            <TabsTrigger active={tab === 'chat'} onClick={() => { if (tab !== 'chat') onChat() }}>
-              Chat{leadName ? ` with ${leadName}` : ''}
-            </TabsTrigger>
-          )}
-          <TabsTrigger active={tab === 'inbox'} onClick={() => { if (tab !== 'inbox') onInbox() }}>
-            Inbox{unread > 0 && <Badge variant="lime" className="h-[18px] px-1.5 font-mono text-[11px]" aria-label={`${unread} unread`}>{unread}</Badge>}
-          </TabsTrigger>
-        </TabsList>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col [&>*]:h-auto [&>*]:min-h-0 [&>*]:flex-1">{children}</div>
     </div>
   )
 }

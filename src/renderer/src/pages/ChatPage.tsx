@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Agent, Attachment, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
+import type { Agency, Agent, Attachment, ChannelMessage, Message, PendingChange, PermissionChoice, Project, Session } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
 import { RunsOnBadge } from '../components/RunsOnBadge'
 import { Avatar } from '../components/Avatar'
 import { ChangeReview } from '../components/ChangeReview'
 import { Icon } from '../components/Icon'
 import { Markdown } from '../components/Markdown'
+import { BoardPanel, ChannelCard, ChannelSheet, needsYou, useLeadChannel } from '../components/LeadChannel'
+import { useBoardStats } from '../boardStats'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -128,9 +131,20 @@ interface Props {
   onSessionsChanged: () => void
   /** Opens Drive for the agent's folder (agency chats). */
   onOpenDrive?: () => void
+  /** The agency when this is its Lead: the chat becomes the agency's one conversation (Lead messages, board, channel). */
+  agency?: Agency | null
+  /** A Lead message to scroll to (a clicked desktop notification). */
+  focus?: string
+  /** Lead messages were read or answered: unread counts change. */
+  onCountChange?: () => void
+  onOpenKanban?: () => void
+  /** Opens the Telegram / Slack bot setup. */
+  onChannelSetup?: () => void
+  /** The agency's channel settings changed. */
+  onAgencyChanged?: () => void
 }
 
-export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSwitch, onSettings, onSessionChange, onSessionsChanged, onOpenDrive }: Props): JSX.Element {
+export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSwitch, onSettings, onSessionChange, onSessionsChanged, onOpenDrive, agency, focus, onCountChange, onOpenKanban, onChannelSetup, onAgencyChanged }: Props): JSX.Element {
   const agent = agents.find((a) => a.id === agentId)
   const project = projects.find((p) => p.id === projectId) ?? null
   const [sessions, setSessions] = useState<Session[]>([])
@@ -156,6 +170,23 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   /** A chat `send` just created: its first message is already on screen and must not be reset. */
   const freshRef = useRef<string | null>(null)
   const creating = useRef(false)
+
+  // An agency Lead's chat is the agency's one conversation: what the Lead sent you, the board and the channel.
+  const leadAgency = agency && agency.leadId === agentId ? agency : null
+  const channel = useLeadChannel(leadAgency, onCountChange)
+  const boardStats = useBoardStats(leadAgency ? [leadAgency] : [])[leadAgency?.id ?? '']
+  const [filter, setFilter] = useState<'all' | 'needs' | 'reviews'>('all')
+  const [mode, setMode] = useState<'message' | 'brief'>('message')
+  const [briefNote, setBriefNote] = useState('')
+  const [channelOpen, setChannelOpen] = useState(false)
+  const [cardReview, setCardReview] = useState<{ changes: PendingChange[]; sessionId: string } | null>(null)
+  const focusDone = useRef<string | null>(null)
+  useEffect(() => {
+    if (!focus || focusDone.current === focus || !channel.messages.some((m) => m.id === focus)) return
+    focusDone.current = focus
+    setFilter('all')
+    requestAnimationFrame(() => document.getElementById(`cm-${focus}`)?.scrollIntoView({ block: 'center' }))
+  }, [focus, channel.messages])
 
   const listSessions = async (): Promise<Session[]> =>
     (await window.tyslin.sessions.list(agentId)).filter((s) => s.projectId === projectId)
@@ -303,6 +334,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
   }
 
   const send = async (): Promise<void> => {
+    if (leadAgency && mode === 'brief') return sendBrief()
     const t = text.trim()
     const sending = attached
     if ((!t && !sending.length) || streaming !== null || creating.current) return
@@ -339,12 +371,51 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
     }
   }
 
+  /** New brief: a card in the board's Inbox, then the Lead's planning run (agencies.brief). */
+  const sendBrief = async (): Promise<void> => {
+    const t = text.trim()
+    if (!leadAgency || !t) return
+    setError(null); setBriefNote('')
+    try {
+      const r = await window.tyslin.agencies.brief(leadAgency.id, t)
+      setText('')
+      const who = agent ? agent.name.replace(/\s*\(Lead\)$/, '') : 'The Lead'
+      setBriefNote(r.planned ? `Added to Inbox on the board. ${who} is planning it.`
+        : leadAgency.paused ? `Added to Inbox on the board. ${who} plans it when you resume ${leadAgency.name}.` : `Added to Inbox on the board. ${who} plans it on the next run.`)
+    } catch (err) { setError(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err)) }
+  }
+  /** Run the plan: the Lead's planning run now, opened here. */
+  const runPlan = async (): Promise<void> => {
+    if (!leadAgency) return
+    setError(null)
+    try {
+      const sid = await window.tyslin.agencies.plan(leadAgency.id)
+      const all = await listSessions()
+      setSessions(all)
+      const s = all.find((x) => x.id === sid)
+      if (s) setSession(s)
+      onSessionsChanged()
+    } catch (err) { setError(err instanceof Error ? err.message.replace(/^.*Error: /, '') : String(err)) }
+  }
+
   // Who you can switch to from here: the same agency's team (Lead first), else the same project. Never the whole organization.
   const team = agents.filter((a) => a.kind === agent.kind && (agent.agency ? a.agency === agent.agency : a.projectId === agent.projectId && !a.isMascot))
     .sort((a, b) => Number(!!a.leadId) - Number(!!b.leadId) || a.name.localeCompare(b.name))
   const isLead = !!agent.agency && !agent.leadId
   const runsOn = agent.engine === 'builtin' ? agent.model : ENGINE_NAMES[agent.engine]
   const docs = files.filter((f) => !f.startsWith('memory/') && !f.startsWith('boards/'))
+
+  const needs = channel.messages.filter(needsYou)
+  const shownChannel = channel.messages.filter((m) => filter === 'all' || (filter === 'needs' ? needsYou(m) : m.kind === 'review'))
+  const thread: { at: number; chat?: Message; lead?: ChannelMessage }[] = [
+    ...(filter === 'all' ? messages.map((m) => ({ at: m.createdAt, chat: m })) : []),
+    ...shownChannel.map((m) => ({ at: m.createdAt, lead: m }))
+  ].sort((a, b) => a.at - b.at)
+  const boardLine = boardStats
+    ? [boardStats.inbox && `${boardStats.inbox} in Inbox`, boardStats.planned && `${boardStats.planned} planned`, boardStats.inProgress && `${boardStats.inProgress} in progress`, boardStats.review && `${boardStats.review} to review`]
+      .filter(Boolean).join(' · ') || 'Board is clear'
+    : ''
+  const toggleItem = 'h-8 gap-1.5 rounded-md border border-border bg-card px-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-ring/40 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground'
 
   const avatar = (size: number): JSX.Element => (
     <span className="flex-none"><Avatar shape={agent.shape} tone={agent.tone} head={agent.head} mascot={agent.isMascot} size={size} /></span>
@@ -368,13 +439,22 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
                 {isLead && <Badge variant="soft">Lead</Badge>}
               </div>
               <span className="flex min-w-0 items-center gap-1.5 overflow-hidden text-[13px] whitespace-nowrap text-muted-foreground">
-                <span className="truncate">{agent.description || (agent.kind === 'assistant' ? 'Assistant' : 'Agent')}</span>
-                <span aria-hidden="true">·</span>
-                <RunsOnBadge agent={agent} size={14} /> <span className="font-mono text-xs">{runsOn}</span>
+                <span className="truncate">{leadAgency ? boardLine : agent.description || (agent.kind === 'assistant' ? 'Assistant' : 'Agent')}</span>
+                {!leadAgency && (<>
+                  <span aria-hidden="true">·</span>
+                  <RunsOnBadge agent={agent} size={14} /> <span className="font-mono text-xs">{runsOn}</span>
+                </>)}
               </span>
             </div>
           </div>
           <div className="flex flex-none items-center gap-2">
+            {leadAgency && needs.length > 0 && (
+              <Button variant="ghost" size="sm" className="h-9 px-1" aria-label={`${needs.length} waiting for you: go to the first`}
+                onClick={() => { setFilter('all'); requestAnimationFrame(() => document.getElementById(`cm-${needs[0].id}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })) }}>
+                <Badge variant="lime" className="font-mono">Needs you · {needs.length}</Badge>
+              </Button>
+            )}
+            {leadAgency && <Button variant="outline" size="sm" onClick={() => setChannelOpen(true)}><Icon name="channel" size={14} /> Channel</Button>}
             {team.length > 1 && (
               <DropdownMenu open={switcher} onOpenChange={setSwitcher}>
                 <DropdownMenuTrigger asChild>
@@ -408,17 +488,38 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
           </div>
         </header>
 
+        {leadAgency && (
+          <div className="flex flex-none items-center gap-3 border-b border-border px-6 py-2">
+            <ToggleGroup type="single" spacing={1.5} aria-label="Show" value={filter} onValueChange={(v) => { if (v) setFilter(v as typeof filter) }}>
+              <ToggleGroupItem value="all" className={toggleItem}>All</ToggleGroupItem>
+              <ToggleGroupItem value="needs" className={cn(toggleItem, needs.length > 0 && 'border-green text-green')}>Needs you{needs.length ? <span className="font-mono">{needs.length}</span> : null}</ToggleGroupItem>
+              <ToggleGroupItem value="reviews" className={toggleItem}>Reviews</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto px-8 pt-7 pb-3" ref={threadRef}>
           <div className="mx-auto flex w-full max-w-[760px] flex-col gap-[22px]">
-            {messages.length === 0 && streaming === null && (
+            {messages.length === 0 && channel.messages.length === 0 && streaming === null && (
               <div className="mt-20 flex flex-col items-center gap-3 text-center">
                 {avatar(120)}
                 <h2 className="text-xl font-semibold tracking-tight">{agent.kind === 'assistant' ? 'Start a chat with' : 'Start working with'} {agent.name}</h2>
                 <p className="max-w-[460px] text-[15px] text-muted-foreground">{agent.description}</p>
               </div>
             )}
-            {messages.map((m) =>
-              m.role === 'user'
+            {thread.map((it) => {
+              if (it.lead) {
+                return (
+                  <div key={it.lead.id} id={`cm-${it.lead.id}`} className="flex scroll-mt-4 items-start gap-3">
+                    {avatar(32)}
+                    <div className="max-w-[600px] min-w-0 flex-1">
+                      <ChannelCard m={it.lead} lead={agent} board={channel.board} onAnswered={() => { channel.reload(); onCountChange?.() }}
+                        onReview={(changes, sid) => setCardReview({ changes, sessionId: sid })} />
+                    </div>
+                  </div>
+                )
+              }
+              const m = it.chat!
+              return m.role === 'user'
                 ? <UserMessage key={m.id} m={m} />
                 : (
                   <div key={m.id} className="flex items-start gap-3">
@@ -429,6 +530,9 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
                     </div>
                   </div>
                 )
+            })}
+            {leadAgency && filter !== 'all' && shownChannel.length === 0 && (
+              <p className="text-center text-[13px] text-muted-foreground">{filter === 'needs' ? 'Nothing is waiting for you.' : 'No reviews yet.'}</p>
             )}
             {streaming && (
               <div className="flex items-start gap-3">
@@ -509,6 +613,17 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
 
         <form className="mx-auto w-full max-w-[824px] flex-none px-8 pt-3 pb-6" onSubmit={(e) => { e.preventDefault(); void send() }}>
           <Card className="gap-2 px-3 py-2.5 shadow-md transition-[border-color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/30">
+            {leadAgency && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ToggleGroup type="single" spacing={1.5} aria-label="Write" value={mode} onValueChange={(v) => { if (v) { setMode(v as typeof mode); setBriefNote('') } }}>
+                  <ToggleGroupItem value="message" className={toggleItem}>Message</ToggleGroupItem>
+                  <ToggleGroupItem value="brief" className={toggleItem}>New brief</ToggleGroupItem>
+                </ToggleGroup>
+                {(boardStats?.planned ?? 0) > 0 && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => void runPlan()}><Icon name="play" size={12} /> Run the plan</Button>
+                )}
+              </div>
+            )}
             {attached.length > 0 && (
               <div className="flex flex-wrap gap-1.5" aria-label="Attached">
                 {attached.map((a) => (
@@ -521,7 +636,7 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
               id="composer"
               rows={2}
               className="max-h-[200px] min-h-0 resize-none rounded-none border-0 bg-transparent px-1 py-1 text-sm shadow-none focus-visible:ring-0"
-              placeholder={`Message ${agent.name}…`}
+              placeholder={leadAgency && mode === 'brief' ? `New brief for ${agent.name}: the work, what done looks like, anything to avoid` : `Message ${agent.name}…`}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
@@ -551,17 +666,18 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
               </Badge>
               <span className="flex-1" />
               <span className="hidden text-xs text-muted-foreground sm:inline">Enter to send</span>
-              {streaming !== null && session ? (
+              {streaming !== null && session && mode === 'message' ? (
                 <Button type="button" variant="outline" size="icon" aria-label={`Stop ${agent.name}`} title="Stop" onClick={() => void window.tyslin.sessions.stop(session.id)}>
                   <Icon name="stop" />
                 </Button>
               ) : (
-                <Button type="submit" size="icon" aria-label="Send" disabled={!text.trim() && !attached.length}>
+                <Button type="submit" size="icon" aria-label={mode === 'brief' && leadAgency ? 'Send brief' : 'Send'} disabled={!text.trim() && (!attached.length || (mode === 'brief' && !!leadAgency))}>
                   <Icon name="send" />
                 </Button>
               )}
             </div>
           </Card>
+          {briefNote && <p role="status" className="px-1 pt-2 text-[13px] text-green">{briefNote}</p>}
         </form>
       </section>
 
@@ -598,6 +714,8 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
             </Select>
           )}
         </section>
+
+        {leadAgency && <BoardPanel board={channel.board} onOpenKanban={onOpenKanban} />}
 
         <section className="flex flex-col gap-2" aria-labelledby="ctx-skills">
           <PanelHead id="ctx-skills" title="Skills" count={agent.skills.length} />
@@ -653,6 +771,14 @@ export function ChatPage({ agentId, projectId, sessionId, agents, projects, onSw
       </aside>
       {reviewing.length > 0 && (
         <ChangeReview changes={reviewing} onClose={() => setReviewRun(null)} onResolved={() => session && void loadChanges(session.id)} />
+      )}
+      {cardReview && (
+        <ChangeReview changes={cardReview.changes} onClose={() => setCardReview(null)}
+          onResolved={() => { void window.tyslin.changes.list(cardReview.sessionId).then((c) => setCardReview((r) => r && { ...r, changes: c })); channel.reload() }} />
+      )}
+      {leadAgency && (
+        <ChannelSheet open={channelOpen} onOpenChange={setChannelOpen} agency={leadAgency} lead={agent} onChanged={() => onAgencyChanged?.()}
+          onSetup={onChannelSetup ? () => { setChannelOpen(false); onChannelSetup() } : undefined} />
       )}
     </div>
   )

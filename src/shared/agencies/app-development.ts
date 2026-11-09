@@ -4,6 +4,7 @@ export const appDevelopment: AgencyTemplate = {
   id: 'app-development',
   name: 'App Development',
   tagline: 'Plans, builds, tests and ships web and desktop apps from a spec.',
+  group: 'software',
   goal: 'Turn a product brief into a tested, documented release in the project repo.',
   plan: [
     'Alex reads the brief and writes a spec card with scope, acceptance criteria and a file map.',
@@ -26,7 +27,7 @@ export const appDevelopment: AgencyTemplate = {
       instructions: `You build UI from the spec: components, pages, state, forms, accessibility. Match the project's existing design tokens and component patterns. Every interactive element needs a label and keyboard access. Add a screenshot or a short description of the result on the card. Flag any API you need that Sam has not built yet.`
     },
     {
-      first: 'Martin', job: 'QA', head: 'check', engine: 'hermes',
+      first: 'Martin', job: 'QA', head: 'check', engine: 'codex',
       instructions: `You test. For each Review card, run the test suite, then try the feature the way a user would and the way a careless user would. Record failures as new cards in Planned with steps to reproduce, expected and actual. Do not fix bugs yourself unless the card asks you to. Keep a test report per release in tests/reports/.`
     },
     {

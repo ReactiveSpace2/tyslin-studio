@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils'
 
 /** OpenRouter is hidden for now (owner, 7 Nov 2026). Its sign-in, card and model search stay in the code; set true to show them. */
 export const SHOW_OPENROUTER = false
+/** Ollama (local models) is hidden for now: no card, and not in the default-model picker unless already chosen. Code kept. */
+export const SHOW_OLLAMA = false
 
 /** Providers with an API key: where to get one, and (for the big three) the adapter that signs in with the user's own account. */
 export const KEY_PROVIDERS: {
@@ -373,7 +375,7 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
           )
         })}
 
-        <article className={cardCls(false)} aria-labelledby="pv-ollama">
+        {SHOW_OLLAMA && <article className={cardCls(false)} aria-labelledby="pv-ollama">
           <ProviderHead id="pv-ollama" mark="ollama" title="Ollama" maker="On this computer">
             <Badge variant="secondary" className="h-6 px-2">No key needed</Badge>
           </ProviderHead>
@@ -387,7 +389,7 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
             </div>
             <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className={linkCls}>Get Ollama</a>
           </div>
-        </article>
+        </article>}
       </div>
     </div>
   )
@@ -407,6 +409,7 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   // OpenRouter stays in the list only while it is shown, or when it is already the chosen provider.
   const providers: ProviderId[] = (['openrouter', 'anthropic', 'openai', 'gemini', 'ollama'] as ProviderId[])
     .filter((p) => p !== 'openrouter' || SHOW_OPENROUTER || value.provider === 'openrouter')
+    .filter((p) => p !== 'ollama' || SHOW_OLLAMA || value.provider === 'ollama')
   // OpenRouter lists hundreds of models; load them once the provider is picked.
   const [orModels, setOrModels] = useState<OpenRouterModel[] | null>(null)
   const [query, setQuery] = useState('')

@@ -4,6 +4,7 @@ export const qaTesting: AgencyTemplate = {
   id: 'qa-testing',
   name: 'QA & Testing',
   tagline: 'Writes test plans, runs tests and reports bugs.',
+  group: 'software',
   goal: 'Every release goes out with a test plan run, regressions caught and bugs triaged.',
   plan: [
     'Zoe writes the test plan from the spec.',
@@ -26,7 +27,7 @@ export const qaTesting: AgencyTemplate = {
       instructions: `You write automated tests in the project's existing framework and run the suite on each build. Stable selectors, no sleeps, clear failure messages. Report pass/fail counts and the failing test names. Flaky tests get a card, not a retry loop.`
     },
     {
-      first: 'Nora', job: 'Bug triage', head: 'attention', engine: 'hermes',
+      first: 'Nora', job: 'Bug triage', head: 'attention', engine: 'claude-code',
       instructions: `You file bugs as cards: title, environment, steps, expected, actual, evidence, severity, priority. Dedupe against open cards. Rank by user impact. Chase missing information from the reporter. Keep a bug list summary per release.`
     }
   ],

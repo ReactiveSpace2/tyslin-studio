@@ -9,17 +9,10 @@ import { seo } from './agencies/seo'
 import { paidAds } from './agencies/paid-ads'
 import { emailMarketing } from './agencies/email-marketing'
 import { salesLeadGen } from './agencies/sales-lead-gen'
-import { customerSupport } from './agencies/customer-support'
-import { researchIntelligence } from './agencies/research-intelligence'
 import { dataAnalytics } from './agencies/data-analytics'
 import { productManagement } from './agencies/product-management'
 import { qaTesting } from './agencies/qa-testing'
 import { devops } from './agencies/devops'
-import { startupVisa } from './agencies/startup-visa'
-import { financeBookkeeping } from './agencies/finance-bookkeeping'
-import { legalContracts } from './agencies/legal-contracts'
-import { hrRecruiting } from './agencies/hr-recruiting'
-import { videoCreative } from './agencies/video-creative'
 
 /**
  * Agencies: the unit Tyslin is organised around. An agency is a Lead agent with a goal, a plan, skills, a
@@ -31,9 +24,8 @@ import { videoCreative } from './agencies/video-creative'
 /** How a worker runs: an external agent over ACP. The Lead always runs on the built-in runtime (default model). */
 export const AGENCY_ADAPTERS = [
   { id: 'claude-code', name: 'Claude Code', by: 'Anthropic', description: 'Anthropic\'s coding agent, through its ACP adapter.' },
-  { id: 'hermes', name: 'Hermes', by: 'Nous Research', description: 'Open-source agent from Nous Research; one Hermes profile per agent.' },
-  { id: 'gemini-cli', name: 'Gemini CLI', by: 'Google', description: 'Google\'s open-source agent for the terminal.' },
-  { id: 'codex', name: 'Codex', by: 'OpenAI', description: 'OpenAI\'s coding agent, through its ACP adapter.' }
+  { id: 'codex', name: 'Codex', by: 'OpenAI', description: 'OpenAI\'s coding agent, through its ACP adapter.' },
+  { id: 'gemini-cli', name: 'Gemini CLI', by: 'Google', description: 'Google\'s open-source agent for the terminal.' }
 ] as const
 
 export type AgencyAdapterId = (typeof AGENCY_ADAPTERS)[number]['id']
@@ -50,10 +42,22 @@ export interface AgencyMember {
   lead?: boolean
 }
 
+/** How screens group the templates (wizard, Home, the site). */
+export type AgencyGroup = 'software' | 'documents' | 'marketing'
+
+export const AGENCY_GROUPS: { id: AgencyGroup; title: string; hint: string }[] = [
+  { id: 'software', title: 'Software', hint: 'Code in a repo' },
+  { id: 'documents', title: 'Documents and data', hint: 'Specs, reports and writing' },
+  { id: 'marketing', title: 'Marketing and sales', hint: 'Campaigns, outreach and growth' }
+]
+
 export interface AgencyTemplate {
   id: string
   name: string
   tagline: string
+  group: AgencyGroup
+  /** Shown as a card but can't be created yet. */
+  comingSoon?: boolean
   goal: string
   /** Five steps; each starts with the first name of the member who does it. */
   plan: string[]
@@ -68,11 +72,22 @@ export interface AgencyTemplate {
   folders: string[]
 }
 
+/**
+ * The templates in screen order. Workers run on Claude Code, Codex or Gemini CLI only. Seven more templates
+ * (Customer Support, Research & Intelligence, Startup Visa, Finance & Bookkeeping, Legal & Contracts,
+ * HR & Recruiting, Video & Creative) are in archive/shared/agencies/; agencies made from them still open and run.
+ */
 export const AGENCY_TEMPLATES: AgencyTemplate[] = [
-  appDevelopment, mobileApps, webDesign, socialMediaMarketing, contentWriting, seo, paidAds, emailMarketing,
-  salesLeadGen, customerSupport, researchIntelligence, dataAnalytics, productManagement, qaTesting, devops,
-  startupVisa, financeBookkeeping, legalContracts, hrRecruiting, videoCreative
+  appDevelopment, mobileApps, webDesign, qaTesting, devops,
+  productManagement, dataAnalytics, contentWriting,
+  socialMediaMarketing, seo, paidAds, emailMarketing, salesLeadGen
 ]
+
+/** Templates that can be created today. */
+export const AVAILABLE_TEMPLATES = AGENCY_TEMPLATES.filter((t) => !t.comingSoon)
+
+/** The templates of one group, in order. */
+export const templatesIn = (g: AgencyGroup): AgencyTemplate[] => AGENCY_TEMPLATES.filter((t) => t.group === g)
 
 /** "Sam (Backend)". */
 export const agentName = (m: Pick<AgencyMember, 'first' | 'job'>): string => `${m.first} (${m.job})`

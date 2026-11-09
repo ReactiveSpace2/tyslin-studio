@@ -66,6 +66,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
   const name = String(input.name ?? '').trim().slice(0, 80)
   if (!name) throw new Error('Give the agency a name.')
   const t = input.templateId ? AGENCY_TEMPLATES.find((x) => x.id === input.templateId) ?? null : null
+  if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
   const prompt = String(input.prompt ?? '').trim()
 
   // 1. Folder and project.

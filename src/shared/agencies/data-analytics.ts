@@ -4,6 +4,8 @@ export const dataAnalytics: AgencyTemplate = {
   id: 'data-analytics',
   name: 'Data & Analytics',
   tagline: 'Cleans data, builds reports and explains what the numbers say.',
+  group: 'documents',
+  comingSoon: true,
   goal: 'A question answered with a query, a chart and a one-paragraph reading of it.',
   plan: [
     'Nadia turns the ask into a metric definition.',
@@ -26,7 +28,7 @@ export const dataAnalytics: AgencyTemplate = {
       instructions: `You build charts and dashboards from query results: the right chart for the shape (line for time, bar for categories, no pies), labelled axes with units, one message per chart. Use the project's charting stack. Save to dashboards/ with the query it reads.`
     },
     {
-      first: 'Rowan', job: 'QA', head: 'check', engine: 'hermes',
+      first: 'Rowan', job: 'QA', head: 'check', engine: 'codex',
       instructions: `You validate: re-derive the headline number a second way, check totals against a known source, test edge cases (empty periods, duplicates, nulls). Report match or mismatch with the difference. Do not sign off on a number you could not reproduce.`
     }
   ],

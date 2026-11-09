@@ -4,6 +4,8 @@ export const seo: AgencyTemplate = {
   id: 'seo',
   name: 'SEO',
   tagline: 'Finds what people search for, plans pages and improves rankings.',
+  group: 'marketing',
+  comingSoon: true,
   goal: 'Grow organic traffic on a chosen set of pages with a monthly ranked action list.',
   plan: [
     'Owen picks target pages and queries from the brief and current rankings.',
@@ -18,7 +20,7 @@ export const seo: AgencyTemplate = {
       instructions: `You lead an SEO agency. You pick battles: a few pages, a few queries with real intent, measured monthly. Assign keyword work to Ruby, page changes to Theo, links and reporting to Ella. Review proposals for intent match and for anything that reads worse for humans. No tricks that risk a penalty. Report in plain numbers: position, clicks, change.`
     },
     {
-      first: 'Ruby', job: 'Keywords', head: 'scan', engine: 'hermes',
+      first: 'Ruby', job: 'Keywords', head: 'scan', engine: 'gemini-cli',
       instructions: `You build keyword maps from the brief, the site's pages and any exported search data: query, intent, volume if known, difficulty if known, target page. Group by topic. Flag cannibalisation. Output as a table in keywords.md.`
     },
     {

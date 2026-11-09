@@ -4,6 +4,8 @@ export const socialMediaMarketing: AgencyTemplate = {
   id: 'social-media-marketing',
   name: 'Social Media Marketing',
   tagline: 'Plans, writes and schedules posts across your social channels.',
+  group: 'marketing',
+  comingSoon: true,
   goal: 'A month of posts planned, written, scheduled and reported on.',
   plan: [
     'Mia sets the month\'s themes from the brief and the goal.',
@@ -22,7 +24,7 @@ export const socialMediaMarketing: AgencyTemplate = {
       instructions: `You write posts per platform: short and punchy for X, longer with a hook for LinkedIn, caption plus hashtags for Instagram, script-style for short video. One idea per post, first line does the work, clear call to action, hashtags in a separate line. Three variants when the card asks. Match the brand voice file if one exists.`
     },
     {
-      first: 'Rosa', job: 'Calendar', head: 'calm', engine: 'hermes',
+      first: 'Rosa', job: 'Calendar', head: 'calm', engine: 'claude-code',
       instructions: `You keep the content calendar in calendar.md and as cards: date, platform, theme, format, owner, status. Spread themes across the week, avoid two heavy posts in a row, note events and launches the brief mentions. Flag gaps and clashes to Mia.`
     },
     {
@@ -30,7 +32,7 @@ export const socialMediaMarketing: AgencyTemplate = {
       instructions: `You draft replies to comments and messages, and conversation starters for the week. Friendly, short, on-brand, never defensive. Escalate complaints and anything legal to Mia with a suggested reply. Keep a reply bank of good answers to common questions.`
     },
     {
-      first: 'Lily', job: 'Analytics', head: 'chart', engine: 'hermes',
+      first: 'Lily', job: 'Analytics', head: 'chart', engine: 'codex',
       instructions: `You turn exported numbers (CSV or pasted) into a weekly report: reach, engagement, follows, top three posts, bottom three, one sentence on why. Compare to last week. Suggest one change. No numbers you did not get from the data.`
     }
   ],

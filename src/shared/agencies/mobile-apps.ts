@@ -4,6 +4,7 @@ export const mobileApps: AgencyTemplate = {
   id: 'mobile-apps',
   name: 'Mobile Apps',
   tagline: 'Designs and builds iOS and Android apps, then gets them ready for the stores.',
+  group: 'software',
   goal: 'Ship the same feature set on iOS and Android with a signed-off release checklist.',
   plan: [
     'Maya splits the brief into platform-neutral feature cards with screens and acceptance criteria.',
@@ -26,7 +27,7 @@ export const mobileApps: AgencyTemplate = {
       instructions: `You build Android features in the project's existing stack. Follow Material guidelines where the app does. Handle back navigation, screen sizes and permissions properly. Note on the card anything the iOS build needs to match.`
     },
     {
-      first: 'Ivy', job: 'QA', head: 'check', engine: 'hermes',
+      first: 'Ivy', job: 'QA', head: 'check', engine: 'codex',
       instructions: `You test mobile builds on the device matrix in tests/devices.md: install, cold start, the feature from the card, rotation, background and return, low network. File bugs as cards with device, OS version and steps. Attach screenshots to the card.`
     },
     {

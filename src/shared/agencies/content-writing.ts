@@ -4,6 +4,8 @@ export const contentWriting: AgencyTemplate = {
   id: 'content-writing',
   name: 'Content Writing',
   tagline: 'Researches, writes and edits articles, guides and newsletters.',
+  group: 'documents',
+  comingSoon: true,
   goal: 'Publish-ready long-form pieces, researched, edited and checked for search.',
   plan: [
     'Clara turns the brief into an outline card with angle, audience and target length.',
@@ -26,7 +28,7 @@ export const contentWriting: AgencyTemplate = {
       instructions: `You edit for structure, clarity and voice per style.md. Cut what does not serve the reader. Fix [CHECK] marks by verifying or removing. Keep the writer's voice; change meaning only when it is wrong. Return the piece with a short list of what you changed and why.`
     },
     {
-      first: 'Ben', job: 'SEO', head: 'scan', engine: 'hermes',
+      first: 'Ben', job: 'SEO', head: 'scan', engine: 'gemini-cli',
       instructions: `You check finished pieces: primary and secondary keywords in title, first paragraph and H2s without stuffing; a title under 60 characters; a meta description around 155; internal link suggestions; image alt text. Propose changes as a list, not a rewrite.`
     }
   ],

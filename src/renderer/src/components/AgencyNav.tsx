@@ -6,13 +6,13 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel
 
 type IconName = Parameters<typeof Icon>[0]['name']
 
-/** Inside an agency tab: the sidebar with its own Overview, Live, Chat (the Lead chat and the Inbox as two tabs), Kanban, Channel, Skills, Integrations, Drive, and at the foot Memory and Edit. */
+/** Inside an agency tab: the sidebar with its own Overview, Live, Chat (the Lead's chat: the agency's one conversation, with its messages and channel), Kanban, Skills, Integrations, Drive, and at the foot Memory and Edit. */
 export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }: {
   agencyId: string
   name: string
   /** The agency's Lead: Chat opens a chat with it in the agency's folder. */
   leadId: string | null
-  /** Unread Lead messages in this agency: shown on Chat (its Inbox tab). */
+  /** Questions and reviews waiting on you in this agency: shown on Chat. */
   unread: number
   route: Route
   onNavigate: (r: Route) => void
@@ -21,11 +21,10 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
     ['Overview', 'agency', { name: 'agency', id: agencyId, tab: 'org' }, route.name === 'agency' && route.tab === 'org'],
     // Live: the communication map, agency chat and agent cards (pages/LivePage.tsx).
     ['Live', 'live', { name: 'agency', id: agencyId, tab: 'live' }, route.name === 'agency' && route.tab === 'live'],
-    // Chat: the Lead chat and the Inbox, as two tabs of one screen (AgencyChatTabs).
+    // Chat: the Lead's chat, which also holds the Lead's messages to you and the Channel sheet (ChatPage + LeadChannel).
     ['Chat', 'chat', leadId ? { name: 'chat', agentId: leadId, projectId: agencyId } : { name: 'agency', id: agencyId, tab: 'chat' },
       (route.name === 'chat' && route.agentId === leadId) || (route.name === 'agency' && route.tab === 'chat')],
     ['Kanban', 'kanban', { name: 'kanban' }, route.name === 'kanban'],
-    ['Channel', 'channel', { name: 'connectors' }, route.name === 'connectors'],
     ['Skills', 'skills', { name: 'skills' }, route.name === 'skills'],
     ['Integrations', 'connectors', { name: 'integrations' }, route.name === 'integrations'],
     ['Drive', 'drive', { name: 'drive' }, route.name === 'drive'],
@@ -46,7 +45,7 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
         </SidebarMenuButton>
         {badge && (
           <SidebarMenuBadge className="right-2 peer-data-[size=default]/menu-button:top-2.5 px-0">
-            <Badge variant="lime" className="h-5 min-w-5 px-1.5 font-mono" aria-label={`${unread} unread`}>{unread}</Badge>
+            <Badge variant="lime" className="h-5 min-w-5 px-1.5 font-mono" aria-label={`${unread} waiting for you`}>{unread}</Badge>
           </SidebarMenuBadge>
         )}
       </SidebarMenuItem>
@@ -64,11 +63,11 @@ export function AgencyNav({ agencyId, name, leadId, unread, route, onNavigate }:
         </SidebarHeader>
         <SidebarContent className="gap-0">
           <SidebarGroup className="p-0">
-            <SidebarMenu className="gap-0.5">{items.slice(0, 8).map(item)}</SidebarMenu>
+            <SidebarMenu className="gap-0.5">{items.slice(0, 7).map(item)}</SidebarMenu>
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter className="gap-0.5 border-t border-border p-0 pt-2.5">
-          <SidebarMenu className="gap-0.5">{items.slice(8).map(item)}</SidebarMenu>
+          <SidebarMenu className="gap-0.5">{items.slice(7).map(item)}</SidebarMenu>
         </SidebarFooter>
       </Sidebar>
     </SidebarProvider>

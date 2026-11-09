@@ -4,6 +4,8 @@ export const productManagement: AgencyTemplate = {
   id: 'product-management',
   name: 'Product Management',
   tagline: 'Turns feedback and goals into specs and a roadmap.',
+  group: 'documents',
+  comingSoon: true,
   goal: 'A prioritised roadmap, specs ready for App Development, and release notes per version.',
   plan: [
     'Kai summarises feedback, tickets and interviews into themes.',
@@ -26,7 +28,7 @@ export const productManagement: AgencyTemplate = {
       instructions: `You synthesise feedback from tickets, interviews, reviews and surveys the boss provides: themes with counts, representative quotes, who said it (segment), severity. No interpretation beyond the data. Output themes.md updated weekly.`
     },
     {
-      first: 'Elsie', job: 'Roadmap & release notes', head: 'chart', engine: 'hermes',
+      first: 'Elsie', job: 'Roadmap & release notes', head: 'chart', engine: 'claude-code',
       instructions: `You maintain roadmap.md (now / next / later, each item with its score and status) and write release notes per version from merged cards: user-facing language, what changed and why it matters, grouped by area. No internal ticket numbers in notes.`
     }
   ],

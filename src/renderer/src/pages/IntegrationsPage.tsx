@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Agent, McpServerInfo, McpServerInput, RegistryServer } from '@shared/types'
 import { AGENCY_INTEGRATIONS } from '@shared/agencyIntegrations'
 import { MCP_PRESETS, type McpPreset } from '@shared/mcpPresets'
-import { ENGINE_NAMES } from '@shared/engines'
+import { ENGINE_NAMES, engineListed } from '@shared/engines'
 import { Avatar } from '../components/Avatar'
 import { runsOnLabel } from '../components/RunsOnBadge'
 import { Icon } from '../components/Icon'
@@ -39,7 +39,7 @@ const publisher = (name: string): string => {
 }
 const KIND: Record<NonNullable<RegistryServer['install']>['kind'], string> = { remote: 'Remote', npm: 'npm', pypi: 'Python', docker: 'Docker' }
 const canUse = (a: Agent): boolean => a.engine !== 'builtin'
-const ADAPTERS = [ENGINE_NAMES['claude-code'], ENGINE_NAMES.codex, ENGINE_NAMES['gemini-cli'], ENGINE_NAMES.goose].join(', ')
+const ADAPTERS = (['claude-code', 'codex', 'gemini-cli', 'goose'] as const).filter((id) => engineListed(id)).map((id) => ENGINE_NAMES[id]).join(', ')
 
 type Draft = {
   id?: string; preset: McpPreset | null; name: string; transport: 'http' | 'stdio'; url: string; commandLine: string; token: string; headers: string; env: string; keepSecrets: boolean

@@ -169,7 +169,7 @@ export function LiveMap({ lead, workers, latest, now, youName, unread }: {
           </span>
           <div className="flex flex-col items-center gap-0.5 rounded-lg border border-border bg-card px-2.5 py-1.5 shadow-xs">
             <strong className="text-sm font-semibold">You</strong>
-            <span className="font-mono text-[11px] text-muted-foreground">Inbox</span>
+            <span className="font-mono text-[11px] text-muted-foreground">Chat</span>
             {unread > 0 && <Badge variant="lime" className="mt-1 font-mono">{unread} to read</Badge>}
           </div>
         </div>

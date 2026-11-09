@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ClaudeSkill, EngineStatus, ProviderId, ProviderSettings, SkillPack, TelegramStatus } from '@shared/types'
 import {
-  AGENCY_ADAPTERS, AGENCY_COLUMNS, AGENCY_TEMPLATES, agentName, planOwner, templateAdapters, templateSummary,
+  AGENCY_ADAPTERS, AGENCY_COLUMNS, AGENCY_GROUPS, AGENCY_TEMPLATES, agentName, planOwner, templateAdapters, templateSummary,
   type AgencyAdapterId, type AgencyMember, type AgencyNotify, type AgencyTemplate
 } from '@shared/agencies'
 import { PROVIDER_NAME } from '@shared/models'
@@ -12,7 +12,6 @@ import { Icon } from './Icon'
 import logo from '../assets/logo-mark.png'
 import claudeLogo from '../assets/providers/claude.svg'
 import geminiLogo from '../assets/providers/gemini.svg'
-import hermesLogo from '../assets/providers/hermes.png'
 import { Pose } from './Pose'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -27,7 +26,7 @@ import { cn } from '@/lib/utils'
 
 const STEPS = ['Agency', 'Adapter', 'Model', 'Skills', 'Kanban', 'Channel', 'Review'] as const
 
-const ADAPTER_LOGO: Partial<Record<AgencyAdapterId, string>> = { 'claude-code': claudeLogo, 'gemini-cli': geminiLogo, hermes: hermesLogo }
+const ADAPTER_LOGO: Partial<Record<AgencyAdapterId, string>> = { 'claude-code': claudeLogo, 'gemini-cli': geminiLogo }
 const CLAUDE_PACK = 'anthropic-skills'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
@@ -164,7 +163,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
 
   const pickTemplate = (id: string): void => {
     const t = AGENCY_TEMPLATES.find((x) => x.id === id)
-    if (!t) return
+    if (!t || t.comingSoon) return
     set({
       templateId: id, description: t.tagline, goal: t.goal, plan: t.plan, roster: t.roster, name: d.name.trim() ? d.name : t.name,
       prompt: `${t.tagline} Work in this agency's folder. Keep each change small and send it for review. Write in plain English. Ask before adding a paid service or a new dependency.`
@@ -283,37 +282,53 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
               <Input className="w-full max-w-[260px]" type="search" placeholder="Search templates" aria-label="Search templates" value={query} onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }} />
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="radiogroup" aria-label="Templates">
-              {shown.map((t) => {
-                const l = t.roster.find((m) => m.lead)!
-                const on = d.templateId === t.id
-                return (
-                  <button key={t.id} type="button" role="radio" aria-checked={on} className={cn(choice(on), 'p-3.5')} onClick={() => pickTemplate(t.id)}>
-                    <span className="flex items-center gap-2.5"><Head id={l.head} size={30} /><strong className="min-w-0 flex-1 text-sm font-semibold">{t.name}</strong>{on && <Check />}</span>
-                    <span className="text-[13px] leading-snug text-muted-foreground">{t.tagline}</span>
-                    <span className="mt-auto flex items-center justify-between gap-2">
-                      <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
-                      <span className="inline-flex shrink-0 items-center gap-1.5" aria-label={`Runs on ${templateAdapters(t).map((id) => AGENCY_ADAPTERS.find((a) => a.id === id)!.name).join(', ')}`}>
-                        {templateAdapters(t).map((id) => {
-                          const a = AGENCY_ADAPTERS.find((x) => x.id === id)!
-                          return ADAPTER_LOGO[id]
-                            ? <img key={id} src={ADAPTER_LOGO[id]} alt="" title={a.name} width={16} height={16} className="size-4 object-contain" />
-                            : <span key={id} className="grid size-4 place-items-center rounded-sm bg-primary font-mono text-[8px] font-semibold text-primary-foreground" title={a.name} aria-hidden="true">{a.name.slice(0, 2)}</span>
-                        })}
-                      </span>
-                    </span>
-                  </button>
-                )
-              })}
-              {shown.length === 0 && <p className="text-sm text-muted-foreground">No template matches. Describe the agency above instead.</p>}
-            </div>
+            <span id="aw-soon" className="sr-only">Coming soon: not available to create yet.</span>
+            {AGENCY_GROUPS.map((g) => {
+              const items = shown.filter((t) => t.group === g.id)
+              if (!items.length) return null
+              return (
+                <section key={g.id} className="flex flex-col gap-3" aria-labelledby={`aw-group-${g.id}`}>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h3 id={`aw-group-${g.id}`} className="text-sm font-semibold">{g.title}</h3>
+                    <Badge variant="secondary" className="font-mono">{items.length}</Badge>
+                    <span className="text-xs text-muted-foreground">{g.hint}</span>
+                  </div>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3" role="radiogroup" aria-labelledby={`aw-group-${g.id}`}>
+                    {items.map((t) => {
+                      const l = t.roster.find((m) => m.lead)!
+                      const on = d.templateId === t.id
+                      const soon = !!t.comingSoon
+                      return (
+                        <button key={t.id} type="button" role="radio" aria-checked={on} disabled={soon} aria-describedby={soon ? 'aw-soon' : undefined}
+                          className={cn(choice(on), 'p-3.5', soon && 'cursor-not-allowed opacity-60 hover:border-border')} onClick={() => pickTemplate(t.id)}>
+                          <span className="flex items-center gap-2.5"><Head id={l.head} size={30} /><strong className="min-w-0 flex-1 text-sm font-semibold">{t.name}</strong>{on && <Check />}{soon && <Badge variant="secondary">Coming soon</Badge>}</span>
+                          <span className="text-[13px] leading-snug text-muted-foreground">{t.tagline}</span>
+                          <span className="mt-auto flex items-center justify-between gap-2">
+                            <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
+                            <span className="inline-flex shrink-0 items-center gap-1.5" aria-label={`Runs on ${templateAdapters(t).map((id) => AGENCY_ADAPTERS.find((a) => a.id === id)!.name).join(', ')}`}>
+                              {templateAdapters(t).map((id) => {
+                                const a = AGENCY_ADAPTERS.find((x) => x.id === id)!
+                                return ADAPTER_LOGO[id]
+                                  ? <img key={id} src={ADAPTER_LOGO[id]} alt="" title={a.name} width={16} height={16} className="size-4 object-contain" />
+                                  : <span key={id} className="grid size-4 place-items-center rounded-sm bg-primary font-mono text-[8px] font-semibold text-primary-foreground" title={a.name} aria-hidden="true">{a.name.slice(0, 2)}</span>
+                              })}
+                          </span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                  </div>
+                </section>
+              )
+            })}
+            {shown.length === 0 && <p className="text-sm text-muted-foreground">No template matches. Describe the agency above instead.</p>}
           </section>
         )}
 
         {step === 1 && (
           <section className={BODY}>
             <Intro title="How do your agents run?">
-              Your workers run on the agents you already use. Keep the template's mix or put every worker on one; the Lead runs on your default model. You can change any agent later on its page. Goose, ZeroClaw, OpenClaw and custom agents are in Settings → Agent engines.
+              Your workers run on the agents you already use. Keep the template's mix or put every worker on one; the Lead runs on your default model. You can change any agent later on its page.
             </Intro>
             <button type="button" role="radio" aria-checked={d.adapter === 'template'} className={choice(d.adapter === 'template')} onClick={() => set({ adapter: 'template' })}>
               <span className="flex items-center gap-3"><span className={cn(TILE, 'border-foreground bg-primary font-mono text-xs font-semibold text-primary-foreground')} aria-hidden="true">Mix</span>
@@ -347,7 +362,7 @@ export function AgencyWizard({ firstName, firstRun, first, templateId, onDone, o
         {step === 2 && d.model && (
           <section className={BODY}>
             <Intro title="Pick the Lead's model">
-              Your Lead plans and reviews with this model, and it becomes your default. Keys are encrypted on this computer and only go to their own provider. Ollama runs locally and needs no key.
+              Your Lead plans and reviews with this model, and it becomes your default. Keys are encrypted on this computer and only go to their own provider.
             </Intro>
             {firstRun ? <ModelKeys settings={settings} onSaved={keySaved} /> : <p className="text-sm text-muted-foreground">Model keys are in Settings → Models.</p>}
             <div className="flex max-w-[480px] flex-col gap-2">

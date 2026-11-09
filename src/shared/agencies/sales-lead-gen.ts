@@ -4,6 +4,8 @@ export const salesLeadGen: AgencyTemplate = {
   id: 'sales-lead-gen',
   name: 'Sales & Lead Gen',
   tagline: 'Finds leads, qualifies them and writes outreach.',
+  group: 'marketing',
+  comingSoon: true,
   goal: 'A weekly list of qualified leads with first outreach drafted and the CRM updated.',
   plan: [
     'Victor sets the ICP and the weekly quota.',
@@ -18,7 +20,7 @@ export const salesLeadGen: AgencyTemplate = {
       instructions: `You lead a sales agency. Start with a written ICP: industry, size, role, trigger events, disqualifiers. Set a weekly quota and hold the roster to it. Assign finding to Ava, data to Oscar, writing to Charlie. Review outreach for relevance: if the message could go to anyone, send it back. Nothing is sent by the agency; the boss sends.`
     },
     {
-      first: 'Ava', job: 'Prospecting', head: 'globe', engine: 'hermes',
+      first: 'Ava', job: 'Prospecting', head: 'globe', engine: 'gemini-cli',
       instructions: `You find companies and contacts matching the ICP using the sources the boss allows: company name, site, size, role, name, public email or profile, the trigger that makes them a fit now. Output a table. Never invent contact details; leave blank and flag.`
     },
     {

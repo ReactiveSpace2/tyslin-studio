@@ -10,11 +10,12 @@ import { agencyStatus } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Activity } from '../components/Activity'
 import { Icon } from '../components/Icon'
-import { AGENCY_TEMPLATES, templateSummary } from '@shared/agencies'
+import { AGENCY_GROUPS, AVAILABLE_TEMPLATES, templateSummary, templatesIn } from '@shared/agencies'
 import { HEAD_SRC } from '../heads'
 import { money, plural, useBoardStats } from '../boardStats'
 import { STATUS_LABEL, useAgentStatuses } from '../agentStatus'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatCard } from '../components/StatCard'
@@ -113,26 +114,39 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
               <h3 className="text-base font-semibold">Set up your first agency</h3>
               <p className="text-sm text-muted-foreground">Pick a template to start: you get a Lead and a team with a goal, a plan, a board and a line to you. You can change everything before it's created.</p>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
-              {AGENCY_TEMPLATES.map((t) => {
-                const l = t.roster.find((m) => m.lead)
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onNewAgency(t.id)}
-                    className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-xs transition-colors hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <img src={HEAD_SRC[l?.head ?? 'smile'] ?? HEAD_SRC.smile} alt="" width={30} height={30} />
-                      <strong className="text-sm font-semibold">{t.name}</strong>
-                    </span>
-                    <span className="text-[13px] text-muted-foreground">{t.tagline}</span>
-                    <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
-                  </button>
-                )
-              })}
-            </div>
+            {AGENCY_GROUPS.map((g) => (
+              <section key={g.id} className="flex flex-col gap-3" aria-labelledby={`home-group-${g.id}`}>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h4 id={`home-group-${g.id}`} className="text-sm font-semibold">{g.title}</h4>
+                  <Badge variant="secondary" className="font-mono">{templatesIn(g.id).length}</Badge>
+                  <span className="text-xs text-muted-foreground">{g.hint}</span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
+                  {templatesIn(g.id).map((t) => {
+                    const l = t.roster.find((m) => m.lead)
+                    const soon = !!t.comingSoon
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={soon}
+                        onClick={() => onNewAgency(t.id)}
+                        className={cn('flex flex-col gap-2 rounded-xl border border-border bg-card p-4 text-left shadow-xs transition-colors hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
+                          soon && 'cursor-not-allowed opacity-60 hover:border-border')}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <img src={HEAD_SRC[l?.head ?? 'smile'] ?? HEAD_SRC.smile} alt="" width={30} height={30} />
+                          <strong className="min-w-0 flex-1 text-sm font-semibold">{t.name}</strong>
+                          {soon && <Badge variant="secondary">Coming soon</Badge>}
+                        </span>
+                        <span className="text-[13px] text-muted-foreground">{t.tagline}</span>
+                        <span className="font-mono text-[11px] text-muted-foreground">{templateSummary(t)}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         )}
 
@@ -205,7 +219,7 @@ export function OrgHome({ you, orgName, agencies, agents, projects, sessions, fo
             >
               <span className="flex size-9 items-center justify-center rounded-full bg-lime text-on-lime"><Icon name="plus" size={14} /></span>
               <strong className="text-sm font-semibold">New agency</strong>
-              <span className="max-w-[220px] text-[13px] text-muted-foreground">Start from one of 20 templates or describe your own.</span>
+              <span className="max-w-[220px] text-[13px] text-muted-foreground">Start from {AVAILABLE_TEMPLATES.length} templates or describe your own.</span>
             </button>
           </div>
         </>)}

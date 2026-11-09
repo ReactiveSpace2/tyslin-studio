@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { engineListed } from '@shared/engines'
+import { SHOW_OLLAMA } from '../components/ModelSetup'
 
 type Section = 'overview' | 'instructions' | 'skills' | 'runs' | 'access' | 'channels' | 'tasks' | 'activity'
 
@@ -342,7 +344,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
                       <SelectTrigger id="ap-engine" className={SELECT}><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="builtin">Tyslin (a model with your key)</SelectItem>
-                        {engines.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}{e.resolvedPath ? '' : ' (not installed)'}</SelectItem>)}
+                        {engines.filter((e) => engineListed(e.id, form.engine)).map((e) => <SelectItem key={e.id} value={e.id}>{e.name}{e.resolvedPath ? '' : ' (not installed)'}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </Field>
@@ -351,7 +353,7 @@ export function AgentPage({ agentId, agents, projects, sessions, onBack, onChat,
                       <Select value={form.provider} onValueChange={(v) => { const p = v as ProviderId; setForm({ ...form, provider: p, model: MODEL_SUGGESTIONS[p][0] }) }}>
                         <SelectTrigger id="ap-prov" className={SELECT}><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="anthropic">Anthropic (Claude)</SelectItem><SelectItem value="openai">OpenAI</SelectItem><SelectItem value="gemini">Google Gemini</SelectItem><SelectItem value="ollama">Ollama (local)</SelectItem>
+                          <SelectItem value="anthropic">Anthropic (Claude)</SelectItem><SelectItem value="openai">OpenAI</SelectItem><SelectItem value="gemini">Google Gemini</SelectItem>{(SHOW_OLLAMA || form.provider === 'ollama') && <SelectItem value="ollama">Ollama (local)</SelectItem>}
                         </SelectContent>
                       </Select>
                     </Field>

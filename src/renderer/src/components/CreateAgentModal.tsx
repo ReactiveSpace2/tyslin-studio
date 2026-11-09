@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { engineListed } from '@shared/engines'
+import { SHOW_OLLAMA } from './ModelSetup'
 
 interface Props {
   agents: Agent[]
@@ -161,7 +163,7 @@ export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat,
               <>
                 <span className={sectionLabel}>Tyslin models · your key</span>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2.5">
-                  {MODELS.map((m) => {
+                  {MODELS.filter((m) => m.id !== 'ollama' || SHOW_OLLAMA || form.provider === 'ollama').map((m) => {
                     const on = form.engine === 'builtin' && form.provider === m.id
                     const ready = keySet(m.id)
                     return (
@@ -176,7 +178,7 @@ export function CreateAgentModal({ agents, projects, onClose, onCreated, onChat,
                 </div>
                 <span className={sectionLabel}>Agent engines · run an agent you install</span>
                 <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2.5">
-                  {engines.map((e) => {
+                  {engines.filter((e) => engineListed(e.id, form.engine)).map((e) => {
                     const on = form.engine === e.id
                     const ready = !!e.resolvedPath
                     return (

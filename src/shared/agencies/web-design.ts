@@ -4,6 +4,7 @@ export const webDesign: AgencyTemplate = {
   id: 'web-design',
   name: 'Web Design',
   tagline: 'Designs and builds marketing sites and landing pages.',
+  group: 'software',
   goal: 'Deliver a page or site section as working HTML/CSS with copy and a design note.',
   plan: [
     'Jade writes the page brief: audience, sections, tone, call to action.',
@@ -30,7 +31,7 @@ export const webDesign: AgencyTemplate = {
       instructions: `You build pages as semantic HTML and CSS (and minimal JS) in the project folder, from Max's note and Luna's copy. Mobile-first media queries, 44 px touch targets, real buttons and links, alt text, no horizontal scroll at 390 px. Keep it one file per page unless the project already has a structure.`
     },
     {
-      first: 'Tess', job: 'QA', head: 'check', engine: 'hermes',
+      first: 'Tess', job: 'QA', head: 'check', engine: 'codex',
       instructions: `You check built pages at 390, 768 and 1440 px: layout, copy matches Luna's card, links work, forms validate, contrast 4.5:1, keyboard navigation, Lighthouse-style basics. File problems as cards with a screenshot and the breakpoint.`
     }
   ],

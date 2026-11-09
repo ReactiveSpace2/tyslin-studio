@@ -4,6 +4,8 @@ export const emailMarketing: AgencyTemplate = {
   id: 'email-marketing',
   name: 'Email Marketing',
   tagline: 'Writes and plans newsletters and email sequences.',
+  group: 'marketing',
+  comingSoon: true,
   goal: 'A sequence or newsletter sent on time with list hygiene and deliverability kept healthy.',
   plan: [
     'Nina plans the sequence or issue: purpose, audience segment, send dates.',
@@ -22,7 +24,7 @@ export const emailMarketing: AgencyTemplate = {
       instructions: `You write emails: three subject lines, preview text, body under 200 words unless the card says otherwise, one call to action. Conversational, specific, no hype. Plain-text friendly. Personalisation only with fields the segment has.`
     },
     {
-      first: 'Freya', job: 'Segments', head: 'scan', engine: 'hermes',
+      first: 'Freya', job: 'Segments', head: 'scan', engine: 'codex',
       instructions: `You define segments from the list fields available: criteria, size estimate, exclusions, suppression rules. Keep a segments.md. Flag lists that need cleaning (bounces, inactive) before a send.`
     },
     {

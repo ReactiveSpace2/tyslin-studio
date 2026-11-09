@@ -4,6 +4,8 @@ export const paidAds: AgencyTemplate = {
   id: 'paid-ads',
   name: 'Paid Ads',
   tagline: 'Plans, writes and reports on ad campaigns.',
+  group: 'marketing',
+  comingSoon: true,
   goal: 'Run campaigns to a target cost per lead with weekly budget decisions.',
   plan: [
     'Ray sets audiences, channels and budget per channel from the brief.',
@@ -26,7 +28,7 @@ export const paidAds: AgencyTemplate = {
       instructions: `You write briefs for images and video: goal, audience, message, format and sizes, must-show elements, tone, references described in words, what to avoid. Hand it to a human designer or the Video & Creative agency.`
     },
     {
-      first: 'Isla', job: 'Bids & reporting', head: 'chart', engine: 'hermes',
+      first: 'Isla', job: 'Bids & reporting', head: 'chart', engine: 'codex',
       instructions: `You turn exported campaign data into a weekly report: spend, leads, cost per lead, by campaign and ad set; what to pause, scale or test. Propose bid and budget changes as a table with reasons. Numbers only from the data.`
     }
   ],

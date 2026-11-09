@@ -26,6 +26,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { engineListed } from '@shared/engines'
 
 export type SettingsTab = 'models' | 'engines' | 'agents' | 'appearance' | 'account' | 'about'
 type Tab = SettingsTab
@@ -478,7 +479,7 @@ function EnginesTab(): JSX.Element {
         <span>Engine</span><span>Program</span><span>Status</span>
       </div>
       <div className="divide-y divide-border">
-        {engines.map((e) => <EngineCard key={e.id} engine={e} onChange={replace} />)}
+        {engines.filter((e) => engineListed(e.id)).map((e) => <EngineCard key={e.id} engine={e} onChange={replace} />)}
       </div>
     </Card>
   )
@@ -516,7 +517,7 @@ function AboutTab(): JSX.Element {
           {update?.state === 'available' && <Button type="button" variant="lime" onClick={() => void window.tyslin.updates.openDownload()}>Download</Button>}
         </div>
       </Group>
-      <Group id="data-h" title="Your data" hint="Agencies, agents, chats and skills live in a local database, one per organization; boards and the files your agents make are in each agency's folder. Tyslin sends nothing anywhere except your work to the model providers and adapters you set up (Claude Code, Codex, Gemini CLI, Hermes and the others run on this computer and talk to their own services), the Lead's messages to the Telegram or Slack chats you link, Google when you sign in or sync Drive, and requests to GitHub for updates, skill packs and the star count.">
+      <Group id="data-h" title="Your data" hint="Agencies, agents, chats and skills live in a local database, one per organization; boards and the files your agents make are in each agency's folder. Tyslin sends nothing anywhere except your work to the model providers and adapters you set up (Claude Code, Codex and Gemini CLI run on this computer and talk to their own services), the Lead's messages to the Telegram or Slack chats you link, Google when you sign in or sync Drive, and requests to GitHub for updates, skill packs and the star count.">
         <KV rows={[['Location', <span key="l" className="font-mono text-xs break-all">{info?.dataPath ?? '…'}</span>]]} />
         <div>
           <Button type="button" variant="outline" onClick={() => void window.tyslin.app.openDataFolder()}>Open folder</Button>
