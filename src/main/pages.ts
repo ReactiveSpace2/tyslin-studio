@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, realpathSync, statSync, watch, type FSWatcher } from 'fs'
-import { isAbsolute, relative, resolve, sep } from 'path'
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync, watch, type FSWatcher } from 'fs'
+import { isAbsolute, join, relative, resolve, sep } from 'path'
 import { CALENDAR_STATES, pageFile as specFile, type AgencyPageSpec, type CalendarData, type CalendarItem, type CalendarState, type PageData, type TableData } from '@shared/pages'
 import { templatePages } from '@shared/agencies'
 import * as db from './db'
@@ -88,29 +88,64 @@ export function readPage(agencyId: string, pageId: string): PageData {
   }
 }
 
-/** One recursive watcher per agency folder while an agency page is open; `pages:changed` names the changed path. */
-const watchers = new Map<string, { w: FSWatcher; refs: number }>()
+/**
+ * Watches an agency folder while one of its pages is open; `pages:changed` names the changed path.
+ *
+ * Never `fs.watch(…, { recursive: true })` on Linux: Node has no native recursive watch there and adds one inotify
+ * watch per folder, node_modules and .git included. A worker's `npm install` then used up the user's whole inotify
+ * limit (ENOSPC at 65,536 in a test, 10 Nov 2026), which breaks file watching for every app on the desktop (GNOME
+ * Shell, VS Code, Chrome) and could hang the session. On Linux each folder gets its own plain watcher instead,
+ * skipping dependency, build and hidden folders, at most WATCH_DIRS of them. macOS and Windows watch natively.
+ */
+const WATCH_DIRS = 400
+const SKIP_NAMES = new Set(['node_modules', '.git', '.next', 'dist', 'out', 'build', 'coverage', 'target', 'vendor', 'venv', '.venv', '__pycache__', '.turbo', '.cache'])
+const skipDir = (name: string): boolean => SKIP_NAMES.has(name) || name.startsWith('.')
 const SKIP = /(^|[\\/])(\.git|node_modules|\.next|dist|out|build|coverage)([\\/]|$)/
+const watchers = new Map<string, { ws: Map<string, FSWatcher>; refs: number }>()
 
 export function watchAgency(agencyId: string, send: (p: { agencyId: string; path: string }) => void): void {
   const cur = watchers.get(agencyId)
   if (cur) { cur.refs++; return }
   const { folder } = agencyFolder(agencyId)
+  const entry = { ws: new Map<string, FSWatcher>(), refs: 1 }
+  watchers.set(agencyId, entry)
   const pending = new Set<string>()
   let timer: NodeJS.Timeout | null = null
-  try {
-    const w = watch(folder, { recursive: true }, (_e, name) => {
-      const rel = name ? String(name).split(sep).join('/') : ''
-      if (rel && SKIP.test(rel)) return
-      pending.add(rel)
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => { for (const p of pending) send({ agencyId, path: p }); pending.clear() }, 400)
-    })
-    w.on('error', () => unwatchAgency(agencyId, true))
-    watchers.set(agencyId, { w, refs: 1 })
-  } catch (err) {
-    console.warn(`[pages] can't watch ${folder}: ${err instanceof Error ? err.message : String(err)}`)
+  const changed = (rel: string): void => {
+    if (rel && SKIP.test(rel)) return
+    pending.add(rel)
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => { for (const p of pending) send({ agencyId, path: p }); pending.clear() }, 400)
   }
+  const linux = process.platform === 'linux'
+  const add = (abs: string): void => {
+    if (entry.ws.has(abs) || entry.ws.size >= WATCH_DIRS || watchers.get(agencyId) !== entry) return
+    try {
+      const w = watch(abs, { recursive: !linux }, (_e, name) => {
+        if (!name) return changed('')
+        const full = resolve(abs, String(name))
+        changed(relative(folder, full).split(sep).join('/'))
+        // Linux: a new folder needs its own watcher (unless it is one we skip).
+        if (linux && !skipDir(String(name))) { try { if (statSync(full).isDirectory()) walk(full) } catch { /* gone again */ } }
+      })
+      w.on('error', () => { try { w.close() } catch { /* closed */ } entry.ws.delete(abs) })
+      entry.ws.set(abs, w)
+    } catch (err) {
+      if (abs === folder) console.warn(`[pages] can't watch ${folder}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+  const walk = (abs: string): void => {
+    add(abs)
+    if (!linux) return
+    let names: string[] = []
+    try { names = readdirSync(abs) } catch { return }
+    for (const n of names) {
+      if (skipDir(n) || entry.ws.size >= WATCH_DIRS) continue
+      const p = join(abs, n)
+      try { if (lstatSync(p).isDirectory()) walk(p) } catch { /* gone */ }
+    }
+  }
+  walk(folder)
 }
 
 export function unwatchAgency(agencyId: string, all = false): void {
@@ -118,6 +153,6 @@ export function unwatchAgency(agencyId: string, all = false): void {
   if (!cur) return
   cur.refs = all ? 0 : cur.refs - 1
   if (cur.refs > 0) return
-  cur.w.close()
+  for (const w of cur.ws.values()) { try { w.close() } catch { /* closed */ } }
   watchers.delete(agencyId)
 }

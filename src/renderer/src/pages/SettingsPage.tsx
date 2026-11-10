@@ -19,6 +19,7 @@ import { modelLabel, refreshDefaultModel } from '../defaultModel'
 import { Mark } from '../components/RunsOnBadge'
 import { ChannelDialog } from '../agency/ChannelTab'
 import { InstallDialog } from '../settings/InstallDialog'
+import { UsageTab } from '../settings/UsageTab'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -30,8 +31,8 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
-export type SettingsTab = 'models' | 'accounts' | 'appearance' | 'notifications' | 'about'
-const TABS: [SettingsTab, string][] = [['models', 'Models'], ['accounts', 'Accounts and connectors'], ['appearance', 'Appearance'], ['notifications', 'Notifications'], ['about', 'About']]
+export type SettingsTab = 'models' | 'accounts' | 'usage' | 'appearance' | 'notifications' | 'about'
+const TABS: [SettingsTab, string][] = [['models', 'Models'], ['accounts', 'Accounts and connectors'], ['usage', 'Usage'], ['appearance', 'Appearance'], ['notifications', 'Notifications'], ['about', 'About']]
 
 const UPDATE_TEXT: Record<UpdateStatus['state'], string> = {
   idle: 'Update checks run in installed builds only.', checking: 'Checking…', none: 'You have the latest version.', available: 'A new version is ready to download.',
@@ -279,6 +280,7 @@ function AboutTab({ orgName, agencyCount }: { orgName: string; agencyCount: numb
 const TAB_LINE: Record<SettingsTab, string> = {
   models: 'The models your Leads and agents run on.',
   accounts: 'The adapters your workers run on, your Google account and Drive, and where the Leads reach you.',
+  usage: 'What your agencies spent this month, by agency and provider.',
   appearance: 'How Tyslin looks on this computer.',
   notifications: 'What interrupts you, and the defaults new agents start with.',
   about: 'Version, updates and your data.'
@@ -309,6 +311,7 @@ export function SettingsPage({ initialTab = 'models', agencies, activeAgency, or
         <header className="flex flex-col gap-1"><h2 className="text-xl font-semibold tracking-tight">{title}</h2><p className="max-w-[760px] text-sm text-muted-foreground">{TAB_LINE[tab]}</p></header>
         {tab === 'models' && <ModelsTab onOpenAccounts={() => setTab('accounts')} />}
         {tab === 'accounts' && <AccountsTab agencies={agencies} activeAgency={activeAgency} onAuthChange={onAuthChange} onChanged={onChanged} />}
+        {tab === 'usage' && <UsageTab agencies={agencies} />}
         {tab === 'appearance' && <AppearanceTab />}
         {tab === 'notifications' && <NotificationsTab />}
         {tab === 'about' && <AboutTab orgName={orgName} agencyCount={agencies.length} />}

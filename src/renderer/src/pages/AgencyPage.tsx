@@ -7,12 +7,13 @@ import { ConnectorsTab } from '../agency/ConnectorsTab'
 import { GoalsTab } from '../agency/GoalsTab'
 import { MemoryTab } from '../agency/MemoryTab'
 import { ScheduleTab } from '../agency/ScheduleTab'
+import { BudgetTab } from '../agency/BudgetTab'
 import { SkillsTab } from '../agency/SkillsTab'
 import { TeamTab } from '../agency/TeamTab'
 import { AgencyPageView, shownPages } from '../agency/pages'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule']]
+const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule'], ['budget', 'Budget']]
 
 interface Props {
   view: AgencyView
@@ -44,7 +45,8 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
       <TabsList aria-label="Agency" className="h-auto flex-wrap self-start">
         {tabs.map(([id, label]) => <TabsTrigger key={id} active={tab === id} onClick={() => onTab(id)} className="h-9 px-3">{label}</TabsTrigger>)}
       </TabsList>
-      {tab === 'goals' && <GoalsTab key={view.agency.updatedAt} view={view} onChanged={onChanged} onChannel={() => onTab('channel')} />}
+      {tab === 'goals' && <GoalsTab key={view.agency.updatedAt} view={view} onChanged={onChanged} onChannel={() => onTab('channel')} onBudget={() => onTab('budget')} />}
+      {tab === 'budget' && <BudgetTab key={view.agency.id} view={view} agents={agents} onChanged={onChanged} />}
       {tab === 'team' && <TeamTab view={view} you={you} onOpenAgent={onOpenAgent} onAddWorker={onAddWorker} />}
       {tab === 'skills' && <SkillsTab view={view} agents={agents} onAgentsChanged={onChanged} />}
       {tab === 'connectors' && <ConnectorsTab view={view} />}

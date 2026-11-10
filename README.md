@@ -140,6 +140,10 @@ Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agen
 
 Agents on Claude Code, Codex or Gemini CLI can use tools from other apps through MCP servers. Open an agency → Connectors: connect GitHub, Linear or Stripe with a token, search the official [MCP Registry](https://registry.modelcontextprotocol.io) and install a server from there, or add any MCP server yourself (a remote address or a command on this computer), then switch it on per agent. Each agency suggests the integrations that fit its work. Registry servers are published by companies and the community and aren't reviewed by Tyslin; check the publisher and source before installing. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
 
+### Budget and usage
+
+Every run is recorded in a cost ledger: agency, task, card, agent, adapter, provider, model, tokens and cost. A cost is **actual** when the provider billed it to Tyslin's own runtime (OpenRouter reports the charge), **estimated** when it comes from Tyslin's price list or the adapter's own figure (Claude Code), and **not reported** when nothing was given (Codex, Gemini CLI, models missing from the price list); it is never shown as $0. Agency → **Budget** has the monthly cap and alert threshold (80% by default), spend this month with the reset date, a daily chart and every run. At the threshold, Home shows it under Needs you; at the cap, new cards wait (a running card always finishes) and the Lead's message card asks you to raise the cap or keep it paused until the 1st. Spend resets on the 1st of each month, local time. A run refused for lack of credit also shows on Home. A task's Details panel shows its cost per worker, and Settings → **Usage** lists this month by agency and provider for the organization.
+
 ## Your data
 
 - One local SQLite database per organization, in the app's data folder (Settings → About → Open folder).

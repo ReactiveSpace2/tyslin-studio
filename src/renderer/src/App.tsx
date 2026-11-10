@@ -29,7 +29,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
  * and an Agency (its goals, team, skills, connectors, channel, memory and schedule). Everything else is a
  * dialog, a tab or a panel. The left column is the same everywhere (AppSidebar).
  */
-export type AgencyTab = 'goals' | 'team' | 'skills' | 'connectors' | 'channel' | 'memory' | 'schedule' | `page:${string}`
+export type AgencyTab = 'goals' | 'team' | 'skills' | 'connectors' | 'channel' | 'memory' | 'schedule' | 'budget' | `page:${string}`
 export type Route =
   | { name: 'home' }
   | { name: 'task'; sessionId: string; agentId: string; /** A Lead message to scroll to. */ focus?: string }
@@ -81,8 +81,8 @@ export default function App(): JSX.Element {
   const refreshRunning = useCallback(async () => setRunningIds(new Set(await window.tyslin.sessions.running())), [])
   const refreshChannel = useCallback(() => { void window.tyslin.channels.list().then(setChannelMsgs) }, [])
   // File changes and plans waiting on you (QA, 10 Nov 2026: Home said "Nothing needs you" while a plan waited).
-  const [waiting, setWaiting] = useState<Pick<DashboardStats, 'reviews' | 'plans'>>({ reviews: [], plans: [] })
-  const refreshWaiting = useCallback(() => { void window.tyslin.app.dashboard().then((d) => setWaiting({ reviews: d.reviews, plans: d.plans })).catch(() => undefined) }, [])
+  const [waiting, setWaiting] = useState<Pick<DashboardStats, 'reviews' | 'plans' | 'budgetAlerts' | 'creditFailures'>>({ reviews: [], plans: [], budgetAlerts: [], creditFailures: [] })
+  const refreshWaiting = useCallback(() => { void window.tyslin.app.dashboard().then((d) => setWaiting({ reviews: d.reviews, plans: d.plans, budgetAlerts: d.budgetAlerts, creditFailures: d.creditFailures })).catch(() => undefined) }, [])
   useEffect(() => {
     refreshWaiting()
     const offBoard = window.tyslin.cards.onBoardChanged(refreshWaiting)
@@ -259,7 +259,7 @@ export default function App(): JSX.Element {
         return (
           <HomePage you={you} agencies={agencies} agents={agents} sessions={sessions} channelMessages={channelMsgs} waiting={waiting} runningIds={runningIds}
             activeAgency={activeAgency} onActiveAgency={setActiveAgency} onStartTask={startTask} onOpenTask={openTask} draft={draft} onDraftUsed={() => setDraft('')}
-            onOpenAgency={(id) => openAgency(id)} onOpenAgent={(agencyId, agentId) => setRoute({ name: 'agent', agencyId, agentId })}
+            onOpenAgency={(id, tab) => openAgency(id, tab)} onOpenAgent={(agencyId, agentId) => setRoute({ name: 'agent', agencyId, agentId })}
             onNewAgency={() => setNewAgency({})} onSettings={() => setRoute({ name: 'settings', tab: 'models' })} />
         )
       case 'agencies':

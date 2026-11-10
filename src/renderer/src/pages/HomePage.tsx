@@ -4,6 +4,7 @@ import type { AgencyView } from '../agencies'
 import { useAgentStatuses } from '../agentStatus'
 import { firstName } from '../boardStats'
 import { needsYou } from '../task/ChannelCard'
+import { PROVIDER_NAME } from '@shared/models'
 import { Avatar } from '../components/Avatar'
 import { Composer } from '../components/Composer'
 import { Icon } from '../components/Icon'
@@ -23,14 +24,14 @@ interface Props {
   sessions: Session[]
   channelMessages: ChannelMessage[]
   /** File changes and plans waiting on you (`app:dashboard`). */
-  waiting: Pick<DashboardStats, 'reviews' | 'plans'>
+  waiting: Pick<DashboardStats, 'reviews' | 'plans' | 'budgetAlerts' | 'creditFailures'>
   runningIds: Set<string>
   activeAgency: string | null
   onActiveAgency: (id: string) => void
   /** Starts a task with the agency's Lead; resolves when the first message is sent (throws if the Lead can't run). */
   onStartTask: (agencyId: string, text: string, attachmentIds: string[]) => Promise<void>
   onOpenTask: (sessionId: string, agentId: string, focus?: string) => void
-  onOpenAgency: (agencyId: string) => void
+  onOpenAgency: (agencyId: string, tab?: 'budget') => void
   onOpenAgent: (agencyId: string, agentId: string) => void
   onNewAgency: () => void
   onSettings: () => void
@@ -70,16 +71,31 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
     v.lead ? [...sessions].filter((s) => s.agentId === v.lead!.id).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null : null
   // Questions and reviews from the Leads, file changes no review message stands for, and plans waiting for
   // "Approve and run the plan" (QA, 10 Nov 2026), newest first; each opens the agency's newest Lead task.
-  interface Need { key: string; text: string; kind: string; at: number; v: AgencyView | null; focus?: string }
+  interface Need { key: string; text: string; kind: string; at: number; v: AgencyView | null; focus?: string; open?: () => void }
   const viewOfAgent = (id: string): AgencyView | null => agencies.find((v) => v.lead?.id === id || v.workers.some((w) => w.id === id)) ?? null
   const reviewMsgAgencies = new Set(channelMessages.filter((m) => m.kind === 'review' && needsYou(m)).map((m) => m.agencyId))
   const needs: Need[] = [
-    ...channelMessages.filter(needsYou).map((m) => ({ key: m.id, text: m.text.split('\n')[0], kind: m.kind === 'review' ? 'Review' : 'Question', at: m.createdAt, v: agencies.find((v) => v.agency.id === m.agencyId) ?? null, focus: m.id })),
+    ...channelMessages.filter(needsYou).map((m) => ({ key: m.id, text: m.text.split('\n')[0], kind: m.kind === 'review' ? 'Review' : m.kind === 'budget' ? 'Budget' : 'Question', at: m.createdAt, v: agencies.find((v) => v.agency.id === m.agencyId) ?? null, focus: m.id })),
     ...waiting.reviews.map((r) => ({ r, v: viewOfAgent(r.agentId) })).filter(({ v }) => !v || !reviewMsgAgencies.has(v.agency.id)).map(({ r, v }) => {
       const who = agents.find((a) => a.id === r.agentId)
       return { key: 'r:' + r.sessionId, text: `${who ? firstName(who.name) + ' changed' : 'Changed'} ${r.count} file${r.count === 1 ? '' : 's'}: review before they're written`, kind: 'Changes', at: 0, v }
     }),
-    ...waiting.plans.map((p) => ({ key: 'p:' + p.agencyId, text: `Plan ready for your OK · ${p.count} card${p.count === 1 ? '' : 's'}`, kind: 'Plan', at: p.at, v: agencies.find((v) => v.agency.id === p.agencyId) ?? null }))
+    ...waiting.plans.map((p) => ({ key: 'p:' + p.agencyId, text: `Plan ready for your OK · ${p.count} card${p.count === 1 ? '' : 's'}`, kind: 'Plan', at: p.at, v: agencies.find((v) => v.agency.id === p.agencyId) ?? null })),
+    // Budget (10 Nov 2026): past the alert threshold, or at the cap when no cap message stands for it.
+    ...waiting.budgetAlerts.filter((b) => !b.capped || !channelMessages.some((m) => m.kind === 'budget' && m.agencyId === b.agencyId && needsYou(m))).map((b): Need => ({
+      key: 'b:' + b.agencyId, kind: 'Budget', at: 0, v: agencies.find((v) => v.agency.id === b.agencyId) ?? null, open: () => onOpenAgency(b.agencyId, 'budget'),
+      text: b.capped ? `At its monthly cap ($${b.spent.toFixed(2)} of $${b.budget.toFixed(2)}): new cards wait` : `Used ${Math.round((b.spent / b.budget) * 100)}% of its monthly cap ($${b.spent.toFixed(2)} of $${b.budget.toFixed(2)})`
+    })),
+    // A provider refused a run for credit or quota; shown until a later run on that provider in the agency succeeds.
+    ...waiting.creditFailures.map((c): Need => {
+      const v = c.agencyId ? agencies.find((x) => x.agency.id === c.agencyId) ?? null : null
+      const who = agents.find((a) => a.id === c.agentId)
+      const provider = c.provider ? PROVIDER_NAME[c.provider as keyof typeof PROVIDER_NAME] ?? c.provider : 'The provider'
+      const task = c.taskId ? sessions.find((s) => s.id === c.taskId) : undefined
+      return { key: `c:${c.agencyId}:${c.provider}`, kind: 'Credits', at: c.at, v,
+        text: `${who ? firstName(who.name) + "'s run" : 'A run'} stopped: the ${provider} account is out of credit`,
+        open: task ? () => onOpenTask(task.id, task.agentId) : v ? () => onOpenAgency(v.agency.id, 'budget') : undefined }
+    })
   ].sort((a, b) => b.at - a.at)
   const running = sessions.filter((s) => runningIds.has(s.id)).map((s) => ({ s, a: agents.find((x) => x.id === s.agentId) ?? null }))
 
@@ -162,12 +178,12 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
             <Card className="gap-0 overflow-hidden py-0">
               <h2 className="flex items-center justify-between border-b border-border px-3.5 py-3 text-[13px] font-semibold">Needs you <Badge variant="lime" className="font-mono">{needs.length}</Badge></h2>
               <ItemGroup>
-                {needs.slice(0, 6).map(({ key, text, kind, at, v, focus }) => {
+                {needs.slice(0, 6).map(({ key, text, kind, at, v, focus, open }) => {
                   const lead = v?.lead ?? null
                   const s = v ? newestLeadSession(v) : null
                   return (
                     <Item key={key} asChild size="sm" className="rounded-none border-b border-border last:border-b-0">
-                      <button type="button" className="text-left" disabled={!s || !lead} onClick={() => s && lead && onOpenTask(s.id, lead.id, focus)}>
+                      <button type="button" className="text-left" disabled={!open && (!s || !lead)} onClick={() => { if (open) open(); else if (s && lead) onOpenTask(s.id, lead.id, focus) }}>
                         <ItemMedia>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={24} /> : <Icon name="chat" size={16} />}</ItemMedia>
                         <ItemContent className="gap-0">
                           <ItemTitle className="line-clamp-1 font-normal">{text}</ItemTitle>

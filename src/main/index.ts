@@ -7,7 +7,7 @@ import { setSecret, getSecret } from './secrets'
 import { answerPermission, cancelRunPermissions, pendingPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
-import { testAcp } from './acp'
+import { killAllAdapters, testAcp } from './acp'
 import { driveCopyIn, driveCreateFile, driveDuplicate, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveReadText, driveRemove, driveRename, driveReveal, driveSearch, driveUnwatch, driveUpload, driveWatch, driveWriteText } from './drive'
 import { gitBranches, gitCheckout, gitCommit, gitCommitDiff, gitCommitFiles, gitCreateBranch, gitDiff, gitDiscard, gitIdentity, gitInit, gitLog, gitPull, gitPush, gitSetIdentity, gitShow, gitStage, gitStatus, gitUnstage } from './git'
 import { defaultModel } from './defaultModel'
@@ -15,6 +15,8 @@ import { newProjectFolderPath, defaultProjectFolder, defaultProjectName, setDefa
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { usesOpenRouter } from '@shared/openrouter'
+import { estimateCost } from '@shared/pricing'
+import { afterRunCost, budgetAlerts, onCapChanged, setBudgetResume } from './budget'
 import { cancelOpenRouter, checkOpenRouterKey, connectOpenRouter, openRouterAccount } from './openrouterAuth'
 import { removeIntegration, saveIntegration, testIntegration } from './integrations'
 import { searchRegistry } from './mcpRegistry'
@@ -30,7 +32,7 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, updateCard, removeCard, type CardPatch } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, cardForRun, runNext, updateCard, removeCard, type CardPatch } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -131,6 +133,41 @@ function stopRunsOf(agentIds: string[]): void {
   }
 }
 
+/**
+ * What a run sends to the window, lighter (10 Nov 2026, the memory/hang report): text chunks are joined and sent
+ * about every 40 ms instead of one IPC message and one React render per token, and a tool call's streamed arguments
+ * stop after 2 KB (the screen shows only the file path at their start; a 40 KB file write used to arrive in thousands
+ * of pieces, each re-rendering the whole task). Order is kept: pending text goes out before any other event.
+ */
+const TEXT_FLUSH_MS = 40
+const ARGS_SHOWN = 2_000
+function throttledSend(out: (e: RunEventBody) => void): (e: RunEventBody) => void {
+  let text = ''
+  let timer: NodeJS.Timeout | null = null
+  const argBytes = new Map<string, number>()
+  const flush = (): void => {
+    if (timer) { clearTimeout(timer); timer = null }
+    if (text) { const t = text; text = ''; out({ type: 'text_delta', text: t }) }
+  }
+  return (e) => {
+    if (e.type === 'text_delta') {
+      text += e.text
+      if (!timer) timer = setTimeout(flush, TEXT_FLUSH_MS)
+      return
+    }
+    if (e.type === 'tool_call_args') {
+      const seen = argBytes.get(e.toolCallId) ?? 0
+      if (seen >= ARGS_SHOWN) return
+      argBytes.set(e.toolCallId, seen + e.delta.length)
+      flush()
+      out({ ...e, delta: e.delta.slice(0, ARGS_SHOWN - seen) })
+      return
+    }
+    flush()
+    out(e)
+  }
+}
+
 function startRun(sessionId: string, text: string, attachments: ReturnType<typeof prepareAttachments> = { attachments: [], context: '' }): { runId: string; done: Promise<{ ok: boolean; error?: string }> } {
   const { session, agent } = checkCanRun(sessionId)
   db.addMessage(sessionId, 'user', text, attachments)
@@ -138,7 +175,23 @@ function startRun(sessionId: string, text: string, attachments: ReturnType<typeo
   const runId = randomUUID()
   const controller = new AbortController()
   activeRuns.set(sessionId, { runId, controller })
-  const send = (e: RunEventBody): void => emit({ ...e, runId, sessionId })
+  const toWindow = throttledSend((e) => emit({ ...e, runId, sessionId }))
+  // Usage for the ledger: tokens added up; a provider's billed cost added up; an adapter's running total kept as its latest.
+  const startedAt = Date.now()
+  const usage = { inputTokens: 0, outputTokens: 0, seen: false, actual: null as number | null, adapter: null as number | null }
+  const send = (e: RunEventBody): void => {
+    if (e.type === 'usage') {
+      usage.seen = true
+      usage.inputTokens += e.inputTokens
+      usage.outputTokens += e.outputTokens
+      if (typeof e.cost === 'number') {
+        if (e.costSource === 'actual') usage.actual = (usage.actual ?? 0) + e.cost
+        else usage.adapter = e.cumulative ? e.cost : (usage.adapter ?? 0) + e.cost
+      }
+    }
+    toWindow(e)
+  }
+  let outcome: RunOutcome = { status: 'ok' }
   const done = (async () => {
     send({ type: 'run_started' })
     try {
@@ -160,15 +213,55 @@ function startRun(sessionId: string, text: string, attachments: ReturnType<typeo
       const message = controller.signal.aborted ? 'Stopped.' : err instanceof Error ? err.message : String(err)
       // Stopping isn't a failure.
       db.setAgentRunResult(agent.id, controller.signal.aborted ? '' : message)
+      outcome = controller.signal.aborted ? { status: 'stopped' } : { status: 'error', error: message }
       send({ type: 'run_error', error: message })
       return { ok: false, error: message }
     } finally {
+      try { recordRunCost({ runId, session, agent, startedAt, usage, outcome }); void afterRunCost(agent.agency ?? null) } catch (err) { console.warn('[costs] not recorded:', err instanceof Error ? err.message : err) }
       activeRuns.delete(sessionId)
       expireRunChanges(runId)
       cancelRunPermissions(runId)
     }
   })()
   return { runId, done }
+}
+
+type RunOutcome = { status: 'ok' | 'error' | 'stopped'; error?: string }
+type RunUsage = { inputTokens: number; outputTokens: number; seen: boolean; actual: number | null; adapter: number | null }
+
+/** A provider or adapter refusing for credit or quota, from the run's error text. */
+const CREDIT_ERROR = /out of credits|insufficient credits|requires more credits|can only afford|credit balance is too low|insufficient_quota|exceeded your current quota|usageLimitExceeded|quota exceeded|over its limit|\b402\b/i
+
+/** The task a run belongs to: its own chat, or for a card's worker chat the Lead's task that was open when it started. */
+function taskOf(session: Session, agent: Agent): string {
+  if (!session.title.startsWith('Card: ') || !agent.agency) return session.id
+  const leadId = db.getAgency(agent.agency)?.leadId
+  if (!leadId) return session.id
+  const lead = db.listSessions(leadId).filter((s) => !s.title.startsWith('Card: ') && !s.id.startsWith('inbox:') && s.createdAt <= session.createdAt)
+  return lead.sort((a, b) => b.createdAt - a.createdAt)[0]?.id ?? session.id
+}
+
+/**
+ * Writes the run's row in the cost ledger (cost_entries). The cost is what the provider billed when it says
+ * (OpenRouter, 'actual'), else the adapter's own figure (Claude Code) or our price table ('estimated'), else null:
+ * "not reported", never 0. Adapters on the user's own login name a provider but no model, because they choose it.
+ */
+function recordRunCost(r: { runId: string; session: Session; agent: Agent; startedAt: number; usage: RunUsage; outcome: RunOutcome }): void {
+  const { agent, usage } = r
+  const builtin = agent.engine === 'builtin'
+  const viaOr = usesOpenRouter(agent)
+  const provider = builtin || viaOr ? agent.provider : agent.engine === 'claude-code' ? 'anthropic' : agent.engine === 'codex' ? 'openai' : agent.engine === 'gemini-cli' ? 'gemini' : null
+  const model = builtin || viaOr ? agent.model || null : null
+  const estimate = builtin && (usage.inputTokens || usage.outputTokens) ? estimateCost(agent.provider, agent.model, usage) : null
+  const cost = usage.actual ?? usage.adapter ?? estimate
+  const source = usage.actual !== null ? 'actual' : cost !== null ? 'estimated' : null
+  db.recordCost({
+    runId: r.runId, agencyId: agent.agency ?? null, taskId: taskOf(r.session, agent), sessionId: r.session.id, cardId: cardForRun(r.runId),
+    agentId: agent.id, engine: agent.engine, provider, model,
+    inputTokens: usage.seen ? usage.inputTokens : null, outputTokens: usage.seen ? usage.outputTokens : null,
+    cost, source, status: r.outcome.status, errorKind: r.outcome.error && CREDIT_ERROR.test(r.outcome.error) ? 'credits' : null,
+    startedAt: r.startedAt, createdAt: Date.now()
+  })
 }
 
 /**
@@ -348,6 +441,8 @@ async function openrouterModels(): Promise<OpenRouterModel[]> {
 
 function initAgencies(): void {
   initCards({ startRun, runTask, checkReady: checkAgentReady })
+  // A raised cap lets the agency's planned cards run again (budget.ts).
+  setBudgetResume((id) => { const a = db.getAgency(id); if (a) void runNext(a) })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
   // Every Lead → boss message goes through the gateway (Lead-only, the agency's notify setting, Telegram or Slack).
   boardHooks.messageBoss = (agency, from, kind, text, extras) => sendToBoss(agency, from, kind, text, extras)
@@ -375,7 +470,7 @@ function openInbox(messageId: string): void {
 
 /** Kept so notifications aren't garbage-collected before they're clicked. */
 const shownNotifications = new Set<Notification>()
-const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest' }
+const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest', budget: 'reached the monthly cap' }
 
 /** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the agency's Inbox. */
 function notifyBoss(m: ChannelMessage): void {
@@ -636,7 +731,12 @@ function registerIpc(): void {
     win?.webContents.send('tasks:changed')
     return a
   })
-  ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => updateAgency(id, input))
+  ipcMain.handle('agencies:update', (_e, id: string, input: AgencyUpdateInput) => {
+    const before = db.getAgency(id)
+    const after = updateAgency(id, input)
+    if (before) onCapChanged(before, after)
+    return after
+  })
   ipcMain.handle('agencies:remove', (_e, id: string) => {
     stopRunsOf(db.listAgents().filter((a) => a.agency === id).map((a) => a.id))
     removeAgency(id)
@@ -655,6 +755,9 @@ function registerIpc(): void {
   ipcMain.handle('channels:unread', () => db.unreadChannelMessages())
   ipcMain.handle('cards:run', (_e, agencyId: string, cardId: string) => runCard(agencyId, cardId))
   ipcMain.handle('cards:running', () => runningCards())
+  ipcMain.handle('costs:agency', (_e, agencyId: string) => db.agencyCosts(String(agencyId ?? '')))
+  ipcMain.handle('costs:task', (_e, taskId: string) => db.taskCosts(String(taskId ?? '')))
+  ipcMain.handle('costs:usage', () => db.usageThisMonth())
   ipcMain.handle('cards:runPlan', (_e, agencyId: string) => runPlan(String(agencyId ?? '')))
   ipcMain.handle('cards:update', (_e, agencyId: string, cardId: string, patch: CardPatch) => updateCard(String(agencyId ?? ''), String(cardId ?? ''), patch ?? {}))
   ipcMain.handle('cards:remove', (_e, agencyId: string, cardId: string) => removeCard(String(agencyId ?? ''), String(cardId ?? '')))
@@ -663,7 +766,7 @@ function registerIpc(): void {
   ipcMain.handle('auth:signIn', () => signIn())
   ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
   ipcMain.handle('auth:signOut', () => signOut())
-  ipcMain.handle('app:dashboard', () => ({ ...db.dashboardStats(), plans: waitingPlans() }))
+  ipcMain.handle('app:dashboard', () => ({ ...db.dashboardStats(), plans: waitingPlans(), budgetAlerts: budgetAlerts() }))
   ipcMain.handle('app:stars', () => githubStars())
   ipcMain.handle('tasks:list', () => db.listTasks())
   ipcMain.handle('tasks:save', (_e, input: TaskInput) =>
@@ -779,4 +882,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Adapters run in their own process groups; stop them, and what they started, when the app quits.
+app.on('will-quit', () => {
+  for (const r of activeRuns.values()) r.controller.abort()
+  killAllAdapters()
 })

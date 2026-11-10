@@ -126,7 +126,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => setPane('')}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {pane === 'details' && <DetailsPanel view={view} agent={agent} cards={task.cards} channel={task.channel} cost={task.cost} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
+            {pane === 'details' && <DetailsPanel view={view} agent={agent} taskId={sessionId} cards={task.cards} channel={task.channel} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
             {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
             {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} />}
             {pane === 'changes' && (shownReview

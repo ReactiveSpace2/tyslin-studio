@@ -14,26 +14,22 @@ import { NOTIFY_LABEL } from '@shared/agencies'
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const HINT = 'text-xs leading-normal text-muted-foreground'
 
-/** Goals: what the agency is for, the rules every agent follows, and its limits (budget, what the Lead sends, auto-run). */
-export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onChanged: () => void; onChannel: () => void }): JSX.Element {
+/** Goals: what the agency is for, the rules every agent follows, and its limits (what the Lead sends, auto-run; the cap is on Budget). */
+export function GoalsTab({ view, onChanged, onChannel, onBudget }: { view: AgencyView; onChanged: () => void; onChannel: () => void; onBudget: () => void }): JSX.Element {
   const { agency, lead } = view
   const [goal, setGoal] = useState(agency.goal)
   const [prompt, setPrompt] = useState(agency.prompt)
-  const [budget, setBudget] = useState(agency.budget === null ? '' : String(agency.budget))
   const [notify, setNotify] = useState<Agency['notify']>(agency.notify)
   const [autoRun, setAutoRun] = useState(agency.autoRun)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
-  const dirty = goal !== agency.goal || prompt !== agency.prompt || budget !== (agency.budget === null ? '' : String(agency.budget)) || notify !== agency.notify || autoRun !== agency.autoRun
+  const dirty = goal !== agency.goal || prompt !== agency.prompt || notify !== agency.notify || autoRun !== agency.autoRun
   const who = lead ? firstName(lead.name) : 'The Lead'
-  const budgetBad = budget.trim() !== '' && !(Number.isFinite(Number(budget.trim())) && Number(budget.trim()) >= 0)
 
   const save = async (): Promise<void> => {
-    const b = budget.trim() === '' ? null : Number(budget.trim())
-    if (b !== null && (!Number.isFinite(b) || b < 0)) { setError('The monthly budget must be a number, or empty for none.'); return }
     setBusy(true); setError(''); setSaved(false)
-    try { await window.tyslin.agencies.update(agency.id, { goal: goal.trim(), prompt: prompt.trim(), budget: b, notify, autoRun }); setSaved(true); onChanged() } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
+    try { await window.tyslin.agencies.update(agency.id, { goal: goal.trim(), prompt: prompt.trim(), notify, autoRun }); setSaved(true); onChanged() } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
   }
 
   return (
@@ -55,11 +51,10 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
           <Card className="gap-4 px-5 py-[18px]">
             <span className="text-sm font-semibold">Limits</span>
             <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="ag-budget" className="text-sm font-normal">Budget per month</Label>
-              <span className="flex items-center gap-2"><span className="text-muted-foreground">$</span><Input id="ag-budget" value={budget} onChange={(e) => setBudget(e.target.value)} inputMode="decimal" placeholder="none" aria-invalid={budgetBad || undefined} aria-describedby={budgetBad ? 'ag-budget-error' : undefined} className="w-24 text-right font-mono" /></span>
+              <span className="text-sm">Spent this month</span>
+              <span className="font-mono text-sm">{money(agency.spent)}{agency.budget !== null ? ` of ${money(agency.budget)}` : ''}</span>
             </div>
-            {budgetBad && <span id="ag-budget-error" className="text-xs text-destructive" role="alert">Use a number of dollars, like 50, or leave it empty for no budget.</span>}
-            <span className={HINT}>{money(agency.spent)} used this month{agency.budget !== null ? ` of $${agency.budget}` : ''}. {who} stops starting cards when it's reached.</span>
+            <span className={HINT}>{agency.budget !== null ? `At the cap, new cards wait until you raise it or the month ends.` : 'No monthly cap yet.'} Cap, alerts and every run: <button type="button" className="text-green underline underline-offset-2" onClick={onBudget}>Budget</button>.</span>
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor="ag-notify" className="text-sm font-normal">{who} messages you about</Label>
               <Select value={notify} onValueChange={(v) => setNotify(v as Agency['notify'])}>
@@ -77,7 +72,7 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={busy || !dirty || budgetBad}>{busy ? 'Saving…' : 'Save'}</Button>
+        <Button type="submit" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</Button>
         {saved && !dirty && <span className={HINT} role="status">Saved.</span>}
         {error && <span className="text-[13px] text-destructive" role="alert">{error}</span>}
       </div>

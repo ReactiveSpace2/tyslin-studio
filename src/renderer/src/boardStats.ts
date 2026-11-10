@@ -13,7 +13,8 @@ export interface BoardStats {
 
 const EMPTY: BoardStats = { inbox: 0, planned: 0, inProgress: 0, review: 0, spentWeek: 0 }
 const WEEK = 7 * 24 * 60 * 60 * 1000
-const COST = / · (\d+(?:\.\d+)?) est\.$/
+// Old lines: "finished · 0.0123 est."; since the cost ledger (10 Nov 2026): "finished · $0.0123 est." or "· $0.0123" when billed.
+const COST = / · \$?(\d+(?:\.\d+)?)(?: est\.)?$/
 
 export async function readBoardStats(agency: Agency): Promise<BoardStats> {
   let doc: KanbanDoc

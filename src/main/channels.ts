@@ -4,6 +4,7 @@ import * as db from './db'
 import { pointLinkedChatsAt, sendToLinkedChats } from './telegram'
 import { slackSendToLinked } from './slack'
 import { findCard, log, patchCard, readBoard } from './boardTools'
+import { answerBudget } from './budget'
 
 /**
  * The channel gateway. Every message from an agency to the boss goes through here as one normalized
@@ -15,9 +16,9 @@ import { findCard, log, patchCard, readBoard } from './boardTools'
  */
 
 const ALLOWED: Record<Agency['notify'], MessageKind[]> = {
-  all: ['brief', 'question', 'review', 'digest'],
-  questions: ['question', 'review'],
-  digest: ['digest']
+  all: ['brief', 'question', 'review', 'digest', 'budget'],
+  questions: ['question', 'review', 'budget'],
+  digest: ['digest', 'budget']
 }
 
 /** Set by index.ts: the Inbox and Channel screens refresh, and `wanted` messages pop up as desktop notifications. */
@@ -107,6 +108,8 @@ export function replyToLead(messageId: string, text: string, sessionId?: string)
   if (!answer) throw new Error('Write your answer.')
   const m = db.getChannelMessage(messageId)
   if (!m) throw new Error('That message is gone.')
+  // The cap message is Tyslin's, not the Lead's: raise the cap or keep it paused, without waking the Lead.
+  if (m.kind === 'budget') { const saved = answerBudget(m, answer); onChannelMessage(saved, false); return saved }
   const agency = db.getAgency(m.agencyId)
   const lead = agency?.leadId ? db.getAgent(agency.leadId) : null
   if (!agency || !lead) throw new Error('This agency has no Lead to answer.')

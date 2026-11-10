@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils'
 
 /** Waiting on you: a question or review not answered yet. */
-export const needsYou = (m: ChannelMessage): boolean => (m.kind === 'question' || m.kind === 'review') && !m.reply
+export const needsYou = (m: ChannelMessage): boolean => (m.kind === 'question' || m.kind === 'review' || m.kind === 'budget') && !m.reply
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const clock = (t: number): string => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
@@ -78,6 +78,8 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
       </Collapsible>
     )
   }
+
+  if (m.kind === 'budget') return <BudgetCard m={m} lead={lead} head={head} answered={answered} errorLine={errorLine} busy={busy} reply={reply} />
 
   if (m.kind === 'brief') {
     // The boss's brief is the Inbox card logged as such; Leads often name their first planned card instead, so
@@ -159,6 +161,47 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
             </span>
             <Button type="submit" size="sm" className="min-h-9" disabled={busy || !draft.trim()}><Icon name="send" size={12} /> Send</Button>
           </form>
+          {errorLine}
+        </>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * The monthly cap message (budget.ts): raise the cap (an amount above this month's spend) or keep the agency paused
+ * until the month ends. Answered in main without waking the Lead; cards already running were never stopped.
+ */
+function BudgetCard({ m, head, answered, errorLine, busy, reply }: {
+  m: ChannelMessage
+  lead: Agent | null
+  head: (label: string, tone: 'lime' | 'secondary') => JSX.Element
+  answered: JSX.Element | '' | null
+  errorLine: JSX.Element | '' | false
+  busy: boolean
+  reply: (text: string) => Promise<void>
+}): JSX.Element {
+  const [cap, setCap] = useState('')
+  const [agency, setAgency] = useState<{ budget: number | null; spent: number; resetsAt: number } | null>(null)
+  useEffect(() => { void window.tyslin.agencies.list().then((g) => { const a = g.find((x) => x.id === m.agencyId); if (a) { setAgency(a); setCap(String(Math.ceil(Math.max(a.spent, a.budget ?? 0) * 1.5))) } }) }, [m.agencyId])
+  const n = Number(cap)
+  const ok = cap.trim() !== '' && Number.isFinite(n) && (!agency || n > agency.spent)
+  const until = agency ? new Date(agency.resetsAt).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }) : 'the month ends'
+  return (
+    <Card className={cn('gap-2.5 px-4 py-3.5', !m.reply && 'border-green')}>
+      {head('Budget', m.reply ? 'secondary' : 'lime')}
+      <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{m.text}</p>
+      {m.reply ? answered : (
+        <>
+          <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (ok) void reply(`Raise the cap to $${n}`) }}>
+            <span className="flex flex-col gap-1.5">
+              <Label htmlFor={`cap-${m.id}`} className="text-xs">New monthly cap</Label>
+              <span className="flex items-center gap-1.5"><span className="text-muted-foreground">$</span><Input id={`cap-${m.id}`} value={cap} onChange={(e) => setCap(e.target.value)} inputMode="decimal" className="w-28 font-mono" aria-invalid={(cap.trim() !== '' && !ok) || undefined} /></span>
+            </span>
+            <Button type="submit" size="sm" variant="lime" className="min-h-9 font-semibold" disabled={busy || !ok}>Raise the cap</Button>
+            <Button type="button" size="sm" variant="outline" className="min-h-9" disabled={busy} onClick={() => void reply(`Keep it paused until ${until}`)}>Keep paused until {until}</Button>
+          </form>
+          {cap.trim() !== '' && !ok && agency && <span className="text-xs text-destructive">Raise it above what's spent this month (${agency.spent.toFixed(2)}).</span>}
           {errorLine}
         </>
       )}

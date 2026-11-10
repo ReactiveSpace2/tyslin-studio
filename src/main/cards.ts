@@ -3,6 +3,7 @@ import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask 
 import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
 import { estimateCost, type Usage } from '@shared/pricing'
 import * as db from './db'
+import { atCap, capMessage } from './budget'
 import { boardHooks, findCard, log, moveCard, patchCard, readBoard, writeBoard } from './boardTools'
 
 /**
@@ -97,6 +98,9 @@ function startLeadReview(agency: Agency): void {
 
 export const runningCards = (): string[] => [...active]
 
+/** The card a run works on (for the cost ledger), while cards.ts still knows the run. */
+export const cardForRun = (runId: string): string | null => runs.get(runId)?.cardId ?? null
+
 /**
  * Plans waiting for the boss's OK: agencies that don't auto-run (and aren't running an approved plan) with cards
  * in Planned that have an assignee and no status. Home and Recents count these as "needs you" (QA, 10 Nov 2026).
@@ -178,7 +182,7 @@ export async function runCard(agencyId: string, cardId: string): Promise<string>
   const agency = db.getAgency(agencyId)
   if (!agency) throw new Error('That agency no longer exists.')
   if (agency.paused) throw new Error(`${agency.name} is paused. Resume it on its page first.`)
-  if (agency.budget !== null && agency.spent >= agency.budget) throw new Error(`${agency.name} has reached its budget (${agency.spent.toFixed(2)} of ${agency.budget}). Raise it on the Edit page to keep going.`)
+  if (atCap(agency)) throw new Error(capMessage(agency))
   const doc = readBoard(agency)
   if (!doc) throw new Error('The board file is missing.')
   const hit = findCard(doc, cardId)
@@ -215,8 +219,10 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
   active.delete(run.cardId)
   const agency = db.getAgency(run.agencyId)
   if (!agency) return
-  const cost = agent.engine === 'builtin' ? estimateCost(agent.provider, agent.model, run.usage) : null
-  if (cost) db.addAgencySpend(agency.id, cost)
+  // The run's cost comes from the ledger row startRun wrote (actual, estimated, or null = not reported).
+  const entry = db.costForRun(runId)
+  const cost = entry?.cost ?? null
+  const costNote = entry && cost !== null ? ` · $${cost.toFixed(4)}${entry.source === 'estimated' ? ' est.' : ''}` : ''
   const doc = readBoard(agency)
   if (!doc) return
   const hit = findCard(doc, run.cardId)
@@ -231,7 +237,7 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     hit.card.result = text
     hit.card.status = 'done'
     if (cost !== null) hit.card.cost = (hit.card.cost ?? 0) + cost
-    log(hit.card, `${agent.name} finished${cost !== null ? ` · ${cost.toFixed(4)} est.` : ''}`)
+    log(hit.card, `${agent.name} finished${costNote}`)
     const pending = sessionId ? db.listChanges(sessionId).some((c) => c.runId === runId && c.status === 'pending') : false
     if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, 'Review')
     if (pending) log(hit.card, 'File changes are waiting for review')
@@ -247,7 +253,8 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
 /** Auto-run (or an approved plan): the next planned card with an assignee that has never run, one at a time. */
 export async function runNext(agency: Agency): Promise<void> {
   if (!runsOnItsOwn(agency) || agency.paused) return
-  if (agency.budget !== null && agency.spent >= agency.budget) return
+  // At the cap new cards wait (the plan stays approved) until the boss raises it or the month ends (budget.ts).
+  if (atCap(agency)) return
   const doc = readBoard(agency)
   if (!doc) return
   const busy = doc.columns.some((c) => c.cards.some((k) => active.has(k.id)))

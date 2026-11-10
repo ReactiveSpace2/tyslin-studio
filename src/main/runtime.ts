@@ -344,6 +344,8 @@ class OpenAICompatibleRuntime implements AgentRuntime {
           messages,
           // Token counts in the last chunk, for cost estimates (Gemini's OpenAI endpoint rejects the option).
           ...(this.kind !== 'gemini' && { stream_options: { include_usage: true } }),
+          // OpenRouter adds what it billed for the request (`usage.cost`, USD) to that last chunk.
+          ...(this.kind === 'openrouter' && { usage: { include: true } }),
           ...(tools && { tools: tools.defs.map((t) => ({ type: 'function', function: t })) })
         })
       })
@@ -373,7 +375,11 @@ class OpenAICompatibleRuntime implements AgentRuntime {
             const raw = `error ${streamErr.code ?? ''}: ${streamErr.message ?? ''}`
             throw new Error((this.kind === 'openrouter' ? openRouterError(raw, agent.model) : null) ?? `${this.kind} ${raw}`)
           }
-          if (chunk.usage) emit({ type: 'usage', inputTokens: Number(chunk.usage.prompt_tokens ?? 0), outputTokens: Number(chunk.usage.completion_tokens ?? 0) })
+          if (chunk.usage) {
+            const billed = this.kind === 'openrouter' ? Number((chunk.usage as { cost?: unknown }).cost) : NaN
+            emit({ type: 'usage', inputTokens: Number(chunk.usage.prompt_tokens ?? 0), outputTokens: Number(chunk.usage.completion_tokens ?? 0),
+              ...(Number.isFinite(billed) && billed >= 0 ? { cost: billed, costSource: 'actual' as const } : {}) })
+          }
           const choice = chunk.choices?.[0]
           const delta = choice?.delta
           if (delta?.content) {

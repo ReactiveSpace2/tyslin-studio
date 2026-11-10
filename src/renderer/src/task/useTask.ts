@@ -24,7 +24,8 @@ const TOOL_VERB: Record<string, string> = { list_files: 'Listed files', read_fil
 export function activityLabel(a: Activity): string {
   if (!TOOL_VERB[a.name]) return a.name
   let path = ''
-  try { path = JSON.parse(a.args || '{}').path ?? '' } catch { /* args still streaming */ }
+  // Arguments arrive cut at 2 KB (main's throttledSend), so a big write's JSON never closes; read the path directly.
+  try { path = JSON.parse(a.args || '{}').path ?? '' } catch { path = /"path"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(a.args)?.[1] ?? '' }
   return [TOOL_VERB[a.name], path].filter(Boolean).join(' ')
 }
 

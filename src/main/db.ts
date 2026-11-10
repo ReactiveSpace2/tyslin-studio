@@ -8,7 +8,7 @@ import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import type { McpServerInfo } from '@shared/types'
 import { HEAD_IDS } from '@shared/heads'
-import type { Agency, AgencyUpdateInput, Agent, AgentInput, ChangeStatus, ChannelMessage, DashboardStats, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
+import type { Agency, AgencyUpdateInput, Agent, AgentInput, AgencyCosts, ChangeStatus, ChannelMessage, CostEntry, CostTotal, DashboardStats, TaskCosts, UsageRow, Organization, OrgColor, ScheduledTask, TaskInput, Message, PendingChange, Preferences, Project, ProviderId, Session, Skill, SkillInput } from '@shared/types'
 
 /**
  * Organizations: each one is its own SQLite file, so agents, assistants, projects, chats, skills and
@@ -202,6 +202,18 @@ function migrate(): void {
     budget REAL, spent REAL NOT NULL DEFAULT 0, auto_run INTEGER NOT NULL DEFAULT 0,
     paused INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
   )`)
+  // Cost ledger (10 Nov 2026): one row per run, written by index.ts startRun. Agency spend is summed from here for
+  // the current month; agencies.spent is no longer read.
+  db.exec(`CREATE TABLE IF NOT EXISTS cost_entries (
+    id TEXT PRIMARY KEY, run_id TEXT NOT NULL UNIQUE, agency_id TEXT, task_id TEXT, session_id TEXT NOT NULL,
+    card_id TEXT, agent_id TEXT NOT NULL, engine TEXT NOT NULL, provider TEXT, model TEXT,
+    input_tokens INTEGER, output_tokens INTEGER, cost REAL, source TEXT, status TEXT NOT NULL, error_kind TEXT,
+    started_at INTEGER NOT NULL, created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS cost_entries_agency ON cost_entries(agency_id, created_at);
+  CREATE INDEX IF NOT EXISTS cost_entries_task ON cost_entries(task_id);`)
+  addColumn('agencies', 'alert_at', 'REAL NOT NULL DEFAULT 0.8')
+  addColumn('agencies', 'cap_hold', 'TEXT')
   // Messages from agency Leads to the boss, delivered or not (channels.ts).
   db.exec(`CREATE TABLE IF NOT EXISTS channel_messages (
     id TEXT PRIMARY KEY, agency_id TEXT NOT NULL, agent_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
@@ -750,7 +762,9 @@ export function dashboardStats(now = Date.now()): DashboardStats {
     reviews: db.prepare(`SELECT s.id AS sessionId, s.agent_id AS agentId, s.project_id AS projectId, s.title, COUNT(*) AS count
       FROM pending_changes c JOIN sessions s ON s.id = c.session_id WHERE c.status = 'pending'
       GROUP BY s.id ORDER BY MAX(c.created_at) DESC LIMIT 6`).all() as DashboardStats['reviews'],
-    plans: []
+    plans: [],
+    budgetAlerts: [],
+    creditFailures: creditFailures()
   }
 }
 
@@ -880,6 +894,7 @@ type AgencyRow = {
   id: string; name: string; description: string; goal: string; prompt: string; plan: string; template_id: string
   lead_id: string | null; project_id: string; adapter: string; board_path: string; channel: string; notify: string
   budget: number | null; spent: number; auto_run: number; paused: number; created_at: number; updated_at: number
+  alert_at: number | null; cap_hold: string | null
 }
 
 const toAgency = (r: AgencyRow): Agency => ({
@@ -887,7 +902,7 @@ const toAgency = (r: AgencyRow): Agency => ({
   plan: (() => { try { const p = JSON.parse(r.plan); return Array.isArray(p) ? p.map(String) : [] } catch { return [] } })(),
   templateId: r.template_id, leadId: r.lead_id, projectId: r.project_id, adapter: r.adapter || 'template', boardPath: r.board_path,
   channel: parseJson(r.channel, { kind: 'none' as const }), notify: (['all', 'questions', 'digest'].includes(r.notify) ? r.notify : 'questions') as Agency['notify'],
-  budget: r.budget, spent: r.spent ?? 0, autoRun: !!r.auto_run, paused: !!r.paused, createdAt: r.created_at, updatedAt: r.updated_at
+  budget: r.budget, spent: monthSpend(r.id), resetsAt: monthStart(1), alertAt: r.alert_at ?? 0.8, autoRun: !!r.auto_run, paused: !!r.paused, createdAt: r.created_at, updatedAt: r.updated_at
 })
 
 export function listAgencies(): Agency[] {
@@ -904,7 +919,7 @@ export function agencyForProject(projectId: string): Agency | null {
   return r ? toAgency(r) : null
 }
 
-export function insertAgency(a: Omit<Agency, 'createdAt' | 'updatedAt' | 'spent'>): Agency {
+export function insertAgency(a: Omit<Agency, 'createdAt' | 'updatedAt' | 'spent' | 'resetsAt' | 'alertAt'>): Agency {
   const now = Date.now()
   db.prepare(`INSERT INTO agencies (id, name, description, goal, prompt, plan, template_id, lead_id, project_id, adapter, board_path,
     channel, notify, budget, spent, auto_run, paused, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`).run(
@@ -919,10 +934,13 @@ export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
   const next = { ...cur, ...input }
   const name = String(next.name ?? '').trim().slice(0, 80)
   if (!name) throw new Error('Give the agency a name.')
-  db.prepare(`UPDATE agencies SET name=?, description=?, goal=?, prompt=?, plan=?, adapter=?, channel=?, notify=?, budget=?, auto_run=?, paused=?, updated_at=? WHERE id=?`)
+  const budget = next.budget === null || next.budget === undefined || Number.isNaN(Number(next.budget)) ? null : Number(next.budget)
+  if (budget !== null && budget < 0) throw new Error('The monthly cap can\'t be below zero.')
+  const alertAt = Number(next.alertAt)
+  if (!(alertAt > 0 && alertAt <= 1)) throw new Error('The alert threshold must be between 1% and 100% of the cap.')
+  db.prepare(`UPDATE agencies SET name=?, description=?, goal=?, prompt=?, plan=?, adapter=?, channel=?, notify=?, budget=?, alert_at=?, auto_run=?, paused=?, updated_at=? WHERE id=?`)
     .run(name, next.description, next.goal, next.prompt, JSON.stringify(next.plan), next.adapter, JSON.stringify(next.channel), next.notify,
-      next.budget === null || next.budget === undefined || Number.isNaN(Number(next.budget)) ? null : Number(next.budget),
-      next.autoRun ? 1 : 0, next.paused ? 1 : 0, Date.now(), id)
+      budget, alertAt, next.autoRun ? 1 : 0, next.paused ? 1 : 0, Date.now(), id)
   if (name !== cur.name) db.prepare('UPDATE projects SET name = ? WHERE id = ?').run(name, cur.projectId)
   return getAgency(id)!
 }
@@ -931,8 +949,117 @@ export function setAgencyLead(id: string, leadId: string | null): void {
   db.prepare('UPDATE agencies SET lead_id = ?, updated_at = ? WHERE id = ?').run(leadId, Date.now(), id)
 }
 
-export function addAgencySpend(id: string, amount: number): void {
-  if (amount > 0) db.prepare('UPDATE agencies SET spent = spent + ? WHERE id = ?').run(amount, id)
+// ---- Cost ledger (10 Nov 2026) ----
+
+/** The month (YYYY-MM) an agency's cap message was sent for, or null. */
+export const getCapHold = (agencyId: string): string | null =>
+  (db.prepare('SELECT cap_hold FROM agencies WHERE id = ?').get(agencyId) as { cap_hold: string | null } | undefined)?.cap_hold ?? null
+export function setCapHold(agencyId: string, month: string | null): void {
+  db.prepare('UPDATE agencies SET cap_hold = ? WHERE id = ?').run(month, agencyId)
+}
+
+/** Credit or quota refusals this month that no later successful run on the same provider in that agency has cleared. */
+export function creditFailures(now = Date.now()): DashboardStats['creditFailures'] {
+  const rows = listCosts({ since: monthStart(0, now), limit: 5000 })
+  const out: DashboardStats['creditFailures'] = []
+  const cleared = new Set<string>()
+  for (const r of rows) { // newest first
+    const k = `${r.agencyId ?? ''}|${r.provider ?? ''}`
+    if (r.status === 'ok') { cleared.add(k); continue }
+    if (r.errorKind === 'credits' && !cleared.has(k)) { cleared.add(k); out.push({ agencyId: r.agencyId, agentId: r.agentId, taskId: r.taskId, provider: r.provider, at: r.createdAt }) }
+  }
+  return out
+}
+
+/** 00:00 local time on the 1st of this month, or `offset` months from it. */
+export function monthStart(offset = 0, now = Date.now()): number {
+  const d = new Date(now)
+  return new Date(d.getFullYear(), d.getMonth() + offset, 1).getTime()
+}
+
+type CostRow = {
+  id: string; run_id: string; agency_id: string | null; task_id: string | null; session_id: string; card_id: string | null
+  agent_id: string; engine: string; provider: string | null; model: string | null; input_tokens: number | null
+  output_tokens: number | null; cost: number | null; source: string | null; status: string; error_kind: string | null
+  started_at: number; created_at: number
+}
+const toCost = (r: CostRow): CostEntry => ({
+  id: r.id, runId: r.run_id, agencyId: r.agency_id, taskId: r.task_id, sessionId: r.session_id, cardId: r.card_id,
+  agentId: r.agent_id, engine: r.engine, provider: r.provider, model: r.model, inputTokens: r.input_tokens,
+  outputTokens: r.output_tokens, cost: r.cost, source: r.source === 'actual' || r.source === 'estimated' ? r.source : null,
+  status: r.status === 'error' || r.status === 'stopped' ? r.status : 'ok', errorKind: r.error_kind === 'credits' ? 'credits' : null,
+  startedAt: r.started_at, createdAt: r.created_at
+})
+
+export function recordCost(e: Omit<CostEntry, 'id'>): void {
+  db.prepare(`INSERT OR IGNORE INTO cost_entries (id, run_id, agency_id, task_id, session_id, card_id, agent_id, engine, provider, model,
+    input_tokens, output_tokens, cost, source, status, error_kind, started_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    randomUUID(), e.runId, e.agencyId, e.taskId, e.sessionId, e.cardId, e.agentId, e.engine, e.provider, e.model,
+    e.inputTokens, e.outputTokens, e.cost, e.cost === null ? null : e.source, e.status, e.errorKind, e.startedAt, e.createdAt)
+}
+
+export const costForRun = (runId: string): CostEntry | null => {
+  const r = db.prepare('SELECT * FROM cost_entries WHERE run_id = ?').get(runId) as CostRow | undefined
+  return r ? toCost(r) : null
+}
+
+/** Spent by an agency since the 1st of this month (rows without a cost add nothing). */
+export function monthSpend(agencyId: string, now = Date.now()): number {
+  const r = db.prepare('SELECT COALESCE(SUM(cost), 0) AS s FROM cost_entries WHERE agency_id = ? AND created_at >= ?').get(agencyId, monthStart(0, now)) as { s: number }
+  return r.s
+}
+
+/** Ledger rows, newest first: for an agency or a task, from `since`. */
+export function listCosts(q: { agencyId?: string; taskId?: string; since?: number; limit?: number }): CostEntry[] {
+  const where: string[] = []
+  const args: unknown[] = []
+  if (q.agencyId) { where.push('agency_id = ?'); args.push(q.agencyId) }
+  if (q.taskId) { where.push('task_id = ?'); args.push(q.taskId) }
+  if (q.since) { where.push('created_at >= ?'); args.push(q.since) }
+  const sql = `SELECT * FROM cost_entries ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ?`
+  return (db.prepare(sql).all(...args, q.limit ?? 500) as CostRow[]).map(toCost)
+}
+
+const dayKey = (t: number): string => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+
+/** This month for one agency: totals, spend per local day, and the runs (newest first). */
+export function agencyCosts(agencyId: string, now = Date.now()): AgencyCosts {
+  const from = monthStart(0, now), to = monthStart(1, now)
+  const rows = listCosts({ agencyId, since: from, limit: 2000 })
+  const byDay = new Map<string, number | null>()
+  for (let t = from; t < to && t <= now; t = new Date(new Date(t).getFullYear(), new Date(t).getMonth(), new Date(t).getDate() + 1).getTime()) byDay.set(dayKey(t), null)
+  for (const r of rows) if (r.cost !== null) { const k = dayKey(r.createdAt); byDay.set(k, (byDay.get(k) ?? 0) + r.cost) }
+  return { total: totalOf(rows), daily: [...byDay].map(([day, cost]) => ({ day, cost })), rows: rows.slice(0, 500), monthStart: from, resetsAt: to }
+}
+
+/** One task's runs added up, and per agent. */
+export function taskCosts(taskId: string): TaskCosts {
+  const rows = listCosts({ taskId, limit: 5000 })
+  const by = new Map<string, CostEntry[]>()
+  for (const r of rows) by.set(r.agentId, [...(by.get(r.agentId) ?? []), r])
+  return { total: totalOf(rows), byAgent: [...by].map(([agentId, list]) => ({ agentId, total: totalOf(list) })).sort((a, b) => b.total.cost - a.total.cost) }
+}
+
+/** This month for the organization (this org's database), one row per agency and provider. */
+export function usageThisMonth(now = Date.now()): UsageRow[] {
+  const rows = listCosts({ since: monthStart(0, now), limit: 100_000 })
+  const by = new Map<string, CostEntry[]>()
+  for (const r of rows) { const k = `${r.agencyId ?? ''}\u0000${r.provider ?? ''}`; by.set(k, [...(by.get(k) ?? []), r]) }
+  return [...by].map(([k, list]) => { const [a, p] = k.split('\u0000'); return { agencyId: a || null, provider: p || null, total: totalOf(list) } })
+    .sort((x, y) => y.total.cost - x.total.cost)
+}
+
+/** Adds up ledger rows: cost only over rows that reported one; `unreported` counts the rest. */
+export function totalOf(rows: CostEntry[]): CostTotal {
+  const t: CostTotal = { runs: 0, cost: 0, actual: 0, estimated: 0, unreported: 0, inputTokens: 0, outputTokens: 0 }
+  for (const r of rows) {
+    t.runs++
+    if (r.cost === null) t.unreported++
+    else { t.cost += r.cost; if (r.source === 'actual') t.actual += r.cost; else t.estimated += r.cost }
+    t.inputTokens += r.inputTokens ?? 0
+    t.outputTokens += r.outputTokens ?? 0
+  }
+  return t
 }
 
 /** Deletes the agency row, its agents (with their chats and tasks) and its project row; the folder stays. */

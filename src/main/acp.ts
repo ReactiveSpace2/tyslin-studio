@@ -34,15 +34,46 @@ export interface AcpLaunch {
 const HANDSHAKE_TIMEOUT_MS = 30_000
 const STOP_GRACE_MS = 3_000
 
+/** Adapter processes still running, so the app can stop them (and what they started) when it quits. */
+const live = new Set<ChildProcessWithoutNullStreams>()
+
 function start(launch: AcpLaunch): ChildProcessWithoutNullStreams {
-  return spawn(launch.command, launch.args, {
+  const child = spawn(launch.command, launch.args, {
     cwd: launch.cwd,
     env: launch.env,
     stdio: ['pipe', 'pipe', 'pipe'],
     // .cmd and .bat shims on Windows only start through a shell.
     shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(launch.command),
-    windowsHide: true
+    windowsHide: true,
+    // Its own process group, so stopping it also stops what it started: the CLI behind the adapter, dev servers,
+    // test runners. Killing only the adapter left those running and holding memory (10 Nov 2026).
+    detached: process.platform !== 'win32'
   })
+  live.add(child)
+  child.once('exit', () => live.delete(child))
+  return child
+}
+
+/**
+ * Stops an adapter and everything it started: SIGTERM to its process group, SIGKILL after a grace period if
+ * anything in the group is still there. Windows: `taskkill /T /F` on the tree.
+ */
+export function killTree(child: ChildProcessWithoutNullStreams, graceMs = 3_000): void {
+  const pid = child.pid
+  if (!pid) return
+  if (process.platform === 'win32') {
+    try { spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => undefined) } catch { /* gone */ }
+    return
+  }
+  const signalGroup = (sig: NodeJS.Signals): boolean => { try { process.kill(-pid, sig); return true } catch { return false } }
+  if (!signalGroup('SIGTERM') && child.exitCode === null) { try { child.kill() } catch { /* gone */ } }
+  setTimeout(() => { signalGroup('SIGKILL') }, graceMs).unref()
+}
+
+/** On quit: every adapter still running, and its process group. */
+export function killAllAdapters(): void {
+  for (const child of live) killTree(child, 1_000)
+  live.clear()
 }
 
 /** Keeps the last few KB of stderr so a crash can be explained. */
@@ -167,7 +198,8 @@ const TEXT_FAILURE_FORMS = [
 ]
 
 /** What the agent said went wrong during the turn, if anything; checked when the turn stops. */
-interface TurnState { failure: string | null; lastText: string }
+/** `cost`: the adapter's own running total for the session in USD (ACP usage_update), when it reports one. */
+interface TurnState { failure: string | null; lastText: string; cost: number | null }
 
 /** An agent-side error: Codex's `_meta.codex.error` (not a retry) or its thread ending in a system error. */
 function failureFromMeta(meta: Record<string, unknown> | null | undefined, state: TurnState): string | null {
@@ -251,7 +283,7 @@ export async function runAcpTurn(opts: {
     })
 
   const stop = (): void => {
-    if (child.exitCode === null && !child.killed) child.kill()
+    killTree(child)
   }
   // Stopped while the agent is still starting (the handshake can take up to 30 s): there is no session to
   // cancel yet, and an abort listener added later never fires, so stop the process now.
@@ -292,7 +324,7 @@ export async function runAcpTurn(opts: {
 
       const reply: string[] = []
       const tools = new Set<string>()
-      const state: TurnState = { failure: null, lastText: '' }
+      const state: TurnState = { failure: null, lastText: '', cost: null }
       // A prompt the agent rejects (a JSON-RPC error, e.g. "Authentication required") surfaces from nextUpdate().
       void session.prompt(opts.prompt).catch(() => undefined)
       try {
@@ -312,6 +344,13 @@ export async function runAcpTurn(opts: {
             throw err
           })
           if (msg.kind === 'stop') {
+            // Token counts from the prompt response (Claude Code, Codex), and the adapter's own cost figure for the
+            // session (Claude Code's usage_update; one session per turn here, so the session total is this turn's).
+            const u = (msg.response as { usage?: { inputTokens?: number; outputTokens?: number; cachedReadTokens?: number; cachedWriteTokens?: number } | null }).usage
+            if (u || state.cost !== null) {
+              host.emit({ type: 'usage', inputTokens: u ? Number(u.inputTokens ?? 0) + Number(u.cachedReadTokens ?? 0) + Number(u.cachedWriteTokens ?? 0) : 0,
+                outputTokens: u ? Number(u.outputTokens ?? 0) : 0, ...(state.cost !== null ? { cost: state.cost, costSource: 'estimated' as const, cumulative: true } : {}) })
+            }
             if (msg.stopReason === 'cancelled' || signal?.aborted) throw new Error('Stopped.')
             // Codex reports some failures only as reply text and a normal end_turn; those are run errors, not results.
             if (state.failure) throw new Error(`${name} failed: ${state.failure.trim().replace(/\s+/g, ' ').slice(0, 400)}`)
@@ -375,8 +414,14 @@ function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: S
         host.emit({ type: 'tool_result', toolCallId: u.toolCallId, content: contentText(u.content), isError: u.status === 'failed' })
       }
       break
+    case 'usage_update': {
+      // Cumulative for the session; Claude Code fills `cost` (its own figure at its price list), Codex doesn't.
+      const c = (u as { cost?: { amount?: number; currency?: string } | null }).cost
+      if (c && typeof c.amount === 'number' && Number.isFinite(c.amount) && (!c.currency || c.currency === 'USD')) state.cost = c.amount
+      break
+    }
     default:
-      // Thoughts, plans, mode and usage updates aren't shown yet.
+      // Thoughts, plans and mode updates aren't shown yet.
       break
   }
 }
@@ -405,7 +450,7 @@ export async function testAcp(name: string, launch: AcpLaunch, clientVersion: st
     const why = await explain(err, died).catch((e: unknown) => e)
     return { ok: false, error: why instanceof Error ? why.message : String(why) }
   } finally {
-    if (child.exitCode === null) child.kill()
+    killTree(child)
   }
 }
 
@@ -435,6 +480,6 @@ export async function authenticateAcp(name: string, launch: AcpLaunch, methodId:
     const why = await explain(err, died).catch((e: unknown) => e)
     throw why instanceof Error ? why : new Error(String(why))
   } finally {
-    if (child.exitCode === null) child.kill()
+    killTree(child)
   }
 }

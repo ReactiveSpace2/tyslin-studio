@@ -260,9 +260,14 @@ export interface Agency {
   boardPath: string
   channel: { kind: 'telegram' | 'slack' | 'none' }
   notify: 'all' | 'questions' | 'digest'
-  /** Monthly budget in the default model's currency; null = none set. */
+  /** Monthly cap in USD; null = none set. */
   budget: number | null
+  /** Spent this calendar month (local time), summed from the cost ledger; estimated figures included. */
   spent: number
+  /** When `spent` starts again from zero: the 1st of next month, 00:00 local time. */
+  resetsAt: number
+  /** Share of the cap at which the boss is told (0.8 = 80%). */
+  alertAt: number
   autoRun: boolean
   paused: boolean
   createdAt: number
@@ -287,7 +292,7 @@ export interface AgencyCreateInput {
   folder?: string | null
 }
 
-export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'autoRun' | 'paused'> & { channel: Agency['channel'] }>
+export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'alertAt' | 'autoRun' | 'paused'> & { channel: Agency['channel'] }>
 
 export interface KanbanColumn {
   id: string
@@ -504,7 +509,8 @@ export interface SlackStatus {
   linkCode: string | null
 }
 
-export type MessageKind = 'brief' | 'question' | 'review' | 'digest'
+/** 'budget' is Tyslin's own message at the monthly cap (budget.ts), sent as the Lead; the Lead's tools can't send it. */
+export type MessageKind = 'brief' | 'question' | 'review' | 'digest' | 'budget'
 
 /** A message from an agency's Lead to the boss, kept whether or not it left the app (channels.ts). */
 export interface ChannelMessage {
@@ -822,7 +828,8 @@ export type RunEventBody =
   | { type: 'approval_needed'; toolCallId: string; permissionId: string; title: string; choices: PermissionChoice[] }
   | { type: 'state_update'; status: 'running' | 'waiting_for_review' }
   /** Token counts for one model call (built-in runtimes only); cards add them up for their cost. */
-  | { type: 'usage'; inputTokens: number; outputTokens: number }
+  /** Tokens (and, when the provider or adapter reports it, the cost in USD) for part of a run; startRun adds them up. */
+  | { type: 'usage'; inputTokens: number; outputTokens: number; cost?: number; costSource?: 'actual' | 'estimated'; cumulative?: boolean }
   | { type: 'run_finished' }
   | { type: 'run_error'; error: string }
 
@@ -935,6 +942,10 @@ export interface DashboardStats {
   reviews: { sessionId: string; agentId: string; projectId: string | null; title: string; count: number }[]
   /** Agencies whose plan waits for "Approve and run the plan" (filled in by `app:dashboard` from cards.ts). */
   plans: { agencyId: string; count: number; at: number }[]
+  /** Agencies past their alert threshold this month (`capped`: at the cap, new cards wait). From budget.ts. */
+  budgetAlerts: { agencyId: string; spent: number; budget: number; alertAt: number; capped: boolean }[]
+  /** Runs this month a provider refused for credit or quota, with no later successful run on that provider in that agency. */
+  creditFailures: { agencyId: string | null; agentId: string; taskId: string | null; provider: string | null; at: number }[]
 }
 
 /** system follows the computer's light or dark setting. */
@@ -1193,6 +1204,12 @@ export interface TyslinApi {
     /** A brief from the Inbox: a card in Inbox, then the Lead's planning run unless the agency is paused. */
     brief(id: string, text: string): Promise<{ cardId: string; planned: boolean }>
   }
+  /** The cost ledger (cost_entries): this month for an agency, one task, or the whole organization. */
+  costs: {
+    agency(agencyId: string): Promise<AgencyCosts>
+    task(taskId: string): Promise<TaskCosts>
+    usage(): Promise<UsageRow[]>
+  }
   cards: {
     /** Runs a card with its assignee (or the Lead); the result, chat and cost land on the card. Returns the chat id. */
     run(agencyId: string, cardId: string): Promise<string>
@@ -1335,4 +1352,50 @@ export interface TyslinApi {
     openDownload(): Promise<void>
     onStatus(cb: (s: UpdateStatus) => void): () => void
   }
+}
+
+/**
+ * One run in the cost ledger (cost_entries, 10 Nov 2026): written by startRun when any run ends. `null` means the
+ * provider or adapter didn't report it, never 0. `source` says whether `cost` is what the provider billed
+ * ('actual', OpenRouter) or an estimate (our price table, or the adapter's own figure).
+ */
+export interface CostEntry {
+  id: string
+  runId: string
+  agencyId: string | null
+  /** The task (Lead chat) the run belongs to: the chat itself, or for a card the Lead task it was planned in. */
+  taskId: string | null
+  sessionId: string
+  cardId: string | null
+  agentId: string
+  engine: string
+  provider: string | null
+  model: string | null
+  inputTokens: number | null
+  outputTokens: number | null
+  cost: number | null
+  source: 'actual' | 'estimated' | null
+  status: 'ok' | 'error' | 'stopped'
+  /** 'credits' when the provider refused for credit or quota. */
+  errorKind: 'credits' | null
+  startedAt: number
+  createdAt: number
+}
+
+/** An agency's month: totals, spend per local day (null = no run reported a cost that day), and the runs. */
+export interface AgencyCosts { total: CostTotal; daily: { day: string; cost: number | null }[]; rows: CostEntry[]; monthStart: number; resetsAt: number }
+/** A task's runs added up, and per agent. */
+export interface TaskCosts { total: CostTotal; byAgent: { agentId: string; total: CostTotal }[] }
+/** Settings → Usage: this month for the organization, one row per agency and provider. */
+export interface UsageRow { agencyId: string | null; provider: string | null; total: CostTotal }
+
+/** A group of ledger rows added up. `cost` sums only the rows that reported one; `unreported` counts the others. */
+export interface CostTotal {
+  runs: number
+  cost: number
+  actual: number
+  estimated: number
+  unreported: number
+  inputTokens: number
+  outputTokens: number
 }
