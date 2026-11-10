@@ -22,6 +22,7 @@ import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
 import { capturePreview, listPreviewFiles, registerPreviewProtocol, registerPreviewScheme } from './preview'
+import { readPage, unwatchAgency, watchAgency } from './pages'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
@@ -426,6 +427,10 @@ function registerIpc(): void {
   ipcMain.handle('sessions:messages', (_e, id: string) => db.listMessages(id))
   ipcMain.handle('attachments:pick', (_e, kind: 'file' | 'folder') => pickAttachments(win!, kind === 'folder' ? 'folder' : 'file'))
   ipcMain.handle('preview:list', (_e, projectId: string) => listPreviewFiles(String(projectId ?? '')))
+  // Agency pages: read a page's data file; watch the agency folder while a page tab is open (main/pages.ts).
+  ipcMain.handle('pages:read', (_e, agencyId: string, pageId: string) => readPage(String(agencyId ?? ''), String(pageId ?? '')))
+  ipcMain.handle('pages:watch', (_e, agencyId: string) => watchAgency(String(agencyId ?? ''), (p) => win?.webContents.send('pages:changed', p)))
+  ipcMain.handle('pages:unwatch', (_e, agencyId: string) => unwatchAgency(String(agencyId ?? '')))
   ipcMain.handle('preview:capture', (_e, rect: { x: number; y: number; width: number; height: number }, name: string) => capturePreview(win!, rect, String(name ?? 'screenshot.png')))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.

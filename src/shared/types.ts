@@ -1,3 +1,4 @@
+import type { PageData } from './pages'
 export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
@@ -982,6 +983,15 @@ export interface TyslinApi {
     pick(kind: 'file' | 'folder'): Promise<Attachment[]>
   }
   /** The task's Preview tab: files from the agency folder on the `tyslin-preview://` scheme. */
+  /** Agency pages (shared/pages.ts): the data file of a table or calendar page, and changes in the agency folder. */
+  pages: {
+    read(agencyId: string, pageId: string): Promise<PageData>
+    /** Starts watching the agency folder while a page tab is open; balanced by `unwatch`. */
+    watch(agencyId: string): Promise<void>
+    unwatch(agencyId: string): Promise<void>
+    /** A path in a watched agency folder changed (relative, `/`-separated; '' when the watcher can't tell). */
+    onChanged(cb: (e: { agencyId: string; path: string }) => void): () => void
+  }
   preview: {
     /** Previewable files in the project folder, newest first. */
     list(projectId: string): Promise<PreviewFile[]>

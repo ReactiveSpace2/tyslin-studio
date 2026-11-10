@@ -38,5 +38,6 @@ export const appDevelopment: AgencyTemplate = {
   skills: ['spec-writing', 'spec-breakdown', 'code-review', 'git-workflow', 'test-runner', 'test-report', 'changelog'],
   starterCards: ['Write the spec from the brief', 'Set up the repo and CI', 'First feature slice', 'Test plan for v0.1', 'README and changelog'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Read Inbox and Review. Plan new briefs into cards, review finished cards, send the boss a digest.' },
-  folders: ['specs', 'docs', 'tests/reports']
+  folders: ['specs', 'docs', 'tests/reports'],
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

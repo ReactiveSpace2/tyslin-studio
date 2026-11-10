@@ -34,5 +34,6 @@ export const salesLeadGen: AgencyTemplate = {
   skills: ['icp-definition', 'lead-list', 'lead-enrichment', 'lead-qualify', 'outreach-email', 'crm-update'],
   starterCards: ['ICP definition', 'This week\'s prospect list', 'Score and enrich', 'Outreach drafts', 'CRM sync'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check quota progress, plan prospecting cards, review outreach drafts, send a digest.' },
-  folders: ['leads', 'outreach']
+  folders: ['leads', 'outreach'],
+  pages: [{ id: 'pipeline', kind: 'table', title: 'Pipeline', about: 'one row per lead and where it stands', columns: ['company', 'contact', 'stage', 'next step', 'last touch', 'owner'] }]
 }

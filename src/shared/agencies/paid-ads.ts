@@ -36,4 +36,5 @@ export const paidAds: AgencyTemplate = {
   starterCards: ['Campaign plan', 'Ad copy set 1', 'Creative brief', 'Weekly report template'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Read last week\'s numbers, plan changes, review new copy, send a digest.' },
   folders: ['campaigns', 'copy', 'reports']
+  // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

@@ -34,5 +34,6 @@ export const emailMarketing: AgencyTemplate = {
   skills: ['email-sequence', 'email-copy', 'list-segmentation', 'deliverability-check'],
   starterCards: ['Sequence plan', 'Segments', 'Email 1 draft', 'Deliverability checklist'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Plan this week\'s sends, review drafts, send a digest.' },
-  folders: ['emails', 'segments']
+  folders: ['emails', 'segments'],
+  pages: [{ id: 'campaigns', kind: 'campaigns', title: 'Campaigns', about: 'one item per campaign' }]
 }

@@ -36,4 +36,5 @@ export const dataAnalytics: AgencyTemplate = {
   starterCards: ['Data sources and access', 'Metric definitions', 'First query', 'Dashboard skeleton'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan data questions into cards, review results, send a digest.' },
   folders: ['queries', 'dashboards', 'metrics']
+  // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

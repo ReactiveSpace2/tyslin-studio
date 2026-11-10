@@ -34,5 +34,6 @@ export const seo: AgencyTemplate = {
   skills: ['keyword-research', 'seo-on-page', 'seo-audit', 'link-outreach', 'metrics-report'],
   starterCards: ['Target pages and queries', 'Keyword map', 'On-page proposals for page 1', 'Link targets', 'Monthly report template'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Review rankings, plan this month\'s on-page and link cards, send a digest.' },
-  folders: ['keywords', 'pages', 'reports']
+  folders: ['keywords', 'pages', 'reports'],
+  pages: [{ id: 'keywords', kind: 'table', title: 'Keywords', about: 'one row per target query', columns: ['query', 'intent', 'target page', 'volume', 'position', 'status'] }]
 }

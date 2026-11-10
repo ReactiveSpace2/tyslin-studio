@@ -1,4 +1,6 @@
 import type { Agent } from '@shared/types'
+import { templatePages } from '@shared/agencies'
+import type { AgencyPageKind } from '@shared/pages'
 import type { AgencyTab } from '../App'
 import type { AgencyView } from '../agencies'
 import { AgencyHeader } from '../agency/AgencyHeader'
@@ -9,9 +11,12 @@ import { MemoryTab } from '../agency/MemoryTab'
 import { ScheduleTab } from '../agency/ScheduleTab'
 import { SkillsTab } from '../agency/SkillsTab'
 import { TeamTab } from '../agency/TeamTab'
+import { ScreensPage } from '../agency/pages/ScreensPage'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule']]
+/** Page types with a screen so far; a template may declare others (campaigns) that get their tab when built. */
+const BUILT: AgencyPageKind[] = ['screens']
 
 interface Props {
   view: AgencyView
@@ -32,13 +37,16 @@ interface Props {
   onDeleted: () => void
 }
 
-/** One agency on one page: its header and seven tabs. */
+/** One agency on one page: its header, seven tabs, and the extra pages its template declares (shared/pages.ts). */
 export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onPick, onNewAgency, onNewTask, onOpenAgent, onAddWorker, onOpenTask, onChanged, onDeleted }: Props): JSX.Element {
+  const pages = templatePages(view.agency.templateId).filter((p) => BUILT.includes(p.kind))
+  const tabs: [AgencyTab, string][] = [...TABS, ...pages.map((p): [AgencyTab, string] => [`page:${p.id}`, p.title])]
+  const page = tab.startsWith('page:') ? pages.find((p) => `page:${p.id}` === tab) : undefined
   return (
     <div className="flex w-full max-w-[1180px] flex-col gap-5 px-10 pt-6 pb-12">
       <AgencyHeader view={view} agencies={agencies} onPick={onPick} onNewAgency={onNewAgency} onNewTask={onNewTask} onChanged={onChanged} onDeleted={onDeleted} />
       <TabsList aria-label="Agency" className="h-auto flex-wrap self-start">
-        {TABS.map(([id, label]) => <TabsTrigger key={id} active={tab === id} onClick={() => onTab(id)} className="h-9 px-3">{label}</TabsTrigger>)}
+        {tabs.map(([id, label]) => <TabsTrigger key={id} active={tab === id} onClick={() => onTab(id)} className="h-9 px-3">{label}</TabsTrigger>)}
       </TabsList>
       {tab === 'goals' && <GoalsTab key={view.agency.updatedAt} view={view} onChanged={onChanged} onChannel={() => onTab('channel')} />}
       {tab === 'team' && <TeamTab view={view} you={you} onOpenAgent={onOpenAgent} onAddWorker={onAddWorker} />}
@@ -47,6 +55,8 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
       {tab === 'channel' && <ChannelTab view={view} onChanged={onChanged} />}
       {tab === 'memory' && <MemoryTab key={view.agency.id} view={view} agents={agents} initial={focus} />}
       {tab === 'schedule' && <ScheduleTab view={view} agencies={agencies} onOpenTask={onOpenTask} />}
+      {page?.kind === 'screens' && <ScreensPage key={view.agency.id} view={view} />}
+      {tab.startsWith('page:') && !page && <p className="text-sm text-muted-foreground">{view.agency.name} has no such page.</p>}
     </div>
   )
 }

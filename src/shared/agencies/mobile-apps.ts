@@ -38,5 +38,6 @@ export const mobileApps: AgencyTemplate = {
   skills: ['spec-writing', 'spec-breakdown', 'code-review', 'git-workflow', 'test-runner', 'store-listing', 'release-checklist'],
   starterCards: ['Feature list and screen map', 'Project setup on both platforms', 'First screen on iOS and Android', 'Device test matrix', 'Store listing draft'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan Inbox briefs into platform cards, review finished cards, check both platforms are at the same feature, send a digest.' },
-  folders: ['specs', 'tests', 'store']
+  folders: ['specs', 'tests', 'store'],
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

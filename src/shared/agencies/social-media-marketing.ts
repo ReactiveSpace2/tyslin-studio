@@ -38,5 +38,6 @@ export const socialMediaMarketing: AgencyTemplate = {
   skills: ['content-calendar', 'social-copy', 'hashtag-research', 'community-replies', 'weekly-update'],
   starterCards: ['Themes for this month', 'Calendar for week 1', 'Write week 1 posts', 'Reply bank', 'Weekly report template'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check the calendar for posts due this week, plan missing cards, review written posts, send a digest.' },
-  folders: ['posts', 'reports']
+  folders: ['posts', 'reports'],
+  pages: [{ id: 'calendar', kind: 'calendar', title: 'Calendar', about: 'one item per post, with its channel and state' }]
 }

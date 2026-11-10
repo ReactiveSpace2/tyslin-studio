@@ -38,5 +38,6 @@ export const webDesign: AgencyTemplate = {
   skills: ['design-brief', 'ui-tokens', 'ux-copy', 'html-css', 'accessibility-check'],
   starterCards: ['Page brief', 'Layout and tokens', 'Copy for every section', 'Build the page', 'Mobile and desktop check'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan new page briefs, review design, copy and build cards, send a digest.' },
-  folders: ['briefs', 'design', 'copy', 'site']
+  folders: ['briefs', 'design', 'copy', 'site'],
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

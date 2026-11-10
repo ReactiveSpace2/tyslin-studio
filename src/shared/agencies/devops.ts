@@ -34,5 +34,6 @@ export const devops: AgencyTemplate = {
   skills: ['ci-workflow', 'infra-as-code', 'deploy', 'incident-triage', 'dependency-audit'],
   starterCards: ['Pipeline map', 'CI baseline', 'Infra inventory', 'Alert rules', 'Dependency audit'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check CI and alerts, plan infra cards, review proposed changes, send a digest.' },
-  folders: ['infra', 'runbooks', 'incidents']
+  folders: ['infra', 'runbooks', 'incidents'],
+  pages: [{ id: 'environments', kind: 'table', title: 'Environments', about: 'one row per environment and its current state', columns: ['environment', 'url', 'version', 'status', 'last deploy', 'owner'] }]
 }

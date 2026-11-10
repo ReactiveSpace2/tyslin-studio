@@ -1,3 +1,4 @@
+import { pageInstructions, type AgencyPageSpec } from './pages'
 import type { HeadId } from './heads'
 import type { TaskSchedule } from './types'
 import { appDevelopment } from './agencies/app-development'
@@ -70,6 +71,8 @@ export interface AgencyTemplate {
   leadTask: { schedule: TaskSchedule; prompt: string }
   /** Folders created in the project folder. */
   folders: string[]
+  /** Extra tabs on the Agency screen (shared/pages.ts). Table and calendar pages read data/<id>.json in the folder. */
+  pages?: AgencyPageSpec[]
 }
 
 /**
@@ -129,13 +132,18 @@ export const WORKER_RULES = `You are a worker in an agency inside Tyslin Studio.
  * The instructions an agent is created with: the member's own text, the shared rules, the roster and the
  * agency prompt (what every agent in this agency follows).
  */
+/** The pages a template shows (none for templates without any, or an agency whose template is gone). */
+export const templatePages = (templateId: string | null | undefined): AgencyPageSpec[] => AGENCY_TEMPLATES.find((t) => t.id === templateId)?.pages ?? []
+
 export function memberInstructions(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string): string {
   const roster = t.roster.filter((x) => x !== m).map((x) => `${agentName(x)}${x.lead ? ', your Lead' : ''}`).join(', ')
   const parts = [
     m.instructions.trim(),
     m.lead ? LEAD_RULES : WORKER_RULES,
     `Your agency: ${t.name}. Goal: ${t.goal}\nThe rest of the roster: ${roster}.`,
-    agencyPrompt.trim() ? `Agency prompt (the boss's standing instructions for everyone here):\n${agencyPrompt.trim()}` : ''
+    agencyPrompt.trim() ? `Agency prompt (the boss's standing instructions for everyone here):\n${agencyPrompt.trim()}` : '',
+    // Appended after the template's own text, which stays as written (10 Nov 2026).
+    pageInstructions(t.pages ?? [])
   ]
   return parts.filter(Boolean).join('\n\n')
 }

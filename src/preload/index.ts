@@ -19,6 +19,16 @@ const api: TyslinApi = {
   attachments: {
     pick: (kind) => ipcRenderer.invoke('attachments:pick', kind)
   },
+  pages: {
+    read: (agencyId, pageId) => ipcRenderer.invoke('pages:read', agencyId, pageId),
+    watch: (agencyId) => ipcRenderer.invoke('pages:watch', agencyId),
+    unwatch: (agencyId) => ipcRenderer.invoke('pages:unwatch', agencyId),
+    onChanged: (cb) => {
+      const fn = (_e: unknown, p: { agencyId: string; path: string }): void => cb(p)
+      ipcRenderer.on('pages:changed', fn)
+      return () => ipcRenderer.removeListener('pages:changed', fn)
+    }
+  },
   preview: {
     list: (projectId) => ipcRenderer.invoke('preview:list', projectId),
     capture: (rect, name) => ipcRenderer.invoke('preview:capture', rect, name),

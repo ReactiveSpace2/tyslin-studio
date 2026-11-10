@@ -36,4 +36,5 @@ export const contentWriting: AgencyTemplate = {
   starterCards: ['Outline for the first piece', 'Draft', 'Edit', 'SEO check', 'Style guide'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan new briefs into outline cards, move drafts through edit and SEO, send a digest.' },
   folders: ['drafts', 'published']
+  // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

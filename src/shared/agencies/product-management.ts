@@ -36,4 +36,5 @@ export const productManagement: AgencyTemplate = {
   starterCards: ['Feedback inventory', 'Scoring sheet', 'Roadmap v1', 'First spec'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Review new feedback themes, rescore, update the roadmap, send a digest.' },
   folders: ['feedback', 'specs']
+  // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }
