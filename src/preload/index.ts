@@ -12,12 +12,8 @@ const api: TyslinApi = {
   },
   projects: {
     list: () => ipcRenderer.invoke('projects:list'),
-    create: (name, folder) => ipcRenderer.invoke('projects:create', name, folder),
     pickFolder: () => ipcRenderer.invoke('projects:pickFolder'),
-    createWithFolder: (name) => ipcRenderer.invoke('projects:createWithFolder', name),
     newFolderPath: (name) => ipcRenderer.invoke('projects:newFolderPath', name),
-    rename: (id, name) => ipcRenderer.invoke('projects:rename', id, name),
-    remove: (id) => ipcRenderer.invoke('projects:remove', id),
     files: (id) => ipcRenderer.invoke('projects:files', id)
   },
   attachments: {
@@ -35,7 +31,10 @@ const api: TyslinApi = {
     },
     stop: (sessionId) => ipcRenderer.invoke('sessions:stop', sessionId),
     status: (sessionId) => ipcRenderer.invoke('sessions:status', sessionId),
-    answerPermission: (permissionId, choiceId) => ipcRenderer.invoke('sessions:answerPermission', permissionId, choiceId)
+    answerPermission: (permissionId, choiceId) => ipcRenderer.invoke('sessions:answerPermission', permissionId, choiceId),
+    running: () => ipcRenderer.invoke('sessions:running'),
+    rename: (sessionId, title) => ipcRenderer.invoke('sessions:rename', sessionId, title),
+    remove: (sessionId) => ipcRenderer.invoke('sessions:remove', sessionId)
   },
   engines: {
     list: () => ipcRenderer.invoke('engines:list'),
@@ -122,7 +121,7 @@ const api: TyslinApi = {
       ipcRenderer.on('channel:message', fn)
       return () => ipcRenderer.removeListener('channel:message', fn)
     },
-    reply: (id, text) => ipcRenderer.invoke('channels:reply', id, text),
+    reply: (id, text, sessionId) => ipcRenderer.invoke('channels:reply', id, text, sessionId),
     markRead: (ids) => ipcRenderer.invoke('channels:markRead', ids),
     unread: () => ipcRenderer.invoke('channels:unread'),
     onOpen: (cb) => {
@@ -143,6 +142,9 @@ const api: TyslinApi = {
   cards: {
     run: (agencyId, cardId) => ipcRenderer.invoke('cards:run', agencyId, cardId),
     running: () => ipcRenderer.invoke('cards:running'),
+    runPlan: (agencyId) => ipcRenderer.invoke('cards:runPlan', agencyId),
+    update: (agencyId, cardId, patch) => ipcRenderer.invoke('cards:update', agencyId, cardId, patch),
+    remove: (agencyId, cardId) => ipcRenderer.invoke('cards:remove', agencyId, cardId),
     onBoardChanged: (cb) => {
       const fn = (_e: unknown, p: { projectId: string; path: string }): void => cb(p)
       ipcRenderer.on('board:changed', fn)
@@ -161,13 +163,8 @@ const api: TyslinApi = {
     }
   },
   studio: {
-    defaultProject: () => ipcRenderer.invoke('studio:defaultProject'),
-    list: (kind, projectId) => ipcRenderer.invoke('studio:list', kind, projectId),
     read: (projectId, path) => ipcRenderer.invoke('studio:read', projectId, path),
     write: (projectId, target, content, encoding) => ipcRenderer.invoke('studio:write', projectId, target, content, encoding),
-    remove: (projectId, path) => ipcRenderer.invoke('studio:remove', projectId, path),
-    reveal: (projectId, path) => ipcRenderer.invoke('studio:reveal', projectId, path),
-    ask: (agentId, projectId, prompt, title) => ipcRenderer.invoke('studio:ask', agentId, projectId, prompt, title),
   },
   drive: {
     list: (projectId, dir, showHidden) => ipcRenderer.invoke('drive:list', projectId, dir, showHidden),

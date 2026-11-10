@@ -4,7 +4,6 @@ import { join } from 'path'
 import { existsSync, mkdirSync, renameSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
-import { BUILT_IN_AGENTS } from './seedAgents'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import type { McpServerInfo } from '@shared/types'
@@ -192,6 +191,8 @@ function migrate(): void {
   addColumn('agents', 'team', "TEXT NOT NULL DEFAULT ''")
   // Agencies (6 Nov 2026): a Lead and its workers around one project, a board, a channel and a budget.
   addColumn('agents', 'agency', 'TEXT')
+  // 10 Nov 2026: one line per agent on what good work looks like (the agent editor's Goal field).
+  addColumn('agents', 'goal', "TEXT NOT NULL DEFAULT ''")
   db.exec(`CREATE TABLE IF NOT EXISTS agencies (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', goal TEXT NOT NULL DEFAULT '',
     prompt TEXT NOT NULL DEFAULT '', plan TEXT NOT NULL DEFAULT '[]', template_id TEXT NOT NULL DEFAULT '',
@@ -258,12 +259,8 @@ function addColumn(table: string, column: string, definition: string): void {
   if (!cols.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
 }
 
-/** Every database gets Builder (the mascot) once. Agencies bring their own agents; there are no other built-ins. */
-function seed(): void {
-  if (db.prepare('SELECT 1 FROM agents WHERE is_mascot = 1').get()) return
-  const builder = BUILT_IN_AGENTS.find((a) => a.isMascot)
-  if (builder) saveAgent(builder)
-}
+/** Nothing is seeded any more: agencies bring their own agents. Older databases keep Builder's row; `agents:list` hides it. */
+function seed(): void { /* kept as the one place seeding would go */ }
 
 /** Adds built-in skills new since this install last seeded; skills already present (by name) are left as they are. */
 function seedSkills(): void {
@@ -279,7 +276,7 @@ type AgentRow = {
   id: string; name: string; description: string; instructions: string; shape: string; tone: string
   provider: string; model: string; skills: string; schedule: string; write_mode: string; engine: string; kind: string; is_mascot: number
   project_id: string | null; lead_id: string | null; pinned: number; paused: number; tools: string; channels: string
-  last_run_at: number | null; last_error: string; head: string | null; team: string; agency: string | null
+  last_run_at: number | null; last_error: string; head: string | null; team: string; agency: string | null; goal: string | null
   created_at: number; updated_at: number
 }
 
@@ -296,6 +293,7 @@ const toAgent = (r: AgentRow): Agent => ({
   head: r.head && HEAD_IDS.includes(r.head) ? r.head : null,
   team: r.team ?? '',
   agency: r.agency ?? null,
+  goal: r.goal ?? '',
   createdAt: r.created_at, updatedAt: r.updated_at
 })
 
@@ -339,24 +337,25 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const channels = input.channels ?? existing?.channels ?? { telegram: false }
   const head = input.head !== undefined ? (input.head && HEAD_IDS.includes(input.head) ? input.head : null) : existing?.head ?? null
   const agency = input.agency !== undefined ? input.agency : existing?.agency ?? null
+  const goal = (input.goal !== undefined ? input.goal : existing?.goal ?? '').trim().slice(0, 300)
   if (existing) {
     // Moving to another project: its team stays behind and reports to you.
     if (existing.projectId !== projectId) db.prepare('UPDATE agents SET lead_id = NULL WHERE lead_id = ?').run(existing.id)
     db.prepare(`UPDATE agents SET name=?, description=?, instructions=?, shape=?, tone=?, provider=?, model=?,
       skills=?, schedule=?, engine=?, write_mode=?, is_mascot=?, project_id=?, lead_id=?, pinned=?, paused=?, tools=?, channels=?,
-      head=?, agency=?, updated_at=? WHERE id=?`).run(
+      head=?, agency=?, goal=?, updated_at=? WHERE id=?`).run(
       input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
       JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
-      projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, now, existing.id)
+      projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, goal, now, existing.id)
     return getAgent(existing.id)!
   }
   const id = randomUUID()
   db.prepare(`INSERT INTO agents (id, kind, name, description, instructions, shape, tone, provider, model, skills,
-    schedule, engine, write_mode, is_mascot, project_id, lead_id, pinned, paused, tools, channels, head, agency, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    schedule, engine, write_mode, is_mascot, project_id, lead_id, pinned, paused, tools, channels, head, agency, goal, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     id, kind, input.name, input.description, input.instructions, input.shape, input.tone, input.provider, input.model,
     JSON.stringify(input.skills), input.schedule, input.engine, input.writeMode, input.isMascot ? 1 : 0,
-    projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, now, now)
+    projectId, leadId, pinned ? 1 : 0, paused ? 1 : 0, JSON.stringify(tools), JSON.stringify(channels), head, agency, goal, now, now)
   return getAgent(id)!
 }
 
@@ -675,6 +674,7 @@ const PROVIDERS: ProviderId[] = ['anthropic', 'openai', 'gemini', 'ollama', 'ope
 export function getPrefs(): Preferences {
   return {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
+    desktopNotifications: getSetting('pref:desktopNotifications') !== '0',
     sharedInstructions: getSetting('pref:sharedInstructions') ?? '',
     theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system',
     zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1)),
@@ -688,6 +688,7 @@ export function getPrefs(): Preferences {
 
 export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.defaultWriteMode) setSetting('pref:defaultWriteMode', p.defaultWriteMode)
+  if (p.desktopNotifications !== undefined) setSetting('pref:desktopNotifications', p.desktopNotifications ? '1' : '0')
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
   if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
   if (typeof p.zoom === 'number') setSetting('pref:zoom', String(clampZoom(p.zoom)))
@@ -797,6 +798,11 @@ export function markTaskRun(id: string, fields: { lastRunAt?: number; lastStatus
 
 export function setSessionTitle(id: string, title: string): void {
   db.prepare('UPDATE sessions SET title = ? WHERE id = ?').run(title.slice(0, 80), id)
+}
+
+/** Deletes a chat with its messages and staged changes (both cascade). */
+export function removeSession(id: string): void {
+  db.prepare('DELETE FROM sessions WHERE id = ?').run(id)
 }
 
 // ---------- Google Drive sync state ----------

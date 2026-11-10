@@ -15,9 +15,3 @@ export const PROVIDER_NAME: Record<ProviderId, string> = { anthropic: 'Claude', 
 
 /** The order used when no default model has been chosen: the first provider with a key wins. */
 export const PROVIDER_ORDER: ProviderId[] = ['anthropic', 'openai', 'gemini', 'openrouter', 'ollama']
-
-/**
- * Agent id that stands for "the default model" in Mind mapper, Canvas and Automation.
- * Main runs it through the organization's built-in Studio assistant, whose model follows the default.
- */
-export const DEFAULT_MODEL_AGENT = 'default'

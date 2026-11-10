@@ -10,13 +10,14 @@
 
 ## Run your own AI agency
 
-A Lead agent plans the work on a Kanban board and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
+You give an agency a task. Its Lead plans the work and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
+
+Three places, one left column: **Home** (type a task, see what needs you and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
 
 - **Agency templates:** five software agencies you can create today (App Development, Mobile Apps, Web Design, QA & Testing, DevOps), with Documents and data and Marketing and sales templates coming soon. Each is a Lead and a team with jobs, a goal, a plan and skills, around one folder.
-- **A board and an Inbox:** briefs become cards; the Lead asks, reports and sends digests in the agency's Chat → Inbox, or on Telegram and Slack.
-- **Live:** watch an agency work: who is handing what to whom, each message as it is sent, and what every agent is doing now.
+- **One thread per task:** the Lead's plan, each worker's work, questions, reviews and the digest all land in the task. Away from the computer, the Lead reaches you on Telegram or Slack.
 - **Memory:** plain Markdown notes per agency and per agent, added to every run.
-- **Integrations:** tools from GitHub, Linear, Stripe and any MCP server, including search and install from the official MCP Registry.
+- **Connectors:** tools from GitHub, Linear, Stripe and any MCP server, including search and install from the official MCP Registry.
 - **Your keys or your sign-in:** API keys for Claude, OpenAI and Gemini, or your Claude, ChatGPT or Google sign-in through Claude Code, Codex and Gemini CLI.
 - **You approve:** every file change is a diff you accept or reject, and each agency has a monthly budget.
 
@@ -44,14 +45,14 @@ Updates: the app checks GitHub Releases when it starts. Windows and the AppImage
 
 ## How an agency works
 
-1. **Brief:** you drop a brief in the board's Inbox column.
-2. **Plan:** the Lead turns it into cards, each with an assignee and what done looks like.
-3. **Work:** workers run their cards on their adapter, in the agency's folder.
-4. **Review:** every file change waits for you as a diff to accept or reject.
-5. **Done:** accepting a card's changes moves it to Done.
-6. **Digest:** the Lead reports to you in the agency's Chat → Inbox, and on Telegram or Slack if you link one.
+1. **Task:** on Home, type what the agency should do and send it to the Lead.
+2. **Plan:** the Lead answers in the task with a plan: cards, each with a worker. Approve and run it, change a card, or ask the Lead to change the plan. (An agency set to run on its own skips the approval.)
+3. **Work:** workers run their cards on their adapter, in the agency's folder. Each one's work folds into the task as it happens.
+4. **Review:** every file change waits for you in the task's Changes panel, hunk by hunk, to accept or send back with a note.
+5. **Done:** accepting a card's changes moves it to Done; the task shows where every card stands.
+6. **Digest:** the Lead reports in the task, and on Telegram or Slack if you link one.
 
-Only the Lead messages you; workers report to the Lead on the card. Each agency has a budget: every card shows its estimated cost, and once the agency's total reaches the budget no more cards start until you raise it.
+Only the Lead messages you; workers report to the Lead on the card (you can still open a direct chat with a worker from the task's title menu). Each agency has a budget: every card shows its estimated cost, and once the agency's total reaches the budget no more cards start until you raise it.
 
 ## The agencies
 
@@ -103,26 +104,22 @@ The Lead, and any agent on the built-in runtime, uses one of these.
 
 Ollama (local models) is hidden for now (`SHOW_OLLAMA` in `ModelSetup.tsx`); an agent already on it keeps working. Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's card is set to use your signed-in account.
 
-**Sign in instead of a key.** Settings → Models → Claude, ChatGPT or Gemini → *Sign in with …* installs the provider's own tool if needed (Claude Code, Codex or Gemini CLI) and opens its browser sign-in, so agents on that tool use your Claude Pro/Max, ChatGPT or Google plan. The tool keeps the login; Tyslin never stores it. Leads and the default model still use an API key.
-
-### Live
-
-Open an agency and choose **Live** to watch it work. The map shows you, the Lead and the workers; when one of them sends a message, its line lights up and the message appears beside the sender. Next to it, the agency chat lists every brief, hand-off, tool call, result and question as it happens, and you can send the Lead a brief from there. Under the map, each agent's card shows what it is doing and the card it is on. Everything on the screen comes from the board, the Lead's messages and the agents' runs.
+**Sign in instead of a key.** Settings → Accounts and connectors → Claude Code, Codex or Gemini CLI → *Sign in with …* installs the provider's own tool if needed (Claude Code, Codex or Gemini CLI) and opens its browser sign-in, so agents on that tool use your Claude Pro/Max, ChatGPT or Google plan. The tool keeps the login; Tyslin never stores it. Leads and the default model still use an API key.
 
 ### Memory
 
-Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory screen or any editor; they also show in Drive and sync with Google Drive.
+Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory tab or any editor; they also show in Files and sync with Google Drive.
 
-### Integrations
+### Connectors
 
-Agents on Claude Code, Codex, Gemini CLI or Goose can use tools from other apps through MCP servers. Open an agency → Integrations: connect GitHub, Linear or Stripe with a token, search the official [MCP Registry](https://registry.modelcontextprotocol.io) and install a server from there, or add any MCP server yourself (a remote address or a command on this computer), then switch it on per agent. Each agency suggests the integrations that fit its work. Registry servers are published by companies and the community and aren't reviewed by Tyslin; check the publisher and source before installing. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
+Agents on Claude Code, Codex or Gemini CLI can use tools from other apps through MCP servers. Open an agency → Connectors: connect GitHub, Linear or Stripe with a token, search the official [MCP Registry](https://registry.modelcontextprotocol.io) and install a server from there, or add any MCP server yourself (a remote address or a command on this computer), then switch it on per agent. Each agency suggests the integrations that fit its work. Registry servers are published by companies and the community and aren't reviewed by Tyslin; check the publisher and source before installing. Tokens are encrypted with your keychain and sent only to that server. Agents on the built-in models don't use integrations yet.
 
 ## Your data
 
 - One local SQLite database per organization, in the app's data folder (Settings → About → Open folder).
 - One folder per agency under `Documents/Tyslin Studio/<organization>/<agency>/`, with its board, its `memory/` notes and the files its agents make.
 - API keys are encrypted with your operating system's keychain.
-- The app contacts only: the model providers and adapters you set up; GitHub, for updates, skill packs and the star count; Telegram or Slack, if you connect a channel; the MCP servers you add under Integrations; Google, if you sign in or connect Google Drive sync.
+- The app contacts only: the model providers and adapters you set up; GitHub, for updates, skill packs and the star count; Telegram or Slack, if you connect a channel; the MCP servers you add under Connectors; Google, if you sign in or connect Google Drive sync.
 - No analytics. Nothing is collected about how you use the app.
 
 ## Build from source
@@ -137,7 +134,7 @@ npm run dev        # the app with hot reload
 npm run typecheck  # run after every change
 ```
 
-The interface is React with Tailwind CSS v4 and shadcn/ui (Radix) components only (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens in `src/renderer/src/index.css`; charts use recharts through shadcn's Chart component.
+The interface is React with Tailwind CSS v4 and shadcn/ui (Radix) components only (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens in `src/renderer/src/index.css`. The window is one shadcn sidebar (Home, Agencies, Scheduled, Files, recent tasks) beside the screen: Home, a task, or an agency.
 
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev`.
 
@@ -160,7 +157,7 @@ Output goes to `dist/`. Build each installer on its own platform; the release wo
 5. Discord and Email channels, next to Telegram and Slack.
 6. Hosted plan: the same agencies with no setup, with a ready-made app catalogue.
 
-Assistants, Automation, Canvas and Mind mapper from earlier versions are archived in `archive/`. They are not built into the app; some may return.
+Assistants, Automation, Canvas and Mind mapper from earlier versions are archived in `archive/`. On 10 Nov 2026 the app was rebuilt around Home, Task and Agency; the projects screens, assistants, Builder and the Studio assistant were retired (older databases keep their rows, hidden), and the Overview, Kanban, Live, Inbox and Channel screens folded into the task. Some may return.
 
 ## Contributing
 

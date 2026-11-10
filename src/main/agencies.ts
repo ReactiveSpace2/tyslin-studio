@@ -69,8 +69,9 @@ export function createAgency(input: AgencyCreateInput): Agency {
   if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
   const prompt = String(input.prompt ?? '').trim()
 
-  // 1. Folder and project.
-  const folder = newProjectFolderPath(name)
+  // 1. Folder and project: a folder the user picked, else a new one under Documents/Tyslin Studio.
+  const picked = String(input.folder ?? '').trim()
+  const folder = picked && existsSync(picked) ? picked : newProjectFolderPath(name)
   mkdirSync(folder, { recursive: true })
   for (const sub of t?.folders ?? []) mkdirSync(join(folder, sub), { recursive: true })
   const project = db.createProject(name, folder)

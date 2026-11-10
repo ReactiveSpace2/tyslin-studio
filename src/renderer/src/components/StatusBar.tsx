@@ -153,7 +153,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
   const summary = items.length === 1 ? `${items[0].title}: ${items[0].detail}` : `${items.length} running`
 
   return (
-    <footer className="flex h-7 flex-none items-center justify-between gap-3 border-t border-border bg-panel pr-2 pl-3.5 text-xs text-muted-foreground select-none" aria-label="Status">
+    <footer className="flex h-[30px] flex-none items-center justify-between gap-3 border-t border-border bg-background pr-2 pl-3.5 text-xs text-muted-foreground select-none" aria-label="Status">
       <div className="flex min-w-0 items-center gap-1">
         <ZoomControl compact />
         {items.length > 0 && (
@@ -208,7 +208,7 @@ export function StatusBar({ route, agents, sessions, onNavigate, onOpenChat }: P
         )}
       </div>
       <div className="flex min-w-0 items-center gap-1">
-        <Button type="button" variant="ghost" className={itemBtn(!!pending)} onClick={() => onNavigate({ name: 'home', focus: 'activity' })}
+        <Button type="button" variant="ghost" className={itemBtn(!!pending)} onClick={() => onNavigate({ name: 'home' })}
           title="File changes waiting for your review">
           <Icon name="file" size={12} />
           {pending ? `${pending} to review` : 'Nothing to review'}

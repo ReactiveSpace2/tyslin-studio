@@ -31,8 +31,59 @@ interface LiveRun { agencyId: string; cardId: string; usage: Usage }
 /** Runs started from cards, by run id. Finished ones stay until the next launch so reviews can find their card. */
 const runs = new Map<string, LiveRun>()
 const active = new Set<string>()
+/** Agencies whose plan the boss approved (cards:runPlan): their Planned cards run one after another like auto-run, until none is left. */
+const approved = new Set<string>()
+const runsOnItsOwn = (agency: Agency): boolean => agency.autoRun || approved.has(agency.id)
 
 export const runningCards = (): string[] => [...active]
+
+/** "Approve and run the plan": starts the Planned cards one at a time, whatever the auto-run setting. Returns how many are planned. */
+export async function runPlan(agencyId: string): Promise<number> {
+  const agency = db.getAgency(agencyId)
+  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency.leadId) throw new Error('This agency has no Lead yet.')
+  if (agency.paused) throw new Error(`${agency.name} is paused. Resume it on its page first.`)
+  const doc = readBoard(agency)
+  if (!doc) throw new Error('The board file is missing.')
+  const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned')?.cards.filter((k) => (k.assignee || k.agentId) && !k.status) ?? []
+  if (!planned.length) throw new Error('Nothing is planned. Ask the Lead to plan first.')
+  approved.add(agency.id)
+  await runNext(agency)
+  return planned.length
+}
+
+export type CardPatch = Partial<Pick<KanbanCard, 'title' | 'notes' | 'assignee'>>
+
+/** Edits a planned card (title, notes, who does it) and saves the board. */
+export function updateCard(agencyId: string, cardId: string, patch: CardPatch): void {
+  const agency = db.getAgency(agencyId)
+  if (!agency) throw new Error('That agency no longer exists.')
+  if (active.has(cardId)) throw new Error('That card is running; wait for it to finish.')
+  const ok = patchCard(agency, cardId, (card) => {
+    if (typeof patch.title === 'string' && patch.title.trim()) card.title = patch.title.trim().slice(0, 120)
+    if (typeof patch.notes === 'string') card.notes = patch.notes
+    if (typeof patch.assignee === 'string' && patch.assignee !== card.assignee) {
+      const who = db.getAgent(patch.assignee)
+      if (!who || who.agency !== agency.id) throw new Error('Pick someone on this agency\'s roster.')
+      card.assignee = who.id
+      card.agentId = who.id
+      log(card, `Reassigned to ${who.name}`)
+    }
+  })
+  if (!ok) throw new Error('That card is gone.')
+}
+
+/** Removes a card from the board (not a running one). */
+export function removeCard(agencyId: string, cardId: string): void {
+  const agency = db.getAgency(agencyId)
+  if (!agency) throw new Error('That agency no longer exists.')
+  if (active.has(cardId)) throw new Error('That card is running; stop it first.')
+  const doc = readBoard(agency)
+  if (!doc) throw new Error('The board file is missing.')
+  if (!findCard(doc, cardId)) throw new Error('That card is gone.')
+  for (const col of doc.columns) col.cards = col.cards.filter((c) => c.id !== cardId)
+  writeBoard(agency, doc)
+}
 
 const cardPrompt = (agency: Agency, title: string, notes: string, column: string, parent?: string): string => [
   `Work on this card from the "${agency.name}" board (column: ${column}).`,
@@ -109,12 +160,12 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     log(hit.card, `${agent.name} failed: ${(r.error ?? 'unknown error').slice(0, 200)}`)
   }
   writeBoard(agency, doc)
-  if (agency.autoRun && r.ok) void runNext(db.getAgency(agency.id)!)
+  if (runsOnItsOwn(agency) && r.ok) void runNext(db.getAgency(agency.id)!)
 }
 
-/** Auto-run: the next planned card with an assignee that has never run, one at a time. */
+/** Auto-run (or an approved plan): the next planned card with an assignee that has never run, one at a time. */
 export async function runNext(agency: Agency): Promise<void> {
-  if (!agency.autoRun || agency.paused) return
+  if (!runsOnItsOwn(agency) || agency.paused) return
   if (agency.budget !== null && agency.spent >= agency.budget) return
   const doc = readBoard(agency)
   if (!doc) return
@@ -122,7 +173,7 @@ export async function runNext(agency: Agency): Promise<void> {
   if (busy) return
   const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned')
   const next = planned?.cards.find((k) => (k.assignee || k.agentId) && !k.status)
-  if (!next) return
+  if (!next) { approved.delete(agency.id); return }
   try { await runCard(agency.id, next.id) } catch (err) {
     // Mark it so auto-run moves on to the next card instead of retrying this one forever.
     const msg = err instanceof Error ? err.message : String(err)
@@ -138,7 +189,7 @@ export function cardsOnRunEvent(e: RunEvent): void {
     const session = db.getSession(e.sessionId)
     const agent = session ? db.getAgent(session.agentId) : null
     const agency = agent?.agency ? db.getAgency(agent.agency) : null
-    if (agency && agency.leadId === agent!.id && agency.autoRun) void runNext(agency)
+    if (agency && agency.leadId === agent!.id && runsOnItsOwn(agency)) void runNext(agency)
   }
 }
 

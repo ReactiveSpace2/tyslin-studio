@@ -1,14 +1,14 @@
-import { app, shell } from 'electron'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs'
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'path'
+import { app } from 'electron'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'path'
 import type { Project, StudioFile, StudioKind } from '@shared/types'
 import * as db from './db'
 
 /**
- * Files made on the Mind mapper, Automation and Canvas screens. They are ordinary files in the
- * project's folder, so they can be read, edited and committed outside Tyslin. With no project
- * chosen they go to the organization's Default project (a real folder under Documents).
- * These are the user's own documents saved by the app, not agent edits, so they skip the diff review.
+ * Plain files inside a project folder: the agency board (`boards/*.board.json`) and the folder helpers
+ * (`newProjectFolderPath`, the Default project that first-run setup still names). With no project chosen
+ * they go to the organization's Default project (a real folder under Documents). These are the app's own
+ * files, not agent edits, so they skip the diff review.
  */
 
 const KINDS: Record<StudioKind, { dir: string; ext: string }> = {
@@ -44,19 +44,12 @@ function createDefault(name: string): Project {
   return p
 }
 
-/** A new project with its own folder under Documents/Tyslin Studio/<org>/ ("Support", "Support 2", ...). */
-/** Where a new project's own folder would go ("Name", or "Name 2" when taken), for the New project dialog. */
+/** Where a new agency's own folder would go under Documents/Tyslin Studio/<org>/ ("Name", or "Name 2" when taken). */
 export function newProjectFolderPath(name: string): string {
   const base = join(app.getPath('documents'), 'Tyslin Studio', safeName(db.currentOrg().name))
   let folderName = safeName(name || 'New project')
   for (let i = 2; existsSync(join(base, folderName)); i++) folderName = `${safeName(name || 'New project')} ${i}`
   return join(base, folderName)
-}
-
-export function createProjectFolder(name: string): Project {
-  const folder = newProjectFolderPath(name)
-  mkdirSync(folder, { recursive: true })
-  return db.createProject(basename(folder), folder)
 }
 
 /** The Default project's folder, or null when it hasn't been created yet. */
@@ -102,23 +95,6 @@ function inside(folder: string, rel: string): string {
   return abs
 }
 
-export function listStudioFiles(kind: StudioKind, projectId: string | null): { project: Project; files: StudioFile[] } {
-  const project = projectFor(projectId)
-  const { dir, ext } = KINDS[kind]
-  const abs = join(project.folder!, dir)
-  let files: StudioFile[] = []
-  try {
-    files = readdirSync(abs)
-      .filter((f) => f.endsWith(ext))
-      .map((f) => {
-        const st = statSync(join(abs, f))
-        return { name: f.slice(0, -ext.length), path: join(dir, f).split(sep).join('/'), updatedAt: st.mtimeMs }
-      })
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-  } catch { /* folder not made yet */ }
-  return { project, files }
-}
-
 export function readStudioFile(projectId: string | null, path: string): string {
   return readFileSync(inside(projectFor(projectId).folder!, path), 'utf8')
 }
@@ -140,14 +116,4 @@ export function writeStudioFile(projectId: string | null, target: { path?: strin
   const name = rel.split(/[\\/]/).pop()!
   const ext = Object.values(KINDS).find((k) => name.endsWith(k.ext))?.ext ?? ''
   return { name: name.slice(0, name.length - ext.length), path: rel.split(sep).join('/'), updatedAt: Date.now() }
-}
-
-export function removeStudioFile(projectId: string | null, path: string): void {
-  rmSync(inside(projectFor(projectId).folder!, path), { force: true })
-}
-
-export function revealStudioFile(projectId: string | null, path?: string): void {
-  const folder = projectFor(projectId).folder!
-  if (path) shell.showItemInFolder(inside(folder, path))
-  else void shell.openPath(folder)
 }

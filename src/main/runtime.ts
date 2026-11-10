@@ -40,6 +40,7 @@ const MAX_TURNS = 12
 
 function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): string {
   const parts = [agent.instructions.trim() || `You are ${agent.name}.`]
+  if (agent.goal?.trim()) parts.push('## Your goal\n' + agent.goal.trim())
   const shared = getPrefs().sharedInstructions
   if (shared) parts.push('## Workspace guidelines\n' + shared)
   const used = skills.filter((s) => agent.skills.includes(s.name))

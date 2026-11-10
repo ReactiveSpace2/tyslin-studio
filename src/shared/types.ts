@@ -201,12 +201,14 @@ export interface Agent {
   agency: string | null
   /** The department team it was created for (archived teams), '' if none. */
   team: string
+  /** One line: what good work from this agent looks like ('' = none). */
+  goal: string
   createdAt: number
   updatedAt: number
 }
 
 /** Fields added after v0.4 are optional on input; saving keeps the stored value when they're missing. */
-type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head' | 'team' | 'agency'
+type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'channels' | 'head' | 'team' | 'agency' | 'goal'
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
 /** Kanban: columns of cards (boards/<name>.board.json). A card can be given to an agent and run. */
@@ -280,6 +282,8 @@ export interface AgencyCreateInput {
   channel: 'telegram' | 'slack' | 'none'
   notify: 'all' | 'questions' | 'digest'
   budget: number | null
+  /** An existing folder to use instead of a new one under Documents/Tyslin Studio. */
+  folder?: string | null
 }
 
 export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'autoRun' | 'paused'> & { channel: Agency['channel'] }>
@@ -406,13 +410,6 @@ export interface AutomationProgress {
   finished?: boolean
   /** When the run ends: the Markdown log, relative to the project folder. */
   logPath?: string
-}
-
-export interface AskResult {
-  ok: boolean
-  reply: string
-  error?: string
-  sessionId?: string
 }
 
 export type DriveKind = 'folder' | 'mindmap' | 'automation' | 'canvas' | 'board' | 'image' | 'text' | 'pdf' | 'archive' | 'file'
@@ -674,8 +671,6 @@ export interface DefaultModel {
   chosen: boolean
   /** The provider has a key (always true for Ollama). */
   ready: boolean
-  /** The current organization's Studio assistant, which runs "Default model" requests. */
-  assistantId: string | null
 }
 
 /** A starter agent or assistant from the library ("New agent" / "New assistant"). */
@@ -890,6 +885,8 @@ export interface Preferences {
   accent: 'lime' | 'forest' | 'mono' | 'org'
   /** File-change mode given to newly created agents. */
   defaultWriteMode: WriteMode
+  /** Desktop notifications when a Lead needs you (questions and reviews). */
+  desktopNotifications: boolean
   /** Added to every agent's instructions. */
   sharedInstructions: string
   /** The default model (per computer); null = not chosen yet. */
@@ -949,17 +946,12 @@ export interface TyslinApi {
     test(input: AgentInput): Promise<AgentTestResult>
     /** The starter agents and assistants that can be added to a project. */
   }
+  /** Agency folders (every agency owns one project row). Creating and removing them goes through `agencies`. */
   projects: {
     list(): Promise<Project[]>
-    create(name: string, folder: string | null): Promise<Project>
     pickFolder(): Promise<string | null>
-    /** A new project with a new folder under Documents/Tyslin Studio/<organization>/. */
-    createWithFolder(name: string): Promise<Project>
-    /** Where createWithFolder would put the folder. */
+    /** Where a new agency's folder would go under Documents/Tyslin Studio/<organization>/. */
     newFolderPath(name: string): Promise<string>
-    rename(id: string, name: string): Promise<void>
-    /** Deletes the project with its agents, assistants, chats and tasks (files stay on disk). Not the Default project. */
-    remove(id: string): Promise<{ agents: number }>
     files(projectId: string): Promise<string[]>
   }
   attachments: {
@@ -979,6 +971,11 @@ export interface TyslinApi {
     status(sessionId: string): Promise<SessionStatus>
     /** Answers an external agent's permission request; null declines. */
     answerPermission(permissionId: string, choiceId: string | null): Promise<void>
+    /** Ids of every chat with a reply in progress. */
+    running(): Promise<string[]>
+    rename(sessionId: string, title: string): Promise<void>
+    /** Deletes the chat, its messages and its staged changes; a running reply is stopped first. */
+    remove(sessionId: string): Promise<void>
   }
   engines: {
     list(): Promise<EngineStatus[]>
@@ -1077,8 +1074,8 @@ export interface TyslinApi {
     /** Messages Leads sent the boss, newest first; for one agency when given. */
     list(agencyId?: string): Promise<ChannelMessage[]>
     onMessage(cb: (m: ChannelMessage) => void): () => void
-    /** Answers a message: saved on it, noted on its card and sent to the Lead's Inbox chat. */
-    reply(id: string, text: string): Promise<ChannelMessage>
+    /** Answers a message: saved on it, noted on its card and sent to the Lead, into `sessionId` when that is the Lead's task. */
+    reply(id: string, text: string, sessionId?: string): Promise<ChannelMessage>
     markRead(ids: string[]): Promise<number>
     /** Unread messages in the current organization (the Inbox count and the app icon badge). */
     unread(): Promise<number>
@@ -1103,6 +1100,11 @@ export interface TyslinApi {
     run(agencyId: string, cardId: string): Promise<string>
     /** Card ids with a run in progress. */
     running(): Promise<string[]>
+    /** Approve the plan: the Planned cards run one after another, whatever the auto-run setting. Returns how many. */
+    runPlan(agencyId: string): Promise<number>
+    /** Edits a card that isn't running: title, notes, who does it. */
+    update(agencyId: string, cardId: string, patch: Partial<Pick<KanbanCard, 'title' | 'notes' | 'assignee'>>): Promise<void>
+    remove(agencyId: string, cardId: string): Promise<void>
     /** A board file changed on disk (a run finished, the Lead moved a card). */
     onBoardChanged(cb: (p: { projectId: string; path: string }) => void): () => void
   }
@@ -1115,19 +1117,11 @@ export interface TyslinApi {
     /** Fires when a task starts or finishes a run (scheduled or manual). */
     onChanged(cb: () => void): () => void
   }
+  /** Plain files inside a project folder (the board JSON). */
   studio: {
-    /** The current organization's Default project (created with its folder on first use). */
-    defaultProject(): Promise<Project>
-    /** projectId null = the Default project. */
-    list(kind: StudioKind, projectId: string | null): Promise<{ project: Project; files: StudioFile[] }>
     read(projectId: string | null, path: string): Promise<string>
     /** Saves to `path`, or to a new free name for `kind` + `name`. */
     write(projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string, encoding?: 'utf8' | 'base64'): Promise<StudioFile>
-    remove(projectId: string | null, path: string): Promise<void>
-    /** Shows the file (or the project folder) in the system file manager. */
-    reveal(projectId: string | null, path?: string): Promise<void>
-    /** One message to an agent or assistant in a new chat titled `title`; resolves with its reply. */
-    ask(agentId: string, projectId: string | null, prompt: string, title: string): Promise<AskResult>
   }
   drive: {
     list(projectId: string | null, dir: string, showHidden?: boolean): Promise<DriveListing>

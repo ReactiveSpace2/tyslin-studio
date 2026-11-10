@@ -9,10 +9,8 @@ import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
 import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
-import { defaultModel, isStudioAssistant, studioAssistant, syncStudioAssistant } from './defaultModel'
-import { DEFAULT_MODEL_AGENT } from '@shared/models'
-import { inWorkspace } from '@shared/scope'
-import { createProjectFolder, newProjectFolderPath, defaultProject, defaultProjectFolder, defaultProjectName, setDefaultProjectName, listStudioFiles, projectFor, readStudioFile, removeStudioFile, revealStudioFile, writeStudioFile } from './studio'
+import { defaultModel } from './defaultModel'
+import { newProjectFolderPath, defaultProjectFolder, defaultProjectName, setDefaultProjectName, readStudioFile, writeStudioFile } from './studio'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
 import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
@@ -28,11 +26,11 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, updateCard, removeCard, type CardPatch } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, AskResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, Session, SessionStatus, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, Session, SessionStatus, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -244,7 +242,7 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
   const started = Date.now()
   const agent: Agent = {
     id: 'test', createdAt: started, updatedAt: started, projectId: null, leadId: null, pinned: false, paused: false,
-    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input, team: input.team ?? '', agency: input.agency ?? null
+    tools: { read: false, write: false }, channels: { telegram: false }, head: null, ...input, team: input.team ?? '', agency: input.agency ?? null, goal: input.goal ?? ''
   }
   try {
     const problem = setupProblem(agent)
@@ -268,35 +266,6 @@ async function testAgent(input: AgentInput): Promise<AgentTestResult> {
     }
   } catch (err) {
     return { ok: false, ms: Date.now() - started, detail: err instanceof Error ? err.message : String(err) }
-  }
-}
-
-/**
- * One message to an agent or assistant in a new chat (same path as chat, so pause, statuses,
- * reviews and Telegram approvals all apply). Agents work in the given project; assistants have none.
- */
-async function askAgent(agentId: string, projectId: string | null, prompt: string, title: string, onSession?: (id: string) => void): Promise<AskResult> {
-  try {
-    // "Default model" runs through the organization's Studio assistant, which follows the default model.
-    const agent = agentId === DEFAULT_MODEL_AGENT ? studioAssistant() : db.getAgent(agentId)
-    if (!agent) throw new Error('Pick an agent or assistant.')
-    // Projects are workspaces: an agent or assistant only works in its own project.
-    const where = projectFor(projectId)
-    if (!inWorkspace(agent, where.id, db.getSetting('project:default'), db.getSetting('assistant:studio'))) {
-      throw new Error(`${agent.name} belongs to another project. Pick one from ${where.name}.`)
-    }
-    const project = agent.kind === 'agent' ? projectFor(projectId) : null
-    checkAgentReady(agent)
-    const s = db.createSession(agent.id, project?.id ?? null)
-    onSession?.(s.id)
-    const { done } = startRun(s.id, prompt)
-    db.setSessionTitle(s.id, title)
-    const r = await done
-    if (!r.ok) return { ok: false, reply: '', error: r.error, sessionId: s.id }
-    const reply = db.listMessages(s.id).filter((m) => m.role === 'assistant').pop()?.content ?? ''
-    return { ok: true, reply, sessionId: s.id }
-  } catch (err) {
-    return { ok: false, reply: '', error: err instanceof Error ? err.message : String(err) }
   }
 }
 
@@ -391,7 +360,7 @@ const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', 
 
 /** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the agency's Inbox. */
 function notifyBoss(m: ChannelMessage): void {
-  if (!Notification.isSupported()) return
+  if (!Notification.isSupported() || !db.getPrefs().desktopNotifications) return
   const agency = db.getAgency(m.agencyId)
   const lead = db.getAgent(m.agentId)
   const who = lead?.name ?? 'Your Lead'
@@ -413,23 +382,11 @@ function notifyBoss(m: ChannelMessage): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('agents:list', () => {
-    // Every organization has a Studio assistant on the default model (per computer); it catches up here.
-    studioAssistant()
-    return db.listAgents()
-  })
+  // Agencies are the only unit: assistants, Builder and the old Studio assistant stay in the table but are never listed.
+  ipcMain.handle('agents:list', () => db.listAgents().filter((a) => a.kind === 'agent' && !a.isMascot))
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
-  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => {
-    const saved = db.saveAgent(input)
-    // Changing the Studio assistant's model changes the default model (they are the same thing).
-    if (isStudioAssistant(saved.id)) {
-      const d = defaultModel()
-      if (saved.provider !== d.provider || saved.model !== d.model) db.setPrefs({ defaultProvider: saved.provider, defaultModel: saved.model })
-    }
-    return saved
-  })
+  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => db.saveAgent(input))
   ipcMain.handle('agents:remove', (_e, id: string) => {
-    if (isStudioAssistant(id)) throw new Error('Studio runs your default model for cards and the agency screens, so it stays. Change its model in Settings → Models.')
     const gone = db.getAgent(id)
     if (gone?.engine === 'hermes') deleteHermesProfile(gone)
     // Its chats are deleted with it, so a reply still running would only fail on save.
@@ -440,33 +397,7 @@ function registerIpc(): void {
   ipcMain.handle('agents:test', (_e, input: AgentInput) => testAgent(input))
 
   ipcMain.handle('projects:list', () => db.listProjects())
-  // Every project has a real folder: an existing one the user picked, or a new one Tyslin makes.
-  ipcMain.handle('projects:create', (_e, name: string, folder: string | null) => {
-    const clean = String(name ?? '').trim()
-    if (!clean) throw new Error('Give the project a name.')
-    if (!folder) throw new Error('Pick a folder for the project, or let Tyslin create one.')
-    if (!existsSync(folder) || !statSync(folder).isDirectory()) throw new Error('That folder no longer exists. Pick another one.')
-    return db.createProject(clean, folder)
-  })
-  ipcMain.handle('projects:createWithFolder', (_e, name: string) => {
-    const clean = String(name ?? '').trim()
-    if (!clean) throw new Error('Give the project a name.')
-    return createProjectFolder(clean)
-  })
   ipcMain.handle('projects:newFolderPath', (_e, name: string) => newProjectFolderPath(String(name ?? '')))
-  ipcMain.handle('projects:rename', (_e, id: string, name: string) => db.renameProjectChecked(id, String(name ?? '')))
-  ipcMain.handle('projects:remove', (_e, id: string) => {
-    const def = db.getSetting('project:default')
-    // Stop anything still replying in that project first.
-    // Aborting alone leaves a run waiting on a review or permission forever (and blocks switching organizations).
-    for (const [sid, r] of activeRuns) {
-      if (db.getSession(sid)?.projectId !== id) continue
-      r.controller.abort()
-      expireRunChanges(r.runId)
-      cancelRunPermissions(r.runId)
-    }
-    return db.removeProject(id, def)
-  })
   ipcMain.handle('projects:pickFolder', async () => {
     const r = await dialog.showOpenDialog(win!, { properties: ['openDirectory', 'createDirectory'] })
     return r.canceled ? null : r.filePaths[0]
@@ -498,6 +429,19 @@ function registerIpc(): void {
     return { running: activeRuns.has(String(sessionId ?? '')), lastError: session ? db.agentLastError(session.agentId) : '' }
   })
   ipcMain.handle('sessions:answerPermission', (_e, permissionId: string, choiceId: string | null) => answerPermission(permissionId, choiceId))
+  /** Every chat with a reply in progress (the Recents dots and Home's Running list). */
+  ipcMain.handle('sessions:running', (): string[] => [...activeRuns.keys()])
+  ipcMain.handle('sessions:rename', (_e, id: string, title: string) => {
+    const t = String(title ?? '').trim()
+    if (!t) throw new Error('Give the task a name.')
+    db.setSessionTitle(String(id ?? ''), t)
+  })
+  ipcMain.handle('sessions:remove', (_e, id: string) => {
+    const sessionId = String(id ?? '')
+    const run = activeRuns.get(sessionId)
+    if (run) { run.controller.abort(); expireRunChanges(run.runId); cancelRunPermissions(run.runId) }
+    db.removeSession(sessionId)
+  })
 
   ipcMain.handle('engines:list', () => listEngines())
   ipcMain.handle('engines:setCommand', (_e, id: ExternalEngineId, command: string) => setEngineCommand(id, command))
@@ -596,17 +540,14 @@ function registerIpc(): void {
   }))
   ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => {
     setSecret(provider, key.trim())
-    syncStudioAssistant()
   })
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))
   ipcMain.handle('settings:removeKey', (_e, provider: KeyProvider) => {
     setSecret(provider, '')
-    syncStudioAssistant()
   })
   ipcMain.handle('settings:openrouterModels', () => openrouterModels())
   ipcMain.handle('settings:connectOpenRouter', async () => {
     await connectOpenRouter()
-    syncStudioAssistant()
     win?.focus()
   })
   ipcMain.handle('settings:cancelOpenRouter', () => cancelOpenRouter())
@@ -616,7 +557,6 @@ function registerIpc(): void {
     const next = db.setPrefs(p)
     if (p.theme) applyTheme()
     if (typeof p.zoom === 'number') applyZoom()
-    if (p.defaultProvider) syncStudioAssistant()
     return next
   })
 
@@ -652,8 +592,7 @@ function registerIpc(): void {
     setDefaultProjectName(String(input.projectName ?? '').trim() || 'Default project')
     if (input.defaultProvider) {
       db.setPrefs({ defaultProvider: input.defaultProvider, defaultModel: input.defaultModel })
-      syncStudioAssistant()
-    }
+      }
     db.setSetting('onboarded', '1')
   })
 
@@ -678,11 +617,14 @@ function registerIpc(): void {
   ipcMain.handle('slack:linkCode', () => newSlackLinkCode())
   ipcMain.handle('slack:unlink', (_e, id: string) => unlinkSlackChannel(String(id ?? '')))
   ipcMain.handle('channels:list', (_e, agencyId?: string) => db.listChannelMessages(agencyId || undefined))
-  ipcMain.handle('channels:reply', (_e, id: string, text: string) => replyToLead(String(id ?? ''), String(text ?? '')))
+  ipcMain.handle('channels:reply', (_e, id: string, text: string, sessionId?: string) => replyToLead(String(id ?? ''), String(text ?? ''), sessionId ? String(sessionId) : undefined))
   ipcMain.handle('channels:markRead', (_e, ids: string[]) => { const n = db.markChannelMessagesRead(Array.isArray(ids) ? ids.map(String) : []); updateBadge(); return n })
   ipcMain.handle('channels:unread', () => db.unreadChannelMessages())
   ipcMain.handle('cards:run', (_e, agencyId: string, cardId: string) => runCard(agencyId, cardId))
   ipcMain.handle('cards:running', () => runningCards())
+  ipcMain.handle('cards:runPlan', (_e, agencyId: string) => runPlan(String(agencyId ?? '')))
+  ipcMain.handle('cards:update', (_e, agencyId: string, cardId: string, patch: CardPatch) => updateCard(String(agencyId ?? ''), String(cardId ?? ''), patch ?? {}))
+  ipcMain.handle('cards:remove', (_e, agencyId: string, cardId: string) => removeCard(String(agencyId ?? ''), String(cardId ?? '')))
 
   ipcMain.handle('auth:status', () => authStatus())
   ipcMain.handle('auth:signIn', () => signIn())
@@ -699,14 +641,9 @@ function registerIpc(): void {
     if (!t) throw new Error('That task no longer exists.')
     return runTask(t, false)
   })
-  ipcMain.handle('studio:defaultProject', () => defaultProject())
-  ipcMain.handle('studio:list', (_e, kind: StudioKind, projectId: string | null) => listStudioFiles(kind, projectId))
   ipcMain.handle('studio:read', (_e, projectId: string | null, path: string) => readStudioFile(projectId, path))
   ipcMain.handle('studio:write', (_e, projectId: string | null, target: { path?: string; kind?: StudioKind; name?: string }, content: string, encoding?: 'utf8' | 'base64') =>
     writeStudioFile(projectId, target, String(content ?? ''), encoding === 'base64' ? 'base64' : 'utf8'))
-  ipcMain.handle('studio:remove', (_e, projectId: string | null, path: string) => removeStudioFile(projectId, path))
-  ipcMain.handle('studio:reveal', (_e, projectId: string | null, path?: string) => revealStudioFile(projectId, path))
-  ipcMain.handle('studio:ask', (_e, agentId: string, projectId: string | null, prompt: string, title: string) => askAgent(agentId, projectId, String(prompt ?? ''), String(title ?? 'Chat')))
   ipcMain.handle('drive:list', (_e, projectId: string | null, dir: string, showHidden?: boolean) => driveList(projectId, String(dir ?? ''), !!showHidden))
   ipcMain.handle('drive:preview', (_e, projectId: string | null, path: string) => drivePreview(projectId, path))
   ipcMain.handle('drive:mkdir', (_e, projectId: string | null, dir: string, name: string) => driveMkdir(projectId, String(dir ?? ''), String(name ?? '')))

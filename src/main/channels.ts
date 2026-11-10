@@ -98,8 +98,11 @@ function deliver(sessionId: string, text: string): void {
   }
 }
 
-/** Saves the boss's answer, notes it on the card, and sends it to the Lead. */
-export function replyToLead(messageId: string, text: string): ChannelMessage {
+/**
+ * Saves the boss's answer, notes it on the card, and sends it to the Lead: into the task it was answered
+ * from when that chat is the Lead's (so the follow-up lands in the same thread), else into the Lead's "Your answers" chat.
+ */
+export function replyToLead(messageId: string, text: string, sessionId?: string): ChannelMessage {
   const answer = text.trim()
   if (!answer) throw new Error('Write your answer.')
   const m = db.getChannelMessage(messageId)
@@ -110,7 +113,8 @@ export function replyToLead(messageId: string, text: string): ChannelMessage {
   if (!deps) throw new Error('Replies are not available yet.')
   const quoted = m.text.length > 400 ? `${m.text.slice(0, 400)}…` : m.text
   const card = m.cardId ? ` (card ${m.cardId})` : ''
-  deliver(inboxSession(lead), `The boss answered your ${m.kind}${card} in the app's Inbox.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
+  const inTask = sessionId && db.getSession(sessionId)?.agentId === lead.id ? sessionId : null
+  deliver(inTask ?? inboxSession(lead), `The boss answered your ${m.kind}${card}${inTask ? '' : " in the app's Inbox"}.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
   if (m.cardId) patchCard(agency, m.cardId, (c) => log(c, `Boss: ${answer}`))
   const saved = db.replyChannelMessage(messageId, answer)!
   onChannelMessage(saved, false)

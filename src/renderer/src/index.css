@@ -136,28 +136,6 @@
   @keyframes dot { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
 
   /* The agency Live screen's animation layer (pages/LivePage.tsx, components/LiveMap.tsx; owner OK 9 Nov 2026). */
-  --animate-live-packet: live-packet 1.3s cubic-bezier(.45,0,.55,1) infinite;      /* a message square travelling along a line (offset-path) */
-  --animate-live-packet-back: live-packet-back 1.3s cubic-bezier(.45,0,.55,1) infinite;
-  --animate-live-drift: live-packet 5s linear infinite;                              /* faint packets on quiet lines */
-  --animate-live-dash: live-dash .7s linear infinite;                                /* the line in use: dashes moving (SVG) */
-  --animate-live-orbit: live-orbit 7s linear infinite;                               /* dashed ring round a working agent */
-  --animate-live-sweep: live-orbit 6s linear infinite;                               /* radar sweep round the Lead */
-  --animate-live-pulse: live-pulse 2.4s ease-out infinite;                           /* the Lead's rings */
-  --animate-live-ping: live-ping 1s ease-out 3;                                      /* a tool call */
-  --animate-live-pop: live-pop .45s cubic-bezier(.2,.9,.3,1.2) both;                 /* speech bubble */
-  --animate-live-type: live-type .9s steps(26) .15s both;                            /* bubble text typing out */
-  --animate-live-rise: live-rise .45s ease-out both;                                 /* a new chat message */
-  --animate-live-eq: live-eq .9s ease-in-out infinite;                               /* signal meter on a working agent's card */
-  @keyframes live-packet { from { offset-distance: 0%; } to { offset-distance: 100%; } }
-  @keyframes live-packet-back { from { offset-distance: 100%; } to { offset-distance: 0%; } }
-  @keyframes live-dash { to { stroke-dashoffset: -28; } }
-  @keyframes live-orbit { to { transform: rotate(360deg); } }
-  @keyframes live-pulse { 0% { transform: scale(1); opacity: .7; } 100% { transform: scale(1.9); opacity: 0; } }
-  @keyframes live-ping { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(1.5); opacity: 0; } }
-  @keyframes live-pop { from { transform: scale(.9) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-  @keyframes live-type { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
-  @keyframes live-rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
-  @keyframes live-eq { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
 
   --font-sans: var(--font);
   --font-mono: var(--mono);
