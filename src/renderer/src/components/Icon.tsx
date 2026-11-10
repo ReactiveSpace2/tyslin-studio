@@ -66,9 +66,18 @@ const PATHS = {
   sparkle: <path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6z" />,
   layers: <><path d="M8 2 14 5 8 8 2 5z" /><path d="m2 8 6 3 6-3M2 11l6 3 6-3" /></>,
   live: <><circle cx="8" cy="8" r="1.5" /><path d="M5 5a4.2 4.2 0 0 0 0 6M11 5a4.2 4.2 0 0 1 0 6M2.9 2.9a7.2 7.2 0 0 0 0 10.2M13.1 2.9a7.2 7.2 0 0 1 0 10.2" /></>,
-  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>,
+  // The Files editor (10 Nov 2026).
+  branch: <><circle cx="4.5" cy="3.5" r="1.5" /><circle cx="4.5" cy="12.5" r="1.5" /><circle cx="11.5" cy="5" r="1.5" /><path d="M4.5 5v6M11.5 6.5c0 3-4 2.5-7 4.5" /></>,
   chevronRight: <path d="m6 3.5 4.5 4.5L6 12.5" />,
-  chevronDown: <path d="m3.5 6 4.5 4.5L12.5 6" />
+  chevronDown: <path d="m3.5 6 4.5 4.5L12.5 6" />,
+  copy: <><rect x="5" y="5" width="8.5" height="8.5" rx="1.5" /><path d="M11 5V3.5A1 1 0 0 0 10 2.5H3.5a1 1 0 0 0-1 1V10a1 1 0 0 0 1 1H5" /></>,
+  filePlus: <><path d="M4 1.5h5L12 4.5v10H4z" /><path d="M9 1.5v3h3M8 7.5v4.5M5.75 9.75h4.5" /></>,
+  folderPlus: <><path d="M2 4h4l1.5 1.5H14V13H2z" /><path d="M8 7.25v4M6 9.25h4" /></>,
+  code: <path d="M5.5 4 1.5 8l4 4M10.5 4l4 4-4 4" />,
+  // Agency pages in the task header (10 Nov 2026).
+  table: <><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M2 6h12M2 9.75h12M6.5 6v7.5" /></>,
+  calendar: <><rect x="2" y="3" width="12" height="11" rx="1.5" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /><circle cx="8" cy="10" r="0.7" fill="currentColor" /></>,
+  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
 } as const
 
 export type IconName = keyof typeof PATHS

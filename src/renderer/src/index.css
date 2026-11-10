@@ -33,6 +33,13 @@
   --chart-3: var(--ink);
   --chart-4: var(--line-strong);
   --chart-5: var(--muted);
+  /* Text shades for the Files editor's syntax colours and git letters (4.5:1 or better on card, lime-soft and the diff tints). */
+  --text-amber: #8a5a00;
+  --text-teal: #0b6e63;
+  --text-violet: #5b3fb8;
+  --diff-add: #eef5df;
+  --diff-del: #fbe3e3;
+  --code-selection: #dce9c2;
   color-scheme: light;
 }
 
@@ -54,6 +61,12 @@
     --ink-hover: #d9d9d2;
     --shadow: rgba(0, 0, 0, 0.4);
     --backdrop: rgba(0, 0, 0, 0.6);
+    --text-amber: #f2b33d;
+    --text-teal: #4cc4b4;
+    --text-violet: #b9a6f7;
+    --diff-add: #1d2a14;
+    --diff-del: #2a1d1d;
+    --code-selection: #34421c;
     color-scheme: dark;
   }
 }
@@ -101,6 +114,11 @@
   --color-lime-soft: var(--lime-soft);
   --color-green: var(--green);
   --color-panel: var(--panel);
+  --color-text-amber: var(--text-amber);
+  --color-text-teal: var(--text-teal);
+  --color-text-violet: var(--text-violet);
+  --color-diff-add: var(--diff-add);
+  --color-diff-del: var(--diff-del);
 
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

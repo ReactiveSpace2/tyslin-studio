@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { AccountEngine, ChannelMessage, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
+import type { AccountEngine, ChannelMessage, DriveChange, GDriveStatus, InstallOutput, RunEvent, TyslinApi, UpdateStatus } from '@shared/types'
 
 const api: TyslinApi = {
   agents: {
@@ -197,7 +197,39 @@ const api: TyslinApi = {
     copyIn: (projectId, dir, paths) => ipcRenderer.invoke('drive:copyIn', projectId, dir, paths),
     pathsFor: (files) => files.map((f) => webUtils.getPathForFile(f)).filter(Boolean),
     open: (projectId, path) => ipcRenderer.invoke('drive:open', projectId, path),
-    reveal: (projectId, path) => ipcRenderer.invoke('drive:reveal', projectId, path)
+    reveal: (projectId, path) => ipcRenderer.invoke('drive:reveal', projectId, path),
+    readText: (projectId, path) => ipcRenderer.invoke('drive:readText', projectId, path),
+    writeText: (projectId, path, text, expectedMtimeMs) => ipcRenderer.invoke('drive:writeText', projectId, path, text, expectedMtimeMs),
+    createFile: (projectId, dir, name) => ipcRenderer.invoke('drive:createFile', projectId, dir, name),
+    duplicate: (projectId, path) => ipcRenderer.invoke('drive:duplicate', projectId, path),
+    search: (projectId, query, opts) => ipcRenderer.invoke('drive:search', projectId, query, opts),
+    watch: (projectId) => ipcRenderer.invoke('drive:watch', projectId),
+    unwatch: () => ipcRenderer.invoke('drive:unwatch'),
+    onChanged: (cb) => {
+      const fn = (_e: unknown, c: DriveChange): void => cb(c)
+      ipcRenderer.on('drive:changed', fn)
+      return () => ipcRenderer.removeListener('drive:changed', fn)
+    }
+  },
+  git: {
+    status: (projectId) => ipcRenderer.invoke('git:status', projectId),
+    diff: (projectId, path, staged) => ipcRenderer.invoke('git:diff', projectId, path, staged),
+    commitDiff: (projectId, path, hash) => ipcRenderer.invoke('git:commitDiff', projectId, path, hash),
+    show: (projectId, path, ref) => ipcRenderer.invoke('git:show', projectId, path, ref),
+    stage: (projectId, paths) => ipcRenderer.invoke('git:stage', projectId, paths),
+    unstage: (projectId, paths) => ipcRenderer.invoke('git:unstage', projectId, paths),
+    discard: (projectId, paths) => ipcRenderer.invoke('git:discard', projectId, paths),
+    commit: (projectId, message) => ipcRenderer.invoke('git:commit', projectId, message),
+    branches: (projectId) => ipcRenderer.invoke('git:branches', projectId),
+    checkout: (projectId, branch) => ipcRenderer.invoke('git:checkout', projectId, branch),
+    createBranch: (projectId, name) => ipcRenderer.invoke('git:createBranch', projectId, name),
+    log: (projectId, limit) => ipcRenderer.invoke('git:log', projectId, limit),
+    commitFiles: (projectId, hash) => ipcRenderer.invoke('git:commitFiles', projectId, hash),
+    pull: (projectId) => ipcRenderer.invoke('git:pull', projectId),
+    push: (projectId) => ipcRenderer.invoke('git:push', projectId),
+    init: (projectId) => ipcRenderer.invoke('git:init', projectId),
+    identity: (projectId) => ipcRenderer.invoke('git:identity', projectId),
+    setIdentity: (projectId, id) => ipcRenderer.invoke('git:setIdentity', projectId, id)
   },
   telegram: {
     status: () => ipcRenderer.invoke('telegram:status'),

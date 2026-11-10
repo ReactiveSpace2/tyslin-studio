@@ -19,6 +19,7 @@ import { AgenciesPage } from './pages/AgenciesPage'
 import { AgencyPage } from './pages/AgencyPage'
 import { AgentEditor } from './pages/AgentEditor'
 import { FilesPage } from './pages/FilesPage'
+import { confirmLeave } from './files/leaveGuard'
 import { ScheduledPage } from './pages/ScheduledPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
@@ -40,7 +41,14 @@ export type Route =
   | { name: 'settings'; tab?: SettingsTab }
 
 export default function App(): JSX.Element {
-  const [route, setRoute] = useState<Route>({ name: 'home' })
+  const [route, setRouteNow] = useState<Route>({ name: 'home' })
+  const routeRef = useRef(route)
+  routeRef.current = route
+  /** Leaving Files with unsaved tabs asks first (files/leaveGuard.ts); every other move is immediate. */
+  const setRoute = useCallback((r: Route): void => {
+    if (routeRef.current.name !== 'files') { setRouteNow(r); return }
+    void confirmLeave().then((ok) => { if (ok) setRouteNow(r) })
+  }, [])
   const [agents, setAgents] = useState<Agent[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [agencyRows, setAgencyRows] = useState<Agency[]>([])
@@ -276,8 +284,10 @@ export default function App(): JSX.Element {
         )
       }
       case 'files':
-        return <FilesPage agencies={agencies} agencyId={route.agencyId ?? activeAgency} onAgency={setActiveAgency} initialDir={route.dir}
-          onNewTaskWith={(id, path) => { setActiveAgency(id); setRoute({ name: 'home' }); setDraft(`Look at ${path} and `) }} onNewAgency={() => setNewAgency({})} />
+        return <FilesPage agencies={agencies} agencyId={route.agencyId ?? activeAgency} onAgency={(id) => { setActiveAgency(id); setRouteNow({ name: 'files', agencyId: id }) }} initialDir={route.dir}
+          setHeader={setHeaderSlot} onOpenTask={(sid, aid) => { void refreshSessions().then(() => openTask(sid, aid)) }}
+          onOpenMemory={(id) => setRoute({ name: 'agency', id, tab: 'memory', focus: 'agency' })}
+          onNewTaskWith={(id, path) => { void confirmLeave().then((ok) => { if (!ok) return; setActiveAgency(id); setRouteNow({ name: 'home' }); setDraft(`Look at ${path} and `) }) }} onNewAgency={() => setNewAgency({})} />
       case 'scheduled':
         return <ScheduledPage agencies={agencies} onOpenTask={(sid, aid) => { void refreshSessions().then(() => openTask(sid, aid)) }} />
       case 'settings':

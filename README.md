@@ -125,6 +125,10 @@ Some agencies get an extra tab on their Agency screen, built from shared page ty
 
 A table file is `{ "columns": [...], "rows": [...] }`; the calendar file is `{ "items": [{ "date", "channel", "title", "state" }] }`, with state draft, approved, scheduled or posted. The agency's agents keep these files up to date with their file tools, and the tab refreshes when a file changes. Email Marketing's Campaigns page comes later.
 
+### Files
+
+Files is a small code editor for the agency's folder: an Explorer, search in files, and Source control that runs your own installed git (stage, commit, branches, pull, push, history). Edit, diff and preview files in tabs. Your edits save directly; agents' changes still come to you for review. While an agent is working in the folder, files are read-only and commits wait. Commits use your own git name and email; push and pull use git's own sign-in, and Tyslin never asks for or stores a git password or token.
+
 ### Memory
 
 Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory tab or any editor; they also show in Files and sync with Google Drive.

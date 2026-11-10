@@ -439,6 +439,54 @@ export type DrivePreview =
   | { kind: 'image'; dataUrl: string }
   | { kind: 'none'; note: string }
 
+/** A text file opened in the Files editor. `readOnly`: agency memory (Memory tab) or the app's own data. */
+export interface DriveText {
+  text: string
+  mtimeMs: number
+  size: number
+  readOnly: null | 'memory' | 'app'
+}
+
+/** A save: done, or refused because the file changed on disk since it was opened (its current text comes back). */
+export type DriveWriteResult = { ok: true; mtimeMs: number; size: number } | { ok: false; text: string; mtimeMs: number }
+
+export interface DriveSearchOptions { caseSensitive: boolean; regex: boolean }
+export interface DriveSearchFile { path: string; hits: { line: number; col: number; length: number; text: string; /** Where `text` starts in the line (long lines are cut). */ start: number }[] }
+export interface DriveSearchResult { files: DriveSearchFile[]; total: number; truncated: boolean }
+
+/** Something changed in the watched agency folder. `git`: HEAD, the index or a file changed, so git status may differ. */
+export interface DriveChange { projectId: string; paths: string[]; git: boolean }
+
+/** M modified, A added, D deleted, U untracked, R renamed. */
+export type GitLetter = 'M' | 'A' | 'D' | 'U' | 'R'
+export interface GitFile {
+  /** Relative to the agency folder. */
+  path: string
+  from?: string
+  /** The change in the index (Staged), and in the working tree (Changes). */
+  staged: GitLetter | null
+  unstaged: GitLetter | null
+}
+export interface GitStatus {
+  /** git is on this computer. */
+  installed: boolean
+  /** The folder is in a git repository. */
+  repo: boolean
+  branch: string | null
+  detached: boolean
+  tracking: string | null
+  ahead: number
+  behind: number
+  files: GitFile[]
+  hasCommits: boolean
+  hasRemote: boolean
+}
+export interface GitDiff { path: string; before: string; after: string; added: number; removed: number; label: string }
+export interface GitCommit { hash: string; short: string; message: string; author: string; date: number }
+export interface GitCommitFile { path: string; letter: GitLetter }
+export interface GitBranches { current: string | null; all: string[] }
+export interface GitIdentity { name: string; email: string }
+
 /** What linked Telegram chats are sent besides replies. */
 export interface TelegramNotify {
   results: boolean
@@ -1183,6 +1231,47 @@ export interface TyslinApi {
     /** Opens with the system's app for that file type. */
     open(projectId: string | null, path: string): Promise<void>
     reveal(projectId: string | null, path: string): Promise<void>
+    /** The Files editor: text up to 2 MB; binaries are refused. */
+    readText(projectId: string | null, path: string): Promise<DriveText>
+    /** Saves atomically; refused (with the current text) when the file changed on disk since `expectedMtimeMs`. null = a new file. */
+    writeText(projectId: string | null, path: string, text: string, expectedMtimeMs: number | null): Promise<DriveWriteResult>
+    /** Creates an empty file in `dir`; returns its path. */
+    createFile(projectId: string | null, dir: string, name: string): Promise<string>
+    /** Copies a file or folder next to itself ("name copy"); returns the new path. */
+    duplicate(projectId: string | null, path: string): Promise<string>
+    search(projectId: string | null, query: string, opts: DriveSearchOptions): Promise<DriveSearchResult>
+    /** Watches one agency folder (replacing the previous watch) until unwatch. */
+    watch(projectId: string | null): Promise<void>
+    unwatch(): Promise<void>
+    onChanged(cb: (c: DriveChange) => void): () => void
+  }
+  /** Source control for the Files editor: the user's installed git, run in the agency folder. */
+  git: {
+    status(projectId: string | null): Promise<GitStatus>
+    /** Working tree vs HEAD, or the index vs HEAD when `staged`. */
+    diff(projectId: string | null, path: string, staged: boolean): Promise<GitDiff>
+    /** A commit's change to one file, against its parent. */
+    commitDiff(projectId: string | null, path: string, hash: string): Promise<GitDiff>
+    /** A file's text at a ref (HEAD, ':' for the index, a commit hash); null when it isn't there. */
+    show(projectId: string | null, path: string, ref: string): Promise<string | null>
+    stage(projectId: string | null, paths: string[]): Promise<void>
+    unstage(projectId: string | null, paths: string[]): Promise<void>
+    /** Tracked files go back to the staged/committed text; untracked files go to the Trash. */
+    discard(projectId: string | null, paths: string[]): Promise<void>
+    commit(projectId: string | null, message: string): Promise<string>
+    branches(projectId: string | null): Promise<GitBranches>
+    checkout(projectId: string | null, branch: string): Promise<void>
+    createBranch(projectId: string | null, name: string): Promise<void>
+    log(projectId: string | null, limit?: number): Promise<GitCommit[]>
+    commitFiles(projectId: string | null, hash: string): Promise<GitCommitFile[]>
+    /** --ff-only. */
+    pull(projectId: string | null): Promise<string>
+    /** Never forced. */
+    push(projectId: string | null): Promise<string>
+    init(projectId: string | null): Promise<void>
+    identity(projectId: string | null): Promise<GitIdentity>
+    /** --local only. */
+    setIdentity(projectId: string | null, id: GitIdentity): Promise<GitIdentity>
   }
   telegram: {
     status(): Promise<TelegramStatus>

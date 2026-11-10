@@ -8,7 +8,8 @@ import { answerPermission, cancelRunPermissions, pendingPermissions, runtimeFor 
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
-import { driveCopyIn, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveRemove, driveRename, driveReveal, driveUpload } from './drive'
+import { driveCopyIn, driveCreateFile, driveDuplicate, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveReadText, driveRemove, driveRename, driveReveal, driveSearch, driveUnwatch, driveUpload, driveWatch, driveWriteText } from './drive'
+import { gitBranches, gitCheckout, gitCommit, gitCommitDiff, gitCommitFiles, gitCreateBranch, gitDiff, gitDiscard, gitIdentity, gitInit, gitLog, gitPull, gitPush, gitSetIdentity, gitShow, gitStage, gitStatus, gitUnstage } from './git'
 import { defaultModel } from './defaultModel'
 import { newProjectFolderPath, defaultProjectFolder, defaultProjectName, setDefaultProjectName, readStudioFile, writeStudioFile } from './studio'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
@@ -677,6 +678,35 @@ function registerIpc(): void {
   ipcMain.handle('drive:copyIn', (_e, projectId: string | null, dir: string, paths: string[]) => driveCopyIn(projectId, String(dir ?? ''), Array.isArray(paths) ? paths.map(String) : []))
   ipcMain.handle('drive:open', (_e, projectId: string | null, path: string) => driveOpen(projectId, path))
   ipcMain.handle('drive:reveal', (_e, projectId: string | null, path: string) => driveReveal(projectId, String(path ?? '')))
+  // The Files editor (10 Nov 2026): text read/write, search, the folder watcher, and git (main/git.ts).
+  const strs = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
+  ipcMain.handle('drive:readText', (_e, projectId: string | null, path: string) => driveReadText(projectId, String(path ?? '')))
+  ipcMain.handle('drive:writeText', (_e, projectId: string | null, path: string, text: string, expected: number | null) =>
+    driveWriteText(projectId, String(path ?? ''), String(text ?? ''), typeof expected === 'number' ? expected : null))
+  ipcMain.handle('drive:createFile', (_e, projectId: string | null, dir: string, name: string) => driveCreateFile(projectId, String(dir ?? ''), String(name ?? '')))
+  ipcMain.handle('drive:duplicate', (_e, projectId: string | null, path: string) => driveDuplicate(projectId, String(path ?? '')))
+  ipcMain.handle('drive:search', (_e, projectId: string | null, query: string, opts: { caseSensitive?: boolean; regex?: boolean }) =>
+    driveSearch(projectId, String(query ?? ''), { caseSensitive: !!opts?.caseSensitive, regex: !!opts?.regex }))
+  ipcMain.handle('drive:watch', (_e, projectId: string | null) => driveWatch(projectId, (c) => win?.webContents.send('drive:changed', c)))
+  ipcMain.handle('drive:unwatch', () => driveUnwatch())
+  ipcMain.handle('git:status', (_e, projectId: string | null) => gitStatus(projectId))
+  ipcMain.handle('git:diff', (_e, projectId: string | null, path: string, staged: boolean) => gitDiff(projectId, String(path ?? ''), !!staged))
+  ipcMain.handle('git:commitDiff', (_e, projectId: string | null, path: string, hash: string) => gitCommitDiff(projectId, String(path ?? ''), String(hash ?? '')))
+  ipcMain.handle('git:show', (_e, projectId: string | null, path: string, ref: string) => gitShow(projectId, String(path ?? ''), String(ref ?? '')))
+  ipcMain.handle('git:stage', (_e, projectId: string | null, paths: string[]) => gitStage(projectId, strs(paths)))
+  ipcMain.handle('git:unstage', (_e, projectId: string | null, paths: string[]) => gitUnstage(projectId, strs(paths)))
+  ipcMain.handle('git:discard', (_e, projectId: string | null, paths: string[]) => gitDiscard(projectId, strs(paths)))
+  ipcMain.handle('git:commit', (_e, projectId: string | null, message: string) => gitCommit(projectId, String(message ?? '')))
+  ipcMain.handle('git:branches', (_e, projectId: string | null) => gitBranches(projectId))
+  ipcMain.handle('git:checkout', (_e, projectId: string | null, branch: string) => gitCheckout(projectId, String(branch ?? '')))
+  ipcMain.handle('git:createBranch', (_e, projectId: string | null, name: string) => gitCreateBranch(projectId, String(name ?? '')))
+  ipcMain.handle('git:log', (_e, projectId: string | null, limit?: number) => gitLog(projectId, typeof limit === 'number' ? limit : 50))
+  ipcMain.handle('git:commitFiles', (_e, projectId: string | null, hash: string) => gitCommitFiles(projectId, String(hash ?? '')))
+  ipcMain.handle('git:pull', (_e, projectId: string | null) => gitPull(projectId))
+  ipcMain.handle('git:push', (_e, projectId: string | null) => gitPush(projectId))
+  ipcMain.handle('git:init', (_e, projectId: string | null) => gitInit(projectId))
+  ipcMain.handle('git:identity', (_e, projectId: string | null) => gitIdentity(projectId))
+  ipcMain.handle('git:setIdentity', (_e, projectId: string | null, id: { name: string; email: string }) => gitSetIdentity(projectId, { name: String(id?.name ?? ''), email: String(id?.email ?? '') }))
   ipcMain.handle('telegram:status', () => telegramStatus())
   ipcMain.handle('telegram:setToken', (_e, t: string) => setTelegramToken(String(t ?? '')))
   ipcMain.handle('telegram:linkCode', () => newLinkCode())
