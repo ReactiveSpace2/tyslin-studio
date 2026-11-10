@@ -84,7 +84,7 @@ function findMember(agency: Agency, who: unknown): Agent | null {
 
 /** What the Lead sees in its system prompt: the roster with ids and every card by column. */
 /** How the Lead's plan waits for the boss: the line in its prompt and the refusal board_run_card gives. */
-const APPROVAL_LINE = 'Cards wait in Planned with an assignee until the boss approves the plan in the task ("Approve and run the plan"); you cannot start them yourself. After planning, tell the boss the plan is ready to approve.'
+const APPROVAL_LINE = 'Cards wait in Planned with an assignee until the boss approves the plan in the task ("Approve and run the plan"); you cannot start them yourself. After planning, send the boss one "brief" message saying the plan is ready; do not send a question asking for approval, the task already shows an Approve button. Cards then run one at a time in board order.'
 
 /** A card's state for the Lead: running, failed (with the reason from its log), or done with a result. */
 function cardState(c: KanbanCard): string {
@@ -164,10 +164,13 @@ export const boardHooks: {
   runCard: (agency: Agency, cardId: string) => Promise<string>
   /** True when Planned cards start without the boss: auto-run, or the boss approved the plan (cards.ts). */
   runsOnItsOwn: (agency: Agency) => boolean
+  /** The agency's card that is running right now, if any (cards.ts); board_run_card refuses a second one. */
+  runningCard: (agency: Agency) => { id: string; title: string } | null
   messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
 } = {
   runCard: async () => { throw new Error('Card runs are not available.') },
   runsOnItsOwn: (agency) => agency.autoRun,
+  runningCard: () => null,
   messageBoss: async () => { throw new Error('No channel is set up.') }
 }
 
@@ -183,14 +186,19 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   if (call.name === 'agency_log') {
     const project = db.getProject(agency.projectId)
     if (!project?.folder) throw new Error('No agency folder.')
+    // Agencies can share one folder, so the log names the agency on each line and Leads' own dates are dropped.
     const file = join(project.folder, 'agency-log.md')
-    const line = `- ${new Date().toISOString().slice(0, 16).replace('T', ' ')} ${String(input.text ?? '').trim()}\n`
-    writeFileSync(file, (existsSync(file) ? readFileSync(file, 'utf8') : `# ${agency.name} log\n\n`) + line, 'utf8')
+    const text = String(input.text ?? '').trim().replace(/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?Z?)?\s*[—–-]?\s*/, '')
+    const line = `- ${new Date().toISOString().slice(0, 16).replace('T', ' ')} [${agency.name}] ${text}\n`
+    writeFileSync(file, (existsSync(file) ? readFileSync(file, 'utf8') : '# Agency log\n\n') + line, 'utf8')
     return ok('Logged.')
   }
   if (call.name === 'board_run_card') {
     // Without auto-run (or the boss's approval) the Lead plans; only the boss starts the work.
     if (!boardHooks.runsOnItsOwn(agency)) return { id: call.id, content: `Not started. ${APPROVAL_LINE} Leave the card in Planned with an assignee.`, isError: true }
+    // One card at a time: the next Planned card starts on its own when the running one finishes (10 Nov 2026).
+    const running = boardHooks.runningCard(agency)
+    if (running && running.id !== String(input.card_id ?? '')) return { id: call.id, content: `Not started: "${running.title}" is still running. Cards run one at a time; the next card in Planned starts on its own when it finishes. Leave this card in Planned with its assignee.`, isError: true }
     return ok(await boardHooks.runCard(agency, String(input.card_id ?? '')))
   }
 

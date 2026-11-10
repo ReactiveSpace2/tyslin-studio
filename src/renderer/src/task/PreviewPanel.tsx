@@ -46,7 +46,8 @@ export function PreviewPanel({ view, agent, path, onPath, onSend }: Props): JSX.
   useEffect(() => window.tyslin.preview.onBlocked((url) => { setNonce((n) => n + 1); setStatus(`Links to the web open in your browser (${url.slice(0, 60)}).`) }), [])
   // A file opened from Changes or Details may not be listed yet (just written); keep it selectable.
   const options = useMemo(() => (path && !files.some((f) => f.path === path) && previewKind(path) ? [{ path, kind: previewKind(path)!, size: 0, updatedAt: Date.now() }, ...files] : files), [files, path])
-  const current = path ?? options[0]?.path ?? null
+  // Nothing picked: the newest page, image or PDF; Markdown only when that is all there is (notes crowd it out otherwise).
+  const current = path ?? options.find((f) => f.kind !== 'markdown')?.path ?? options[0]?.path ?? null
 
   const send = async (): Promise<void> => {
     if (!current || sending) return

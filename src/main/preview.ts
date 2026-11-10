@@ -21,7 +21,9 @@ const MIME: Record<string, string> = {
 }
 /** Only the page's own files: no other hosts, no remote fonts or scripts. 'self' is this project's origin. */
 const CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-src 'none'; form-action 'none'"
-const SKIP = new Set(['node_modules', '.git', 'dist', 'out', '.next', '.expo', 'coverage', 'build'])
+/** Build output, and the studio's own notes (memory, boards, the agency log), which Files shows but Preview needn't. */
+const SKIP = new Set(['node_modules', '.git', 'dist', 'out', '.next', '.expo', 'coverage', 'build', 'memory', 'boards'])
+const SKIP_FILES = new Set(['agency-log.md'])
 const MAX_FILES = 400
 
 /** Must run before `app.whenReady`: makes the scheme behave like https (relative URLs, fetch, service-worker-free). */
@@ -74,6 +76,7 @@ export function listPreviewFiles(projectId: string): PreviewFile[] {
       try {
         const st = statSync(full)
         if (st.isDirectory()) { walk(full, depth + 1); continue }
+        if (depth === 0 && SKIP_FILES.has(name)) continue
         const kind = previewKind(name)
         if (kind) out.push({ path: relative(root, full).split(sep).join('/'), kind, size: st.size, updatedAt: st.mtimeMs })
       } catch { /* unreadable entry */ }

@@ -43,15 +43,14 @@ export const listedTask = (s: Session, openId?: string | null): boolean =>
  * needs you, and the user menu at the foot.
  */
 export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds, needsYouBySession, account, canSignOut, onNavigate, onSearch, onSettings, onSignOut }: Props): JSX.Element {
-  // New task goes Home too, then puts the cursor in the box (Home's Composer renders it as #composer); only Home is
-  // shown as the current item.
+  // New task goes Home and puts the cursor in the box (Home's Composer renders it as #composer). There is no Home
+  // item (owner, 10 Nov 2026): the logo and New task both lead there, so New task is shown as current on Home.
   const newTask = (): void => {
     onNavigate({ name: 'home' })
     window.setTimeout(() => (document.getElementById('composer') as HTMLTextAreaElement | null)?.focus(), 50)
   }
   const main: { name: string; icon: IconName; on: boolean; go: () => void }[] = [
-    { name: 'Home', icon: 'home', on: route.name === 'home', go: () => onNavigate({ name: 'home' }) },
-    { name: 'New task', icon: 'plus', on: false, go: newTask },
+    { name: 'New task', icon: 'plus', on: route.name === 'home', go: newTask },
     { name: 'Search', icon: 'search', on: false, go: onSearch },
     { name: 'Agencies', icon: 'agency', on: route.name === 'agencies' || route.name === 'agency' || route.name === 'agent', go: () => onNavigate({ name: 'agencies' }) },
     { name: 'Scheduled', icon: 'clock', on: route.name === 'scheduled', go: () => onNavigate({ name: 'scheduled' }) },

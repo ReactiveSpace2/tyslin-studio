@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Agent, ChannelMessage, KanbanCard, KanbanDoc, PendingChange } from '@shared/types'
+import { BRIEF_LOG } from '@shared/agencies'
 import { firstName, money } from '../boardStats'
 import { Icon } from '../components/Icon'
 import { Badge } from '@/components/ui/badge'
@@ -79,17 +80,22 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
   }
 
   if (m.kind === 'brief') {
-    // Cards the Lead linked to this brief, else the ones it added, assigned or edited after the brief arrived (Leads often skip parent_card).
-    const all = card ? (board?.columns.flatMap((col) => col.cards.map((c) => ({ c, col: col.title }))) ?? []) : []
-    const linked = all.filter(({ c }) => c.parentCard === card?.id)
-    const after = all.filter(({ c, col }) => c.id !== card?.id && col !== 'Inbox' && (c.log ?? []).some((l) => l.at >= m.createdAt - 1000 && /^(Added by|Assigned to|Edited by)/.test(l.text)))
+    // The boss's brief is the Inbox card logged as such; Leads often name their first planned card instead, so
+    // find it by its log. Planned = cards linked to it, else cards the Lead added, assigned or edited since the
+    // brief arrived (the Lead plans first and sends this message after, so count from the brief, not the message).
+    const all = board?.columns.flatMap((col) => col.cards.map((c) => ({ c, col: col.title }))) ?? []
+    const isBrief = (c: KanbanCard): boolean => (c.log ?? []).some((l) => l.text === BRIEF_LOG)
+    const brief = card && isBrief(card) ? card : all.map(({ c }) => c).filter((c) => isBrief(c) && c.createdAt <= m.createdAt + 1000).sort((a, b) => b.createdAt - a.createdAt)[0]
+    const since = (brief?.createdAt ?? m.createdAt) - 1000
+    const linked = brief ? all.filter(({ c }) => c.parentCard === brief.id) : []
+    const after = all.filter(({ c, col }) => c.id !== brief?.id && col !== 'Inbox' && (c.log ?? []).some((l) => l.at >= since && /^(Added by|Assigned to|Edited by|Reassigned to)/.test(l.text)))
     const planned = linked.length || after.length
     return (
       <Card className="gap-2.5 px-4 py-3.5">
         {head('Brief', 'secondary')}
-        {card && <p className="rounded-md bg-muted px-3 py-2 text-[13.5px]"><span className="font-medium">Your brief:</span> {card.title}</p>}
+        {brief && <p className="rounded-md bg-muted px-3 py-2 text-[13.5px]"><span className="font-medium">Your brief:</span> {brief.title}</p>}
         <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{m.text}</p>
-        {card && <span className="font-mono text-xs text-muted-foreground">{planned ? `Planned into ${planned} card${planned === 1 ? '' : 's'}` : 'Not planned into cards yet'}</span>}
+        {(brief || card) && <span className="font-mono text-xs text-muted-foreground">{planned ? `Planned into ${planned} card${planned === 1 ? '' : 's'}` : 'Not planned into cards yet'}</span>}
       </Card>
     )
   }

@@ -41,6 +41,7 @@ const api: TyslinApi = {
     stop: (sessionId) => ipcRenderer.invoke('sessions:stop', sessionId),
     status: (sessionId) => ipcRenderer.invoke('sessions:status', sessionId),
     answerPermission: (permissionId, choiceId) => ipcRenderer.invoke('sessions:answerPermission', permissionId, choiceId),
+    permissions: () => ipcRenderer.invoke('sessions:permissions'),
     running: () => ipcRenderer.invoke('sessions:running'),
     rename: (sessionId, title) => ipcRenderer.invoke('sessions:rename', sessionId, title),
     remove: (sessionId) => ipcRenderer.invoke('sessions:remove', sessionId)

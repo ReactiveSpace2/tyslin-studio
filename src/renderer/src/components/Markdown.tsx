@@ -49,7 +49,8 @@ function inline(text: string, key = 'i'): ReactNode[] {
 
 /** Lines → blocks. */
 export function Markdown({ text, className }: { text: string; className?: string }): JSX.Element {
-  const lines = text.replace(/\r\n/g, '\n').split('\n')
+  // HTML comments (the memory files' `<!-- tyslin-agent -->` tag, authors' notes) are not content.
+  const lines = text.replace(/<!--[\s\S]*?-->/g, '').replace(/\r\n/g, '\n').split('\n')
   const blocks: ReactNode[] = []
   let i = 0
   let k = 0

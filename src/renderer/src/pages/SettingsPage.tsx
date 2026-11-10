@@ -172,6 +172,11 @@ function NotificationsTab(): JSX.Element {
         <Row title="Desktop notifications" hint="When a Lead needs you: questions and reviews. The app icon shows the count either way."><Switch checked={prefs.desktopNotifications} aria-label="Desktop notifications" onCheckedChange={(v) => void save({ desktopNotifications: v }, v ? 'Notifications on' : 'Notifications off')} /></Row>
         <Row title="Telegram and Slack" hint="What each Lead sends there is set per agency: Agency → Goals → Limits (everything, questions only, or a digest)."><span className={hintCls}>Per agency</span></Row>
       </Card>
+      <Group id="approvals-h" title="Approvals" hint="What external agents (Claude Code, Codex, Gemini CLI) may do without asking you.">
+        <Card className="gap-0 px-5 py-1">
+          <Row title="Allow read-only commands without asking" hint="Looking at files inside the agency folder (ls, cat, grep, git status, find) and version checks (node -v, which pnpm). Anything that writes, installs, runs code or reaches the network still asks."><Switch checked={prefs.autoAllowReadOnly} aria-label="Allow read-only commands without asking" onCheckedChange={(v) => void save({ autoAllowReadOnly: v }, v ? 'Read-only commands allowed' : 'Every command asks')} /></Row>
+        </Card>
+      </Group>
       <Group id="writes-h" title="File changes for new agents" hint="The starting choice when you add a worker. Each agent can change it on its page.">
         <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5" aria-labelledby="writes-h" value={prefs.defaultWriteMode} onValueChange={(v) => void save({ defaultWriteMode: v as WriteMode }, 'Default saved')}>
           {([['ask', 'Ask before writing files', 'Review each change, accept or send it back.'], ['direct', 'Write directly', 'Changes go straight to disk.']] as [WriteMode, string, string][]).map(([m, t, h]) => <label key={m} className={choiceCls(prefs.defaultWriteMode === m)}><RadioGroupItem className={radioCls} value={m} /><span className="flex flex-col gap-0.5"><strong className="font-semibold">{t}</strong><span className={hintCls}>{h}</span></span></label>)}

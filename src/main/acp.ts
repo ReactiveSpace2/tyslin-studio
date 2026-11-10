@@ -215,10 +215,17 @@ export async function runAcpTurn(opts: {
     })
     .onRequest('fs/write_text_file', async ({ params }) => {
       if (!host.writeTextFile) throw RequestError.invalidRequest(undefined, 'File access is not available in this chat.')
+      const id = `acp-write-${++writes}`
       try {
-        await host.writeTextFile(params.path, params.content, `acp-write-${++writes}`)
+        await host.writeTextFile(params.path, params.content, id)
         return {}
       } catch (err) {
+        // Shown in the task's activity, so a refused write (outside the folder, review declined) isn't silent.
+        const msg = err instanceof Error ? err.message : String(err)
+        host.emit({ type: 'tool_call_start', toolCallId: id, name: `Write ${params.path}` })
+        host.emit({ type: 'tool_call_end', toolCallId: id })
+        host.emit({ type: 'tool_result', toolCallId: id, content: `Not written: ${msg}`, isError: true })
+        console.warn(`[acp] ${name} write refused for ${params.path}: ${msg}`)
         throw asRequestError(err)
       }
     })
@@ -324,6 +331,8 @@ function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: S
       break
     case 'tool_call':
       tools.add(u.toolCallId)
+      // Text before and after a tool call are separate paragraphs; without this they glue into one sentence.
+      if (reply.length && !/\n\s*$/.test(reply[reply.length - 1])) reply.push('\n\n')
       host.emit({ type: 'tool_call_start', toolCallId: u.toolCallId, name: u.title })
       host.emit({ type: 'tool_call_args', toolCallId: u.toolCallId, delta: toolArgs(u) })
       host.emit({ type: 'tool_call_end', toolCallId: u.toolCallId })

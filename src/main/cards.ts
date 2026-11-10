@@ -26,6 +26,41 @@ export function initCards(d: Deps): void {
     return `Started; the result will land on the card (chat ${sessionId}).`
   }
   boardHooks.runsOnItsOwn = runsOnItsOwn
+  boardHooks.runningCard = (agency) => {
+    const doc = readBoard(agency)
+    const hit = doc?.columns.flatMap((c) => c.cards).find((k) => active.has(k.id))
+    return hit ? { id: hit.id, title: hit.title } : null
+  }
+  sweepStaleRuns()
+}
+
+/**
+ * At launch nothing is running, so a card still marked `running` was cut off when the app closed mid-run. It is
+ * marked failed with the reason, so the task stops showing "Working" and Run again is offered (10 Nov 2026).
+ */
+function sweepStaleRuns(): void {
+  for (const agency of db.listAgencies()) {
+    const doc = readBoard(agency)
+    if (!doc) continue
+    let changed = false
+    for (const card of doc.columns.flatMap((c) => c.cards)) {
+      if (card.status !== 'running' || active.has(card.id)) continue
+      card.status = 'failed'
+      log(card, 'Stopped when the app closed; run it again')
+      changed = true
+    }
+    if (changed) writeBoard(agency, doc)
+  }
+}
+
+/**
+ * The card's result is the worker's last reply without the running commentary adapters stream between tool
+ * calls ("I will create…", "Now I'll write…"): those paragraphs are dropped from the front until a real one.
+ */
+export function cardResult(text: string): string {
+  const paras = text.trim().split(/\n{2,}/)
+  while (paras.length > 1 && /^(I will|I'll|I am going to|I'm going to|Let me|Now I|Now,? let me|First,? I|Next,? I|Then I|I need to|I should|Okay,? I|OK,? I)\b/i.test(paras[0].trim())) paras.shift()
+  return paras.join('\n\n').trim()
 }
 
 interface LiveRun { agencyId: string; cardId: string; usage: Usage }
@@ -147,8 +182,12 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
   const hit = findCard(doc, run.cardId)
   if (!hit) return
   const sessionId = hit.card.sessionId
-  const text = sessionId ? db.listMessages(sessionId).filter((m) => m.role === 'assistant').pop()?.content.trim() ?? '' : ''
-  if (r.ok) {
+  const text = cardResult(sessionId ? db.listMessages(sessionId).filter((m) => m.role === 'assistant').pop()?.content ?? '' : '')
+  if (r.ok && !text) {
+    // The run ended cleanly but said nothing: not done. The card stays where it is for a retry (10 Nov 2026).
+    hit.card.status = 'failed'
+    log(hit.card, `${agent.name} finished without reporting a result`)
+  } else if (r.ok) {
     hit.card.result = text
     hit.card.status = 'done'
     if (cost !== null) hit.card.cost = (hit.card.cost ?? 0) + cost

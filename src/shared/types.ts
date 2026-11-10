@@ -784,6 +784,17 @@ export interface PermissionChoice {
   kind: 'allow_once' | 'allow_always' | 'reject_once' | 'reject_always'
 }
 
+/** A permission request still waiting for the user (`sessions.permissions`), so a task can show it after the screen was away. */
+export interface PendingPermission {
+  id: string
+  sessionId: string
+  runId: string
+  toolCallId: string
+  title: string
+  choices: PermissionChoice[]
+  askedAt: number
+}
+
 export type ChangeStatus = 'pending' | 'accepted' | 'rejected' | 'partial' | 'expired'
 
 /** A file write proposed by an agent, staged until the user reviews it. */
@@ -897,6 +908,8 @@ export interface Preferences {
   defaultWriteMode: WriteMode
   /** Desktop notifications when a Lead needs you (questions and reviews). */
   desktopNotifications: boolean
+  /** External agents may look at files inside the folder and check versions without asking (`main/readOnly.ts`). */
+  autoAllowReadOnly: boolean
   /** Added to every agent's instructions. */
   sharedInstructions: string
   /** The default model (per computer); null = not chosen yet. */
@@ -990,6 +1003,8 @@ export interface TyslinApi {
     status(sessionId: string): Promise<SessionStatus>
     /** Answers an external agent's permission request; null declines. */
     answerPermission(permissionId: string, choiceId: string | null): Promise<void>
+    /** Every permission request still waiting, oldest first, across all chats. */
+    permissions(): Promise<PendingPermission[]>
     /** Ids of every chat with a reply in progress. */
     running(): Promise<string[]>
     rename(sessionId: string, title: string): Promise<void>

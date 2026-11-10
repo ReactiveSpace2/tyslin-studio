@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
-import { answerPermission, cancelRunPermissions, runtimeFor } from './runtime'
+import { answerPermission, cancelRunPermissions, pendingPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { testAcp } from './acp'
@@ -445,6 +445,8 @@ function registerIpc(): void {
     return { running: activeRuns.has(String(sessionId ?? '')), lastError: session ? db.agentLastError(session.agentId) : '' }
   })
   ipcMain.handle('sessions:answerPermission', (_e, permissionId: string, choiceId: string | null) => answerPermission(permissionId, choiceId))
+  /** Requests still waiting, so a task shows them again after the screen was away. */
+  ipcMain.handle('sessions:permissions', () => pendingPermissions())
   /** Every chat with a reply in progress (the Recents dots and Home's Running list). */
   ipcMain.handle('sessions:running', (): string[] => [...activeRuns.keys()])
   ipcMain.handle('sessions:rename', (_e, id: string, title: string) => {

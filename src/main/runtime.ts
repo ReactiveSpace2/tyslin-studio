@@ -1,8 +1,9 @@
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { homedir } from 'os'
-import type { Agent, ExternalEngineId, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
+import type { Agent, ExternalEngineId, PendingPermission, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
+import { isReadOnlyCommand } from './readOnly'
 import { getAgent, getPrefs, getProject, getSetting, listAgents, type ModelMessage } from './db'
 import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
@@ -59,7 +60,7 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   // The Lead of an agency sees its board and roster, and has the board tools.
   const agency = agent.agency ? getAgency(agent.agency) : null
   if (agency && agency.leadId === agent.id) {
-    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template doesn\'t match the brief, edit it with board_edit_card (new title and notes) or move it to Done; never hand out a card with empty notes.')
+    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template doesn\'t match the brief, edit it with board_edit_card (new title and notes) or move it to Done; never hand out a card with empty notes.\nYou have no shell: you cannot run tests, builds or commands. When you review, report what the worker\'s result and the files show and say whose result it is ("per Martin\'s card, 13 tests pass"); never say you ran or verified something yourself. Cards run one at a time, in board order; put the card others depend on first.')
   } else if (agency) {
     parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it).`)
   }
@@ -71,9 +72,10 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
     if (project.folder) {
       const files = listProjectFiles(project.folder)
       parts.push(`Project folder: ${project.folder}\nFiles:\n` + (files.length ? files.map((f) => `- ${f}`).join('\n') : '(empty)'))
-      parts.push(agent.writeMode === 'ask'
+      parts.push((agent.writeMode === 'ask'
         ? 'You can read and change files with your tools. The user reviews every change before it is written, so propose complete, focused edits and explain them briefly.'
         : 'You can read and change files with your tools. Changes are written straight to disk.')
+        + (agent.engine !== 'builtin' ? ' Create and change files only with your file tools (write_file, edit_file), never through the shell: no echo/cat/tee redirection, no python or node one-liners that write files, no touch. Shell writes skip the review and the Changes panel. The shell is for reading, tests and builds.' : ''))
     }
   }
   return parts.join('\n\n')
@@ -356,11 +358,21 @@ class OpenAICompatibleRuntime implements AgentRuntime {
 }
 
 /** Permission requests from external agents, waiting for the user's answer. */
-const permissions = new Map<string, { runId: string; done: (choiceId: string | null) => void }>()
+const permissions = new Map<string, { runId: string; sessionId: string; title: string; choices: PermissionChoice[]; toolCallId: string; askedAt: number; done: (choiceId: string | null) => void }>()
 
 export function answerPermission(permissionId: string, choiceId: string | null): void {
   permissions.get(permissionId)?.done(choiceId)
   permissions.delete(permissionId)
+}
+
+/** Every request still waiting, oldest first, so a task can show them again after the screen was away (10 Nov 2026). */
+export function pendingPermissions(): PendingPermission[] {
+  return [...permissions.entries()].map(([id, p]) => ({ id, sessionId: p.sessionId, runId: p.runId, toolCallId: p.toolCallId, title: p.title, choices: p.choices, askedAt: p.askedAt })).sort((a, b) => a.askedAt - b.askedAt)
+}
+
+/** The adapter's own "allow once" choice, when it offers one, for a command Tyslin answers on the user's behalf. */
+function allowOnceChoice(choices: PermissionChoice[]): PermissionChoice | undefined {
+  return choices.find((c) => c.kind === 'allow_once') ?? choices.find((c) => c.kind.startsWith('allow'))
 }
 
 /** Declines every open permission request of a stopped run. */
@@ -405,8 +417,14 @@ class AcpRuntime implements AgentRuntime {
     const files = access && { read: access.read, write: opts.agent.tools.write ? access.write : undefined }
 
     const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
+      // Looking at files inside the folder and version checks don't need the user (Settings → Notifications → Approvals).
+      const allow = allowOnceChoice(choices)
+      if (allow && getPrefs().autoAllowReadOnly && isReadOnlyCommand(title)) {
+        opts.emit({ type: 'tool_result', toolCallId, content: `Allowed without asking (read-only): ${title}`, isError: false })
+        return Promise.resolve(allow.id)
+      }
       const permissionId = randomUUID()
-      const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, done }))
+      const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, sessionId: opts.sessionId, title, choices, toolCallId, askedAt: Date.now(), done }))
       opts.emit({ type: 'state_update', status: 'waiting_for_review' })
       opts.emit({ type: 'approval_needed', toolCallId, permissionId, title, choices })
       return answer.finally(() => opts.emit({ type: 'state_update', status: 'running' }))

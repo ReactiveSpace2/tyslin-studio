@@ -676,6 +676,7 @@ export function getPrefs(): Preferences {
   return {
     defaultWriteMode: getSetting('pref:defaultWriteMode') === 'direct' ? 'direct' : 'ask',
     desktopNotifications: getSetting('pref:desktopNotifications') !== '0',
+    autoAllowReadOnly: getSetting('pref:autoAllowReadOnly') !== '0',
     sharedInstructions: getSetting('pref:sharedInstructions') ?? '',
     theme: (['light', 'dark'] as const).find((t) => t === getSetting('pref:theme')) ?? 'system',
     zoom: clampZoom(Number(getSetting('pref:zoom') ?? 1)),
@@ -690,6 +691,7 @@ export function getPrefs(): Preferences {
 export function setPrefs(p: Partial<Preferences>): Preferences {
   if (p.defaultWriteMode) setSetting('pref:defaultWriteMode', p.defaultWriteMode)
   if (p.desktopNotifications !== undefined) setSetting('pref:desktopNotifications', p.desktopNotifications ? '1' : '0')
+  if (p.autoAllowReadOnly !== undefined) setSetting('pref:autoAllowReadOnly', p.autoAllowReadOnly ? '1' : '0')
   if (p.sharedInstructions !== undefined) setSetting('pref:sharedInstructions', p.sharedInstructions.trim())
   if (p.theme && ['system', 'light', 'dark'].includes(p.theme)) setSetting('pref:theme', p.theme)
   if (typeof p.zoom === 'number') setSetting('pref:zoom', String(clampZoom(p.zoom)))

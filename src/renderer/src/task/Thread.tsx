@@ -24,16 +24,21 @@ const LONG_USER = 420
 /** Markdown replies: the `md` styles plus list markers (Preflight removes them). */
 const MD = 'max-w-full text-[15px] leading-[1.65] text-foreground [&_ol]:list-decimal [&_ul]:list-disc'
 
+/** Prompts Tyslin writes into the chat on the user's behalf (an answer delivered, a card handed out), not the user's own words. */
+const SYSTEM_PROMPT = /^(The boss answered your|Work on this card from the|Read the Inbox and Review columns)/
+const systemLabel = (text: string): string => /^The boss answered/.test(text) ? 'Your answer, delivered by Tyslin' : /^Work on this card/.test(text) ? 'Card handed out by Tyslin' : 'Scheduled by Tyslin'
+
 function UserMessage({ m }: { m: Message }): JSX.Element {
   const [open, setOpen] = useState(false)
   const long = m.content.length > LONG_USER
+  const system = SYSTEM_PROMPT.test(m.content)
   return (
     <div className="flex justify-end">
       <div className="flex max-w-[80%] flex-col items-end gap-1">
-        <span className="text-xs text-muted-foreground">You · <span className="font-mono">{clock(m.createdAt)}</span></span>
+        <span className="text-xs text-muted-foreground">{system ? systemLabel(m.content) : 'You'} · <span className="font-mono">{clock(m.createdAt)}</span></span>
         {m.attachments?.length ? <div className="flex flex-wrap justify-end gap-1.5" aria-label="Attachments">{m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}</div> : null}
         {m.content && (
-          <div className={cn('max-w-full rounded-[14px_14px_4px_14px] bg-accent px-4 py-3 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-foreground', long && !open && 'text-foreground/75')}>
+          <div className={cn('max-w-full rounded-[14px_14px_4px_14px] px-4 py-3 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-foreground', system ? 'border border-dashed border-border bg-muted text-[14px] text-muted-foreground' : 'bg-accent', long && !open && 'text-foreground/75')}>
             {long && !open ? m.content.slice(0, LONG_USER).trimEnd() + '…' : m.content}
           </div>
         )}
@@ -79,7 +84,21 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
     if (atBottom) ref.current?.scrollTo({ top: ref.current.scrollHeight })
   }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, focus])
 
+  const planned = isLead && !view!.agency.autoRun ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
+  const active = task.cards.filter((c) => c.status || task.board?.columns.some((col) => /progress|review|done/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
+  const runs = task.cards.filter((c) => c.sessionId).sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))
+  // Where the cards stand and each worker's run take their place in time (when the first card started), so a
+  // newer reply from the Lead shows below them, not above (10 Nov 2026).
+  const firstStart = runs.length ? (startOf(runs[0]) ?? runs[0].createdAt) : Date.now()
   const items: { at: number; node: JSX.Element }[] = [
+    ...(active.length > 0 && view ? [{ at: firstStart - 1, node: <StatusTable key="status" view={view} board={task.board} cards={active} /> }] : []),
+    ...runs.map((c) => ({
+      at: startOf(c) ?? c.createdAt,
+      node: (
+        <WorkerWork key={c.id + (c.sessionId ?? '')} card={c} run={task.workerRuns[c.id]} agent={agentOf(c.assignee || c.agentId)}
+          onReview={(changes, card) => onReview(changes, { agent: agentOf(card.assignee || card.agentId) ?? null, card, message: task.channel.find((m) => m.kind === 'review' && m.cardId === card.id && !m.reply) ?? null, sessionId: card.sessionId! })} />
+      )
+    })),
     ...task.messages.map((m) => ({
       at: m.createdAt,
       node: m.role === 'user' ? <UserMessage key={m.id} m={m} /> : (
@@ -106,9 +125,6 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
     }))
   ].sort((a, b) => a.at - b.at)
 
-  const planned = isLead && !view!.agency.autoRun ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
-  const active = task.cards.filter((c) => c.status || task.board?.columns.some((col) => /progress|review|done/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
-  const runs = task.cards.filter((c) => c.sessionId).sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))
   const needs = task.channel.filter(needsYou)
   const runsWithChanges = [...new Set(task.changes.map((c) => c.runId))].filter((r) => r === task.liveRun || task.changes.some((c) => c.runId === r && c.status === 'pending'))
   const workerPermissions = Object.values(task.workerRuns).flatMap((r) => r.permissions.map((p) => ({ p, a: agentOf(r.agentId) ?? null })))
@@ -127,11 +143,6 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
           )}
           {items.map((it) => it.node)}
           {planned.length > 0 && view && <PlanCard view={view} cards={planned} onAskLead={onAskLead} onChanged={() => { task.reloadChannel(); onChanged() }} onOpenAgency={onOpenAgency} />}
-          {active.length > 0 && view && <StatusTable view={view} board={task.board} cards={active} />}
-          {runs.map((c) => (
-            <WorkerWork key={c.id + (c.sessionId ?? '')} card={c} run={task.workerRuns[c.id]} agent={agentOf(c.assignee || c.agentId)}
-              onReview={(changes, card) => onReview(changes, { agent: agentOf(card.assignee || card.agentId) ?? null, card, message: task.channel.find((m) => m.kind === 'review' && m.cardId === card.id && !m.reply) ?? null, sessionId: card.sessionId! })} />
-          ))}
           {task.streaming && (
             <div className="flex items-start gap-3">
               <span className="flex-none"><Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={32} /></span>

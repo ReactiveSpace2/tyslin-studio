@@ -150,6 +150,9 @@ export default function App(): JSX.Element {
     const v = a ? viewById(a.agency) ?? viewByProject(a.projectId) : null
     if (v) setActiveAgency(v.agency.id)
     setRoute({ name: 'task', sessionId, agentId, focus })
+    // Agents' models and engines can change elsewhere (Settings, the editor, a switch of the default model); the
+    // task's composer and permission cards show the current ones (10 Nov 2026).
+    void refresh()
   }
   /** Opens an agent's newest chat, or a fresh one. (Until the Task page replaces ChatPage.) */
   const openChat = (agentId: string, projectId: string | null, sessionId?: string): void => {

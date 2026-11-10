@@ -103,15 +103,18 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
     setError(null); setStreaming(null); setActivity([]); setWaiting(false); setLiveRun(null); setPermissions([]); setStoppedAt(null)
     void window.tyslin.sessions.list().then((all) => { if (live) setSession(all.find((s) => s.id === sessionId) ?? null) })
     // A reply may have started (or failed) before this screen was listening.
-    void Promise.all([window.tyslin.sessions.messages(sessionId), window.tyslin.sessions.status(sessionId)]).then(([m, st]) => {
+    void Promise.all([window.tyslin.sessions.messages(sessionId), window.tyslin.sessions.status(sessionId), window.tyslin.sessions.permissions()]).then(([m, st, pend]) => {
       if (!live) return
       setMessages(m)
       if (st.running) setStreaming((s) => s ?? '')
       else if (st.lastError && m[m.length - 1]?.role === 'user') setError(st.lastError)
+      // A request made while this screen was away is still waiting in main; show it again (10 Nov 2026).
+      const mine = pend.filter((p) => p.sessionId === sessionId).map((p) => ({ id: p.id, title: p.title, choices: p.choices, sessionId, agentId: agent?.id ?? '' }))
+      if (mine.length) { setPermissions(mine); setWaiting(true) }
     })
     void reloadChanges()
     return () => { live = false }
-  }, [sessionId, reloadChanges])
+  }, [sessionId, agent?.id, reloadChanges])
 
   // The Lead's board and messages, reloaded when either changes.
   useEffect(() => {
@@ -163,6 +166,27 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
       }
       return nextRuns
     })
+    // Requests the workers made while this screen was away are still waiting in main (10 Nov 2026).
+    if (known.size) {
+      void window.tyslin.sessions.permissions().then((pend) => {
+        const byCard = new Map<string, Permission[]>()
+        for (const p of pend) {
+          const cardId = known.get(p.sessionId)
+          if (cardId) byCard.set(cardId, [...(byCard.get(cardId) ?? []), { id: p.id, title: p.title, choices: p.choices, sessionId: p.sessionId, agentId: '' }])
+        }
+        if (!byCard.size) return
+        setWorkerRuns((prev) => {
+          const out = { ...prev }
+          for (const [cardId, list] of byCard) {
+            const run = out[cardId]
+            if (!run) continue
+            const missing = list.filter((p) => !run.permissions.some((x) => x.id === p.id)).map((p) => ({ ...p, agentId: run.agentId ?? '' }))
+            if (missing.length) out[cardId] = { ...run, running: true, permissions: [...run.permissions, ...missing] }
+          }
+          return out
+        })
+      })
+    }
   }, [cardKey])
 
   // One listener: this chat, every known worker chat, and a short buffer for the rest.

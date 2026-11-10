@@ -12,14 +12,14 @@
 
 You give an agency a task. Its Lead plans the work and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
 
-Three places, one left column: **Home** (type a task, see what needs you and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
+Three places, one left column (New task, Search, Agencies, Scheduled, Files; the logo and New task take you Home): **Home** (type a task, see what needs you and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
 
 - **Agency templates:** five software agencies you can create today (App Development, Mobile Apps, Web Design, QA & Testing, DevOps), with Documents and data and Marketing and sales templates coming soon. Each is a Lead and a team with jobs, a goal, a plan and skills, around one folder.
 - **One thread per task:** the Lead's plan, each worker's work, questions, reviews and the digest all land in the task. Away from the computer, the Lead reaches you on Telegram or Slack.
 - **Memory:** plain Markdown notes per agency and per agent, added to every run.
 - **Connectors:** tools from GitHub, Linear, Stripe and any MCP server, including search and install from the official MCP Registry.
 - **Your keys or your sign-in:** API keys for Claude, OpenAI and Gemini, or your Claude, ChatGPT or Google sign-in through Claude Code, Codex and Gemini CLI.
-- **You approve:** every file change is a diff you accept or reject, and each agency has a monthly budget.
+- **You approve:** every file change is a diff you accept or reject, the plan waits for your OK and cards run one at a time, and each agency has a monthly budget. Agents on Claude Code, Codex or Gemini CLI ask before each command; read-only looks inside the folder (`ls`, `cat`, `git status`, version checks) are allowed without asking unless you turn that off in Settings → Notifications → Approvals.
 
 <!-- TODO: replace with docs/screenshots/agency-board.png (an agency's Kanban board) once it is added. -->
 <p align="center">
