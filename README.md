@@ -110,6 +110,21 @@ Ollama (local models) is hidden for now (`SHOW_OLLAMA` in `ModelSetup.tsx`); an 
 
 Open a task's Preview panel (the eye button) to see what the agency made without leaving Tyslin: pages, images, PDFs and Markdown from the agency's folder, at desktop, tablet or phone width. Pages open in a locked-down view that can only show files from that folder; a link to the web opens in your browser instead. "Send with screenshot" sends the Lead or worker a note with a picture of exactly what you see, so they can fix what you point at. Running the app itself (a dev server, Expo on your phone) is planned next.
 
+### Agency pages
+
+Some agencies get an extra tab on their Agency screen, built from shared page types:
+
+| Agency | Page | Reads |
+|---|---|---|
+| App Development, Mobile Apps, Web Design | Screens | every page, image, PDF and Markdown file in the folder, opened in the Preview frame at Desktop, Tablet or Phone width |
+| Sales & Lead Gen | Pipeline (table) | `data/pipeline.json` |
+| SEO | Keywords (table) | `data/keywords.json` |
+| QA & Testing | Test results (table) | `data/tests.json` |
+| DevOps | Environments (table) | `data/environments.json` |
+| Social Media Marketing | Calendar | `data/calendar.json` |
+
+A table file is `{ "columns": [...], "rows": [...] }`; the calendar file is `{ "items": [{ "date", "channel", "title", "state" }] }`, with state draft, approved, scheduled or posted. The agency's agents keep these files up to date with their file tools, and the tab refreshes when a file changes. Email Marketing's Campaigns page comes later.
+
 ### Memory
 
 Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory tab or any editor; they also show in Files and sync with Google Drive.

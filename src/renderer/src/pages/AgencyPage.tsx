@@ -11,13 +11,14 @@ import { MemoryTab } from '../agency/MemoryTab'
 import { ScheduleTab } from '../agency/ScheduleTab'
 import { SkillsTab } from '../agency/SkillsTab'
 import { TeamTab } from '../agency/TeamTab'
+import { CalendarPage } from '../agency/pages/CalendarPage'
 import { ScreensPage } from '../agency/pages/ScreensPage'
 import { TablePage } from '../agency/pages/TablePage'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule']]
 /** Page types with a screen so far; a template may declare others (campaigns) that get their tab when built. */
-const BUILT: AgencyPageKind[] = ['screens', 'table']
+const BUILT: AgencyPageKind[] = ['screens', 'table', 'calendar']
 
 interface Props {
   view: AgencyView
@@ -58,6 +59,7 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
       {tab === 'schedule' && <ScheduleTab view={view} agencies={agencies} onOpenTask={onOpenTask} />}
       {page?.kind === 'screens' && <ScreensPage key={view.agency.id} view={view} />}
       {page?.kind === 'table' && <TablePage key={view.agency.id + page.id} view={view} page={page} />}
+      {page?.kind === 'calendar' && <CalendarPage key={view.agency.id + page.id} view={view} page={page} />}
       {tab.startsWith('page:') && !page && <p className="text-sm text-muted-foreground">{view.agency.name} has no such page.</p>}
     </div>
   )
