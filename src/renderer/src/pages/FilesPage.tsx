@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DriveEntry, DriveKind, DriveListing, DrivePreview } from '@shared/types'
 import type { AgencyView } from '../agencies'
+import { previewKind } from '@shared/preview'
+import { FilePreview } from '../components/FilePreview'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 import { Pose } from '../components/Pose'
@@ -136,6 +138,8 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
     onDrop: (e) => { e.stopPropagation(); dropFiles(e, targetDir) }
   })
   const note = syncNote(gd, projectId, null)
+  // Pages and PDFs render as pages (the same surface as the task's Preview tab) instead of as text.
+  const rendered = !!sel && !sel.isDir && (previewKind(sel.path) === 'page' || previewKind(sel.path) === 'pdf')
   const dropMain = dropping === 'main'
   const empty = listing && shown.length === 0 && (q ? <p className="col-span-full p-4 text-sm text-muted-foreground">No files match.</p> : (
     <div className="col-span-full flex flex-col items-center gap-2.5 px-4 py-6 text-center"><Pose pose={6} height={150} /><p className="max-w-[360px] text-sm text-muted-foreground">Files your agency makes land here. You can also drop files in or use Add files.</p></div>
@@ -224,10 +228,11 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
           <>
             <div className="flex max-h-[420px] min-h-[220px] items-center justify-center overflow-hidden rounded-xl border border-border bg-card shadow-xs">
               {sel.isDir && <KindIcon kind={sel.kind} size="huge" />}
-              {!sel.isDir && !preview && <span className="text-sm text-muted-foreground" role="status">Loading preview…</span>}
-              {preview?.kind === 'image' && <img className="max-h-[400px] max-w-full object-contain" src={preview.dataUrl} alt={sel.name} />}
-              {preview?.kind === 'text' && <pre className="max-h-[418px] w-full self-stretch overflow-auto bg-card px-3.5 py-3 font-mono text-xs leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{preview.text}{preview.truncated ? '\n…' : ''}</pre>}
-              {preview?.kind === 'none' && <span className="flex flex-col items-center gap-2.5 p-5 text-center"><KindIcon kind={sel.kind} size="huge" /><span className="text-sm text-muted-foreground">{preview.note}</span></span>}
+              {!sel.isDir && rendered && <FilePreview projectId={projectId} path={sel.path} viewport="desktop" className="max-h-[418px] w-full self-stretch" />}
+              {!sel.isDir && !rendered && !preview && <span className="text-sm text-muted-foreground" role="status">Loading preview…</span>}
+              {!rendered && preview?.kind === 'image' && <img className="max-h-[400px] max-w-full object-contain" src={preview.dataUrl} alt={sel.name} />}
+              {!rendered && preview?.kind === 'text' && <pre className="max-h-[418px] w-full self-stretch overflow-auto bg-card px-3.5 py-3 font-mono text-xs leading-[1.55] whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]">{preview.text}{preview.truncated ? '\n…' : ''}</pre>}
+              {!rendered && preview?.kind === 'none' && <span className="flex flex-col items-center gap-2.5 p-5 text-center"><KindIcon kind={sel.kind} size="huge" /><span className="text-sm text-muted-foreground">{preview.note}</span></span>}
             </div>
             <div className="flex items-center gap-2.5"><KindIcon kind={sel.kind} size="big" /><div className="min-w-0"><strong className="block font-mono text-sm font-medium [overflow-wrap:anywhere]">{sel.name}</strong><span className="block text-xs text-muted-foreground">{LABEL[sel.kind]}{sel.isDir ? '' : ` · ${size(sel.size)}`}</span></div></div>
             <div className="grid grid-cols-2 gap-2">

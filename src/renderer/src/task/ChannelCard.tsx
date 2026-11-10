@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils'
 export const needsYou = (m: ChannelMessage): boolean => (m.kind === 'question' || m.kind === 'review') && !m.reply
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
-const clock = (t: number): string => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+const clock = (t: number): string => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 
 export const findCard = (board: KanbanDoc | null, id: string | null | undefined): KanbanCard | undefined =>
   id ? board?.columns.flatMap((c) => c.cards).find((c) => c.id === id) : undefined
@@ -79,7 +79,11 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
   }
 
   if (m.kind === 'brief') {
-    const planned = card ? board?.columns.flatMap((c) => c.cards).filter((c) => c.parentCard === card.id).length ?? 0 : 0
+    // Cards the Lead linked to this brief, else the ones it added, assigned or edited after the brief arrived (Leads often skip parent_card).
+    const all = card ? (board?.columns.flatMap((col) => col.cards.map((c) => ({ c, col: col.title }))) ?? []) : []
+    const linked = all.filter(({ c }) => c.parentCard === card?.id)
+    const after = all.filter(({ c, col }) => c.id !== card?.id && col !== 'Inbox' && (c.log ?? []).some((l) => l.at >= m.createdAt - 1000 && /^(Added by|Assigned to|Edited by)/.test(l.text)))
+    const planned = linked.length || after.length
     return (
       <Card className="gap-2.5 px-4 py-3.5">
         {head('Brief', 'secondary')}

@@ -7,10 +7,13 @@ import { Composer } from '../components/Composer'
 import { Icon } from '../components/Icon'
 import { ChangesPanel, type Review } from '../task/ChangesPanel'
 import { DetailsPanel } from '../task/DetailsPanel'
+import { PreviewPanel } from '../task/PreviewPanel'
 import { TaskHeader, type Pane } from '../task/TaskHeader'
 import { Thread } from '../task/Thread'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
+
+const PANE_TITLE: Record<Pane, string> = { details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
 
 interface Props {
   sessionId: string
@@ -31,13 +34,15 @@ interface Props {
   onDeleted: () => void
 }
 
-/** A task: the conversation in the middle, the composer under it, and one right panel (Details or Changes). */
+/** A task: the conversation in the middle, the composer under it, and one right panel (Details, Changes or Preview). */
 export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, onSessionsChanged, onOpenAgency, onOpenAgent, onConnectors, onFiles, onSettings, onTalkTo, onBackToLead, onDeleted }: Props): JSX.Element {
   const task = useTask(sessionId, agent, view, sessions, onSessionsChanged)
   const [text, setText] = useState('')
   const [attached, setAttached] = useState<Attachment[]>([])
   const [pane, setPane] = useState<Pane>('')
   const [review, setReview] = useState<Review | null>(null)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
+  const openPreview = (p: string): void => { setPreviewPath(p); setPane('preview') }
   const composerRef = useRef<HTMLDivElement>(null)
   const running = task.streaming !== null
   const pendingOwn = task.changes.filter((c) => c.status === 'pending')
@@ -90,15 +95,16 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         </div>
       </section>
       {pane && (
-        <aside className="flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background" aria-label={pane === 'details' ? 'Details' : 'Changes'}>
+        <aside className={pane === 'preview' ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={PANE_TITLE[pane]}>
           <div className="flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4">
-            <span className="text-[13px] font-semibold">{pane === 'details' ? 'Details' : 'Changes'}</span>
+            <span className="text-[13px] font-semibold">{PANE_TITLE[pane]}</span>
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => setPane('')}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            {pane === 'details' && <DetailsPanel view={view} agent={agent} cards={task.cards} channel={task.channel} cost={task.cost} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} />}
+            {pane === 'details' && <DetailsPanel view={view} agent={agent} cards={task.cards} channel={task.channel} cost={task.cost} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
+            {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} />}
             {pane === 'changes' && (shownReview
-              ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} />
+              ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} onPreview={openPreview} />
               : <p className="p-4 text-[13px] text-muted-foreground">No changes to review in this task yet. When a worker finishes, its changes show here.</p>)}
           </div>
         </aside>

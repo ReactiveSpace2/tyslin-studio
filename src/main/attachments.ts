@@ -167,6 +167,13 @@ export function prepareAttachments(ids: string[]): PreparedMessage {
   return { attachments: out, context }
 }
 
+/** Registers a PNG the app itself made (a preview screenshot) as a picked image attachment. */
+export function addCapturedImage(path: string, name: string): Attachment {
+  const a: Attachment = { id: randomUUID(), kind: 'image', name: name.endsWith('.png') ? name : name + '.png', path, size: sizeOf(path) }
+  picked.set(a.id, a)
+  return a
+}
+
 /** Base64 of a stored image copy, or null if it is gone. */
 export function readImage(a: StoredAttachment): { mime: string; data: string } | null {
   if (!a.copy || !a.mime) return null

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import { diffHunks, type DiffPart } from '@shared/diff'
+import { previewKind } from '@shared/preview'
 import type { PendingChange } from '@shared/types'
 import { Icon } from './Icon'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
 
@@ -94,7 +96,7 @@ export function useChangePicks(changes: PendingChange[], onResolved: () => void)
 }
 
 /** The files and their hunks, each with a checkbox while the change is still pending. Fits a panel or a dialog. */
-export function ChangeReviewBody({ changes, picks, className }: { changes: PendingChange[]; picks: ChangePicks; className?: string }): JSX.Element {
+export function ChangeReviewBody({ changes, picks, className, onPreview }: { changes: PendingChange[]; picks: ChangePicks; className?: string; onPreview?: (path: string) => void }): JSX.Element {
   const [selected, setSelected] = useState(changes.find((c) => c.status === 'pending')?.id ?? changes[0]?.id)
   const diffs = useMemo(() => Object.fromEntries(changes.map((c) => [c.id, diffHunks(c.original ?? '', c.proposed)])), [changes])
   const change = changes.find((c) => c.id === selected) ?? changes[0]
@@ -140,6 +142,7 @@ export function ChangeReviewBody({ changes, picks, className }: { changes: Pendi
                 <span className="min-w-0 flex-1 truncate font-mono text-xs" title={c.filePath}>{c.filePath}</span>
                 <Badge variant={c.status === 'accepted' ? 'soft' : 'outline'} className="h-5 text-[10.5px]">{c.original === null && c.status === 'pending' ? 'New' : c.status === 'pending' ? `${picks.acceptedFor(c).size}/${picks.hunkCount(c)}` : CHANGE_STATUS_LABEL[c.status]}</Badge>
               </button>
+              {onPreview && c.status === 'accepted' && previewKind(c.filePath) && <Button variant="ghost" size="sm" className="ml-7 h-6 px-1.5 text-[11px]" onClick={() => onPreview(c.filePath)} aria-label={`Preview ${c.filePath}`}><Icon name="eye" size={12} /> Preview</Button>}
             </li>
           )
         })}

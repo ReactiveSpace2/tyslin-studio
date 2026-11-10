@@ -276,6 +276,11 @@ export async function runAcpTurn(opts: {
                 ? `${name} rejected the API key from Settings → Models. Check the key, or switch ${name} to your account.`
                 : `${name} needs you to sign in first. Run ${launch.command} in a terminal and follow its sign-in steps, then try again.`)
             }
+            // Other JSON-RPC errors carry the real reason in `data.message` (Codex: "Quota exceeded…" as a bare "Internal error").
+            if (err instanceof RequestError) {
+              const d = (err.data ?? {}) as { message?: string; codexErrorInfo?: string }
+              if (d.message) throw new Error(`${name} stopped: ${d.message}${d.codexErrorInfo === 'usageLimitExceeded' ? ' The account behind the key is out of credits or over its limit.' : ''}`)
+            }
             throw err
           })
           if (msg.kind === 'stop') {

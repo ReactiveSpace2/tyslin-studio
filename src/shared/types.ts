@@ -542,6 +542,14 @@ export interface Message {
  * reads it once in the main process: text goes into the message the agent sees, images are
  * copied into the app's data folder so later turns can still send them.
  */
+/** A file the Preview tab can show (see shared/preview.ts). */
+export interface PreviewFile {
+  path: string
+  kind: 'page' | 'image' | 'pdf' | 'markdown'
+  size: number
+  updatedAt: number
+}
+
 export interface Attachment {
   id: string
   kind: 'file' | 'image' | 'folder'
@@ -959,6 +967,15 @@ export interface TyslinApi {
   attachments: {
     /** Opens the system picker; the returned ids are passed to `sessions.send`. */
     pick(kind: 'file' | 'folder'): Promise<Attachment[]>
+  }
+  /** The task's Preview tab: files from the agency folder on the `tyslin-preview://` scheme. */
+  preview: {
+    /** Previewable files in the project folder, newest first. */
+    list(projectId: string): Promise<PreviewFile[]>
+    /** Screenshots that part of the window (CSS px) and returns it as an image attachment for `sessions.send`. */
+    capture(rect: { x: number; y: number; width: number; height: number }, name: string): Promise<Attachment>
+    /** A preview tried to leave the project folder (a link to the web): it was opened in the browser instead. */
+    onBlocked(cb: (url: string) => void): () => void
   }
   sessions: {
     list(agentId?: string): Promise<Session[]>

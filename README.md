@@ -106,6 +106,10 @@ Ollama (local models) is hidden for now (`SHOW_OLLAMA` in `ModelSetup.tsx`); an 
 
 **Sign in instead of a key.** Settings → Accounts and connectors → Claude Code, Codex or Gemini CLI → *Sign in with …* installs the provider's own tool if needed (Claude Code, Codex or Gemini CLI) and opens its browser sign-in, so agents on that tool use your Claude Pro/Max, ChatGPT or Google plan. The tool keeps the login; Tyslin never stores it. Leads and the default model still use an API key.
 
+### Preview
+
+Open a task's Preview panel (the eye button) to see what the agency made without leaving Tyslin: pages, images, PDFs and Markdown from the agency's folder, at desktop, tablet or phone width. Pages open in a locked-down view that can only show files from that folder; a link to the web opens in your browser instead. "Send with screenshot" sends the Lead or worker a note with a picture of exactly what you see, so they can fix what you point at. Running the app itself (a dev server, Expo on your phone) is planned next.
+
 ### Memory
 
 Each agency keeps memory as plain Markdown in its folder, under `memory/`: `agency.md` for notes every agent should know, and one file per agent. Tyslin adds them to the agent's instructions on every run. Edit them in the agency's Memory tab or any editor; they also show in Files and sync with Google Drive.

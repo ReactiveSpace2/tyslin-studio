@@ -19,6 +19,15 @@ const api: TyslinApi = {
   attachments: {
     pick: (kind) => ipcRenderer.invoke('attachments:pick', kind)
   },
+  preview: {
+    list: (projectId) => ipcRenderer.invoke('preview:list', projectId),
+    capture: (rect, name) => ipcRenderer.invoke('preview:capture', rect, name),
+    onBlocked: (cb) => {
+      const fn = (_e: unknown, url: string): void => cb(url)
+      ipcRenderer.on('preview:blocked', fn)
+      return () => ipcRenderer.removeListener('preview:blocked', fn)
+    }
+  },
   sessions: {
     list: (agentId) => ipcRenderer.invoke('sessions:list', agentId),
     create: (agentId, projectId) => ipcRenderer.invoke('sessions:create', agentId, projectId),

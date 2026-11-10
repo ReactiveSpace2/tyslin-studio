@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Agent, ChannelMessage, KanbanCard, McpServerInfo } from '@shared/types'
+import { previewKind } from '@shared/preview'
 import type { AgencyView } from '../agencies'
 import { useAgentStatuses, STATUS_LABEL } from '../agentStatus'
 import { firstName, money } from '../boardStats'
@@ -14,7 +15,7 @@ const H = ({ children }: { children: string }): JSX.Element => <h3 className="te
 const Row = ({ children }: { children: React.ReactNode }): JSX.Element => <div className="flex min-h-8 items-center gap-2.5 text-[13.5px]">{children}</div>
 
 /** The right panel's Details: the agency, who's doing what, cost against the budget, connectors, channel and files. */
-export function DetailsPanel({ view, agent, cards, channel, cost, onOpenAgency, onOpenAgent, onConnectors, onFiles }: {
+export function DetailsPanel({ view, agent, cards, channel, cost, onOpenAgency, onOpenAgent, onConnectors, onFiles, onPreview }: {
   view: AgencyView | null
   agent: Agent
   cards: KanbanCard[]
@@ -24,6 +25,7 @@ export function DetailsPanel({ view, agent, cards, channel, cost, onOpenAgency, 
   onOpenAgent: (a: Agent) => void
   onConnectors: () => void
   onFiles: () => void
+  onPreview: (path: string) => void
 }): JSX.Element {
   const statuses = useAgentStatuses()
   const [servers, setServers] = useState<McpServerInfo[]>([])
@@ -99,7 +101,7 @@ export function DetailsPanel({ view, agent, cards, channel, cost, onOpenAgency, 
           <H>Files</H>
           {files.length === 0 ? <span className="text-[13px] text-muted-foreground">Nothing made yet.</span> : (
             <ul className="flex flex-col gap-0.5">
-              {files.slice(0, 10).map((f) => <li key={f} title={f} className="flex min-w-0 items-center gap-2 py-0.5 text-[13px]"><span className="flex-none text-muted-foreground"><Icon name="file" size={12} /></span><span className="truncate font-mono text-xs">{f}</span></li>)}
+              {files.slice(0, 10).map((f) => <li key={f} title={f} className="flex min-w-0 items-center gap-2 py-0.5 text-[13px]"><span className="flex-none text-muted-foreground"><Icon name="file" size={12} /></span><span className="min-w-0 flex-1 truncate font-mono text-xs">{f}</span>{previewKind(f) && <Button variant="ghost" size="sm" className="h-6 flex-none px-1.5 text-[11px]" onClick={() => onPreview(f)} aria-label={`Preview ${f}`}>Preview</Button>}</li>)}
             </ul>
           )}
           <Button variant="link" size="sm" className="h-8 self-start px-0 text-[13px]" onClick={onFiles}>{files.length > 10 ? `All ${files.length} files` : 'Open Files'}</Button>

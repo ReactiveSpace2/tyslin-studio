@@ -21,7 +21,7 @@ export interface Review {
  * once more, because accepted hunks are written to disk straight away; the rest go back to the agent
  * with your note. When the run came through the Lead as a review, the Lead gets the outcome too.
  */
-export function ChangesPanel({ review, taskSessionId, onResolved }: { review: Review; taskSessionId: string; onResolved: () => void }): JSX.Element {
+export function ChangesPanel({ review, taskSessionId, onResolved, onPreview }: { review: Review; taskSessionId: string; onResolved: () => void; onPreview?: (path: string) => void }): JSX.Element {
   const [note, setNote] = useState('')
   const [confirm, setConfirm] = useState<'accept' | 'back' | null>(null)
   const [done, setDone] = useState<string | null>(null)
@@ -52,7 +52,7 @@ export function ChangesPanel({ review, taskSessionId, onResolved }: { review: Re
           {pending.length > 0 && <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={picks.picked === picks.total ? picks.pickNone : picks.pickAll}>{picks.picked === picks.total ? 'Pick none' : 'Pick all'}</Button>}
         </span>
       </div>
-      <ChangeReviewBody changes={review.changes} picks={picks} />
+      <ChangeReviewBody changes={review.changes} picks={picks} onPreview={onPreview} />
       {pending.length > 0 ? (
         <div className="flex flex-none flex-col gap-2.5 border-t border-border px-4 py-3">
           {confirm ? (

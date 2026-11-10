@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-export type Pane = 'details' | 'changes' | ''
+export type Pane = 'details' | 'changes' | 'preview' | ''
 const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
 
 interface Props {
@@ -86,6 +86,7 @@ export function TaskHeader({ session, agent, view, running, pane, pendingChanges
           <Icon name="file" size={17} />
           {pendingChanges > 0 && <span className="absolute top-1 right-1.5 size-2 rounded-full bg-lime" aria-hidden="true" />}
         </ToggleGroupItem>
+        {view && <ToggleGroupItem value="preview" className={toggle} aria-label="Preview" title="Preview"><Icon name="eye" size={17} /></ToggleGroupItem>}
       </ToggleGroup>
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

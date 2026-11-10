@@ -21,6 +21,7 @@ import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } fr
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
+import { capturePreview, listPreviewFiles, registerPreviewProtocol, registerPreviewScheme } from './preview'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
@@ -300,6 +301,19 @@ function createWindow(): void {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+  // The Preview tab's frames may only show the project folder: a link to the web opens in the browser instead.
+  win.webContents.on('will-frame-navigate', (details) => {
+    if (details.isMainFrame || details.url.startsWith('tyslin-preview:') || details.url === 'about:blank') return
+    details.preventDefault()
+    if (/^https?:/.test(details.url)) void shell.openExternal(details.url)
+    w.webContents.send('preview:blocked', details.url)
+  })
+  // In practice the served page's CSP stops the frame first (ERR_BLOCKED_BY_CSP, no navigation event): same answer.
+  w.webContents.on('did-fail-load', (_e, code, _desc, url, isMainFrame) => {
+    if (isMainFrame || code !== -30 || url.startsWith('tyslin-preview:')) return
+    if (/^https?:/.test(url)) void shell.openExternal(url)
+    w.webContents.send('preview:blocked', url)
+  })
   if (process.env['ELECTRON_RENDERER_URL']) win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   else win.loadFile(join(__dirname, '../renderer/index.html'))
 }
@@ -411,6 +425,8 @@ function registerIpc(): void {
   ipcMain.handle('sessions:create', (_e, agentId: string, projectId: string | null) => db.createSession(agentId, projectId))
   ipcMain.handle('sessions:messages', (_e, id: string) => db.listMessages(id))
   ipcMain.handle('attachments:pick', (_e, kind: 'file' | 'folder') => pickAttachments(win!, kind === 'folder' ? 'folder' : 'file'))
+  ipcMain.handle('preview:list', (_e, projectId: string) => listPreviewFiles(String(projectId ?? '')))
+  ipcMain.handle('preview:capture', (_e, rect: { x: number; y: number; width: number; height: number }, name: string) => capturePreview(win!, rect, String(name ?? 'screenshot.png')))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.
     checkCanRun(sessionId)
@@ -689,8 +705,11 @@ function registerIpc(): void {
   ipcMain.handle('updates:openDownload', () => openUpdateDownload())
 }
 
+registerPreviewScheme()
+
 app.whenReady().then(() => {
   app.setAppUserModelId('ai.tyslin.studio')
+  registerPreviewProtocol()
   db.openDb()
   db.expireStaleChanges()
   registerIpc()
