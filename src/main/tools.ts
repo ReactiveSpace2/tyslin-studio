@@ -240,6 +240,8 @@ export function acpFileAccess(ctx: ToolContext): {
     },
     write: async (absPath, content, toolCallId) => {
       const { abs, rel } = safePath(folder, absPath)
+      // The board is main's to write (cards.ts, boardTools.ts); an agent rewriting it races those writes (10 Nov 2026).
+      if (/^boards[\\/]/.test(rel)) throw new Error(`${rel} is the agency's board; Tyslin moves cards itself and only the Lead changes the board through its board tools`)
       if (ctx.agent.writeMode === 'direct') {
         writeText(abs, content)
         return

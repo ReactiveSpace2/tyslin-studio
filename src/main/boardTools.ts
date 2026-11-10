@@ -64,6 +64,12 @@ export function moveCard(doc: KanbanDoc, cardId: string, columnTitle: string): b
   hit.column.cards = hit.column.cards.filter((c) => c.id !== cardId)
   target.cards.push(hit.card)
   log(hit.card, `Moved to ${target.title}`)
+  // Back to Planned means "do it again": without clearing the old status auto-run (which starts only cards with
+  // no status) never picked a sent-back card up (10 Nov 2026). The previous result stays until the rerun replaces it.
+  if (/^planned$/i.test(target.title) && hit.card.status && hit.card.status !== 'running') {
+    delete hit.card.status
+    log(hit.card, 'Sent back to run again')
+  }
   return true
 }
 

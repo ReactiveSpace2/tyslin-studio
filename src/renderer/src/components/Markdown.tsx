@@ -23,8 +23,8 @@ const C = {
   em: 'italic'
 }
 
-/** Inline: `code`, **bold**, *italic* / _italic_, [text](url), bare https:// links. */
-function inline(text: string, key = 'i'): ReactNode[] {
+/** Inline: `code`, **bold**, *italic* / _italic_, [text](url), bare https:// links. Inside a link's text (`inLink`) nothing becomes a link again (an <a> inside an <a>, 10 Nov 2026). */
+function inline(text: string, key = 'i', inLink = false): ReactNode[] {
   const out: ReactNode[] = []
   const re = /(`[^`\n]+`)|(\*\*[^*\n]+?\*\*|__[^_\n]+?__)|(\*[^*\s][^*\n]*?\*|\b_[^_\s][^_\n]*?_\b)|(\[[^\]\n]+\]\([^)\s]+\))|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g
   let last = 0
@@ -35,11 +35,12 @@ function inline(text: string, key = 'i'): ReactNode[] {
     const k = `${key}-${n++}`
     const [tok] = m
     if (m[1]) out.push(<code key={k} className={C.code}>{tok.slice(1, -1)}</code>)
-    else if (m[2]) out.push(<strong key={k} className={C.strong}>{inline(tok.slice(2, -2), k)}</strong>)
-    else if (m[3]) out.push(<em key={k} className={C.em}>{inline(tok.slice(1, -1), k)}</em>)
+    else if (m[2]) out.push(<strong key={k} className={C.strong}>{inline(tok.slice(2, -2), k, inLink)}</strong>)
+    else if (m[3]) out.push(<em key={k} className={C.em}>{inline(tok.slice(1, -1), k, inLink)}</em>)
+    else if (inLink) out.push(tok)
     else if (m[4]) {
       const [, label, href] = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok) ?? []
-      out.push(SAFE_LINK.test(href ?? '') ? <a key={k} className={C.a} href={href} target="_blank" rel="noreferrer">{inline(label ?? '', k)}</a> : <Fragment key={k}>{label}</Fragment>)
+      out.push(SAFE_LINK.test(href ?? '') ? <a key={k} className={C.a} href={href} target="_blank" rel="noreferrer">{inline(label ?? '', k, true)}</a> : <Fragment key={k}>{label}</Fragment>)
     } else out.push(<a key={k} className={C.a} href={tok} target="_blank" rel="noreferrer">{tok}</a>)
     last = m.index + tok.length
   }

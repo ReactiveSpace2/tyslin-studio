@@ -137,6 +137,22 @@ async function chooseModel(agent: ClientContext, session: ActiveSession, model: 
 }
 
 /**
+ * For an agent set to write directly: switches the session to the adapter's own "edits without asking" mode
+ * (Gemini CLI `auto_edit`, Claude Code `acceptEdits`), so file edits don't each ask while shell commands still
+ * do (10 Nov 2026). Never a mode that approves everything (`yolo`, `bypassPermissions`). No such mode: nothing changes.
+ */
+async function autoEditMode(agent: ClientContext, session: ActiveSession, name: string): Promise<void> {
+  const modes = session.newSessionResponse.modes
+  const hit = modes?.availableModes.find((m) => /^(auto_?edit|accept_?edits)$/i.test(m.id))
+  if (!modes || !hit || hit.id === modes.currentModeId) return
+  try {
+    await agent.request('session/set_mode', { sessionId: session.sessionId, modeId: hit.id })
+  } catch (err) {
+    console.warn(`[acp] ${name} refused the mode "${hit.id}" (${err instanceof Error ? err.message : String(err)}); edits will ask.`)
+  }
+}
+
+/**
  * Error forms Codex sends as plain reply text (to clients without its typed-failure extension) while the
  * turn still ends with `end_turn`. Only these exact shapes count; a normal reply mentioning an error doesn't.
  */
@@ -189,6 +205,8 @@ export async function runAcpTurn(opts: {
   mcpServers?: McpServer[]
   /** The agent's model in Tyslin; used when the adapter lets clients pick one of its models (see chooseModel). */
   model?: string
+  /** The agent writes directly: pick the adapter's edits-without-asking mode when it has one (see autoEditMode). */
+  autoEdit?: boolean
 }): Promise<string> {
   const { name, launch, host, signal } = opts
   if (signal?.aborted) throw new Error('Stopped.')
@@ -262,6 +280,7 @@ export async function runAcpTurn(opts: {
       signal?.removeEventListener('abort', stop)
       if (signal?.aborted) throw new Error('Stopped.')
       if (opts.model?.trim()) await chooseModel(agent, session, opts.model, name)
+      if (opts.autoEdit) await autoEditMode(agent, session, name)
 
       const onAbort = (): void => {
         void agent.notify('session/cancel', { sessionId: session.sessionId }).catch(() => undefined)
@@ -319,6 +338,9 @@ function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: S
     case 'agent_message_chunk':
       if (u.content.type === 'text') {
         const text = u.content.text
+        // Gemini CLI announces a session mode change as a text chunk ("[MODE_UPDATE] autoEdit"); it isn't the agent's
+        // reply, and as one it hid a run that ended with no answer (10 Nov 2026).
+        if (/^\s*\[MODE_UPDATE\] \S+\s*$/.test(text)) break
         reply.push(text)
         state.lastText = text
         // Codex sends an error as one whole chunk; a streamed reply never arrives in these exact shapes.

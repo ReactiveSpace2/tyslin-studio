@@ -39,10 +39,41 @@ export interface RunOptions {
 }
 
 /** Model turns per run, so a confused agent can't loop forever. */
-const MAX_TURNS = 12
+/** Tool rounds per reply. 12 was too few for a Lead reading a folder before planning (10 Nov 2026). */
+const MAX_TURNS = 24
+
+/**
+ * The tool loop ran out of rounds while the model was still calling tools. With some text, that text is the reply
+ * with a note; with none, the run fails visibly instead of ending as an empty reply (10 Nov 2026).
+ */
+/**
+ * fetch with two retries for network-level failures only ("fetch failed": DNS, reset, offline), 2 s then 5 s apart.
+ * HTTP errors come back as responses and are never retried here; a stopped run isn't retried (10 Nov 2026: one
+ * dropped connection failed a Lead's whole run).
+ */
+async function fetchRetry(url: string, init: RequestInit): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetch(url, init)
+    } catch (err) {
+      if (attempt >= 2 || init.signal?.aborted || !(err instanceof TypeError)) throw err
+      await new Promise((r) => setTimeout(r, attempt === 0 ? 2000 : 5000))
+      if (init.signal?.aborted) throw err
+    }
+  }
+}
+
+function outOfTurns(texts: string[]): string {
+  const note = `(Stopped after ${MAX_TURNS} rounds of tool calls before finishing. Ask again to continue, or narrow the request.)`
+  if (!texts.join('').trim()) throw new Error(`Stopped after ${MAX_TURNS} rounds of tool calls without an answer. Ask again to continue, or narrow the request.`)
+  return [...texts, note].join('\n\n')
+}
 
 function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): string {
   const parts = [agent.instructions.trim() || `You are ${agent.name}.`]
+  // Scheduled runs and plans need the date (a Lead asked to "write the next 7 days" had none, 10 Nov 2026).
+  const now = new Date()
+  parts.push(`Today is ${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} (${now.toISOString().slice(0, 10)}), ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} local time.`)
   if (agent.goal?.trim()) parts.push('## Your goal\n' + agent.goal.trim())
   const shared = getPrefs().sharedInstructions
   if (shared) parts.push('## Workspace guidelines\n' + shared)
@@ -64,7 +95,7 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   if (agency && agency.leadId === agent.id) {
     parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template doesn\'t match the brief, edit it with board_edit_card (new title and notes) or move it to Done; never hand out a card with empty notes.\nYou have no shell: you cannot run tests, builds or commands. When you review, report what the worker\'s result and the files show and say whose result it is ("per Martin\'s card, 13 tests pass"); never say you ran or verified something yourself. Cards run one at a time, in board order; put the card others depend on first.')
   } else if (agency) {
-    parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it).`)
+    parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it). Never edit or move anything in the boards/ folder: Tyslin moves your card to Review when you finish, and only the Lead changes the board.`)
   }
   // Agency pages: agencies created before their template had pages don't have the paragraph in their saved instructions.
   if (agency && !agent.instructions.includes('## Agency pages')) {
@@ -189,7 +220,7 @@ class AnthropicRuntime implements AgentRuntime {
     const texts: string[] = []
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchRetry('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         signal,
         headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
@@ -241,7 +272,7 @@ class AnthropicRuntime implements AgentRuntime {
       const text = blocks.filter((b) => b?.type === 'text').map((b) => b.text).join('')
       if (text) texts.push(text)
       const calls: ToolCall[] = blocks.filter((b) => b?.type === 'tool_use').map((b) => ({ id: b.id!, name: b.name!, input: parseArgs(b.json!) }))
-      if (stop !== 'tool_use' || !calls.length || !tools) break
+      if (stop !== 'tool_use' || !calls.length || !tools) return texts.join('\n\n')
 
       messages.push({
         role: 'assistant',
@@ -256,7 +287,7 @@ class AnthropicRuntime implements AgentRuntime {
         content: results.map((r) => ({ type: 'tool_result', tool_use_id: r.id, content: r.content, is_error: r.isError }))
       })
     }
-    return texts.join('\n\n')
+    return outOfTurns(texts)
   }
 }
 
@@ -289,7 +320,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
     const texts: string[] = []
 
     for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const res = await fetch(`${base}/chat/completions`, {
+      const res = await fetchRetry(`${base}/chat/completions`, {
         method: 'POST',
         signal,
         headers,
@@ -347,7 +378,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
 
       if (text) texts.push(text)
       const live = calls.filter(Boolean)
-      if (!live.length || !tools || (finish && finish !== 'tool_calls' && finish !== 'stop')) break
+      if (!live.length || !tools || (finish && finish !== 'tool_calls' && finish !== 'stop')) return texts.join('\n\n')
 
       messages.push({
         role: 'assistant',
@@ -360,7 +391,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
       const results = await runTools(live.map((c) => ({ id: c.id, name: c.name, input: parseArgs(c.args) })), tools.ctx)
       for (const r of results) messages.push({ role: 'tool', tool_call_id: r.id, content: r.content })
     }
-    return texts.join('\n\n')
+    return outOfTurns(texts)
   }
 }
 
@@ -421,7 +452,15 @@ class AcpRuntime implements AgentRuntime {
     const access = folder && opts.agent.tools.read
       ? acpFileAccess({ agent: opts.agent, project: opts.project!, runId: opts.runId, sessionId: opts.sessionId, emit: opts.emit })
       : null
-    const files = access && { read: access.read, write: opts.agent.tools.write ? access.write : undefined }
+    // Gemini CLI's write_file reads the file first and treats only an ENOENT-like error as "new file"; over ACP the
+    // error arrives as a plain object, so every new file failed with "Error checking existing file" (gemini 0.67,
+    // 10 Nov 2026). For Gemini CLI a missing file reads as empty, so the write goes ahead; other adapters keep the error.
+    const read = access && this.engine === 'gemini-cli'
+      ? (abs: string, line?: number | null, limit?: number | null): string => {
+          try { return access.read(abs, line, limit) } catch (err) { if (err instanceof Error && /does not exist$/.test(err.message)) return ''; throw err }
+        }
+      : access?.read
+    const files = access && { read: read!, write: opts.agent.tools.write ? access.write : undefined }
 
     const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
       // Looking at files inside the folder and version checks don't need the user (Settings → Notifications → Approvals).
@@ -446,6 +485,7 @@ class AcpRuntime implements AgentRuntime {
       mcpServers: acpServersForAgent(opts.agent.id),
       // The agent's model, when the adapter lets clients choose among its models (Codex does); else its default.
       model: opts.agent.model,
+      autoEdit: opts.agent.writeMode === 'direct' && !!files?.write,
       host: { emit: opts.emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
     })
   }

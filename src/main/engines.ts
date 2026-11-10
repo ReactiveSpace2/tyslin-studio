@@ -271,6 +271,10 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
   const finalArgs = id === 'hermes' && agent ? ['-p', ensureHermesProfile(agent, path), ...args] : args
   // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
   const env = launchEnv(id)
+  // Gemini CLI refuses its "auto_edit" mode in a folder it hasn't been told to trust, and keeps that list in
+  // ~/.gemini, which Tyslin never writes. For an agent the user set to write directly (and only then), this one
+  // process trusts its own agency folder, the same as `gemini --skip-trust` (10 Nov 2026).
+  if (id === 'gemini-cli' && agent?.writeMode === 'direct' && agent.tools.write) env.GEMINI_CLI_TRUST_WORKSPACE = 'true'
   return { command: path, args: finalArgs, cwd, env, authMethodId: keyAuthMethod(id, env) }
 }
 

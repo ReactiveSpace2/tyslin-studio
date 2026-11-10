@@ -70,6 +70,30 @@ const active = new Set<string>()
 /** Agencies whose plan the boss approved (cards:runPlan): their Planned cards run one after another like auto-run, until none is left. */
 const approved = new Set<string>()
 const runsOnItsOwn = (agency: Agency): boolean => agency.autoRun || approved.has(agency.id)
+/** Agencies with cards that finished since the Lead last reviewed; the Lead gets one review run when the plan runs out. */
+const toReview = new Set<string>()
+/** Review runs per agency today, so a Lead that keeps sending cards back can't loop for ever. */
+const reviewRounds = new Map<string, { day: string; n: number }>()
+const MAX_REVIEWS_PER_DAY = 6
+
+const REVIEW_PROMPT = 'Every planned card has run. Review each card in Review now: read its notes and result, and check the files it names exist and match what the notes asked for (use your file tools). Move each card that meets its notes to Done, and send each one that doesn\'t back to Planned with board_edit_card notes that say exactly what is missing (it runs again on its own). Then send the boss one digest: what is done, what went back and why, what is next.'
+
+/** The Lead's review: in its newest chat in this agency (the task the boss briefed it from), so it shows in that thread. */
+function startLeadReview(agency: Agency): void {
+  if (!deps || !agency.leadId || agency.paused) return
+  const day = new Date().toISOString().slice(0, 10)
+  const r = reviewRounds.get(agency.id)
+  const n = r?.day === day ? r.n : 0
+  if (n >= MAX_REVIEWS_PER_DAY) { console.warn(`[cards] ${agency.name}: review limit reached for today`); return }
+  const lead = db.getAgent(agency.leadId)
+  if (!lead) return
+  try { deps.checkReady(lead) } catch { return }
+  const session = db.listSessions(lead.id).filter((x) => x.projectId === agency.projectId && !x.title.startsWith('Card:')).sort((a, b) => b.createdAt - a.createdAt)[0]
+    ?? db.createSession(lead.id, agency.projectId)
+  reviewRounds.set(agency.id, { day, n: n + 1 })
+  toReview.delete(agency.id)
+  deps.startRun(session.id, REVIEW_PROMPT)
+}
 
 export const runningCards = (): string[] => [...active]
 
@@ -195,6 +219,7 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     const pending = sessionId ? db.listChanges(sessionId).some((c) => c.runId === runId && c.status === 'pending') : false
     if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, 'Review')
     if (pending) log(hit.card, 'File changes are waiting for review')
+    toReview.add(agency.id)
   } else {
     hit.card.status = 'failed'
     log(hit.card, `${agent.name} failed: ${(r.error ?? 'unknown error').slice(0, 200)}`)
@@ -213,7 +238,12 @@ export async function runNext(agency: Agency): Promise<void> {
   if (busy) return
   const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned')
   const next = planned?.cards.find((k) => (k.assignee || k.agentId) && !k.status)
-  if (!next) { approved.delete(agency.id); return }
+  if (!next) {
+    approved.delete(agency.id)
+    // The plan ran out: the Lead reviews what finished (once per round), so nothing waits in Review unseen.
+    if (toReview.has(agency.id)) startLeadReview(agency)
+    return
+  }
   try { await runCard(agency.id, next.id) } catch (err) {
     // Mark it so auto-run moves on to the next card instead of retrying this one forever.
     const msg = err instanceof Error ? err.message : String(err)
@@ -225,7 +255,9 @@ export async function runNext(agency: Agency): Promise<void> {
 export function cardsOnRunEvent(e: RunEvent): void {
   const run = runs.get(e.runId)
   if (run && e.type === 'usage') { run.usage.inputTokens += e.inputTokens; run.usage.outputTokens += e.outputTokens }
-  if (e.type === 'run_finished' && !run) {
+  // A Lead run that errored part-way may still have planned cards; they start as after a finished run, unless the
+  // boss stopped it (10 Nov 2026).
+  if ((e.type === 'run_finished' || (e.type === 'run_error' && e.error !== 'Stopped.')) && !run) {
     const session = db.getSession(e.sessionId)
     const agent = session ? db.getAgent(session.agentId) : null
     const agency = agent?.agency ? db.getAgency(agent.agency) : null
