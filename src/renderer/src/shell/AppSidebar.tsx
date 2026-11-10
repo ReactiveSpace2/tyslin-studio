@@ -10,6 +10,7 @@ import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
   SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem
 } from '@/components/ui/sidebar'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -49,9 +50,10 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
     onNavigate({ name: 'home' })
     window.setTimeout(() => (document.getElementById('composer') as HTMLTextAreaElement | null)?.focus(), 50)
   }
-  const main: { name: string; icon: IconName; on: boolean; go: () => void }[] = [
+  // Search sits in the logo row (owner, 10 Nov 2026); in the menu only while the sidebar is collapsed to icons.
+  const main: { name: string; icon: IconName; on: boolean; go: () => void; collapsedOnly?: boolean }[] = [
     { name: 'New task', icon: 'plus', on: route.name === 'home', go: newTask },
-    { name: 'Search', icon: 'search', on: false, go: onSearch },
+    { name: 'Search', icon: 'search', on: false, go: onSearch, collapsedOnly: true },
     { name: 'Agencies', icon: 'agency', on: route.name === 'agencies' || route.name === 'agency' || route.name === 'agent', go: () => onNavigate({ name: 'agencies' }) },
     { name: 'Scheduled', icon: 'clock', on: route.name === 'scheduled', go: () => onNavigate({ name: 'scheduled' }) },
     { name: 'Files', icon: 'folder', on: route.name === 'files', go: () => onNavigate({ name: 'files' }) }
@@ -63,20 +65,29 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className={cn('drag-region h-12 flex-none justify-center p-0', mac ? 'pl-[84px]' : 'pl-3', 'group-data-[collapsible=icon]:pl-0')}>
+      <SidebarHeader className={cn('drag-region h-12 flex-none flex-row items-center justify-between gap-1 p-0 pr-2', mac ? 'pl-[84px]' : 'pl-3', 'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pr-0 group-data-[collapsible=icon]:pl-0')}>
         <button type="button" onClick={() => onNavigate({ name: 'home' })} aria-label="Tyslin Studio, Home"
           className="no-drag inline-flex h-9 w-fit items-center rounded-md px-1.5 outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:px-1">
           <img src={logo} alt="" className="h-[24px] w-auto group-data-[collapsible=icon]:hidden dark:hidden" />
           <img src={mark} alt="" className="hidden size-6 group-data-[collapsible=icon]:block" />
           <span className="hidden items-center gap-2 group-data-[collapsible=icon]:hidden dark:flex"><img src={mark} alt="" className="size-6" /><img src={wordmarkWhite} alt="" className="h-3 w-auto" /></span>
         </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button type="button" onClick={onSearch} aria-label={mac ? "Search (Cmd+K)" : "Search (Ctrl+K)"}
+              className="no-drag inline-flex size-10 flex-none items-center justify-center rounded-md text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 group-data-[collapsible=icon]:hidden">
+              <Icon name="search" size={16} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Search · {mac ? '⌘K' : 'Ctrl+K'}</TooltipContent>
+        </Tooltip>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {main.map((m) => (
-                <SidebarMenuItem key={m.name}>
+                <SidebarMenuItem key={m.name} className={cn(m.collapsedOnly && 'hidden group-data-[collapsible=icon]:block')}>
                   <SidebarMenuButton isActive={m.on} tooltip={m.name} onClick={m.go} className="h-9 text-[14px]" aria-current={m.on ? 'page' : undefined}>
                     <Icon name={m.icon} size={16} />
                     <span>{m.name}</span>
