@@ -26,8 +26,13 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const dm = useDefaultModel()
+  // Agency names are unique (main refuses a second one), so suggest "Web Design 2" when "Web Design" is taken.
+  const [taken, setTaken] = useState<Set<string>>(new Set())
+  useEffect(() => { void window.tyslin.agencies.list().then((g) => setTaken(new Set(g.map((a) => a.name.trim().toLowerCase())))).catch(() => undefined) }, [])
+  const free = (base: string): string => { let n = 1, out = base; while (taken.has(out.toLowerCase())) out = `${base} ${++n}`; return out }
+  useEffect(() => { if (!touched) setName((n) => free(n)) }, [taken])
   useEffect(() => { void window.tyslin.projects.newFolderPath(name.trim() || tpl.name).then(setDefaultFolder).catch(() => setDefaultFolder('')) }, [name, tpl.name])
-  const pick = (t: AgencyTemplate): void => { if (t.comingSoon) return; setTpl(t); if (!touched) setName(t.name) }
+  const pick = (t: AgencyTemplate): void => { if (t.comingSoon) return; setTpl(t); if (!touched) setName(free(t.name)) }
   const pickFolder = async (): Promise<void> => { const f = await window.tyslin.projects.pickFolder(); if (f) setFolder(f) }
   const create = async (): Promise<void> => {
     setBusy(true); setError('')

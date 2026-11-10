@@ -301,6 +301,18 @@ export function listAgents(): Agent[] {
   return (db.prepare('SELECT * FROM agents ORDER BY is_mascot DESC, created_at').all() as AgentRow[]).map(toAgent)
 }
 
+/**
+ * Moves this organization's Leads that run on Tyslin's own runtime from the old default model to the new one, so
+ * "every Lead runs on the default model" stays true after a change (QA, 10 Nov 2026). A Lead set to another model on
+ * its own page keeps it. Returns how many moved.
+ */
+export function moveLeadsToDefault(from: { provider: string | null; model: string }, to: { provider: string; model: string }): number {
+  const r = db.prepare(`UPDATE agents SET provider = ?, model = ?
+    WHERE id IN (SELECT lead_id FROM agencies WHERE lead_id IS NOT NULL) AND engine = 'builtin' AND provider IS ? AND model = ?`)
+    .run(to.provider, to.model, from.provider, from.model)
+  return r.changes
+}
+
 export function getAgent(id: string): Agent | null {
   const r = db.prepare('SELECT * FROM agents WHERE id = ?').get(id) as AgentRow | undefined
   return r ? toAgent(r) : null
@@ -737,7 +749,8 @@ export function dashboardStats(now = Date.now()): DashboardStats {
       WHERE m.role = 'user' AND m.created_at >= ? GROUP BY s.agent_id ORDER BY messages DESC LIMIT 5`).all(now - 30 * DAY) as DashboardStats['topAgents'],
     reviews: db.prepare(`SELECT s.id AS sessionId, s.agent_id AS agentId, s.project_id AS projectId, s.title, COUNT(*) AS count
       FROM pending_changes c JOIN sessions s ON s.id = c.session_id WHERE c.status = 'pending'
-      GROUP BY s.id ORDER BY MAX(c.created_at) DESC LIMIT 6`).all() as DashboardStats['reviews']
+      GROUP BY s.id ORDER BY MAX(c.created_at) DESC LIMIT 6`).all() as DashboardStats['reviews'],
+    plans: []
   }
 }
 

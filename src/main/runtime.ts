@@ -93,7 +93,7 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   // The Lead of an agency sees its board and roster, and has the board tools.
   const agency = agent.agency ? getAgency(agent.agency) : null
   if (agency && agency.leadId === agent.id) {
-    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template doesn\'t match the brief, edit it with board_edit_card (new title and notes) or move it to Done; never hand out a card with empty notes.\nYou have no shell: you cannot run tests, builds or commands. When you review, report what the worker\'s result and the files show and say whose result it is ("per Martin\'s card, 13 tests pass"); never say you ran or verified something yourself. Cards run one at a time, in board order; put the card others depend on first.')
+    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template matches part of the brief, edit it with board_edit_card (new title and notes) and use it; when it doesn\'t, leave it where it is (out of Planned) and leave it out of your plan and digests. Never move a card to Done unless its work was done, and never hand out a card with empty notes.\nYou have no shell: you cannot run tests, builds or commands. When you review, report what the worker\'s result and the files show and say whose result it is ("per Martin\'s card, 13 tests pass"); never say you ran or verified something yourself. Cards run one at a time, in board order; put the card others depend on first.')
   } else if (agency) {
     parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it). Never edit or move anything in the boards/ folder: Tyslin moves your card to Review when you finish, and only the Lead changes the board.`)
   }
@@ -176,13 +176,26 @@ function parseArgs(json: string): Record<string, unknown> {
   }
 }
 
+/**
+ * How long a model stream may send nothing before the reply is ended with an error. Thinking models can be quiet for
+ * a while, so this is generous; it exists because a stream that never sends again otherwise sat on "Thinking" until
+ * Stop (QA, 10 Nov 2026: gemini-3.1-pro-preview with tools, also hung over plain curl).
+ */
+export const STREAM_IDLE_MS = 180_000
+
 async function* sseLines(res: Response): AsyncGenerator<string> {
   if (!res.body) return
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
   for (;;) {
-    const { value, done } = await reader.read()
+    let timer: NodeJS.Timeout | undefined
+    const idle = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`The model sent nothing for ${STREAM_IDLE_MS / 60_000} minutes, so the reply was stopped. Send it again, or pick another model for this agent.`)), STREAM_IDLE_MS)
+    })
+    let chunk: ReadableStreamReadResult<Uint8Array>
+    try { chunk = await Promise.race([reader.read(), idle]) } catch (err) { void reader.cancel().catch(() => undefined); throw err } finally { clearTimeout(timer) }
+    const { value, done } = chunk
     if (done) break
     buf += decoder.decode(value, { stream: true })
     let i: number

@@ -20,12 +20,12 @@ import { ensureMemory } from './memory'
 const uid = (): string => Math.random().toString(36).slice(2, 10)
 
 /** The shared shape for an agent made from a template member. */
-function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, engine: EngineId, projectId: string, leadId: string | null, agencyId: string): AgentInput {
+function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, engine: EngineId, projectId: string, leadId: string | null, agencyId: string, agencyName: string): AgentInput {
   const d = defaultModel()
   return {
     kind: 'agent',
     name: agentName(m),
-    description: m.lead ? `Lead of ${t.name}: plans the work, hands out cards and reports to you.` : `${m.job} in ${t.name}.`,
+    description: m.lead ? `Lead of ${agencyName}: plans the work, hands out cards and reports to you.` : `${m.job} in ${agencyName}.`,
     instructions: memberInstructions(t, m, agencyPrompt),
     shape: 'round', tone: 'lime', head: m.head,
     provider: d.provider, model: d.model,
@@ -65,6 +65,7 @@ const safeFile = (name: string): string => name.replace(/[\\/:*?"<>|]+/g, ' ').r
 export function createAgency(input: AgencyCreateInput): Agency {
   const name = String(input.name ?? '').trim().slice(0, 80)
   if (!name) throw new Error('Give the agency a name.')
+  assertFreeName(name, null)
   const t = input.templateId ? AGENCY_TEMPLATES.find((x) => x.id === input.templateId) ?? null : null
   if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
   const prompt = String(input.prompt ?? '').trim()
@@ -94,8 +95,8 @@ export function createAgency(input: AgencyCreateInput): Agency {
     let leadId: string | null = null
     if (t) {
       const lead = t.roster.find((m) => m.lead)
-      if (lead) leadId = db.saveAgent(memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId)).id
-      for (const m of t.roster.filter((x) => !x.lead)) db.saveAgent(memberAgent(t, m, prompt, engineFor(m, input.adapter), project.id, leadId, agencyId))
+      if (lead) leadId = db.saveAgent(memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId, name)).id
+      for (const m of t.roster.filter((x) => !x.lead)) db.saveAgent(memberAgent(t, m, prompt, engineFor(m, input.adapter), project.id, leadId, agencyId, name))
     }
 
     // 3. The board, with the starter cards in Inbox.
@@ -117,7 +118,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
     // 5. The Lead's scheduled task.
     if (t && leadId) {
       db.saveTask({
-        name: `${name}: ${t.leadTask.prompt.split('.')[0]}`.slice(0, 80),
+        name: clip(`${name}: ${t.leadTask.prompt.split('.')[0]}`, 80),
         prompt: t.leadTask.prompt, agentId: leadId, projectId: project.id, schedule: t.leadTask.schedule, enabled: true
       }, nextRunAfter(t.leadTask.schedule, Date.now()))
     }
@@ -134,7 +135,22 @@ export function createAgency(input: AgencyCreateInput): Agency {
   }
 }
 
+/** Two agencies with one name look identical in the pills and selects (QA, 10 Nov 2026), so names are unique. */
+function assertFreeName(name: string, id: string | null): void {
+  const key = name.trim().toLowerCase()
+  if (db.listAgencies().some((a) => a.id !== id && a.name.trim().toLowerCase() === key)) throw new Error(`An agency named ${name.trim()} already exists. Pick another name.`)
+}
+
+/** Cuts a generated name at a word and marks the cut, instead of ending in the middle of one ("…send a di"). */
+const clip = (text: string, max: number): string => {
+  if (text.length <= max) return text
+  const cut = text.slice(0, max - 1)
+  const space = cut.lastIndexOf(' ')
+  return (space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.]+$/, '') + '…'
+}
+
 export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
+  if (typeof input.name === 'string') assertFreeName(input.name, id)
   return db.updateAgency(id, input)
 }
 

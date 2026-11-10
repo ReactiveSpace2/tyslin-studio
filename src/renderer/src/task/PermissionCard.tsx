@@ -7,6 +7,10 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
+/** The one lime button: the adapter's "allow once", else its first allow choice (two lime buttons read as equal). */
+const primaryId = (p: { choices: { id: string; kind: string }[] }): string | undefined =>
+  (p.choices.find((c) => c.kind === 'allow_once') ?? p.choices.find((c) => c.kind.startsWith('allow')))?.id
+
 /** An external agent asking before it runs something; the buttons are the adapter's own choices. */
 export function PermissionCard({ p, agent, onAnswer }: { p: Permission; agent: Agent | null; onAnswer: (p: Permission, choiceId: string | null) => void }): JSX.Element {
   const engine = agent && agent.engine !== 'builtin' ? ENGINE_NAMES[agent.engine] : null
@@ -23,7 +27,7 @@ export function PermissionCard({ p, agent, onAnswer }: { p: Permission; agent: A
         </span>
         <span className="flex flex-wrap gap-2">
           {p.choices.map((c) => (
-            <Button key={c.id} variant={c.kind.startsWith('allow') ? 'lime' : 'outline'} size="sm" className={cn('min-h-9', c.kind.startsWith('allow') && 'font-semibold')} onClick={() => onAnswer(p, c.id)}>{c.name}</Button>
+            <Button key={c.id} variant={c.id === primaryId(p) ? 'lime' : 'outline'} size="sm" className={cn('min-h-9', c.id === primaryId(p) && 'font-semibold')} onClick={() => onAnswer(p, c.id)}>{c.name}</Button>
           ))}
           {p.choices.length === 0 && <Button variant="outline" size="sm" className="min-h-9" onClick={() => onAnswer(p, null)}>Decline</Button>}
         </span>

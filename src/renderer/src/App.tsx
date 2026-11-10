@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Agency, Agent, AuthStatus, ChannelMessage, Project, Session } from '@shared/types'
+import type { Agency, Agent, AuthStatus, ChannelMessage, DashboardStats, Project, Session } from '@shared/types'
 import { refreshAppearance } from './appearance'
 import { agencyOf, type AgencyView } from './agencies'
 import { getActiveAgency, initActiveAgency, setActiveAgency, useActiveAgency } from './activeAgency'
@@ -80,6 +80,16 @@ export default function App(): JSX.Element {
   const refreshSessions = useCallback(async () => setSessions(await window.tyslin.sessions.list()), [])
   const refreshRunning = useCallback(async () => setRunningIds(new Set(await window.tyslin.sessions.running())), [])
   const refreshChannel = useCallback(() => { void window.tyslin.channels.list().then(setChannelMsgs) }, [])
+  // File changes and plans waiting on you (QA, 10 Nov 2026: Home said "Nothing needs you" while a plan waited).
+  const [waiting, setWaiting] = useState<Pick<DashboardStats, 'reviews' | 'plans'>>({ reviews: [], plans: [] })
+  const refreshWaiting = useCallback(() => { void window.tyslin.app.dashboard().then((d) => setWaiting({ reviews: d.reviews, plans: d.plans })).catch(() => undefined) }, [])
+  useEffect(() => {
+    refreshWaiting()
+    const offBoard = window.tyslin.cards.onBoardChanged(refreshWaiting)
+    const offRun = window.tyslin.sessions.onEvent((e) => { if (e.type === 'approval_needed' || e.type === 'run_finished' || e.type === 'run_error') refreshWaiting() })
+    const t = setInterval(refreshWaiting, 15_000)
+    return () => { offBoard(); offRun(); clearInterval(t) }
+  }, [refreshWaiting, orgName, route])
 
   useEffect(() => {
     void refresh()
@@ -134,13 +144,21 @@ export default function App(): JSX.Element {
     if (!getActiveAgency() || !ids.includes(getActiveAgency()!)) initActiveAgency(orgName, ids)
   }, [agencyRows, orgName])
 
+  const memberIds = (v: AgencyView): Set<string> => new Set([v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => a.id))
+  /** Reviews of this agency's chats that no channel message stands for, plus a plan waiting for approval. */
+  const waitingFor = (v: AgencyView): number => {
+    const ids = memberIds(v)
+    const reviewed = new Set(channelMsgs.filter((m) => m.agencyId === v.agency.id && m.kind === 'review' && needsYou(m)).map((m) => m.cardId))
+    const reviews = waiting.reviews.filter((r) => ids.has(r.agentId)).length
+    return (reviewed.size ? Math.max(0, reviews - reviewed.size) : reviews) + (waiting.plans.some((p) => p.agencyId === v.agency.id) ? 1 : 0)
+  }
   // What needs you, counted on each agency's newest Lead task (messages are per agency, not per chat).
   const needsYouBySession: Record<string, number> = {}
   for (const v of agencies) {
     if (!v.lead) continue
     const s = latestSession(v.lead.id)
     if (!s) continue
-    const n = channelMsgs.filter((m) => m.agencyId === v.agency.id && needsYou(m)).length
+    const n = channelMsgs.filter((m) => m.agencyId === v.agency.id && needsYou(m)).length + waitingFor(v)
     if (n) needsYouBySession[s.id] = n
   }
 
@@ -149,7 +167,7 @@ export default function App(): JSX.Element {
   for (const v of agencies) {
     const ids = new Set([v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => a.id))
     runningByAgency[v.agency.id] = sessions.filter((s) => runningIds.has(s.id) && ids.has(s.agentId)).length
-    needsYouByAgency[v.agency.id] = channelMsgs.filter((m) => m.agencyId === v.agency.id && needsYou(m)).length
+    needsYouByAgency[v.agency.id] = channelMsgs.filter((m) => m.agencyId === v.agency.id && needsYou(m)).length + waitingFor(v)
   }
   const you = auth?.account?.name?.split(' ')[0] || 'You'
   const openAgency = (id: string, tab: AgencyTab = 'team'): void => { setActiveAgency(id); setRoute({ name: 'agency', id, tab }) }
@@ -170,12 +188,16 @@ export default function App(): JSX.Element {
   }
   const openAgencyByProject = (projectId: string, tab: AgencyTab = 'team'): void => { const v = viewByProject(projectId); if (v) openAgency(v.agency.id, tab) }
   /** A new task: a chat with the agency's Lead. The task opens first, so it is listening when the reply starts. */
-  const startTask = async (agencyId: string, text: string, attachmentIds: string[]): Promise<void> => {
+  const startTask = async (agencyId: string, text: string, attachmentIds: string[], known?: { leadId: string; projectId: string }): Promise<void> => {
+    // `known` comes from first-run setup, where this render's agency list doesn't hold the new agency yet
+    // (QA, 10 Nov 2026: the first task was dropped with "This agency has no Lead yet").
     const v = viewById(agencyId)
-    if (!v?.lead) throw new Error('This agency has no Lead yet.')
-    const s = await window.tyslin.sessions.create(v.lead.id, v.project.id)
+    const leadId = known?.leadId ?? v?.lead?.id
+    const projectId = known?.projectId ?? v?.project.id
+    if (!leadId || !projectId) throw new Error('This agency has no Lead yet.')
+    const s = await window.tyslin.sessions.create(leadId, projectId)
     setSessions((list) => [s, ...list])
-    openTask(s.id, v.lead.id)
+    openTask(s.id, leadId)
     try {
       await window.tyslin.sessions.send(s.id, text, attachmentIds)
     } catch (e) {
@@ -220,7 +242,10 @@ export default function App(): JSX.Element {
             if (!a) { setRoute({ name: 'home' }); return }
             setActiveAgency(a.id)
             if (firstTask && a.leadId) {
-              try { await startTask(a.id, firstTask, []) } catch { setRoute({ name: 'home' }) }
+              try { await startTask(a.id, firstTask, [], { leadId: a.leadId, projectId: a.projectId }) } catch (e) {
+                // Keep what they typed and the reason: Home's composer gets the text back.
+                setDraft(firstTask); setRoute({ name: 'home' }); console.warn('First task not started:', e)
+              }
             } else setRoute({ name: 'home' })
           })
         }} />
@@ -232,7 +257,7 @@ export default function App(): JSX.Element {
     switch (route.name) {
       case 'home':
         return (
-          <HomePage you={you} agencies={agencies} agents={agents} sessions={sessions} channelMessages={channelMsgs} runningIds={runningIds}
+          <HomePage you={you} agencies={agencies} agents={agents} sessions={sessions} channelMessages={channelMsgs} waiting={waiting} runningIds={runningIds}
             activeAgency={activeAgency} onActiveAgency={setActiveAgency} onStartTask={startTask} onOpenTask={openTask} draft={draft} onDraftUsed={() => setDraft('')}
             onOpenAgency={(id) => openAgency(id)} onOpenAgent={(agencyId, agentId) => setRoute({ name: 'agent', agencyId, agentId })}
             onNewAgency={() => setNewAgency({})} onSettings={() => setRoute({ name: 'settings', tab: 'models' })} />

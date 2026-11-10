@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ProviderId, ProviderSettings } from '@shared/types'
 import { AGENCY_GROUPS, AGENCY_TEMPLATES, agentName, type AgencyTemplate } from '@shared/agencies'
 import { ENGINE_NAMES } from '@shared/engines'
@@ -25,6 +25,13 @@ const STEPS = ['Agency', 'Model', 'First task'] as const
  */
 export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (projectId: string, firstTask: string) => void }): JSX.Element {
   const [step, setStep] = useState(0)
+  // Each step starts at its top (QA, 10 Nov 2026: step 2 opened scrolled down by step 1's offset).
+  const mainRef = useRef<HTMLElement>(null)
+  useEffect(() => { mainRef.current?.scrollTo({ top: 0 }) }, [step])
+  // The real folder root (Documents can be elsewhere, and names lose / and other characters the way main makes them).
+  const [root, setRoot] = useState('Documents/Tyslin Studio')
+  useEffect(() => { void window.tyslin.projects.newFolderPath('x').then((p) => setRoot(p.replace(/[\\/][^\\/]+[\\/][^\\/]+$/, ''))).catch(() => undefined) }, [])
+  const folderName = (s: string): string => s.replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80)
   const [org, setOrg] = useState(firstName ? `${firstName}'s studio` : 'My studio')
   const [tpl, setTpl] = useState<AgencyTemplate>(AGENCY_TEMPLATES.find((t) => !t.comingSoon)!)
   const [settings, setSettings] = useState<ProviderSettings | null>(null)
@@ -71,11 +78,11 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
           {STEPS.map((s, i) => <button key={s} type="button" className={stepBtn(i)} disabled={i > step || created !== null} onClick={() => setStep(i)}><span className={dot(i)}>{i < step ? <Icon name="check" size={12} /> : i + 1}</span>{s}</button>)}
           <p className="mt-6 text-xs leading-relaxed text-muted-foreground">You can change all of this later in Settings and on the agency's page.</p>
         </aside>
-        <main className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-12 py-9">
+        <main ref={mainRef} className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-12 py-9">
           {step === 0 && (
             <>
               <div className="flex flex-col gap-1.5"><h1 className="text-[26px] font-semibold tracking-tight">Name your organization, pick your first agency</h1><p className="text-sm text-muted-foreground">An organization holds your agencies and their folders. Each agency is a ready-made team: a Lead and workers.</p></div>
-              <div className="flex max-w-[420px] flex-col gap-1.5"><Label htmlFor="fr-org">Organization</Label><Input id="fr-org" value={org} maxLength={60} onChange={(e) => setOrg(e.target.value)} autoFocus /><span className="text-xs text-muted-foreground">Folder: Documents/Tyslin Studio/{org.trim() || 'My studio'}</span></div>
+              <div className="flex max-w-[420px] flex-col gap-1.5"><Label htmlFor="fr-org">Organization</Label><Input id="fr-org" value={org} maxLength={60} onChange={(e) => setOrg(e.target.value)} autoFocus /><span className="text-xs text-muted-foreground">Folder: {root}/{folderName(org) || 'My studio'}</span></div>
               {AGENCY_GROUPS.map((g) => {
                 const list = AGENCY_TEMPLATES.filter((t) => t.group === g.id)
                 if (!list.length) return null

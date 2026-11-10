@@ -12,7 +12,7 @@
 
 You give an agency a task. Its Lead plans the work and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
 
-Three places, one left column (New task, Search, Agencies, Scheduled, Files; the logo and New task take you Home): **Home** (type a task, see what needs you and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
+Three places, one left column (New task, Search, Agencies, Scheduled, Files; the logo and New task take you Home): **Home** (type a task, see what needs you: questions, file changes to review and plans waiting for your OK, and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
 
 - **Agency templates:** nine agencies you can create today: five software (App Development, Mobile Apps, Web Design, QA & Testing, DevOps) and four marketing and sales (Social Media Marketing, SEO, Email Marketing, Sales & Lead Gen), with Paid Ads and the Documents and data templates coming soon. Each is a Lead and a team with jobs, a goal, a plan and skills, around one folder.
 - **One thread per task:** the Lead's plan, each worker's work, questions, reviews and the digest all land in the task. Away from the computer, the Lead reaches you on Telegram or Slack.

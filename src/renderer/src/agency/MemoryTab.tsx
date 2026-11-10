@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '../components/useConfirm'
 
 const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`
@@ -35,7 +36,12 @@ export function MemoryTab({ view, agents, initial }: { view: AgencyView; agents:
     void window.tyslin.memory.read(agencyId, sel).then((t) => { if (live) { setText(t); setLoaded(t) } }).catch((e) => setError(errText(e)))
     return () => { live = false }
   }, [agencyId, sel])
-  const choose = (key: string): void => { if (key === sel) return; if (dirty && !window.confirm('Leave without saving?')) return; setError(''); setSel(key) }
+  const [confirmEl, confirm] = useConfirm()
+  const choose = async (key: string): Promise<void> => {
+    if (key === sel) return
+    if (dirty && !(await confirm({ title: 'Leave without saving?', description: 'Your edits to this memory file are lost.', action: 'Leave', destructive: true }))) return
+    setError(''); setSel(key)
+  }
   const save = async (): Promise<void> => {
     setBusy(true); setError('')
     try {
@@ -54,12 +60,13 @@ export function MemoryTab({ view, agents, initial }: { view: AgencyView; agents:
 
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+      {confirmEl}
       <Card className="gap-0 self-start overflow-hidden py-0">
         {(files ?? []).map((f) => {
           const a = agentOf(f)
           const on = f.key === sel
           return (
-            <button key={f.key} type="button" aria-current={on ? 'true' : undefined} onClick={() => choose(f.key)}
+            <button key={f.key} type="button" aria-current={on ? 'true' : undefined} onClick={() => void choose(f.key)}
               className={cn('flex min-h-11 w-full items-center gap-2.5 border-b border-border px-3 py-2 text-left text-sm outline-none last:border-b-0 focus-visible:ring-[3px] focus-visible:ring-ring/40', on ? 'bg-muted' : 'hover:bg-accent/60')}>
               {a ? <Avatar shape={a.shape} tone={a.tone} head={a.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-md bg-lime text-on-lime"><Icon name="agency" size={13} /></span>}
               <span className="min-w-0 flex-1 truncate">{f.key === 'agency' ? 'Whole agency' : f.title}</span>

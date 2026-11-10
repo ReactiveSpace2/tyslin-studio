@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Agent, Attachment, ChannelMessage, Session } from '@shared/types'
+import type { Agent, Attachment, ChannelMessage, DashboardStats, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { useAgentStatuses } from '../agentStatus'
 import { firstName } from '../boardStats'
@@ -22,6 +22,8 @@ interface Props {
   agents: Agent[]
   sessions: Session[]
   channelMessages: ChannelMessage[]
+  /** File changes and plans waiting on you (`app:dashboard`). */
+  waiting: Pick<DashboardStats, 'reviews' | 'plans'>
   runningIds: Set<string>
   activeAgency: string | null
   onActiveAgency: (id: string) => void
@@ -53,7 +55,7 @@ const ago = (ms: number): string => {
  * Home: one question, one box. The Lead of the picked agency gets the message and plans it. Under the box,
  * what needs you (questions and reviews from any Lead) and what is running.
  */
-export function HomePage({ you, agencies, agents, sessions, channelMessages, runningIds, activeAgency, onActiveAgency, onStartTask, onOpenTask, onOpenAgency, onOpenAgent, onNewAgency, onSettings, draft, onDraftUsed }: Props): JSX.Element {
+export function HomePage({ you, agencies, agents, sessions, channelMessages, waiting, runningIds, activeAgency, onActiveAgency, onStartTask, onOpenTask, onOpenAgency, onOpenAgent, onNewAgency, onSettings, draft, onDraftUsed }: Props): JSX.Element {
   const [text, setText] = useState(draft ?? '')
   useEffect(() => { if (draft) { setText(draft); onDraftUsed?.() } }, [draft])
   const [attached, setAttached] = useState<Attachment[]>([])
@@ -66,7 +68,19 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, run
 
   const newestLeadSession = (v: AgencyView): Session | null =>
     v.lead ? [...sessions].filter((s) => s.agentId === v.lead!.id).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null : null
-  const needs = channelMessages.filter(needsYou).sort((a, b) => b.createdAt - a.createdAt).map((m) => ({ m, v: agencies.find((v) => v.agency.id === m.agencyId) ?? null }))
+  // Questions and reviews from the Leads, file changes no review message stands for, and plans waiting for
+  // "Approve and run the plan" (QA, 10 Nov 2026), newest first; each opens the agency's newest Lead task.
+  interface Need { key: string; text: string; kind: string; at: number; v: AgencyView | null; focus?: string }
+  const viewOfAgent = (id: string): AgencyView | null => agencies.find((v) => v.lead?.id === id || v.workers.some((w) => w.id === id)) ?? null
+  const reviewMsgAgencies = new Set(channelMessages.filter((m) => m.kind === 'review' && needsYou(m)).map((m) => m.agencyId))
+  const needs: Need[] = [
+    ...channelMessages.filter(needsYou).map((m) => ({ key: m.id, text: m.text.split('\n')[0], kind: m.kind === 'review' ? 'Review' : 'Question', at: m.createdAt, v: agencies.find((v) => v.agency.id === m.agencyId) ?? null, focus: m.id })),
+    ...waiting.reviews.map((r) => ({ r, v: viewOfAgent(r.agentId) })).filter(({ v }) => !v || !reviewMsgAgencies.has(v.agency.id)).map(({ r, v }) => {
+      const who = agents.find((a) => a.id === r.agentId)
+      return { key: 'r:' + r.sessionId, text: `${who ? firstName(who.name) + ' changed' : 'Changed'} ${r.count} file${r.count === 1 ? '' : 's'}: review before they're written`, kind: 'Changes', at: 0, v }
+    }),
+    ...waiting.plans.map((p) => ({ key: 'p:' + p.agencyId, text: `Plan ready for your OK · ${p.count} card${p.count === 1 ? '' : 's'}`, kind: 'Plan', at: p.at, v: agencies.find((v) => v.agency.id === p.agencyId) ?? null }))
+  ].sort((a, b) => b.at - a.at)
   const running = sessions.filter((s) => runningIds.has(s.id)).map((s) => ({ s, a: agents.find((x) => x.id === s.agentId) ?? null }))
 
   const start = async (): Promise<void> => {
@@ -95,7 +109,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, run
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={onNewAgency}>Create your first agency</Button>
-            <span className="text-xs text-muted-foreground">Software agencies today. Documents and marketing are coming.</span>
+            <span className="text-xs text-muted-foreground">Software, marketing and sales agencies today. More are coming.</span>
           </EmptyContent>
         </Empty>
       </div>
@@ -134,7 +148,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, run
 
       <div className="grid w-full max-w-[720px] grid-cols-3 gap-2.5">
         {STARTERS.map((s) => (
-          <button key={s.title} type="button" onClick={() => setText(s.text)} data-slot="card"
+          <button key={s.title} type="button" onClick={() => setText((t) => (!t.trim() || STARTERS.some((x) => x.text === t) ? s.text : `${s.text}${t.trim()}`))} data-slot="card"
             className="flex flex-col gap-1 rounded-xl border border-border bg-card px-3.5 py-3 text-left shadow-xs outline-none transition-colors hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40">
             <strong className="text-sm font-medium">{s.title}</strong>
             <span className="text-xs leading-snug text-muted-foreground">{s.hint}</span>
@@ -148,16 +162,16 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, run
             <Card className="gap-0 overflow-hidden py-0">
               <h2 className="flex items-center justify-between border-b border-border px-3.5 py-3 text-[13px] font-semibold">Needs you <Badge variant="lime" className="font-mono">{needs.length}</Badge></h2>
               <ItemGroup>
-                {needs.slice(0, 6).map(({ m, v }) => {
+                {needs.slice(0, 6).map(({ key, text, kind, at, v, focus }) => {
                   const lead = v?.lead ?? null
                   const s = v ? newestLeadSession(v) : null
                   return (
-                    <Item key={m.id} asChild size="sm" className="rounded-none border-b border-border last:border-b-0">
-                      <button type="button" className="text-left" disabled={!s || !lead} onClick={() => s && lead && onOpenTask(s.id, lead.id, m.id)}>
+                    <Item key={key} asChild size="sm" className="rounded-none border-b border-border last:border-b-0">
+                      <button type="button" className="text-left" disabled={!s || !lead} onClick={() => s && lead && onOpenTask(s.id, lead.id, focus)}>
                         <ItemMedia>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={24} /> : <Icon name="chat" size={16} />}</ItemMedia>
                         <ItemContent className="gap-0">
-                          <ItemTitle className="line-clamp-1 font-normal">{m.text.split('\n')[0]}</ItemTitle>
-                          <ItemDescription className="text-xs">{m.kind === 'review' ? 'Review' : 'Question'} · {v?.agency.name ?? ''} · {clock(m.createdAt)}</ItemDescription>
+                          <ItemTitle className="line-clamp-1 font-normal">{text}</ItemTitle>
+                          <ItemDescription className="text-xs">{[kind, v?.agency.name, at ? clock(at) : ''].filter(Boolean).join(' · ')}</ItemDescription>
                         </ItemContent>
                       </button>
                     </Item>

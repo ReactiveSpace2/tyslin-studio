@@ -10,6 +10,7 @@ import { Icon } from '../components/Icon'
 import { WorkingDots } from '../components/Working'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { NOTIFY_LABEL } from '@shared/agencies'
 
 const H = ({ children }: { children: string }): JSX.Element => <h3 className="text-[13px] font-semibold">{children}</h3>
 const Row = ({ children }: { children: React.ReactNode }): JSX.Element => <div className="flex min-h-8 items-center gap-2.5 text-[13.5px]">{children}</div>
@@ -93,7 +94,7 @@ export function DetailsPanel({ view, agent, cards, channel, cost, onOpenAgency, 
       {view && (
         <section className="flex flex-col gap-0.5">
           <H>Channel</H>
-          <Row><span className="flex-1">{view.agency.channel.kind === 'none' ? 'In the app only' : view.agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'}</span><span className="text-xs text-muted-foreground">{{ all: 'everything', questions: 'questions only', digest: 'digest only' }[view.agency.notify]}</span></Row>
+          <Row><span className="flex-1">{view.agency.channel.kind === 'none' ? 'In the app only' : view.agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'}</span><span className="text-xs text-muted-foreground">{NOTIFY_LABEL[view.agency.notify]}</span></Row>
         </section>
       )}
       {view && (

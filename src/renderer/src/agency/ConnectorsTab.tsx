@@ -17,6 +17,7 @@ import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '../components/useConfirm'
 
 const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 const HINT = 'text-xs text-muted-foreground'
@@ -233,9 +234,11 @@ function EditConnectorDialog({ server, team, onClose, onChanged }: { server: Mcp
       onChanged(s)
     } catch (e) { setError(errText(e)); setBusy(false) }
   }
-  const remove = async (): Promise<void> => { if (!window.confirm(`Remove ${titleOf(server)}? Agents stop using it and its saved token is deleted.`)) return; try { await window.tyslin.integrations.remove(server.id); onChanged(null) } catch (e) { setError(errText(e)) } }
+  const [confirmEl, confirm] = useConfirm()
+  const remove = async (): Promise<void> => { if (!(await confirm({ title: `Remove ${titleOf(server)}?`, description: 'Agents stop using it and its saved token is deleted.', action: 'Remove', destructive: true }))) return; try { await window.tyslin.integrations.remove(server.id); onChanged(null) } catch (e) { setError(errText(e)) } }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
+      {confirmEl}
       <DialogContent className="w-[520px] max-w-[calc(100%-32px)] gap-4 rounded-2xl p-6 sm:max-w-[calc(100%-32px)]">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void save() }}>
           <DialogHeader className="text-left"><DialogTitle>{titleOf(server)}</DialogTitle><DialogDescription className="font-mono text-xs">{server.transport === 'http' ? server.url : [server.command, ...server.args].join(' ')}</DialogDescription></DialogHeader>

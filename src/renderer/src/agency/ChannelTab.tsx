@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
+import { NOTIFY_LABEL } from '@shared/agencies'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const HINT = 'text-xs leading-snug text-muted-foreground'
@@ -123,7 +124,7 @@ export function ChannelDialog({ view, kind, onClose, onChanged }: { view: Agency
           )}
           <div className="flex flex-col gap-3 border-t border-border pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex flex-col"><Label htmlFor="ch-use" className="text-sm font-semibold">{view.agency.name} uses</Label><span className={HINT}>Where {lead}'s messages go.</span></span><Select value={use} onValueChange={(v) => setUse(v as Agency['channel']['kind'])}><SelectTrigger id="ch-use" className="w-[180px] bg-card"><SelectValue /></SelectTrigger><SelectContent position="popper"><SelectItem value="none">The app only</SelectItem><SelectItem value="telegram">Telegram</SelectItem><SelectItem value="slack">Slack</SelectItem></SelectContent></Select></div>
-            <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex flex-col"><Label htmlFor="ch-notify" className="text-sm font-semibold">What {lead} sends</Label><span className={HINT}>For {view.agency.name} only.</span></span><Select value={notify} onValueChange={(v) => setNotify(v as Agency['notify'])}><SelectTrigger id="ch-notify" className="w-[180px] bg-card"><SelectValue /></SelectTrigger><SelectContent position="popper"><SelectItem value="all">Everything</SelectItem><SelectItem value="questions">Questions only</SelectItem><SelectItem value="digest">A daily digest</SelectItem></SelectContent></Select></div>
+            <div className="flex flex-wrap items-center justify-between gap-3"><span className="flex flex-col"><Label htmlFor="ch-notify" className="text-sm font-semibold">What {lead} sends</Label><span className={HINT}>For {view.agency.name} only.</span></span><Select value={notify} onValueChange={(v) => setNotify(v as Agency['notify'])}><SelectTrigger id="ch-notify" className="w-[210px] bg-card"><SelectValue /></SelectTrigger><SelectContent position="popper">{(['all', 'questions', 'digest'] as const).map((k) => <SelectItem key={k} value={k}>{NOTIFY_LABEL[k]}</SelectItem>)}</SelectContent></Select></div>
           </div>
           {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
         </div>

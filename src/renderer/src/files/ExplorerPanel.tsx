@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { LETTER_CLASS, LETTER_LABEL, errorText } from './useGit'
-import type { Confirm } from './useConfirm'
+import type { Confirm } from '../components/useConfirm'
 
 interface Props {
   projectId: string
@@ -50,6 +50,15 @@ export function ExplorerPanel(p: Props): JSX.Element {
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [selected, setSelected] = useState<string | null>(null)
   const [naming, setNaming] = useState<Naming | null>(null)
+  // Focus the name field each time it opens or changes target. autoFocus alone lost to Radix menus handing focus
+  // back to their trigger (QA, 10 Nov 2026: New file and Rename typed into nothing).
+  const nameRef = useRef<HTMLInputElement>(null)
+  const namingKey = naming ? `${naming.mode}:${'path' in naming ? naming.path : naming.dir}` : ''
+  useEffect(() => {
+    if (!namingKey) return
+    const t = setTimeout(() => { nameRef.current?.focus(); nameRef.current?.select() }, 30)
+    return () => clearTimeout(t)
+  }, [namingKey])
   const [dropOn, setDropOn] = useState<string | null>(null)
   const openRef = useRef(open)
   openRef.current = open
@@ -96,6 +105,8 @@ export function ExplorerPanel(p: Props): JSX.Element {
     if (!naming) return
     const v = naming.value.trim()
     if (!v) return
+    // One name, one level: "a/b" used to become "a b" on create (QA, 10 Nov 2026). Say so instead.
+    if (/[\\/]/.test(v)) { p.onError('A name can\'t contain / or \\. Make the folder first with New folder, then add the file inside it.'); return }
     if (naming.mode === 'file') {
       const dir = naming.dir
       let made = ''
@@ -105,7 +116,7 @@ export function ExplorerPanel(p: Props): JSX.Element {
       if (await act(() => window.tyslin.drive.mkdir(p.projectId, dir, v)) && dir) toggle(dir, true)
     } else {
       const from = (naming as { path: string }).path
-      const to = (parentOf(from) ? parentOf(from) + '/' : '') + v.replace(/[\\/]+/g, ' ')
+      const to = (parentOf(from) ? parentOf(from) + '/' : '') + v
       if (to !== from && await act(() => window.tyslin.drive.rename(p.projectId, from, v))) p.onRenamed(from, to)
     }
     setNaming(null)
@@ -242,7 +253,7 @@ export function ExplorerPanel(p: Props): JSX.Element {
             {naming.mode === 'rename' ? `Rename ${naming.path.split('/').pop()}` : `New ${naming.mode} in ${naming.dir ? naming.dir + '/' : p.agencyName}`}
           </Label>
           <div className="flex items-center gap-1.5">
-            <Input id="explorer-name" autoFocus className="h-8 min-w-0 flex-1 font-mono text-[13px]" value={naming.value} placeholder={naming.mode === 'folder' ? 'folder-name' : 'name.md'}
+            <Input id="explorer-name" ref={nameRef} autoFocus className="h-8 min-w-0 flex-1 font-mono text-[13px]" value={naming.value} placeholder={naming.mode === 'folder' ? 'folder-name' : 'name.md'}
               onChange={(e) => setNaming({ ...naming, value: e.target.value })} onKeyDown={(e) => { if (e.key === 'Escape') setNaming(null) }} />
             <Button type="submit" size="sm">{naming.mode === 'rename' ? 'Rename' : 'Create'}</Button>
           </div>

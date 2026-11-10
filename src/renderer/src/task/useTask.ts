@@ -16,6 +16,8 @@ export interface WorkerRun {
   running: boolean
   permissions: Permission[]
   error: string | null
+  /** Bumped each time the worker stages a file change, so the task reloads its changes while the run waits. */
+  staged: number
 }
 
 const TOOL_VERB: Record<string, string> = { list_files: 'Listed files', read_file: 'Read', write_file: 'Proposed', edit_file: 'Proposed an edit to' }
@@ -26,13 +28,16 @@ export function activityLabel(a: Activity): string {
   return [TOOL_VERB[a.name], path].filter(Boolean).join(' ')
 }
 
-const applyEvent = (run: { activity: Activity[]; running: boolean; permissions: Permission[]; error: string | null }, e: RunEvent, agentId: string | null): void => {
+const applyEvent = (run: { activity: Activity[]; running: boolean; permissions: Permission[]; error: string | null; staged: number }, e: RunEvent, agentId: string | null): void => {
   switch (e.type) {
     case 'run_started': run.running = true; run.activity = []; run.error = null; break
     case 'tool_call_start': run.activity = [...run.activity, { id: e.toolCallId, name: e.name, args: '', done: false, isError: false }]; break
     case 'tool_call_args': run.activity = run.activity.map((x) => (x.id === e.toolCallId ? { ...x, args: x.args + e.delta } : x)); break
     case 'tool_result': run.activity = run.activity.map((x) => (x.id === e.toolCallId ? { ...x, done: true, isError: e.isError } : x)); break
-    case 'approval_needed': if ('permissionId' in e) run.permissions = [...run.permissions, { id: e.permissionId, title: e.title, choices: e.choices, sessionId: e.sessionId, agentId: agentId ?? '' }]; break
+    case 'approval_needed':
+      if ('permissionId' in e) run.permissions = [...run.permissions, { id: e.permissionId, title: e.title, choices: e.choices, sessionId: e.sessionId, agentId: agentId ?? '' }]
+      else run.staged += 1 // a file change waits for review: the run stays open until it is answered
+      break
     case 'run_finished': run.running = false; run.permissions = []; break
     case 'run_error': run.running = false; run.permissions = []; run.error = e.error; break
   }
@@ -159,7 +164,7 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
       for (const c of cards) {
         if (!c.sessionId) continue
         const was = prev[c.id]
-        const run: WorkerRun = was && was.sessionId === c.sessionId ? was : { cardId: c.id, sessionId: c.sessionId, agentId: c.agentId ?? c.assignee ?? null, activity: [], running: c.status === 'running', permissions: [], error: null }
+        const run: WorkerRun = was && was.sessionId === c.sessionId ? was : { cardId: c.id, sessionId: c.sessionId, agentId: c.agentId ?? c.assignee ?? null, activity: [], running: c.status === 'running', permissions: [], error: null, staged: 0 }
         const buffered = buffer.current.get(c.sessionId)
         if (buffered) { for (const e of buffered) applyEvent(run, e, run.agentId); buffer.current.delete(c.sessionId) }
         nextRuns[c.id] = run
@@ -261,5 +266,8 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
   const cost = cards.reduce((n, c) => n + (c.cost ?? 0), 0)
   const channelInWindow = channel.filter((m) => inWindow(m.createdAt))
 
-  return { session, messages, streaming, activity, waiting, liveRun, permissions, changes, error, stoppedAt, channel: channelInWindow, board, cards, workerRuns, cost, send, stop, answerPermission, reloadChanges, reloadChannel }
+  // The app's session list follows renames and the title set by the first message; the copy loaded here is only
+  // the fallback until that list has it (QA, 10 Nov 2026: the header kept "New chat" after a rename).
+  const current = allSessions.find((x) => x.id === sessionId) ?? session
+  return { session: current, messages, streaming, activity, waiting, liveRun, permissions, changes, error, stoppedAt, channel: channelInWindow, board, cards, workerRuns, cost, send, stop, answerPermission, reloadChanges, reloadChannel }
 }

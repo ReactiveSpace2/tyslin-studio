@@ -23,7 +23,7 @@ import { SourceControlPanel } from '../files/SourceControlPanel'
 import { canPreview, extOf, fileKind, type FileKind } from '../files/editorSetup'
 import { setLeaveGuard } from '../files/leaveGuard'
 import { useCodeMirror, type Cursor } from '../files/useCodeMirror'
-import { useConfirm } from '../files/useConfirm'
+import { useConfirm } from '../components/useConfirm'
 import { errorText, useGit } from '../files/useGit'
 
 interface Props {

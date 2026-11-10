@@ -151,3 +151,6 @@ export function memberInstructions(t: AgencyTemplate, m: AgencyMember, agencyPro
 
 /** Short lines for a template card: "5 agents · Alex leads". */
 export const templateSummary = (t: AgencyTemplate): string => `${t.roster.length} agents · ${t.roster.find((m) => m.lead)?.first ?? '?'} leads`
+
+/** One wording for the agency's notify setting, wherever it is shown (QA, 10 Nov 2026: Goals and Channel differed). */
+export const NOTIFY_LABEL: Record<'all' | 'questions' | 'digest', string> = { all: 'Everything', questions: 'Questions and reviews', digest: 'Digests only' }

@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { MiniButton } from './ExplorerPanel'
-import type { Confirm } from './useConfirm'
+import type { Confirm } from '../components/useConfirm'
 import { LETTER_CLASS, LETTER_LABEL, errorText, type Git } from './useGit'
 
 interface Props {

@@ -67,10 +67,10 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
     <Sidebar collapsible="icon">
       <SidebarHeader className={cn('drag-region h-12 flex-none flex-row items-center justify-between gap-1 p-0 pr-2', mac ? 'pl-[84px]' : 'pl-3', 'group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:pr-0 group-data-[collapsible=icon]:pl-0')}>
         <button type="button" onClick={() => onNavigate({ name: 'home' })} aria-label="Tyslin Studio, Home"
-          className="no-drag inline-flex h-9 w-fit items-center rounded-md px-1.5 outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:px-1">
-          <img src={logo} alt="" className="h-[24px] w-auto group-data-[collapsible=icon]:hidden dark:hidden" />
-          <img src={mark} alt="" className="hidden size-6 group-data-[collapsible=icon]:block" />
-          <span className="hidden items-center gap-2 group-data-[collapsible=icon]:hidden dark:flex"><img src={mark} alt="" className="size-6" /><img src={wordmarkWhite} alt="" className="h-3 w-auto" /></span>
+          className="no-drag inline-flex h-11 w-fit items-center rounded-md px-1.5 outline-none hover:bg-sidebar-accent focus-visible:ring-[3px] focus-visible:ring-ring/40 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:px-1">
+          <img src={logo} alt="" className="h-8 w-auto group-data-[collapsible=icon]:hidden dark:hidden" />
+          <img src={mark} alt="" className="hidden size-7 group-data-[collapsible=icon]:block" />
+          <span className="hidden items-center gap-2 group-data-[collapsible=icon]:hidden dark:flex"><img src={mark} alt="" className="size-8" /><img src={wordmarkWhite} alt="" className="h-4 w-auto" /></span>
         </button>
         <Tooltip>
           <TooltipTrigger asChild>

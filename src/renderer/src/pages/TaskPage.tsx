@@ -54,11 +54,30 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
     setReview({ changes, ...from })
     setPane('changes')
   }
-  // Changes with nothing picked: this task's own pending changes, if any.
-  const shownReview: Review | null = review ?? (pendingOwn.length ? { changes: task.changes.filter((c) => c.runId === pendingOwn[0].runId), sessionId, agent, card: null, message: null } : null)
+  // Workers' changes waiting for review (an adapter's run stays open until they are answered), so Changes and its
+  // count show them without opening the worker's fold first (QA, 10 Nov 2026).
+  const [workerReview, setWorkerReview] = useState<Review | null>(null)
+  const stagedKey = task.cards.map((c) => `${c.id}:${c.sessionId ?? ''}:${c.status ?? ''}:${task.workerRuns[c.id]?.staged ?? 0}`).join(',')
+  useEffect(() => {
+    let live = true
+    const withChat = task.cards.filter((c) => c.sessionId)
+    void Promise.all(withChat.map((c) => window.tyslin.changes.list(c.sessionId!).then((list) => ({ c, list })))).then((all) => {
+      if (!live) return
+      const hit = all.find(({ list }) => list.some((x) => x.status === 'pending'))
+      if (!hit) { setWorkerReview(null); return }
+      const who = [view?.lead, ...(view?.workers ?? [])].find((a) => a && a.id === (hit.c.assignee || hit.c.agentId)) ?? null
+      setWorkerReview({ changes: hit.list, sessionId: hit.c.sessionId!, agent: who, card: hit.c, message: task.channel.find((m) => m.kind === 'review' && m.cardId === hit.c.id && !m.reply) ?? null })
+    }).catch(() => undefined)
+    return () => { live = false }
+  }, [stagedKey])
+  const pendingWorkers = workerReview?.changes.filter((c) => c.status === 'pending').length ?? 0
+  // Changes with nothing picked: this task's own pending changes, else a worker's.
+  const shownReview: Review | null = review ?? (pendingOwn.length ? { changes: task.changes.filter((c) => c.runId === pendingOwn[0].runId), sessionId, agent, card: null, message: null } : workerReview)
   const refreshReview = async (): Promise<void> => {
-    if (!review) { await task.reloadChanges(); return }
-    const c = await window.tyslin.changes.list(review.sessionId)
+    const r0 = review ?? (pendingOwn.length ? null : workerReview)
+    if (!r0) { await task.reloadChanges(); return }
+    const c = await window.tyslin.changes.list(r0.sessionId)
+    if (!review) { setWorkerReview((r) => (r ? { ...r, changes: c } : r)); task.reloadChannel(); return }
     setReview((r) => (r ? { ...r, changes: c } : r))
     if (review.sessionId === sessionId) await task.reloadChanges()
     task.reloadChannel()
@@ -66,11 +85,11 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
 
   useEffect(() => {
     setHeader(
-      <TaskHeader session={task.session} agent={agent} view={view} running={running} pane={pane} pendingChanges={pendingOwn.length}
+      <TaskHeader session={task.session} agent={agent} view={view} running={running} pane={pane} pendingChanges={pendingOwn.length + pendingWorkers}
         onPane={setPane} onRenamed={onSessionsChanged} onOpenAgency={onOpenAgency} onTalkTo={onTalkTo} onDeleted={onDeleted} />
     )
     return () => setHeader(null)
-  }, [task.session?.id, task.session?.title, agent.id, view?.agency.id, running, pane, pendingOwn.length])
+  }, [task.session?.id, task.session?.title, agent.id, view?.agency.id, running, pane, pendingOwn.length, pendingWorkers])
 
   const send = async (): Promise<void> => {
     const t = text, a = attached
@@ -85,7 +104,10 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         {!isLead && view && (
           <div className="flex flex-none items-center gap-2.5 border-b border-border bg-lime-soft px-5 py-2 text-[13px]">
             <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={20} />
-            <span className="min-w-0 flex-1">You're talking to <strong>{firstName(agent.name)}</strong> directly. {view.lead ? `${firstName(view.lead.name)} isn't planning this;` : ''} file changes still come to you for review.</span>
+            {/* A card chat (cards.ts titles them "Card: …") is the Lead's hand-out, not a direct chat (QA, 10 Nov 2026). */}
+            {task.session?.title.startsWith('Card: ')
+              ? <span className="min-w-0 flex-1"><strong>{firstName(agent.name)}</strong>'s work on a card {view.lead ? `${firstName(view.lead.name)} handed out` : 'from the plan'}. File changes come to you for review.</span>
+              : <span className="min-w-0 flex-1">You're talking to <strong>{firstName(agent.name)}</strong> directly. {view.lead ? `${firstName(view.lead.name)} isn't planning this;` : ''} file changes still come to you for review.</span>}
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}

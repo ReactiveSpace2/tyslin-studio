@@ -931,6 +931,8 @@ export interface DashboardStats {
   topAgents: { agentId: string; messages: number }[]
   /** Chats with file changes waiting for review, newest first. */
   reviews: { sessionId: string; agentId: string; projectId: string | null; title: string; count: number }[]
+  /** Agencies whose plan waits for "Approve and run the plan" (filled in by `app:dashboard` from cards.ts). */
+  plans: { agencyId: string; count: number; at: number }[]
 }
 
 /** system follows the computer's light or dark setting. */
@@ -984,6 +986,8 @@ export interface AppInfo {
   platform: string
   /** Folder holding tyslin.db. */
   dataPath: string
+  /** Whether the system keychain can encrypt saved keys (`safeStorage`); when not, secrets.ts stores them unencrypted. */
+  keychain: boolean
 }
 
 export interface UpdateStatus {

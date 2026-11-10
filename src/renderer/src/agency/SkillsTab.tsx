@@ -14,6 +14,7 @@ import { Switch } from '@/components/ui/switch'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { useConfirm } from '../components/useConfirm'
 
 const errorText = (err: unknown): string => (err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '') : String(err))
 const toSlug = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+/, '').slice(0, 64)
@@ -89,8 +90,10 @@ function SkillEditor({ skill, team, agencyName, onSaved, onDeleted, onAgentsChan
     setBusy(true); setError('')
     try { onSaved(await window.tyslin.skills.save({ ...form, name: form.name.replace(/-+$/, '') })) } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
   }
+  const [confirmEl, confirm] = useConfirm()
   const remove = async (): Promise<void> => {
-    if (!skill.id || !window.confirm(`Delete ${skill.name}?`)) return
+    if (!skill.id) return
+    if (!(await confirm({ title: `Delete ${skill.name}?`, description: 'Agents that use it stop getting it. Export it first if you want a copy.', action: 'Delete', destructive: true }))) return
     setBusy(true); setError('')
     try { await window.tyslin.skills.remove(skill.id); onDeleted() } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
   }
@@ -103,6 +106,7 @@ function SkillEditor({ skill, team, agencyName, onSaved, onDeleted, onAgentsChan
   }
   return (
     <form className="flex flex-col gap-4 px-5 py-4" onSubmit={(e) => { e.preventDefault(); void save() }}>
+      {confirmEl}
       <h2 className="font-mono text-lg font-medium">{form.name || 'New skill'}</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5"><Label htmlFor="sk-name">Name</Label><Input id="sk-name" className="font-mono" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: toSlug(e.target.value) }))} placeholder="meeting-notes" autoFocus={!skill.id} /><span className={HINT}>Lower case and dashes.</span></div>
@@ -162,11 +166,15 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
     </Card>
   )
   const featured = (packs ?? []).filter((p) => p.featured && p.group !== 'claude')
+  // The Claude pack has its own section; its card (Install / Update) sits above the list (QA, 10 Nov 2026: it was
+  // filtered out of Featured and shown nowhere, so "Installs with the Claude pack" had no pack above).
+  const claudePack = (packs ?? []).find((p) => p.id === CLAUDE_PACK || p.group === 'claude')
   return (
     <div className="flex flex-col gap-5 px-5 py-4">
       <div className="flex flex-col gap-2"><span className="font-mono text-[11px] tracking-[0.08em] text-green uppercase">Featured packs · installed from GitHub, not bundled</span><div className="grid gap-2.5 sm:grid-cols-2">{featured.map(packCard)}</div></div>
       <div className="flex flex-col gap-2">
         <span className="font-mono text-[11px] tracking-[0.08em] text-green uppercase">Claude skills · github.com/anthropics/skills</span>
+        {claudePack && <div className="grid gap-2.5 sm:grid-cols-2">{packCard(claudePack)}</div>}
         {!catalog && !error && <span className={HINT}>Loading from GitHub…</span>}
         {catalog && (
           <Card className="gap-0 overflow-hidden py-0">
@@ -176,7 +184,7 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
                 <div key={c.folder} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
                   <span className="min-w-[160px] flex-1 font-mono text-[13px]">{c.name}</span>
                   <Badge variant={c.license === 'Apache-2.0' ? 'outline' : 'secondary'}>{c.license === 'Apache-2.0' ? 'Apache 2.0' : c.license === 'source-available' ? 'Source-available' : 'No licence'}</Badge>
-                  {mine ? <Button size="sm" variant="ghost" onClick={() => onEdit(mine)}>Installed · edit</Button> : c.installable ? <span className={HINT}>Installs with the pack above</span> : <a href={c.url} target="_blank" rel="noreferrer" className="text-xs text-green underline-offset-2 hover:underline">View on GitHub</a>}
+                  {mine ? <Button size="sm" variant="ghost" onClick={() => onEdit(mine)}>Installed · edit</Button> : c.installable ? <span className={HINT}>Installs with the Claude pack</span> : <a href={c.url} target="_blank" rel="noreferrer" className="text-xs text-green underline-offset-2 hover:underline">View on GitHub</a>}
                 </div>
               )
             })}

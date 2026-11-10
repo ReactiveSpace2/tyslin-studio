@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { useConfirm } from './useConfirm'
 
 const ago = (t: number | null): string => {
   if (!t) return 'not yet'
@@ -29,6 +30,7 @@ export function GoogleDriveCard(): JSX.Element | null {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [, tick] = useState(0)
+  const [confirmEl, confirm] = useConfirm()
   useEffect(() => { const t = setInterval(() => tick((n) => n + 1), 30_000); return () => clearInterval(t) }, [])
   if (!s) return null
   const act = async (fn: () => Promise<unknown>): Promise<void> => {
@@ -38,6 +40,7 @@ export function GoogleDriveCard(): JSX.Element | null {
 
   return (
     <section className="tw flex flex-none flex-col gap-2 rounded-xl border border-border bg-card p-3 font-sans text-foreground shadow-xs" aria-label="Google Drive">
+      {confirmEl}
       <div className="flex items-center gap-2 text-sm">
         <span className="grid size-7 place-items-center rounded-md bg-muted"><Icon name="cloud" size={16} /></span>
         <strong className="font-semibold">Google Drive</strong>
@@ -66,7 +69,7 @@ export function GoogleDriveCard(): JSX.Element | null {
             <Label htmlFor="gdrive-auto" className="text-xs font-normal text-muted-foreground">Sync every {s.autoMinutes} minutes</Label>
           </div>
           <button type="button" className={LINK} onClick={() => {
-            if (window.confirm('Disconnect Google Drive? Files stay in both places; syncing stops.')) void act(() => window.tyslin.gdrive.disconnect())
+            void confirm({ title: 'Disconnect Google Drive?', description: 'Files stay in both places; syncing stops.', action: 'Disconnect' }).then((ok) => { if (ok) void act(() => window.tyslin.gdrive.disconnect()) })
           }}>Disconnect</button>
         </>
       )}

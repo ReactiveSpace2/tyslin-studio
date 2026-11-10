@@ -76,7 +76,7 @@ const toReview = new Set<string>()
 const reviewRounds = new Map<string, { day: string; n: number }>()
 const MAX_REVIEWS_PER_DAY = 6
 
-const REVIEW_PROMPT = 'Every planned card has run. Review each card in Review now: read its notes and result, and check the files it names exist and match what the notes asked for (use your file tools). Move each card that meets its notes to Done, and send each one that doesn\'t back to Planned with board_edit_card notes that say exactly what is missing (it runs again on its own). Then send the boss one digest: what is done, what went back and why, what is next.'
+const REVIEW_PROMPT = 'Every planned card has run. Review each card in Review now: read its notes and result, and check the files it names exist and match what the notes asked for (use your file tools). Move each card that meets its notes to Done, and send each one that doesn\'t back to Planned with board_edit_card notes that say exactly what is missing (it runs again on its own). Do not add new cards for work that is already Done, and do not ask the boss to approve anything unless a card went back. Then send the boss one digest: what is done, what went back and why, what is next.'
 
 /** The Lead's review: in its newest chat in this agency (the task the boss briefed it from), so it shows in that thread. */
 function startLeadReview(agency: Agency): void {
@@ -96,6 +96,22 @@ function startLeadReview(agency: Agency): void {
 }
 
 export const runningCards = (): string[] => [...active]
+
+/**
+ * Plans waiting for the boss's OK: agencies that don't auto-run (and aren't running an approved plan) with cards
+ * in Planned that have an assignee and no status. Home and Recents count these as "needs you" (QA, 10 Nov 2026).
+ */
+export function waitingPlans(): { agencyId: string; count: number; at: number }[] {
+  const out: { agencyId: string; count: number; at: number }[] = []
+  for (const agency of db.listAgencies()) {
+    if (agency.paused || runsOnItsOwn(agency)) continue
+    let doc
+    try { doc = readBoard(agency) } catch { continue }
+    const planned = doc?.columns.find((c) => c.title.toLowerCase() === 'planned')?.cards.filter((k) => (k.assignee || k.agentId) && !k.status) ?? []
+    if (planned.length) out.push({ agencyId: agency.id, count: planned.length, at: Math.max(...planned.map((k) => k.createdAt ?? 0)) })
+  }
+  return out
+}
 
 /** "Approve and run the plan": starts the Planned cards one at a time, whatever the auto-run setting. Returns how many are planned. */
 export async function runPlan(agencyId: string): Promise<number> {

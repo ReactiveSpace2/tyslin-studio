@@ -38,22 +38,27 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
   const from = startedAt(card)
   const to = finishedAt(card)
   const span = from ? mins((running || !to ? Date.now() : to) - from) : null
+  // Loaded while the run is going too: an adapter's write waits for review, so the run only ends once it is
+  // answered (QA, 10 Nov 2026: the task said "No changes to review" while the worker sat waiting).
   useEffect(() => {
-    if (!card.sessionId || running) return
+    if (!card.sessionId) return
     let live = true
     void window.tyslin.changes.list(card.sessionId).then((c) => { if (live) setChanges(c) })
     return () => { live = false }
-  }, [card.sessionId, running, card.status])
+  }, [card.sessionId, running, card.status, run?.staged])
   const pending = changes.filter((c) => c.status === 'pending')
   // The live run's error while the task is open; afterwards the reason stays in the card's log.
   const reason = running ? null : run?.error || (card.status === 'failed' ? failedReason(card) : null)
+  // Stop is the boss's choice, not a failure (QA, 10 Nov 2026); cards.ts logs it as "<name> failed: Stopped.".
+  const stopped = !!reason && /^Stopped\b/.test(reason)
   const summary = [reads && `read ${reads} file${reads === 1 ? '' : 's'}`, edits && `edited ${edits}`].filter(Boolean).join(', ')
   const line = running ? `${name} is working on “${card.title}”${span ? ` · ${span}` : ''}${summary ? ` · ${summary}` : ''}`
+    : card.status === 'failed' && stopped ? `${name} was stopped on “${card.title}”`
     : card.status === 'failed' ? `${name} couldn't finish “${card.title}”` : `${name} worked on “${card.title}”${span ? ` for ${span}` : ''}${summary ? ` · ${summary}` : ''}`
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="w-full">
-      <div className={cn('rounded-xl border bg-card', card.status === 'failed' ? 'border-destructive/40' : 'border-border')}>
+      <div className={cn('rounded-xl border bg-card', card.status === 'failed' && !stopped ? 'border-destructive/40' : 'border-border')}>
         <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3.5 py-2 text-left text-[13.5px] text-foreground/80 outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/40">
           {agent ? <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={22} /> : <Icon name="agents" size={16} />}
           <span className="min-w-0 flex-1 truncate">{line}</span>
@@ -72,7 +77,7 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
                 ))}
               </ul>
             )}
-            {reason && <p className="rounded-md bg-destructive-soft px-2.5 py-1.5 text-[13px] leading-relaxed break-words text-destructive">{reason}</p>}
+            {reason && !stopped && <p className="rounded-md bg-destructive-soft px-2.5 py-1.5 text-[13px] leading-relaxed break-words text-destructive">{reason}</p>}
             {card.result && !running && <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{card.result.length > 600 ? card.result.slice(0, 600) + '…' : card.result}</p>}
             {changes.length > 0 && (
               <span className="flex flex-wrap items-center gap-2">

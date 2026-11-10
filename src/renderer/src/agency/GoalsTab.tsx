@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { NOTIFY_LABEL } from '@shared/agencies'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const HINT = 'text-xs leading-normal text-muted-foreground'
@@ -26,6 +27,7 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
   const [error, setError] = useState('')
   const dirty = goal !== agency.goal || prompt !== agency.prompt || budget !== (agency.budget === null ? '' : String(agency.budget)) || notify !== agency.notify || autoRun !== agency.autoRun
   const who = lead ? firstName(lead.name) : 'The Lead'
+  const budgetBad = budget.trim() !== '' && !(Number.isFinite(Number(budget.trim())) && Number(budget.trim()) >= 0)
 
   const save = async (): Promise<void> => {
     const b = budget.trim() === '' ? null : Number(budget.trim())
@@ -54,14 +56,15 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
             <span className="text-sm font-semibold">Limits</span>
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor="ag-budget" className="text-sm font-normal">Budget per month</Label>
-              <span className="flex items-center gap-2"><span className="text-muted-foreground">$</span><Input id="ag-budget" value={budget} onChange={(e) => setBudget(e.target.value)} inputMode="decimal" placeholder="none" className="w-24 text-right font-mono" /></span>
+              <span className="flex items-center gap-2"><span className="text-muted-foreground">$</span><Input id="ag-budget" value={budget} onChange={(e) => setBudget(e.target.value)} inputMode="decimal" placeholder="none" aria-invalid={budgetBad || undefined} aria-describedby={budgetBad ? 'ag-budget-error' : undefined} className="w-24 text-right font-mono" /></span>
             </div>
+            {budgetBad && <span id="ag-budget-error" className="text-xs text-destructive" role="alert">Use a number of dollars, like 50, or leave it empty for no budget.</span>}
             <span className={HINT}>{money(agency.spent)} used this month{agency.budget !== null ? ` of $${agency.budget}` : ''}. {who} stops starting cards when it's reached.</span>
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor="ag-notify" className="text-sm font-normal">{who} messages you about</Label>
               <Select value={notify} onValueChange={(v) => setNotify(v as Agency['notify'])}>
-                <SelectTrigger id="ag-notify" className="min-w-[190px] bg-card"><SelectValue /></SelectTrigger>
-                <SelectContent position="popper"><SelectItem value="all">Everything</SelectItem><SelectItem value="questions">Questions and reviews</SelectItem><SelectItem value="digest">A digest only</SelectItem></SelectContent>
+                <SelectTrigger id="ag-notify" className="min-w-[210px] bg-card"><SelectValue /></SelectTrigger>
+                <SelectContent position="popper">{(['all', 'questions', 'digest'] as const).map((k) => <SelectItem key={k} value={k}>{NOTIFY_LABEL[k]}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div className="flex min-h-9 items-center justify-between gap-3">
@@ -74,7 +77,7 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</Button>
+        <Button type="submit" disabled={busy || !dirty || budgetBad}>{busy ? 'Saving…' : 'Save'}</Button>
         {saved && !dirty && <span className={HINT} role="status">Saved.</span>}
         {error && <span className="text-[13px] text-destructive" role="alert">{error}</span>}
       </div>

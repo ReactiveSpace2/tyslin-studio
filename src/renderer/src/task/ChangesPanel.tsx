@@ -57,7 +57,7 @@ export function ChangesPanel({ review, taskSessionId, onResolved, onPreview }: {
         <div className="flex flex-none flex-col gap-2.5 border-t border-border px-4 py-3">
           {confirm ? (
             <>
-              <p className="text-[13.5px]">{confirm === 'accept' ? `Writes ${picks.picked} change${picks.picked === 1 ? '' : 's'} to the folder now; ${picks.total - picks.picked} go back to ${who}.` : `Sends all ${picks.total} changes back to ${who}. Nothing is written.`} This can't be undone.</p>
+              <p className="text-[13.5px]">{confirm === 'accept' ? `Writes ${picks.picked} change${picks.picked === 1 ? '' : 's'} to the folder now; ${picks.total - picks.picked ? `${picks.total - picks.picked} go${picks.total - picks.picked === 1 ? 'es' : ''} back to ${who}` : 'nothing goes back'}.` : `${picks.total === 1 ? 'Sends the change' : `Sends all ${picks.total} changes`} back to ${who}. Nothing is written.`} This can't be undone.</p>
               <span className="flex gap-2"><Button variant={confirm === 'accept' ? 'lime' : 'default'} size="sm" className="min-h-9 font-semibold" disabled={picks.busy} onClick={() => void finish(confirm)}>Confirm</Button><Button variant="outline" size="sm" className="min-h-9" disabled={picks.busy} onClick={() => setConfirm(null)}>Back</Button></span>
             </>
           ) : (
@@ -68,7 +68,7 @@ export function ChangesPanel({ review, taskSessionId, onResolved, onPreview }: {
               </span>
               <span className="flex flex-wrap gap-2">
                 <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={picks.busy || picks.picked === 0} onClick={() => setConfirm('accept')}>Accept picked ({picks.picked})</Button>
-                <Button variant="outline" size="sm" className="min-h-9" disabled={picks.busy} onClick={() => setConfirm('back')}>Send {picks.picked === 0 ? 'all' : 'the rest'} back</Button>
+                <Button variant="outline" size="sm" className="min-h-9" disabled={picks.busy} onClick={() => setConfirm('back')}>{picks.total === 1 ? 'Send it back' : 'Send all back'}</Button>
               </span>
             </>
           )}

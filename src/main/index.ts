@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, Notification, safeStorage, shell } from 'electron'
 import { basename, join } from 'path'
 import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
@@ -29,7 +29,7 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, updateCard, removeCard, type CardPatch } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, updateCard, removeCard, type CardPatch } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -578,7 +578,11 @@ function registerIpc(): void {
   ipcMain.handle('settings:openrouterAccount', () => openRouterAccount())
   ipcMain.handle('settings:prefs', () => db.getPrefs())
   ipcMain.handle('settings:setPrefs', (_e, p: Partial<Preferences>) => {
+    const before = db.getPrefs()
     const next = db.setPrefs(p)
+    if (p.defaultProvider && next.defaultProvider && (before.defaultProvider !== next.defaultProvider || before.defaultModel !== next.defaultModel)) {
+      db.moveLeadsToDefault({ provider: before.defaultProvider, model: before.defaultModel }, { provider: next.defaultProvider, model: next.defaultModel })
+    }
     if (p.theme) applyTheme()
     if (typeof p.zoom === 'number') applyZoom()
     return next
@@ -654,7 +658,7 @@ function registerIpc(): void {
   ipcMain.handle('auth:signIn', () => signIn())
   ipcMain.handle('auth:cancelSignIn', () => cancelSignIn())
   ipcMain.handle('auth:signOut', () => signOut())
-  ipcMain.handle('app:dashboard', () => db.dashboardStats())
+  ipcMain.handle('app:dashboard', () => ({ ...db.dashboardStats(), plans: waitingPlans() }))
   ipcMain.handle('app:stars', () => githubStars())
   ipcMain.handle('tasks:list', () => db.listTasks())
   ipcMain.handle('tasks:save', (_e, input: TaskInput) =>
@@ -725,7 +729,8 @@ function registerIpc(): void {
     version: app.getVersion(),
     electron: process.versions.electron,
     platform: `${process.platform} ${process.arch}`,
-    dataPath: app.getPath('userData')
+    dataPath: app.getPath('userData'),
+    keychain: safeStorage.isEncryptionAvailable()
   }))
   ipcMain.handle('app:reset', async () => {
     // Revoke the Google Drive grant while its token is still readable; then stop replies and wipe.

@@ -4,6 +4,7 @@ import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { useConfirm } from '../components/useConfirm'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -31,6 +32,7 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<KanbanCard | null>(null)
+  const [confirmEl, confirm] = useConfirm()
   const team = [view.lead, ...view.workers].filter((a): a is Agent => !!a)
   const who = (c: KanbanCard): Agent | undefined => team.find((a) => a.id === (c.assignee || c.agentId))
   const lead = view.lead ? firstName(view.lead.name) : 'the Lead'
@@ -41,6 +43,7 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
 
   return (
     <Card className="gap-3 border-green px-4 py-3.5" role="group" aria-label="Plan">
+      {confirmEl}
       <span className="flex items-center justify-between gap-2">
         <strong className="text-[15px] font-semibold">Plan ready for your OK</strong>
         <Badge variant="lime">Needs you</Badge>
@@ -67,7 +70,7 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
                   <TableCell className="py-1 pr-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="size-9" aria-label={`Actions for ${c.title}`} disabled={busy}><Icon name="updown" size={14} /></Button>
+                        <Button variant="ghost" size="icon" className="size-9" aria-label={`Actions for ${c.title}`} disabled={busy}><Icon name="more" size={15} /></Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl p-1.5 shadow-lg">
                         <DropdownMenuItem className={menuItem} onSelect={() => void run(() => window.tyslin.cards.run(view.agency.id, c.id))}><Icon name="play" size={14} /> Run this card now</DropdownMenuItem>
@@ -83,7 +86,7 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
                         </DropdownMenuSub>
                         <DropdownMenuItem className={menuItem} onSelect={() => setEditing(c)}><Icon name="file" size={14} /> Edit the card</DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className={`${menuItem} text-destructive focus:text-destructive`} onSelect={() => void run(() => window.tyslin.cards.remove(view.agency.id, c.id))}><Icon name="trash" size={14} /> Remove from the plan</DropdownMenuItem>
+                        <DropdownMenuItem className={`${menuItem} text-destructive focus:text-destructive`} onSelect={() => void confirm({ title: `Remove “${c.title}” from the plan?`, description: `The card and its notes are deleted from the board. Ask ${lead} to plan it again if you need it back.`, action: 'Remove', destructive: true }).then((ok) => { if (ok) void run(() => window.tyslin.cards.remove(view.agency.id, c.id)) })}><Icon name="trash" size={14} /> Remove from the plan</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

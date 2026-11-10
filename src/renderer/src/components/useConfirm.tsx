@@ -13,7 +13,7 @@ export interface ConfirmOptions {
 export type ConfirmAnswer = boolean | 'alt'
 export type Confirm = (o: ConfirmOptions) => Promise<ConfirmAnswer>
 
-/** One AlertDialog for every "are you sure" on the Files screen: `await confirm({...})`. */
+/** One AlertDialog for an "are you sure" (Files, Skills, Connectors, Memory, Google Drive; never window.confirm): `await confirm({...})`. */
 export function useConfirm(): [JSX.Element, Confirm] {
   const [opts, setOpts] = useState<ConfirmOptions | null>(null)
   const resolver = useRef<((v: ConfirmAnswer) => void) | null>(null)

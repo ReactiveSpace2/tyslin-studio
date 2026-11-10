@@ -196,13 +196,16 @@ function ModelsTab({ onOpenAccounts }: { onOpenAccounts: () => void }): JSX.Elem
   const [s, setS] = useState<ProviderSettings | null>(null)
   const [pick, setPick] = useState<{ provider: ProviderId; model: string } | null>(null)
   const [saved, flash] = useFlash()
+  // Honest about storage: without a system keychain (some Linux desktops) keys are saved unencrypted (QA, 10 Nov 2026).
+  const [keychain, setKeychain] = useState(true)
+  useEffect(() => { void window.tyslin.app.info().then((i) => setKeychain(i.keychain)).catch(() => undefined) }, [])
   const load = async (): Promise<void> => { const v = await window.tyslin.settings.get(); setS(v); setPick((p) => p ?? { provider: v.defaultModel.provider, model: v.defaultModel.model }) }
   useEffect(() => { void load() }, [])
   const current = s?.defaultModel
   const changed = !!pick && !!current && (!current.chosen || pick.provider !== current.provider || pick.model.trim() !== current.model)
   return (
     <>
-      <Group id="default-h" title="Default model" hint="Every Lead runs on it, and anything not set otherwise. It shows in the status bar.">
+      <Group id="default-h" title="Default model" hint="Leads run on it (a Lead you set to another model on its page keeps that one), and anything not set otherwise. It shows in the status bar.">
         {pick && <DefaultModelPicker settings={s} value={pick} onChange={setPick} />}
         <div className="flex flex-wrap items-center gap-2.5">
           <Button type="button" disabled={!changed || !pick?.model.trim()} onClick={async () => { if (!pick) return; await window.tyslin.settings.setPrefs({ defaultProvider: pick.provider, defaultModel: pick.model.trim() }); await refreshDefaultModel(); await load(); flash(`Default model: ${modelLabel(pick)}`) }}>Save default model</Button>
@@ -210,7 +213,7 @@ function ModelsTab({ onOpenAccounts }: { onOpenAccounts: () => void }): JSX.Elem
         </div>
       </Group>
       <section aria-labelledby="keys-h" className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1"><h2 id="keys-h" className="text-base font-semibold">Model providers</h2><p className={hintCls}>Keys are encrypted with your system keychain and only ever go to their own provider.</p></div>
+        <div className="flex flex-col gap-1"><h2 id="keys-h" className="text-base font-semibold">Model providers</h2><p className={hintCls}>{keychain ? 'Keys are encrypted with your system keychain and only ever go to their own provider.' : "Keys only ever go to their own provider. This computer has no system keychain Tyslin can use, so keys are saved unencrypted in Tyslin's data folder."}</p></div>
         <ModelKeys settings={s} onSaved={async (msg) => { await load(); flash(msg) }} onOpenEngines={onOpenAccounts} />
       </section>
       {saved && <span className={okCls} role="status">{saved}</span>}

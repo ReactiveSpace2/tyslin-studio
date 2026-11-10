@@ -25,8 +25,11 @@ const LONG_USER = 420
 const MD = 'max-w-full text-[15px] leading-[1.65] text-foreground [&_ol]:list-decimal [&_ul]:list-disc'
 
 /** Prompts Tyslin writes into the chat on the user's behalf (an answer delivered, a card handed out), not the user's own words. */
-const SYSTEM_PROMPT = /^(The boss answered your|Work on this card from the|Read the Inbox and Review columns)/
-const systemLabel = (text: string): string => /^The boss answered/.test(text) ? 'Your answer, delivered by Tyslin' : /^Work on this card/.test(text) ? 'Card handed out by Tyslin' : 'Scheduled by Tyslin'
+// "Every planned card has run" is cards.ts REVIEW_PROMPT, the Lead's automatic review (QA, 10 Nov 2026: it showed as "You").
+const SYSTEM_PROMPT = /^(The boss answered your|Work on this card from the|Read the Inbox and Review columns|Every planned card has run)/
+const systemLabel = (text: string): string => /^The boss answered/.test(text) ? 'Your answer, delivered by Tyslin'
+  : /^Work on this card/.test(text) ? 'Card handed out by Tyslin'
+  : /^Every planned card has run/.test(text) ? 'Review of the finished cards, asked by Tyslin' : 'Scheduled by Tyslin'
 
 function UserMessage({ m }: { m: Message }): JSX.Element {
   const [open, setOpen] = useState(false)
