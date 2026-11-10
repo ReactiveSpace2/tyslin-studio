@@ -5,7 +5,6 @@ export const seo: AgencyTemplate = {
   name: 'SEO',
   tagline: 'Finds what people search for, plans pages and improves rankings.',
   group: 'marketing',
-  comingSoon: true,
   goal: 'Grow organic traffic on a chosen set of pages with a monthly ranked action list.',
   plan: [
     'Owen picks target pages and queries from the brief and current rankings.',

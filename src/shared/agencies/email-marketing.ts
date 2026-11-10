@@ -5,7 +5,6 @@ export const emailMarketing: AgencyTemplate = {
   name: 'Email Marketing',
   tagline: 'Writes and plans newsletters and email sequences.',
   group: 'marketing',
-  comingSoon: true,
   goal: 'A sequence or newsletter sent on time with list hygiene and deliverability kept healthy.',
   plan: [
     'Nina plans the sequence or issue: purpose, audience segment, send dates.',

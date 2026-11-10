@@ -5,7 +5,6 @@ export const salesLeadGen: AgencyTemplate = {
   name: 'Sales & Lead Gen',
   tagline: 'Finds leads, qualifies them and writes outreach.',
   group: 'marketing',
-  comingSoon: true,
   goal: 'A weekly list of qualified leads with first outreach drafted and the CRM updated.',
   plan: [
     'Victor sets the ICP and the weekly quota.',

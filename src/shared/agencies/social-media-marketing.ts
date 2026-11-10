@@ -5,7 +5,6 @@ export const socialMediaMarketing: AgencyTemplate = {
   name: 'Social Media Marketing',
   tagline: 'Plans, writes and schedules posts across your social channels.',
   group: 'marketing',
-  comingSoon: true,
   goal: 'A month of posts planned, written, scheduled and reported on.',
   plan: [
     'Mia sets the month\'s themes from the brief and the goal.',
