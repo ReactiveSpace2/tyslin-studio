@@ -5,7 +5,7 @@ import type { ToolCall, ToolDef, ToolResult } from './tools'
 import * as db from './db'
 
 /**
- * The Lead's board tools: list, add, move, assign and comment on cards of its agency's board, run a card,
+ * The Lead's board tools: list, add, edit, move, assign and comment on cards of its agency's board, run a card,
  * message the boss and keep the agency log. Everything stays inside the agency's folder; only the Lead
  * (agencies.lead_id) gets these tools. Workers never message the boss (channels.ts enforces it too).
  */
@@ -136,6 +136,15 @@ export const BOARD_TOOLS: ToolDef[] = [
       parent_card: { type: 'string', description: 'The card id this one was split from, if any' }
     }, required: ['title'] }
   },
+  {
+    name: 'board_edit_card',
+    description: 'Change a card\'s title and/or notes, for example a starter card from the template that should carry this brief\'s work. The worker reads only the title and notes, so the notes must hold the full instructions: what to do, which files, what "done" looks like.',
+    parameters: { type: 'object', properties: {
+      card_id: { type: 'string' },
+      title: { type: 'string', description: 'New title (left as is when omitted)' },
+      notes: { type: 'string', description: 'New notes, replacing the old ones (left as is when omitted)' }
+    }, required: ['card_id'] }
+  },
   { name: 'board_move_card', description: 'Move a card to another column.', parameters: { type: 'object', properties: { card_id: { type: 'string' }, column: { type: 'string' } }, required: ['card_id', 'column'] } },
   { name: 'board_assign_card', description: 'Give a card to a roster member.', parameters: { type: 'object', properties: { card_id: { type: 'string' }, assignee: { type: 'string' } }, required: ['card_id', 'assignee'] } },
   { name: 'board_comment', description: 'Add a note to a card\'s log (a review verdict, a question, a decision).', parameters: { type: 'object', properties: { card_id: { type: 'string' }, text: { type: 'string' } }, required: ['card_id', 'text'] } },
@@ -206,6 +215,20 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   }
   const hit = findCard(doc, String(input.card_id ?? ''))
   if (!hit) throw new Error(`No card with id ${String(input.card_id)}.`)
+  if (call.name === 'board_edit_card') {
+    const title = typeof input.title === 'string' ? input.title.trim().slice(0, 120) : ''
+    const notes = typeof input.notes === 'string' ? input.notes : null
+    if (!title && notes === null) throw new Error('Give a new title, new notes, or both.')
+    if (hit.card.status === 'running') throw new Error('That card is running; wait for it to finish.')
+    const changed: string[] = []
+    if (title && title !== hit.card.title) { hit.card.title = title; changed.push('title') }
+    if (notes !== null && notes !== hit.card.notes) { hit.card.notes = notes; changed.push('notes') }
+    if (changed.length) {
+      log(hit.card, `Edited by ${agent.name} (${changed.join(' and ')})`)
+      writeBoard(agency, doc)
+    }
+    return ok(changed.length ? `Updated the ${changed.join(' and ')} of [${hit.card.id}] "${hit.card.title}".` : 'Nothing changed.')
+  }
   if (call.name === 'board_move_card') {
     if (!moveCard(doc, hit.card.id, String(input.column ?? ''))) throw new Error(`No column called "${String(input.column)}".`)
     writeBoard(agency, doc)

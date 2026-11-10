@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import { spawn, spawnSync, type ChildProcess } from 'child_process'
 import { accessSync, constants, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
@@ -233,6 +234,21 @@ export const ACCOUNT_KEY_VARS: Partial<Record<ExternalEngineId, string[]>> = {
 /** Settings → Models → "Use my account": agents on this adapter run on the user's own sign-in, never a key. */
 export const usesAccount = (id: ExternalEngineId): boolean => getSetting(`engine:${id}:auth`) === 'account'
 
+/**
+ * The ACP auth method that makes an adapter use the API key from its environment. Codex needs it: a saved
+ * ChatGPT login in ~/.codex wins over OPENAI_API_KEY unless the client authenticates with "api-key" (which
+ * Codex then records in its auth.json). Claude Code reads ANTHROPIC_API_KEY on its own and offers no key
+ * method; Gemini CLI's "gemini-api-key" is left out until its side effects on ~/.gemini are checked.
+ */
+export const KEY_AUTH_METHODS: Partial<Record<ExternalEngineId, string>> = { codex: 'api-key' }
+
+/** In key mode, with a key in the adapter's environment: the auth method to run after `initialize`. */
+export function keyAuthMethod(id: ExternalEngineId, env: NodeJS.ProcessEnv): string | undefined {
+  const method = KEY_AUTH_METHODS[id]
+  if (!method || usesAccount(id)) return undefined
+  return (ACCOUNT_KEY_VARS[id] ?? []).some((v) => !!env[v]) ? method : undefined
+}
+
 /** Keys the adapters read from the environment, passed from Settings → Models when set (not in account mode). */
 function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
@@ -253,19 +269,31 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
   if (!path) throw new Error(`${d.name} isn't installed, or Tyslin can't find "${program}". Install it, or set its full path in Settings → Agent engines.`)
   // Hermes: the agent's own profile, before the subcommand ("hermes -p <profile> acp").
   const finalArgs = id === 'hermes' && agent ? ['-p', ensureHermesProfile(agent, path), ...args] : args
-  return {
-    command: path,
-    args: finalArgs,
-    cwd,
-    // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
-    env: launchEnv(id)
-  }
+  // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
+  const env = launchEnv(id)
+  return { command: path, args: finalArgs, cwd, env, authMethodId: keyAuthMethod(id, env) }
+}
+
+/** Adapter state Tyslin owns (under userData/adapters); deleted by reset.ts with the other app data. */
+export const ADAPTERS_DIR = 'adapters'
+
+/**
+ * Codex's home for key-mode runs: `authenticate api-key` makes Codex write the key into `<CODEX_HOME>/auth.json`,
+ * which in the user's own ~/.codex would replace their ChatGPT login (and sign their `codex` CLI over to the key).
+ * So key mode gets a Tyslin-owned home instead; account mode keeps the inherited CODEX_HOME (~/.codex).
+ */
+export function codexKeyHome(): string {
+  const dir = join(app.getPath('userData'), ADAPTERS_DIR, 'codex-home')
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  return dir
 }
 
 /** The adapter's environment: widened PATH, saved keys, and in account mode no key variables at all. */
 export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
   if (usesAccount(id)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
+  // Only when a key will actually be used (see keyAuthMethod); with no key at all Codex keeps its usual home.
+  if (id === 'codex' && keyAuthMethod(id, env)) env.CODEX_HOME = codexKeyHome()
   return env
 }
 

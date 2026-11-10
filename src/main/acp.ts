@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 import { Readable, Writable } from 'stream'
-import { client, ndJsonStream, PROTOCOL_VERSION, RequestError, type ClientContext, type McpServer, type SessionUpdate, type ToolCallContent } from '@agentclientprotocol/sdk'
+import { client, ndJsonStream, PROTOCOL_VERSION, RequestError, type ActiveSession, type ClientContext, type InitializeResponse, type McpServer, type SessionUpdate, type ToolCallContent } from '@agentclientprotocol/sdk'
 import type { EngineTestResult, PermissionChoice, RunEventBody } from '@shared/types'
 
 /**
@@ -24,6 +24,11 @@ export interface AcpLaunch {
   args: string[]
   cwd: string
   env: NodeJS.ProcessEnv
+  /**
+   * An ACP auth method to run right after `initialize` when the agent offers it (Codex: "api-key", so it
+   * uses the key in `env` instead of a saved ChatGPT login). Set by engines.ts in key mode only.
+   */
+  authMethodId?: string
 }
 
 const HANDSHAKE_TIMEOUT_MS = 30_000
@@ -95,6 +100,66 @@ async function initialize(agent: ClientContext, fileAccess: boolean, clientVersi
   })
 }
 
+/** Runs `launch.authMethodId` when the agent offers that method; a method the agent doesn't list is skipped. */
+async function authenticateIfOffered(agent: ClientContext, init: InitializeResponse, launch: AcpLaunch, name: string): Promise<void> {
+  const methodId = launch.authMethodId
+  if (!methodId || !(init.authMethods ?? []).some((m) => m.id === methodId)) return
+  try {
+    await timeout(agent.request('authenticate', { methodId }), HANDSHAKE_TIMEOUT_MS, `${name} did not finish signing in with the API key within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`)
+  } catch (err) {
+    const why = err instanceof RequestError ? (typeof (err.data as { details?: unknown } | undefined)?.details === 'string' ? (err.data as { details: string }).details : err.message) : err instanceof Error ? err.message : String(err)
+    throw new Error(`${name} could not sign in with the API key from Settings → Models: ${why}`)
+  }
+}
+
+/**
+ * Asks the agent to use `model` for this session, through the "model" config option `session/new` returned
+ * (ACP session config; Codex lists its models there). Nothing happens when the agent offers no model choice.
+ * When the agent lists models and `model` isn't one of them (for example the default model is a Claude name
+ * and the agent is Codex), the agent's own default stays and the reason is logged; a run never fails over it.
+ */
+async function chooseModel(agent: ClientContext, session: ActiveSession, model: string, name: string): Promise<void> {
+  const option = (session.newSessionResponse.configOptions ?? []).find((o) => o.type === 'select' && (o.category === 'model' || o.id === 'model'))
+  if (!option || option.type !== 'select') return
+  const values = option.options.flatMap((o) => 'options' in o ? o.options : [o])
+  const want = model.trim().toLowerCase()
+  const hit = values.find((v) => v.value === model) ?? values.find((v) => v.value.toLowerCase() === want || v.name.toLowerCase() === want)
+  if (!hit) {
+    console.warn(`[acp] ${name} doesn't offer the model "${model}"; using its default "${option.currentValue}". Offered: ${values.map((v) => v.value).join(', ')}`)
+    return
+  }
+  if (hit.value === option.currentValue) return
+  try {
+    await agent.request('session/set_config_option', { sessionId: session.sessionId, configId: option.id, value: hit.value })
+  } catch (err) {
+    console.warn(`[acp] ${name} refused the model "${hit.value}" (${err instanceof Error ? err.message : String(err)}); using its default "${option.currentValue}".`)
+  }
+}
+
+/**
+ * Error forms Codex sends as plain reply text (to clients without its typed-failure extension) while the
+ * turn still ends with `end_turn`. Only these exact shapes count; a normal reply mentioning an error doesn't.
+ */
+const TEXT_FAILURE_FORMS = [
+  /\bmodel is not supported when using Codex with\b/,
+  /^(Warning: Falling back from WebSockets to HTTPS transport\. )?unexpected status [45]\d\d\b/,
+  /\bauth error code: [a-z_]+/,
+  /^Authentication required\b/,
+  /^You have been logged out\b/
+]
+
+/** What the agent said went wrong during the turn, if anything; checked when the turn stops. */
+interface TurnState { failure: string | null; lastText: string }
+
+/** An agent-side error: Codex's `_meta.codex.error` (not a retry) or its thread ending in a system error. */
+function failureFromMeta(meta: Record<string, unknown> | null | undefined, state: TurnState): string | null {
+  const codex = meta?.codex as { error?: { message?: unknown; willRetry?: unknown }; threadStatus?: { type?: unknown } } | undefined
+  if (!codex) return null
+  if (codex.error && codex.error.willRetry !== true && typeof codex.error.message === 'string') return codex.error.message
+  if (codex.threadStatus?.type === 'systemError') return state.lastText.trim() || 'The agent stopped with a system error.'
+  return null
+}
+
 function contentText(content: ToolCallContent[] | null | undefined): string {
   return (content ?? []).map((c) => {
     if (c.type === 'content' && c.content.type === 'text') return c.content.text
@@ -122,6 +187,8 @@ export async function runAcpTurn(opts: {
   signal?: AbortSignal
   /** Integrations switched on for this agent; remote ones only go to agents that support them. */
   mcpServers?: McpServer[]
+  /** The agent's model in Tyslin; used when the adapter lets clients pick one of its models (see chooseModel). */
+  model?: string
 }): Promise<string> {
   const { name, launch, host, signal } = opts
   if (signal?.aborted) throw new Error('Stopped.')
@@ -170,6 +237,9 @@ export async function runAcpTurn(opts: {
       if (init.protocolVersion !== PROTOCOL_VERSION) {
         throw new Error(`${name} speaks ACP version ${init.protocolVersion}; Tyslin speaks version ${PROTOCOL_VERSION}. Update one of them.`)
       }
+      // Key mode: sign the adapter in with the key from its environment before the session opens, or Codex
+      // keeps using whatever login its own files hold (a ChatGPT account, with its own model list).
+      await authenticateIfOffered(agent, init, launch, name)
 
       let session
       try {
@@ -184,6 +254,7 @@ export async function runAcpTurn(opts: {
       }
       signal?.removeEventListener('abort', stop)
       if (signal?.aborted) throw new Error('Stopped.')
+      if (opts.model?.trim()) await chooseModel(agent, session, opts.model, name)
 
       const onAbort = (): void => {
         void agent.notify('session/cancel', { sessionId: session.sessionId }).catch(() => undefined)
@@ -193,17 +264,29 @@ export async function runAcpTurn(opts: {
 
       const reply: string[] = []
       const tools = new Set<string>()
+      const state: TurnState = { failure: null, lastText: '' }
+      // A prompt the agent rejects (a JSON-RPC error, e.g. "Authentication required") surfaces from nextUpdate().
       void session.prompt(opts.prompt).catch(() => undefined)
       try {
         for (;;) {
-          const msg = await session.nextUpdate()
+          const msg = await session.nextUpdate().catch((err: unknown) => {
+            // Codex answers a bad or missing login with -32000 ("Authentication required") on the prompt itself.
+            if (err instanceof RequestError && err.code === -32000) {
+              throw new Error(launch.authMethodId
+                ? `${name} rejected the API key from Settings → Models. Check the key, or switch ${name} to your account.`
+                : `${name} needs you to sign in first. Run ${launch.command} in a terminal and follow its sign-in steps, then try again.`)
+            }
+            throw err
+          })
           if (msg.kind === 'stop') {
             if (msg.stopReason === 'cancelled' || signal?.aborted) throw new Error('Stopped.')
+            // Codex reports some failures only as reply text and a normal end_turn; those are run errors, not results.
+            if (state.failure) throw new Error(`${name} failed: ${state.failure.trim().replace(/\s+/g, ' ').slice(0, 400)}`)
             if (msg.stopReason === 'refusal') reply.push(`\n\n(${name} declined to continue.)`)
             if (msg.stopReason === 'max_tokens' || msg.stopReason === 'max_turn_requests') reply.push(`\n\n(${name} stopped at its length limit.)`)
             break
           }
-          handleUpdate(msg.update, host, reply, tools)
+          handleUpdate(msg.update, host, reply, tools, state)
         }
       } finally {
         signal?.removeEventListener('abort', onAbort)
@@ -219,13 +302,20 @@ export async function runAcpTurn(opts: {
   }
 }
 
-function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: Set<string>): void {
+function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: Set<string>, state: TurnState): void {
   switch (u.sessionUpdate) {
     case 'agent_message_chunk':
       if (u.content.type === 'text') {
-        reply.push(u.content.text)
-        host.emit({ type: 'text_delta', text: u.content.text })
+        const text = u.content.text
+        reply.push(text)
+        state.lastText = text
+        // Codex sends an error as one whole chunk; a streamed reply never arrives in these exact shapes.
+        if (TEXT_FAILURE_FORMS.some((re) => re.test(text.trim()))) state.failure = state.failure ?? text
+        host.emit({ type: 'text_delta', text })
       }
+      break
+    case 'session_info_update':
+      state.failure = state.failure ?? failureFromMeta(u._meta, state)
       break
     case 'tool_call':
       tools.add(u.toolCallId)
@@ -253,15 +343,18 @@ function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: S
   }
 }
 
-/** Starts the agent, runs `initialize`, and stops it. Used by Settings → Agent engines → Test. */
+/** Starts the agent, runs `initialize` (and, in key mode, `authenticate`), and stops it. Used by Settings → Agent engines → Test. */
 export async function testAcp(name: string, launch: AcpLaunch, clientVersion: string): Promise<EngineTestResult> {
   const child = start(launch)
   const stderr = stderrTail(child)
   const died = exitWatch(child, name, stderr)
   died.catch(() => undefined)
   try {
-    const init = await Promise.race([died, client({ name: 'tyslin-studio' }).connectWith(connection(child), (agent) =>
-      timeout(initialize(agent, true, clientVersion), HANDSHAKE_TIMEOUT_MS, `${name} did not answer within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`))])
+    const init = await Promise.race([died, client({ name: 'tyslin-studio' }).connectWith(connection(child), async (agent) => {
+      const r = await timeout(initialize(agent, true, clientVersion), HANDSHAKE_TIMEOUT_MS, `${name} did not answer within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`)
+      await authenticateIfOffered(agent, r, launch, name)
+      return r
+    })])
     const info = init.agentInfo
     return {
       ok: init.protocolVersion === PROTOCOL_VERSION,

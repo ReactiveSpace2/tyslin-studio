@@ -59,7 +59,7 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   // The Lead of an agency sees its board and roster, and has the board tools.
   const agency = agent.agency ? getAgency(agent.agency) : null
   if (agency && agency.leadId === agent.id) {
-    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.')
+    parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template doesn\'t match the brief, edit it with board_edit_card (new title and notes) or move it to Done; never hand out a card with empty notes.')
   } else if (agency) {
     parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it).`)
   }
@@ -419,6 +419,8 @@ class AcpRuntime implements AgentRuntime {
       clientVersion: app.getVersion(),
       signal: opts.signal,
       mcpServers: acpServersForAgent(opts.agent.id),
+      // The agent's model, when the adapter lets clients choose among its models (Codex does); else its default.
+      model: opts.agent.model,
       host: { emit: opts.emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
     })
   }

@@ -2,6 +2,7 @@ import { app, session, shell } from 'electron'
 import { existsSync, mkdirSync, renameSync, rmSync } from 'fs'
 import { join, relative, isAbsolute, dirname, basename } from 'path'
 import * as db from './db'
+import { ADAPTERS_DIR } from './engines'
 
 /**
  * "Reset Tyslin Studio" (Settings → About). Afterwards the app starts like a fresh install: sign-in, setup,
@@ -52,7 +53,8 @@ export async function resetEverything(stopWork: () => void): Promise<void> {
   }
 
   const data = app.getPath('userData')
-  for (const name of ['tyslin.db', 'tyslin.db-wal', 'tyslin.db-shm', 'orgs', 'attachments']) {
+  // `adapters` holds Codex's key-mode home (its auth.json with the API key); app data, so deleted, not trashed.
+  for (const name of ['tyslin.db', 'tyslin.db-wal', 'tyslin.db-shm', 'orgs', 'attachments', ADAPTERS_DIR]) {
     rmSync(join(data, name), { recursive: true, force: true })
   }
   mkdirSync(data, { recursive: true })

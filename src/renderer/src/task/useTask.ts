@@ -52,7 +52,7 @@ export interface Task {
   /** The Lead's messages to you and the board, for a Lead's task. */
   channel: ChannelMessage[]
   board: KanbanDoc | null
-  /** The board's cards that belong to this task (made since it started, before the next Lead task). */
+  /** The board's cards that belong to this task (made or worked by the Lead since it started, before the next Lead task). */
   cards: KanbanCard[]
   workerRuns: Record<string, WorkerRun>
   cost: number
@@ -140,7 +140,10 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
   const next = agent ? allSessions.filter((s) => s.agentId === agent.id && s.createdAt > start).sort((a, b) => a.createdAt - b.createdAt)[0] : undefined
   const end = next?.createdAt ?? Number.POSITIVE_INFINITY
   const inWindow = (t: number): boolean => t >= start && t < end
-  const cards = isLead && board ? board.columns.flatMap((c) => c.cards).filter((c) => inWindow(c.createdAt)) : []
+  // A card is this task's when it was made in the window, or when the Lead touched it then (assigned, moved,
+  // edited: every board tool logs on the card), which is how template starter cards get reused for a brief.
+  const belongs = (c: KanbanCard): boolean => inWindow(c.createdAt) || (c.log ?? []).some((l) => inWindow(l.at))
+  const cards = isLead && board ? board.columns.flatMap((c) => c.cards).filter(belongs) : []
   const cardKey = cards.map((c) => c.id + ':' + (c.sessionId ?? '')).join(',')
 
   // Worker runs: follow each card's chat; seed from its current state so a run already going shows up.

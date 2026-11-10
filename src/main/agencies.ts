@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
-import { join } from 'path'
+import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'fs'
+import { dirname, isAbsolute, join } from 'path'
 import type { Agency, AgencyCreateInput, AgencyUpdateInput, AgentInput, EngineId, KanbanDoc } from '@shared/types'
 import { AGENCY_COLUMNS, AGENCY_TEMPLATES, agentName, memberInstructions, type AgencyMember, type AgencyTemplate } from '@shared/agencies'
 import { nextRunAfter } from '@shared/schedule'
@@ -69,9 +69,21 @@ export function createAgency(input: AgencyCreateInput): Agency {
   if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
   const prompt = String(input.prompt ?? '').trim()
 
-  // 1. Folder and project: a folder the user picked, else a new one under Documents/Tyslin Studio.
+  // 1. Folder and project: the folder the user picked (made when missing, as long as its parent exists, so
+  // several agencies can be pointed at one folder), else a new one under Documents/Tyslin Studio.
   const picked = String(input.folder ?? '').trim()
-  const folder = picked && existsSync(picked) ? picked : newProjectFolderPath(name)
+  let folder: string
+  if (picked) {
+    if (!isAbsolute(picked)) throw new Error(`The folder must be a full path (got "${picked}").`)
+    if (existsSync(picked)) {
+      if (!statSync(picked).isDirectory()) throw new Error(`${picked} is a file, not a folder.`)
+    } else if (!existsSync(dirname(picked))) {
+      throw new Error(`The folder ${picked} doesn't exist, and neither does the folder above it. Create it first or pick another.`)
+    }
+    folder = picked
+  } else {
+    folder = newProjectFolderPath(name)
+  }
   mkdirSync(folder, { recursive: true })
   for (const sub of t?.folders ?? []) mkdirSync(join(folder, sub), { recursive: true })
   const project = db.createProject(name, folder)

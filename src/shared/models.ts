@@ -3,7 +3,8 @@ import type { ProviderId } from './types'
 /** Model names offered for each provider (any other name can be typed in). */
 export const MODEL_SUGGESTIONS: Record<ProviderId, string[]> = {
   anthropic: ['claude-sonnet-5-5', 'claude-opus-5-5', 'claude-haiku-5-5'],
-  openai: ['gpt-4o', 'gpt-4o-mini'],
+  // Checked against the OpenAI /v1/models list on 10 Nov 2026; the first one is the first-run default.
+  openai: ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5-mini', 'gpt-4.1'],
   gemini: ['gemini-pro-latest', 'gemini-flash-latest', 'gemini-3.1-pro-preview', 'gemini-3.8-flash', 'gemini-2.5-pro', 'gemini-2.5-flash'],
   ollama: ['llama3.1', 'qwen2.5', 'mistral'],
   // OpenRouter: the full list loads from its API in the picker; these are only fallbacks.
