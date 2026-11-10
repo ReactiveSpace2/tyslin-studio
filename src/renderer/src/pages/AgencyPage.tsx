@@ -1,6 +1,4 @@
 import type { Agent } from '@shared/types'
-import { templatePages } from '@shared/agencies'
-import type { AgencyPageKind } from '@shared/pages'
 import type { AgencyTab } from '../App'
 import type { AgencyView } from '../agencies'
 import { AgencyHeader } from '../agency/AgencyHeader'
@@ -11,14 +9,10 @@ import { MemoryTab } from '../agency/MemoryTab'
 import { ScheduleTab } from '../agency/ScheduleTab'
 import { SkillsTab } from '../agency/SkillsTab'
 import { TeamTab } from '../agency/TeamTab'
-import { CalendarPage } from '../agency/pages/CalendarPage'
-import { ScreensPage } from '../agency/pages/ScreensPage'
-import { TablePage } from '../agency/pages/TablePage'
+import { AgencyPageView, shownPages } from '../agency/pages'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule']]
-/** Page types with a screen so far; a template may declare others (campaigns) that get their tab when built. */
-const BUILT: AgencyPageKind[] = ['screens', 'table', 'calendar']
 
 interface Props {
   view: AgencyView
@@ -41,7 +35,7 @@ interface Props {
 
 /** One agency on one page: its header, seven tabs, and the extra pages its template declares (shared/pages.ts). */
 export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onPick, onNewAgency, onNewTask, onOpenAgent, onAddWorker, onOpenTask, onChanged, onDeleted }: Props): JSX.Element {
-  const pages = templatePages(view.agency.templateId).filter((p) => BUILT.includes(p.kind))
+  const pages = shownPages(view)
   const tabs: [AgencyTab, string][] = [...TABS, ...pages.map((p): [AgencyTab, string] => [`page:${p.id}`, p.title])]
   const page = tab.startsWith('page:') ? pages.find((p) => `page:${p.id}` === tab) : undefined
   return (
@@ -57,9 +51,7 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
       {tab === 'channel' && <ChannelTab view={view} onChanged={onChanged} />}
       {tab === 'memory' && <MemoryTab key={view.agency.id} view={view} agents={agents} initial={focus} />}
       {tab === 'schedule' && <ScheduleTab view={view} agencies={agencies} onOpenTask={onOpenTask} />}
-      {page?.kind === 'screens' && <ScreensPage key={view.agency.id} view={view} />}
-      {page?.kind === 'table' && <TablePage key={view.agency.id + page.id} view={view} page={page} />}
-      {page?.kind === 'calendar' && <CalendarPage key={view.agency.id + page.id} view={view} page={page} />}
+      {page && <AgencyPageView view={view} page={page} />}
       {tab.startsWith('page:') && !page && <p className="text-sm text-muted-foreground">{view.agency.name} has no such page.</p>}
     </div>
   )

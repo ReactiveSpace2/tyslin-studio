@@ -7,13 +7,14 @@ import { Composer } from '../components/Composer'
 import { Icon } from '../components/Icon'
 import { ChangesPanel, type Review } from '../task/ChangesPanel'
 import { DetailsPanel } from '../task/DetailsPanel'
+import { AgencyPageView, shownPages } from '../agency/pages'
 import { PreviewPanel } from '../task/PreviewPanel'
 import { TaskHeader, type Pane } from '../task/TaskHeader'
 import { Thread } from '../task/Thread'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
 
-const PANE_TITLE: Record<Pane, string> = { details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
+const PANE_TITLE: Record<'details' | 'changes' | 'preview' | '', string> = { details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
 
 interface Props {
   sessionId: string
@@ -40,6 +41,8 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const [text, setText] = useState('')
   const [attached, setAttached] = useState<Attachment[]>([])
   const [pane, setPane] = useState<Pane>('')
+  const agencyPage = pane.startsWith('page:') ? shownPages(view).find((p) => `page:${p.id}` === pane) : undefined
+  const paneTitle = agencyPage ? agencyPage.title : PANE_TITLE[pane as keyof typeof PANE_TITLE] ?? ''
   const [review, setReview] = useState<Review | null>(null)
   const [previewPath, setPreviewPath] = useState<string | null>(null)
   const openPreview = (p: string): void => { setPreviewPath(p); setPane('preview') }
@@ -95,13 +98,14 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         </div>
       </section>
       {pane && (
-        <aside className={pane === 'preview' ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={PANE_TITLE[pane]}>
+        <aside className={pane === 'preview' || pane.startsWith('page:') ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={paneTitle}>
           <div className="flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4">
-            <span className="text-[13px] font-semibold">{PANE_TITLE[pane]}</span>
+            <span className="text-[13px] font-semibold">{paneTitle}</span>
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => setPane('')}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pane === 'details' && <DetailsPanel view={view} agent={agent} cards={task.cards} channel={task.channel} cost={task.cost} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
+            {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
             {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} />}
             {pane === 'changes' && (shownReview
               ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} onPreview={openPreview} />

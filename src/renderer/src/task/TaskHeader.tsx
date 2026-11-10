@@ -8,10 +8,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { PAGE_ICON, shownPages } from '../agency/pages'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
-export type Pane = 'details' | 'changes' | 'preview' | ''
+/** The right panel; `page:<id>` is one of the agency's pages (agency/pages). */
+export type Pane = 'details' | 'changes' | 'preview' | '' | `page:${string}`
 const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
 
 interface Props {
@@ -53,7 +55,7 @@ export function TaskHeader({ session, agent, view, running, pane, pendingChanges
         ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-9 min-w-0 max-w-[520px] gap-1.5 px-2 text-[15px] font-medium" aria-label={`${title}: task menu`}>
+              <Button variant="ghost" className="h-9 min-w-0 max-w-[520px] shrink gap-1.5 px-2 text-[15px] font-medium" aria-label={`${title}: task menu`}>
                 <span className="truncate">{title}</span><Icon name="arrowDown" size={12} className="flex-none text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
@@ -87,6 +89,7 @@ export function TaskHeader({ session, agent, view, running, pane, pendingChanges
           {pendingChanges > 0 && <span className="absolute top-1 right-1.5 size-2 rounded-full bg-lime" aria-hidden="true" />}
         </ToggleGroupItem>
         {view && <ToggleGroupItem value="preview" className={toggle} aria-label="Preview" title="Preview"><Icon name="eye" size={17} /></ToggleGroupItem>}
+        {shownPages(view).map((p) => <ToggleGroupItem key={p.id} value={`page:${p.id}`} className={toggle} aria-label={p.title} title={p.title}><Icon name={PAGE_ICON[p.kind]} size={17} /></ToggleGroupItem>)}
       </ToggleGroup>
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

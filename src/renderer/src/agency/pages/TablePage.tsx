@@ -101,7 +101,7 @@ export function TablePage({ view, page }: { view: AgencyView; page: AgencyPageSp
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((g) => (

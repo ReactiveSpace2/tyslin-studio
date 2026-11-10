@@ -79,7 +79,7 @@ export function CalendarPage({ view, page }: { view: AgencyView; page: AgencyPag
   }
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+    <div className="@container"><div className="flex flex-col gap-4 @3xl:flex-row @3xl:items-start">
       <Card className="w-fit gap-3 p-3">
         <Calendar
           mode="single"
@@ -116,6 +116,6 @@ export function CalendarPage({ view, page }: { view: AgencyView; page: AgencyPag
         </ul>
         <p className="mt-1 font-mono text-[11px] text-muted-foreground">{file}</p>
       </div>
-    </div>
+    </div></div>
   )
 }
