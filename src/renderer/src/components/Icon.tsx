@@ -66,7 +66,9 @@ const PATHS = {
   sparkle: <path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6z" />,
   layers: <><path d="M8 2 14 5 8 8 2 5z" /><path d="m2 8 6 3 6-3M2 11l6 3 6-3" /></>,
   live: <><circle cx="8" cy="8" r="1.5" /><path d="M5 5a4.2 4.2 0 0 0 0 6M11 5a4.2 4.2 0 0 1 0 6M2.9 2.9a7.2 7.2 0 0 0 0 10.2M13.1 2.9a7.2 7.2 0 0 1 0 10.2" /></>,
-  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
+  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>,
+  chevronRight: <path d="m6 3.5 4.5 4.5L6 12.5" />,
+  chevronDown: <path d="m3.5 6 4.5 4.5L12.5 6" />
 } as const
 
 export type IconName = keyof typeof PATHS
