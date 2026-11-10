@@ -444,7 +444,8 @@ export function createProject(name: string, folder: string | null): Project {
   return p
 }
 
-const SESSION_COLS = 'id, agent_id AS agentId, project_id AS projectId, title, created_at AS createdAt, updated_at AS updatedAt'
+// messageCount lets the window hide chats nothing was ever sent in (opened and left).
+const SESSION_COLS = 'id, agent_id AS agentId, project_id AS projectId, title, created_at AS createdAt, updated_at AS updatedAt, (SELECT COUNT(*) FROM messages m WHERE m.session_id = sessions.id) AS messageCount'
 
 export function listSessions(agentId?: string): Session[] {
   return agentId
@@ -460,7 +461,7 @@ export function createSession(agentId: string, projectId: string | null): Sessio
   // Assistants don't work in folders.
   if (projectId && getAgent(agentId)?.kind === 'assistant') projectId = null
   const now = Date.now()
-  const s: Session = { id: randomUUID(), agentId, projectId, title: 'New chat', createdAt: now, updatedAt: now }
+  const s: Session = { id: randomUUID(), agentId, projectId, title: 'New chat', createdAt: now, updatedAt: now, messageCount: 0 }
   db.prepare('INSERT INTO sessions (id, agent_id, project_id, title, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
     .run(s.id, s.agentId, s.projectId, s.title, now, now)
   return s

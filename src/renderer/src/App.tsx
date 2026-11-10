@@ -305,7 +305,8 @@ export default function App(): JSX.Element {
       </div>
       <SearchDialog open={search} onOpenChange={setSearch} agencies={agencies} agents={agents} sessions={sessions} runningIds={runningIds} needsYouBySession={needsYouBySession}
         onOpenTask={(sid, aid) => openTask(sid, aid)} onOpenAgency={(id) => openAgency(id)} onOpenAgent={(agencyId, agentId) => setRoute({ name: 'agent', agencyId, agentId })}
-        onNewTask={() => setRoute({ name: 'home' })} onNewAgency={() => setNewAgency({})} onScheduled={() => setRoute({ name: 'scheduled' })} onSettings={() => setRoute({ name: 'settings' })} />
+        onNewTask={() => setRoute({ name: 'home' })} onNewAgency={() => setNewAgency({})} onScheduled={() => setRoute({ name: 'scheduled' })} onSettings={() => setRoute({ name: 'settings' })}
+        onHome={() => setRoute({ name: 'home' })} onAgencies={() => setRoute({ name: 'agencies' })} onFiles={() => setRoute({ name: 'files' })} />
       {newAgency && (
         <NewAgencyDialog templateId={newAgency.templateId} onClose={() => setNewAgency(null)}
           onCreated={(projectId) => { setNewAgency(null); void refresh().then(() => { const v = viewByProject(projectId); if (v) openAgency(v.agency.id); else setRoute({ name: 'agencies' }) }) }} />

@@ -68,7 +68,7 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
           <Button onClick={onNewTask} disabled={!lead || agency.paused}>New task here</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="size-11" aria-label={`More for ${agency.name}`}><Icon name="updown" size={16} /></Button>
+              <Button variant="outline" size="icon" className="size-11" aria-label={`More for ${agency.name}`}><Icon name="more" size={16} /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl p-1.5 shadow-lg">
               <DropdownMenuItem className={menuItem} onSelect={() => setRenaming(true)}><Icon name="file" size={14} /> Rename</DropdownMenuItem>

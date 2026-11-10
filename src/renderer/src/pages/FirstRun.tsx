@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import type { ProviderId, ProviderSettings } from '@shared/types'
 import { AGENCY_GROUPS, AGENCY_TEMPLATES, agentName, type AgencyTemplate } from '@shared/agencies'
 import { ENGINE_NAMES } from '@shared/engines'
+import { MODEL_SUGGESTIONS } from '@shared/models'
 import { refreshDefaultModel } from '../defaultModel'
 import { Icon } from '../components/Icon'
-import { DefaultModelPicker, ModelKeys } from '../components/ModelSetup'
+import { DefaultModelPicker, ModelKeys, hasKey } from '../components/ModelSetup'
 import { Pose } from '../components/Pose'
 import logo from '../assets/logo-horizontal.png'
 import { Badge } from '@/components/ui/badge'
@@ -32,8 +33,21 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<string | null>(null)
-  const loadSettings = async (): Promise<void> => { const s = await window.tyslin.settings.get(); setSettings(s); setPick((p) => p ?? { provider: s.defaultModel.provider, model: s.defaultModel.model }) }
+  // The picked provider follows the keys: when the current pick has no key and one provider does, the pick moves
+  // there with its first suggested model, so saving an OpenAI key doesn't leave the Lead on "Claude (not connected)".
+  const loadSettings = async (): Promise<void> => {
+    const s = await window.tyslin.settings.get()
+    setSettings(s)
+    setPick((p) => {
+      const cur = p ?? { provider: s.defaultModel.provider, model: s.defaultModel.model }
+      if (hasKey(s, cur.provider)) return cur
+      const first = (['anthropic', 'openai', 'gemini', 'openrouter'] as ProviderId[]).find((id) => hasKey(s, id))
+      return first ? { provider: first, model: MODEL_SUGGESTIONS[first][0] ?? '' } : cur
+    })
+  }
   useEffect(() => { void loadSettings() }, [])
+  const connected = !!pick && hasKey(settings, pick.provider)
+  const ACTIONS = 'sticky bottom-0 -mx-12 -mb-9 mt-auto flex items-center gap-3 border-t border-border bg-background px-12 py-4'
 
   const finishSetup = async (): Promise<void> => {
     setBusy(true); setError('')
@@ -81,7 +95,7 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
                   </div>
                 )
               })}
-              <div className="mt-auto flex items-center gap-3"><Button size="lg" disabled={!org.trim()} onClick={() => setStep(1)}>Continue with {tpl.name}</Button><span className="text-xs text-muted-foreground">Workers run on {[...new Set(tpl.roster.filter((m) => !m.lead).map((m) => ENGINE_NAMES[m.engine]))].join(', ')}. Change it later per agent.</span></div>
+              <div className={ACTIONS}><Button size="lg" disabled={!org.trim()} onClick={() => setStep(1)}>Continue with {tpl.name}</Button><span className="text-xs text-muted-foreground">Workers run on {[...new Set(tpl.roster.filter((m) => !m.lead).map((m) => ENGINE_NAMES[m.engine]))].join(', ')}. Change it later per agent.</span></div>
             </>
           )}
           {step === 1 && (
@@ -90,7 +104,11 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
               <ModelKeys settings={settings} onSaved={() => loadSettings()} />
               <Card className="gap-3 px-5 py-[18px]"><strong className="text-sm font-semibold">Default model</strong>{pick && <DefaultModelPicker settings={settings} value={pick} onChange={setPick} />}<span className="text-xs text-muted-foreground">Used by the Lead and by anything you don't set otherwise.</span></Card>
               {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
-              <div className="mt-auto flex items-center gap-3"><Button variant="ghost" size="lg" onClick={() => setStep(0)}>Back</Button><Button size="lg" disabled={busy} onClick={() => void finishSetup()}>{busy ? 'Setting up…' : 'Continue'}</Button></div>
+              <div className={ACTIONS}>
+                <Button variant="ghost" size="lg" onClick={() => setStep(0)}>Back</Button>
+                <Button size="lg" disabled={busy || !connected} onClick={() => void finishSetup()}>{busy ? 'Setting up…' : 'Continue'}</Button>
+                {!connected && <span className="text-xs text-muted-foreground">Add a key above first: the Lead can't run without one.</span>}
+              </div>
             </>
           )}
           {step === 2 && (
@@ -100,7 +118,7 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
                 {tpl.roster.map((m) => <div key={m.first} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-semibold">{agentName(m)}</strong><span className="text-xs text-muted-foreground">{m.lead ? 'Lead' : m.job} · {m.lead ? 'default model' : ENGINE_NAMES[m.engine]}</span></span></div>)}
               </Card>
               <div className="flex max-w-[620px] flex-col gap-2"><Label htmlFor="fr-task">First task</Label><Textarea id="fr-task" rows={3} value={task} onChange={(e) => setTask(e.target.value)} placeholder="What should they do first?" autoFocus /></div>
-              <div className="mt-auto flex items-center gap-3"><Button size="lg" onClick={() => created && onDone(created, task.trim())}>{task.trim() ? 'Start' : 'Go to Home'}</Button></div>
+              <div className={ACTIONS}><Button size="lg" onClick={() => created && onDone(created, task.trim())}>{task.trim() ? 'Start' : 'Go to Home'}</Button></div>
             </>
           )}
         </main>

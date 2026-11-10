@@ -83,13 +83,30 @@ function findMember(agency: Agency, who: unknown): Agent | null {
 }
 
 /** What the Lead sees in its system prompt: the roster with ids and every card by column. */
+/** How the Lead's plan waits for the boss: the line in its prompt and the refusal board_run_card gives. */
+const APPROVAL_LINE = 'Cards wait in Planned with an assignee until the boss approves the plan in the task ("Approve and run the plan"); you cannot start them yourself. After planning, tell the boss the plan is ready to approve.'
+
+/** A card's state for the Lead: running, failed (with the reason from its log), or done with a result. */
+function cardState(c: KanbanCard): string {
+  if (c.status === 'running') return ' — status: running'
+  if (c.status === 'failed') {
+    const why = [...(c.log ?? [])].reverse().find((l) => / failed: |^Could not start: /.test(l.text))?.text
+    return ` — status: failed${why ? ` (${why.replace(/^.*? failed: |^Could not start: /, '').slice(0, 160)})` : ''}`
+  }
+  if (c.status === 'done') return ' — status: done, has a result'
+  return c.result ? ' — has a result' : ''
+}
+
+/** What the Lead sees in its system prompt: the roster with ids and every card by column. */
 export function boardSummary(agency: Agency): string {
   const team = roster(agency)
   const doc = readBoard(agency)
   const lines = [
     `Agency "${agency.name}". Goal: ${agency.goal || '(none set)'}.`,
     agency.budget !== null ? `Budget: ${agency.spent.toFixed(2)} spent of ${agency.budget} this month.` : 'Budget: none set.',
-    `Cards ${agency.autoRun ? 'in Planned with an assignee start on their own after you plan' : 'are started by the boss, or by you with board_run_card'}.`,
+    boardHooks.runsOnItsOwn(agency)
+      ? `Cards in Planned with an assignee start on their own after you plan${agency.autoRun ? '' : ' (the boss approved the plan)'}; board_run_card starts one right away.`
+      : APPROVAL_LINE,
     '',
     'Roster (name: job):',
     ...team.map((a) => `- ${a.name}${a.id === agency.leadId ? ' (you, the Lead)' : ''}: ${a.description || 'agent'}; runs on ${a.engine === 'builtin' ? a.model : a.engine}`),
@@ -101,7 +118,7 @@ export function boardSummary(agency: Agency): string {
     lines.push(`\n${col.title} (${col.cards.length}):`)
     for (const c of col.cards) {
       const who = c.assignee ? team.find((a) => a.id === c.assignee)?.name ?? 'unknown' : 'unassigned'
-      lines.push(`- [${c.id}] ${c.title} — ${who}${c.status === 'running' ? ' — running' : c.result ? ' — has a result' : ''}${c.notes.trim() ? `\n  ${c.notes.trim().slice(0, 300).replace(/\n/g, ' ')}` : ''}`)
+      lines.push(`- [${c.id}] ${c.title} — ${who}${cardState(c)}${c.notes.trim() ? `\n  ${c.notes.trim().slice(0, 300).replace(/\n/g, ' ')}` : ''}`)
     }
   }
   return lines.join('\n')
@@ -136,9 +153,12 @@ export const BOARD_TOOL_NAMES = new Set(BOARD_TOOLS.map((t) => t.name))
 /** Set by cards.ts (runs a card) and channels.ts (messages the boss), to avoid import cycles. */
 export const boardHooks: {
   runCard: (agency: Agency, cardId: string) => Promise<string>
+  /** True when Planned cards start without the boss: auto-run, or the boss approved the plan (cards.ts). */
+  runsOnItsOwn: (agency: Agency) => boolean
   messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
 } = {
   runCard: async () => { throw new Error('Card runs are not available.') },
+  runsOnItsOwn: (agency) => agency.autoRun,
   messageBoss: async () => { throw new Error('No channel is set up.') }
 }
 
@@ -159,14 +179,20 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
     writeFileSync(file, (existsSync(file) ? readFileSync(file, 'utf8') : `# ${agency.name} log\n\n`) + line, 'utf8')
     return ok('Logged.')
   }
-  if (call.name === 'board_run_card') return ok(await boardHooks.runCard(agency, String(input.card_id ?? '')))
+  if (call.name === 'board_run_card') {
+    // Without auto-run (or the boss's approval) the Lead plans; only the boss starts the work.
+    if (!boardHooks.runsOnItsOwn(agency)) return { id: call.id, content: `Not started. ${APPROVAL_LINE} Leave the card in Planned with an assignee.`, isError: true }
+    return ok(await boardHooks.runCard(agency, String(input.card_id ?? '')))
+  }
 
   const doc = readBoard(agency)
   if (!doc) throw new Error('The board file is missing.')
   if (call.name === 'board_add_card') {
     const title = String(input.title ?? '').trim()
     if (!title) throw new Error('A card needs a title.')
-    const colName = String(input.column ?? 'Planned')
+    let colName = String(input.column ?? 'Planned')
+    // A new card can't skip the boss's approval by landing in "In progress".
+    if (/progress/i.test(colName) && !boardHooks.runsOnItsOwn(agency)) colName = 'Planned'
     const column = doc.columns.find((c) => c.title.toLowerCase() === colName.toLowerCase()) ?? doc.columns[1] ?? doc.columns[0]
     const who = input.assignee ? findMember(agency, input.assignee) : null
     if (input.assignee && !who) throw new Error(`No one called "${String(input.assignee)}" is on the roster.`)

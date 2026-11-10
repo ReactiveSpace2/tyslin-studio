@@ -17,6 +17,11 @@ const finishedAt = (c: KanbanCard): number | null => {
   return hit?.at ?? null
 }
 const mins = (ms: number): string => { const m = Math.max(1, Math.round(ms / 60_000)); return `${m} min` }
+/** Why a card failed, from its log ("<name> failed: …" written by cards.ts), when the live run's error is gone. */
+const failedReason = (c: KanbanCard): string | null => {
+  const hit = [...(c.log ?? [])].reverse().find((l) => / failed: |^Could not start: /.test(l.text))
+  return hit ? hit.text.replace(/^.*? failed: |^Could not start: /, '') : null
+}
 
 /**
  * One worker's run on its card, folded to a line: "Sam worked for 6 min · read 4 files, edited 3". Open
@@ -40,6 +45,8 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
     return () => { live = false }
   }, [card.sessionId, running, card.status])
   const pending = changes.filter((c) => c.status === 'pending')
+  // The live run's error while the task is open; afterwards the reason stays in the card's log.
+  const reason = running ? null : run?.error || (card.status === 'failed' ? failedReason(card) : null)
   const summary = [reads && `read ${reads} file${reads === 1 ? '' : 's'}`, edits && `edited ${edits}`].filter(Boolean).join(', ')
   const line = running ? `${name} is working on “${card.title}”${span ? ` · ${span}` : ''}${summary ? ` · ${summary}` : ''}`
     : card.status === 'failed' ? `${name} couldn't finish “${card.title}”` : `${name} worked on “${card.title}”${span ? ` for ${span}` : ''}${summary ? ` · ${summary}` : ''}`
@@ -55,7 +62,7 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="flex flex-col gap-2 px-3.5 pb-3">
-            {activity.length === 0 && <span className="text-xs text-muted-foreground">{running ? 'Starting…' : 'No tool calls were recorded for this run.'}</span>}
+            {activity.length === 0 && !reason && <span className="text-xs text-muted-foreground">{running ? 'Starting…' : 'No tool calls were recorded for this run.'}</span>}
             {activity.length > 0 && (
               <ul className="flex flex-col gap-0.5 font-mono text-[12.5px] leading-relaxed" aria-label="Tool calls">
                 {activity.map((a) => (
@@ -65,7 +72,7 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
                 ))}
               </ul>
             )}
-            {run?.error && <span className="text-[13px] text-destructive">{run.error}</span>}
+            {reason && <p className="rounded-md bg-destructive-soft px-2.5 py-1.5 text-[13px] leading-relaxed break-words text-destructive">{reason}</p>}
             {card.result && !running && <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{card.result.length > 600 ? card.result.slice(0, 600) + '…' : card.result}</p>}
             {changes.length > 0 && (
               <span className="flex flex-wrap items-center gap-2">

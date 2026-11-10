@@ -523,6 +523,8 @@ export interface Session {
   title: string
   createdAt: number
   updatedAt: number
+  /** Messages in the chat; 0 = opened and nothing sent yet (lists hide those unless they are open). */
+  messageCount: number
 }
 
 export interface Message {

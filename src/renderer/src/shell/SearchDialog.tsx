@@ -2,6 +2,7 @@ import type { Agent, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { listedTask } from './AppSidebar'
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from '@/components/ui/command'
 
 const cmdItem = 'min-h-9 cursor-pointer gap-2.5 rounded-md px-2 text-sm'
@@ -21,14 +22,17 @@ interface Props {
   onNewAgency: () => void
   onScheduled: () => void
   onSettings: () => void
+  onHome: () => void
+  onAgencies: () => void
+  onFiles: () => void
 }
 
 /** Ctrl/Cmd+K: tasks, agents, agencies and a few actions. Typing filters everything at once. */
-export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, runningIds, needsYouBySession, onOpenTask, onOpenAgency, onOpenAgent, onNewTask, onNewAgency, onScheduled, onSettings }: Props): JSX.Element {
+export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, runningIds, needsYouBySession, onOpenTask, onOpenAgency, onOpenAgent, onNewTask, onNewAgency, onScheduled, onSettings, onHome, onAgencies, onFiles }: Props): JSX.Element {
   const go = (fn: () => void): void => { onOpenChange(false); fn() }
   const agencyOfAgent = (a: Agent): AgencyView | undefined => agencies.find((v) => v.agency.id === a.agency || v.project.id === a.projectId)
   const people = agencies.flatMap((v) => [v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => ({ a, v })))
-  const tasks = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 40).map((s) => {
+  const tasks = [...sessions].filter((s) => listedTask(s)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 40).map((s) => {
     const a = agents.find((x) => x.id === s.agentId)
     return { s, a, v: a ? agencyOfAgent(a) : undefined }
   })
@@ -75,6 +79,9 @@ export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, r
         <CommandGroup heading="Actions">
           <CommandItem className={cmdItem} value="new task" onSelect={() => go(onNewTask)}><Icon name="plus" size={14} /> New task</CommandItem>
           <CommandItem className={cmdItem} value="new agency" onSelect={() => go(onNewAgency)}><Icon name="agency" size={14} /> New agency</CommandItem>
+          <CommandItem className={cmdItem} value="go home start" onSelect={() => go(onHome)}><Icon name="home" size={14} /> Home</CommandItem>
+          <CommandItem className={cmdItem} value="go agencies all teams" onSelect={() => go(onAgencies)}><Icon name="agency" size={14} /> Agencies</CommandItem>
+          <CommandItem className={cmdItem} value="go files folders drive" onSelect={() => go(onFiles)}><Icon name="folder" size={14} /> Files</CommandItem>
           <CommandItem className={cmdItem} value="schedule a task scheduled" onSelect={() => go(onScheduled)}><Icon name="clock" size={14} /> Scheduled tasks</CommandItem>
           <CommandItem className={cmdItem} value="settings models keys" onSelect={() => go(onSettings)}><Icon name="settings" size={14} /> Settings</CommandItem>
         </CommandGroup>

@@ -31,13 +31,27 @@ interface Props {
 const RECENT = 8
 
 /**
+ * The chats worth listing as tasks: not a worker's card run (cards.ts titles them "Card: …"; they show inside
+ * the Lead's task), and not a chat nothing was sent in, unless it is the one open now.
+ */
+export const listedTask = (s: Session, openId?: string | null): boolean =>
+  !s.title.startsWith('Card: ') && (s.messageCount > 0 || s.id === openId)
+
+/**
  * The left column, the same on every screen (shadcn sidebar-07, collapses to icons): the logo (the first
  * window drag area), New task / Search / Agencies / Scheduled / Files, the most recent tasks with what
  * needs you, and the user menu at the foot.
  */
 export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds, needsYouBySession, account, canSignOut, onNavigate, onSearch, onSettings, onSignOut }: Props): JSX.Element {
+  // New task goes Home too, then puts the cursor in the box (Home's Composer renders it as #composer); only Home is
+  // shown as the current item.
+  const newTask = (): void => {
+    onNavigate({ name: 'home' })
+    window.setTimeout(() => (document.getElementById('composer') as HTMLTextAreaElement | null)?.focus(), 50)
+  }
   const main: { name: string; icon: IconName; on: boolean; go: () => void }[] = [
-    { name: 'New task', icon: 'plus', on: route.name === 'home', go: () => onNavigate({ name: 'home' }) },
+    { name: 'Home', icon: 'home', on: route.name === 'home', go: () => onNavigate({ name: 'home' }) },
+    { name: 'New task', icon: 'plus', on: false, go: newTask },
     { name: 'Search', icon: 'search', on: false, go: onSearch },
     { name: 'Agencies', icon: 'agency', on: route.name === 'agencies' || route.name === 'agency' || route.name === 'agent', go: () => onNavigate({ name: 'agencies' }) },
     { name: 'Scheduled', icon: 'clock', on: route.name === 'scheduled', go: () => onNavigate({ name: 'scheduled' }) },
@@ -45,8 +59,8 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
   ]
   // Tasks are chats with an agency's agents; the newest first.
   const agencyAgents = new Set(agencies.flatMap((v) => [v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => a.id)))
-  const recent = [...sessions].filter((s) => agencyAgents.has(s.agentId)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT)
   const openTask = route.name === 'task' ? route.sessionId : null
+  const recent = [...sessions].filter((s) => agencyAgents.has(s.agentId) && listedTask(s, openTask)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT)
 
   return (
     <Sidebar collapsible="icon">

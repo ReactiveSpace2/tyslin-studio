@@ -60,7 +60,7 @@ export function GoalsTab({ view, onChanged, onChannel }: { view: AgencyView; onC
             <div className="flex items-center justify-between gap-3">
               <Label htmlFor="ag-notify" className="text-sm font-normal">{who} messages you about</Label>
               <Select value={notify} onValueChange={(v) => setNotify(v as Agency['notify'])}>
-                <SelectTrigger id="ag-notify" className="w-[190px] bg-card"><SelectValue /></SelectTrigger>
+                <SelectTrigger id="ag-notify" className="min-w-[190px] bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent position="popper"><SelectItem value="all">Everything</SelectItem><SelectItem value="questions">Questions and reviews</SelectItem><SelectItem value="digest">A digest only</SelectItem></SelectContent>
               </Select>
             </div>

@@ -76,8 +76,9 @@ export function OrgChart({ view, you, onOpenAgent, stateOf }: Props & { stateOf:
           <span className="flex items-center gap-1.5"><strong className="truncate text-[13.5px] font-semibold">{firstName(a.name)}</strong>{lead && <Badge variant="soft" className="h-[18px] px-1.5 text-[10.5px]">Lead</Badge>}</span>
           <span className="truncate text-xs text-muted-foreground">{a.description || (lead ? 'Plans and reviews' : 'Agent')} · <span className="font-mono">{runsOnLabel(a)}</span></span>
           <span className={cn('flex items-center text-[12.5px]', st.working ? 'font-semibold text-green' : st.attention ? 'text-green' : 'text-muted-foreground')}>
-            {st.label}{st.working && <WorkingDots />}{st.now && <span className="truncate font-normal text-muted-foreground">&nbsp;· {st.now}</span>}
+            {st.label}{st.working && <WorkingDots />}
           </span>
+          {st.now && <span className="block truncate text-xs text-muted-foreground" title={st.now}>{st.now}</span>}
         </span>
       </button>
     )

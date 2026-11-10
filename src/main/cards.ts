@@ -25,6 +25,7 @@ export function initCards(d: Deps): void {
     const sessionId = await runCard(agency.id, cardId)
     return `Started; the result will land on the card (chat ${sessionId}).`
   }
+  boardHooks.runsOnItsOwn = runsOnItsOwn
 }
 
 interface LiveRun { agencyId: string; cardId: string; usage: Usage }

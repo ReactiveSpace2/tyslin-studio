@@ -28,7 +28,8 @@ export const KEY_PROVIDERS: {
   { id: 'gemini', label: 'Gemini', maker: 'Google', line: 'Fast models with long context. Keys from Google AI Studio, with a free tier.', placeholder: 'From Google AI Studio', flag: 'geminiKeySet', getKey: 'https://aistudio.google.com/apikey', signIn: { plan: 'a Google account', engine: 'gemini-cli', engineName: 'Gemini CLI', account: 'Google' } }
 ]
 
-const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
+/** Whether a provider can run: a key is saved (Ollama needs none). First run uses it to pick a connected default. */
+export const hasKey = (s: ProviderSettings | null, p: ProviderId): boolean =>
   p === 'ollama' || !!(s && s[KEY_PROVIDERS.find((k) => k.id === p)!.flag])
 
 const money = (n: number): string => '$' + (n < 10 ? n.toFixed(2) : Math.round(n).toLocaleString())
