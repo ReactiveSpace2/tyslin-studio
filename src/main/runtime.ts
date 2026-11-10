@@ -15,6 +15,7 @@ import { getAgency } from './db'
 import { memoryPrompt } from './memory'
 import { templatePages } from '@shared/agencies'
 import { pageInstructions } from '@shared/pages'
+import { openRouterError, usesOpenRouter } from '@shared/openrouter'
 
 /**
  * AgentRuntime is the seam between Tyslin and whatever runs the agent loop.
@@ -354,6 +355,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
           turn--
           continue
         }
+        if (this.kind === 'openrouter') throw new Error(openRouterError(`error ${res.status}: ${body}`, agent.model) ?? `OpenRouter error ${res.status}: ${body.slice(0, 400)}`)
         throw new Error(`${this.kind} error ${res.status}: ${body}`)
       }
 
@@ -365,6 +367,12 @@ class OpenAICompatibleRuntime implements AgentRuntime {
       for await (const data of sseLines(res)) {
         if (data === '[DONE]') break
         for (const chunk of parsed(data)) {
+          // OpenRouter sends errors that happen after the stream started as a chunk with `error` (e.g. credits ran out).
+          const streamErr = (chunk as { error?: { code?: number | string; message?: string } }).error
+          if (streamErr) {
+            const raw = `error ${streamErr.code ?? ''}: ${streamErr.message ?? ''}`
+            throw new Error((this.kind === 'openrouter' ? openRouterError(raw, agent.model) : null) ?? `${this.kind} ${raw}`)
+          }
           if (chunk.usage) emit({ type: 'usage', inputTokens: Number(chunk.usage.prompt_tokens ?? 0), outputTokens: Number(chunk.usage.completion_tokens ?? 0) })
           const choice = chunk.choices?.[0]
           const delta = choice?.delta
@@ -489,7 +497,14 @@ class AcpRuntime implements AgentRuntime {
       return answer.finally(() => opts.emit({ type: 'state_update', status: 'running' }))
     }
 
-    return runAcpTurn({
+    // OpenRouter runs pick their model through the environment and config (engines.ts openRouterEnv); the slug isn't
+    // in the adapter's own model list, so it isn't chosen over ACP. Their errors are put in plain words.
+    const viaOpenRouter = usesOpenRouter(opts.agent)
+    // The adapter's last words: Claude Code prints "Failed to authenticate. API Error: 401 …" and then exits, so the
+    // thrown error alone only says "exit code 1".
+    let tail = ''
+    const emit: RunOptions['emit'] = viaOpenRouter ? (e) => { if (e.type === 'text_delta') tail = (tail + e.text).slice(-2000); opts.emit(e) } : opts.emit
+    const turn = runAcpTurn({
       name,
       launch,
       prompt: acpPrompt(opts),
@@ -497,9 +512,17 @@ class AcpRuntime implements AgentRuntime {
       signal: opts.signal,
       mcpServers: acpServersForAgent(opts.agent.id),
       // The agent's model, when the adapter lets clients choose among its models (Codex does); else its default.
-      model: opts.agent.model,
+      model: viaOpenRouter ? undefined : opts.agent.model,
       autoEdit: opts.agent.writeMode === 'direct' && !!files?.write,
-      host: { emit: opts.emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
+      host: { emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
+    })
+    if (!viaOpenRouter) return turn
+    return turn.catch((err: unknown) => {
+      const text = err instanceof Error ? err.message : String(err)
+      // codex-acp turns OpenRouter's 401 into ACP's "Authentication required", which acp.ts words as "sign in first".
+      const plain = openRouterError(text, opts.agent.model) ?? openRouterError(tail, opts.agent.model)
+        ?? (/sign in first|Authentication required/i.test(text) ? openRouterError('error 401', opts.agent.model) : null)
+      throw plain ? new Error(`${name} on OpenRouter: ${plain}`) : err
     })
   }
 }

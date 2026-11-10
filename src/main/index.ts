@@ -14,7 +14,8 @@ import { defaultModel } from './defaultModel'
 import { newProjectFolderPath, defaultProjectFolder, defaultProjectName, setDefaultProjectName, readStudioFile, writeStudioFile } from './studio'
 import { initTelegram, sendToLinkedChats, newLinkCode, notifyTask, onRunEvent, setTelegramNotify, setTelegramToken, telegramStatus, unlinkChat } from './telegram'
 import { authStatus, cancelSignIn, connectDrive, disconnectDrive, signIn, signOut } from './auth'
-import { cancelOpenRouter, connectOpenRouter, openRouterAccount } from './openrouterAuth'
+import { usesOpenRouter } from '@shared/openrouter'
+import { cancelOpenRouter, checkOpenRouterKey, connectOpenRouter, openRouterAccount } from './openrouterAuth'
 import { removeIntegration, saveIntegration, testIntegration } from './integrations'
 import { searchRegistry } from './mcpRegistry'
 import { listMemory, readMemory, writeMemory } from './memory'
@@ -111,6 +112,7 @@ function checkCanRun(sessionId: string): { session: Session; agent: Agent } {
  */
 function checkAgentReady(agent: Agent): void {
   if (agent.paused) throw new Error(`${agent.name} is paused. Resume it on its page to chat or run tasks.`)
+  if (usesOpenRouter(agent) && !getSecret('openrouter')) throw new Error(`${agent.name} runs on OpenRouter, and there's no OpenRouter key yet. Add one in Settings → Models.`)
   if (agent.engine === 'builtin' && agent.provider !== 'ollama' && !getSecret(agent.provider)) {
     throw new Error(`No ${PROVIDER_NAMES[agent.provider] ?? agent.provider} key yet. Add one in Settings → Models.`)
   }
@@ -332,11 +334,12 @@ async function openrouterModels(): Promise<OpenRouterModel[]> {
   if (openrouterCache && Date.now() - openrouterCache.at < 3_600_000) return openrouterCache.models
   try {
     const res = await fetch('https://openrouter.ai/api/v1/models', { signal: AbortSignal.timeout(15_000) })
-    const body = await res.json() as { data?: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }[] }
+    const body = await res.json() as { data?: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string }; supported_parameters?: string[] }[] }
     // Prices come as dollars per token in strings; show them per million tokens.
     const perM = (v?: string): number | null => { const n = Number(v); return v !== undefined && Number.isFinite(n) && n >= 0 ? Math.round(n * 1e6 * 100) / 100 : null }
     const models = (body.data ?? []).map((m) => ({
-      id: m.id, name: m.name || m.id, context: m.context_length ?? null, input: perM(m.pricing?.prompt), output: perM(m.pricing?.completion)
+      id: m.id, name: m.name || m.id, context: m.context_length ?? null, input: perM(m.pricing?.prompt), output: perM(m.pricing?.completion),
+      tools: (m.supported_parameters ?? []).includes('tools')
     })).sort((a, b) => a.name.localeCompare(b.name))
     openrouterCache = { at: Date.now(), models }
     return models
@@ -562,7 +565,9 @@ function registerIpc(): void {
     ollamaUrl: db.getSetting('ollamaUrl') || 'http://localhost:11434',
     defaultModel: defaultModel()
   }))
-  ipcMain.handle('settings:setKey', (_e, provider: KeyProvider, key: string) => {
+  ipcMain.handle('settings:setKey', async (_e, provider: KeyProvider, key: string) => {
+    // An OpenRouter key is checked before it is saved, so a typo isn't shown as "Connected". Offline: saved unchecked.
+    if (provider === 'openrouter') await checkOpenRouterKey(key.trim())
     setSecret(provider, key.trim())
   })
   ipcMain.handle('settings:setOllamaUrl', (_e, url: string) => db.setSetting('ollamaUrl', url.trim()))

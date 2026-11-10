@@ -721,6 +721,8 @@ export interface OpenRouterModel {
   context: number | null
   input: number | null
   output: number | null
+  /** The model takes tool calls (`supported_parameters` has "tools"); agents and the Codex/Claude Code workers need it. */
+  tools: boolean
 }
 
 export interface DefaultModel {

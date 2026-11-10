@@ -28,7 +28,11 @@ function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, e
     description: m.lead ? `Lead of ${agencyName}: plans the work, hands out cards and reports to you.` : `${m.job} in ${agencyName}.`,
     instructions: memberInstructions(t, m, agencyPrompt),
     shape: 'round', tone: 'lime', head: m.head,
-    provider: d.provider, model: d.model,
+    // Workers on an adapter use their own key or account; OpenRouter is chosen per worker in the editor, never
+    // inherited from a default model that happens to be on OpenRouter.
+    ...(engine !== 'builtin' && d.provider === 'openrouter'
+      ? { provider: engine === 'codex' ? 'openai' as const : engine === 'gemini-cli' ? 'gemini' as const : 'anthropic' as const, model: '' }
+      : { provider: d.provider, model: d.model }),
     skills: t.skills,
     schedule: 'manual',
     engine,

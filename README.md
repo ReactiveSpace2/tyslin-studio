@@ -86,8 +86,8 @@ Workers run on agents you install. Tyslin drives them over the [Agent Client Pro
 
 | Adapter | Install command the app uses | Needs |
 |---|---|---|
-| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (Settings → Models → Claude → Sign in with Claude), or your Claude key |
-| Codex | `npm install -g @agentclientprotocol/codex-acp` | A ChatGPT sign-in (Settings → Models → ChatGPT → Sign in with ChatGPT), or your OpenAI key |
+| Claude Code | `npm install -g @agentclientprotocol/claude-agent-acp` | A Claude sign-in (Settings → Models → Claude → Sign in with Claude), your Claude key, or your OpenRouter key with an `anthropic/…` model |
+| Codex | `npm install -g @agentclientprotocol/codex-acp` | A ChatGPT sign-in (Settings → Models → ChatGPT → Sign in with ChatGPT), your OpenAI key, or your OpenRouter key with any model slug (`openai/gpt-5.5`) |
 | Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (Settings → Models → Gemini → Sign in with Google), or your Gemini key |
 
 The agency templates use only these three. Hermes, Goose, ZeroClaw, OpenClaw and custom ACP commands are still in the code (`src/main/engines.ts`) and keep working for agents already on them, but are hidden from the screens while `SHOW_OTHER_ENGINES` is false in `src/shared/engines.ts`.
@@ -101,8 +101,11 @@ The Lead, and any agent on the built-in runtime, uses one of these.
 | Claude (Anthropic) | Settings → Models, Anthropic API key |
 | OpenAI | Settings → Models, OpenAI API key |
 | Gemini (Google) | Settings → Models, Gemini API key |
+| OpenRouter | Settings → Models, OpenRouter API key (checked with OpenRouter before it's saved), or *Or sign in with OpenRouter* |
 
 Ollama (local models) is hidden for now (`SHOW_OLLAMA` in `ModelSetup.tsx`); an agent already on it keeps working. Keys are also passed to Claude Code, Codex and Gemini CLI unless the provider's card is set to use your signed-in account.
+
+**OpenRouter for workers.** In a Claude Code or Codex worker's page, *Runs on* → *A model on OpenRouter* picks a model from OpenRouter's list (only models that take tool calls; Claude Code only `anthropic/…`). The worker then runs in a Tyslin-owned folder (`<app data>/adapters/claude-openrouter`, or `adapters/codex-openrouter/<agent>` with a `config.toml` naming an `openrouter` provider), so your own `~/.claude`, `~/.codex` and sign-ins are not used or changed, and the key is passed only in that process's environment. Gemini CLI has no OpenRouter option. OpenRouter errors (refused key, no credits, unknown model, rate limit) show in the task in plain words. Costs on OpenRouter models aren't estimated yet.
 
 **Sign in instead of a key.** Settings → Accounts and connectors → Claude Code, Codex or Gemini CLI → *Sign in with …* installs the provider's own tool if needed (Claude Code, Codex or Gemini CLI) and opens its browser sign-in, so agents on that tool use your Claude Pro/Max, ChatGPT or Google plan. The tool keeps the login; Tyslin never stores it. Leads and the default model still use an API key.
 

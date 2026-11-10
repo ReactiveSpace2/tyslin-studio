@@ -3,11 +3,13 @@ import type { Agent, AgentInput, EngineId, EngineStatus, McpServerInfo, Provider
 import { ENGINE_NAMES, MAIN_ENGINES, engineListed } from '@shared/engines'
 import { MODEL_SUGGESTIONS, PROVIDER_NAME } from '@shared/models'
 import { HEADS } from '@shared/heads'
+import { canUseOpenRouter, slugFits } from '@shared/openrouter'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
 import { getDefaultModel } from '../defaultModel'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
+import { OpenRouterModelPicker } from '../components/OpenRouterModelPicker'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -40,12 +42,24 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
   const isNew = !agent
   const team = [view.lead, ...view.workers].filter((a): a is Agent => !!a)
   const dm = getDefaultModel()
+  const fresh = dm?.provider === 'openrouter' // a new worker on an adapter doesn't take OpenRouter from the default
   const [form, setForm] = useState<AgentInput>(agent ?? {
-    kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime', provider: dm?.provider ?? 'anthropic', model: dm?.model ?? '',
+    kind: 'agent', name: '', description: '', instructions: '', shape: 'hex', tone: 'lime', provider: fresh ? 'anthropic' : dm?.provider ?? 'anthropic', model: fresh ? '' : dm?.model ?? '',
     skills: [], schedule: 'manual', engine: view.agency.adapter !== 'template' && (MAIN_ENGINES as string[]).includes(view.agency.adapter) ? (view.agency.adapter as EngineId) : 'claude-code', writeMode: 'ask', isMascot: false,
     projectId: view.project.id, leadId: view.lead?.id ?? null, agency: view.agency.id, tools: { read: true, write: true }, channels: { telegram: false }, head: HEADS.map(([id]) => id).find((h) => !team.some((a) => a.head === h)) ?? 'smile', goal: ''
   })
   const set = <K extends keyof AgentInput>(k: K, v: AgentInput[K]): void => setForm((f) => ({ ...f, [k]: v }))
+  // OpenRouter (10 Nov 2026): Leads and built-in agents can pick it as a provider; Claude Code and Codex workers can run
+  // on it ("Model and key"); Gemini CLI can't. A worker never inherits it from the default model.
+  const [orKey, setOrKey] = useState(false)
+  useEffect(() => { void window.tyslin.settings.get().then((s) => setOrKey(s.openrouterKeySet)).catch(() => undefined) }, [])
+  const nativeProvider = (e: EngineId, p: ProviderId): ProviderId => e === 'claude-code' ? 'anthropic' : e === 'codex' ? 'openai' : e === 'gemini-cli' ? 'gemini' : p
+  const pickEngine = (e: EngineId): void => setForm((f) => {
+    if (e === 'builtin') return { ...f, engine: e }
+    const keepOr = f.provider === 'openrouter' && canUseOpenRouter(e) && slugFits(e, f.model)
+    return { ...f, engine: e, ...(f.provider === 'openrouter' && !keepOr ? { provider: nativeProvider(e, f.provider), model: '' } : {}) }
+  })
+  const adapterOr = form.engine !== 'builtin' && canUseOpenRouter(form.engine) && form.provider === 'openrouter'
   const [engines, setEngines] = useState<EngineStatus[]>([])
   const [skills, setSkills] = useState<Skill[]>([])
   const [servers, setServers] = useState<McpServerInfo[]>([])
@@ -66,6 +80,8 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
 
   const save = async (): Promise<void> => {
     if (!form.name.trim()) { setError('Give the agent a name.'); return }
+    if ((form.engine === 'builtin' && form.provider === 'openrouter' || adapterOr) && !orKey) { setError('Add your OpenRouter key in Settings → Models first.'); return }
+    if (adapterOr && canUseOpenRouter(form.engine) && !slugFits(form.engine, form.model.trim())) { setError(form.engine === 'claude-code' ? 'Pick an anthropic/ model: Claude Code only runs Claude models.' : 'Pick an OpenRouter model, written in full like openai/gpt-5.5.'); return }
     setBusy(true); setError('')
     try {
       const saved = await window.tyslin.agents.save({ ...form, name: form.name.trim(), description: form.description.trim() })
@@ -134,20 +150,38 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
           <Card className="gap-0 px-4 py-1">
             <div className="flex flex-col gap-2 border-b border-border py-3">
               <Label htmlFor="ae-engine" className="text-sm font-semibold">Runs on</Label>
-              <Select value={form.engine} onValueChange={(v) => set('engine', v as EngineId)} disabled={isLead}>
+              <Select value={form.engine} onValueChange={(v) => pickEngine(v as EngineId)} disabled={isLead}>
                 <SelectTrigger id="ae-engine" className="bg-card"><SelectValue /></SelectTrigger>
                 <SelectContent position="popper">{engineOptions.map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
               </Select>
               {form.engine === 'builtin' ? (
                 <div className="grid grid-cols-2 gap-2">
-                  <Select value={form.provider} onValueChange={(v) => { const p = v as ProviderId; setForm((f) => ({ ...f, provider: p, model: MODEL_SUGGESTIONS[p][0] ?? '' })) }}>
+                  <Select value={form.provider} onValueChange={(v) => { const p = v as ProviderId; setForm((f) => ({ ...f, provider: p, model: p === 'openrouter' ? '' : MODEL_SUGGESTIONS[p][0] ?? '' })) }}>
                     <SelectTrigger aria-label="Provider" className="bg-card"><SelectValue /></SelectTrigger>
-                    <SelectContent position="popper">{(['anthropic', 'openai', 'gemini'] as ProviderId[]).map((p) => <SelectItem key={p} value={p}>{PROVIDER_NAME[p]}</SelectItem>)}</SelectContent>
+                    <SelectContent position="popper">{(['anthropic', 'openai', 'gemini', 'openrouter'] as ProviderId[]).map((p) => <SelectItem key={p} value={p}>{PROVIDER_NAME[p]}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Input aria-label="Model" className="font-mono text-xs" value={form.model} onChange={(e) => set('model', e.target.value)} list="ae-models" />
-                  <datalist id="ae-models">{(MODEL_SUGGESTIONS[form.provider] ?? []).map((m) => <option key={m} value={m} />)}</datalist>
+                  {form.provider === 'openrouter'
+                    ? <OpenRouterModelPicker value={form.model} onChange={(m) => set('model', m)} />
+                    : <>
+                        <Input aria-label="Model" className="font-mono text-xs" value={form.model} onChange={(e) => set('model', e.target.value)} list="ae-models" />
+                        <datalist id="ae-models">{(MODEL_SUGGESTIONS[form.provider] ?? []).map((m) => <option key={m} value={m} />)}</datalist>
+                      </>}
                 </div>
-              ) : <span className={HINT}>{ENGINE_NAMES[form.engine]} uses its own model and your key or account (Settings → Accounts).</span>}
+              ) : canUseOpenRouter(form.engine) ? (
+                <div className="flex flex-col gap-2">
+                  <Select value={adapterOr ? 'openrouter' : 'own'} onValueChange={(v) => setForm((f) => (v === 'openrouter' ? { ...f, provider: 'openrouter', model: '' } : { ...f, provider: nativeProvider(f.engine, f.provider), model: '' }))}>
+                    <SelectTrigger aria-label="Model and key" className="bg-card"><SelectValue /></SelectTrigger>
+                    <SelectContent position="popper">
+                      <SelectItem value="own">Its own model, your {form.engine === 'codex' ? 'OpenAI' : 'Claude'} key or account</SelectItem>
+                      <SelectItem value="openrouter">A model on OpenRouter, your OpenRouter key</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {adapterOr
+                    ? <><OpenRouterModelPicker value={form.model} onChange={(m) => set('model', m)} engine={form.engine as 'claude-code' | 'codex'} />
+                        <span className={HINT}>{form.engine === 'claude-code' ? 'Claude Code runs only Claude models (anthropic/…).' : 'Codex takes any model with tool calls; OpenAI models work best.'} Runs in a Tyslin-owned {form.engine === 'claude-code' ? 'Claude' : 'Codex'} folder, so your own sign-in isn't used or changed.{!orKey && ' Add your OpenRouter key in Settings → Models first.'}</span></>
+                    : <span className={HINT}>{ENGINE_NAMES[form.engine]} uses its own model and your key or account (Settings → Accounts).</span>}
+                </div>
+              ) : <span className={HINT}>{ENGINE_NAMES[form.engine]} uses its own model and your key or account (Settings → Accounts).{form.engine === 'gemini-cli' && ' It has no OpenRouter option.'}</span>}
               {isLead && <span className={HINT}>The Lead always runs on the built-in model.</span>}
             </div>
             <div className="flex items-center justify-between gap-3 border-b border-border py-3">

@@ -12,8 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
-/** OpenRouter is hidden for now (owner, 7 Nov 2026). Its sign-in, card and model search stay in the code; set true to show them. */
-export const SHOW_OPENROUTER = false
+/** OpenRouter: hidden 7 Nov 2026, shown again 10 Nov 2026 (owner) as a provider card like the others, for Leads and for Claude Code / Codex workers. */
+export const SHOW_OPENROUTER = true
 /** Ollama (local models) is hidden for now: no card, and not in the default-model picker unless already chosen. Code kept. */
 export const SHOW_OLLAMA = false
 
@@ -22,7 +22,7 @@ export const KEY_PROVIDERS: {
   id: KeyProvider; label: string; maker: string; line: string; placeholder: string; flag: keyof ProviderSettings; getKey: string
   signIn?: { plan: string; engine: AccountEngine; engineName: string; account: string }
 }[] = [
-  { id: 'openrouter', label: 'OpenRouter', maker: 'One account, hundreds of models', line: 'Claude, GPT, Gemini, DeepSeek, Llama and more through a single sign-in. Pay as you go on openrouter.ai.', placeholder: 'sk-or-…', flag: 'openrouterKeySet', getKey: 'https://openrouter.ai/keys' },
+  { id: 'openrouter', label: 'OpenRouter', maker: 'One key, hundreds of models', line: 'Claude, GPT, Gemini, DeepSeek and more with one key, paid as you go on openrouter.ai. For Leads, and for Claude Code and Codex workers you set to OpenRouter.', placeholder: 'sk-or-…', flag: 'openrouterKeySet', getKey: 'https://openrouter.ai/keys' },
   { id: 'anthropic', label: 'Claude', maker: 'Anthropic', line: 'Strong at planning, writing and code. Billed per use on your Anthropic account.', placeholder: 'sk-ant-…', flag: 'anthropicKeySet', getKey: 'https://console.anthropic.com/settings/keys', signIn: { plan: 'a Claude Pro or Max plan', engine: 'claude-code', engineName: 'Claude Code', account: 'Claude' } },
   { id: 'openai', label: 'ChatGPT', maker: 'OpenAI', line: 'GPT models for chat, writing and code. Billed per use on your OpenAI platform account.', placeholder: 'sk-…', flag: 'openaiKeySet', getKey: 'https://platform.openai.com/api-keys', signIn: { plan: 'a ChatGPT plan', engine: 'codex', engineName: 'Codex', account: 'ChatGPT' } },
   { id: 'gemini', label: 'Gemini', maker: 'Google', line: 'Fast models with long context. Keys from Google AI Studio, with a free tier.', placeholder: 'From Google AI Studio', flag: 'geminiKeySet', getKey: 'https://aistudio.google.com/apikey', signIn: { plan: 'a Google account', engine: 'gemini-cli', engineName: 'Gemini CLI', account: 'Google' } }
@@ -60,17 +60,21 @@ function InstallConfirm({ label, children }: { label: string; children: React.Re
 function KeyField({ id, placeholder, label, onSave, onCancel }: { id: KeyProvider; placeholder: string; label: string; onSave: (key: string) => Promise<void>; onCancel?: () => void }): JSX.Element {
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
   const save = async (): Promise<void> => {
     if (!value.trim()) return
-    setBusy(true)
-    try { await onSave(value); setValue('') } finally { setBusy(false) }
+    setBusy(true); setError('')
+    try { await onSave(value); setValue('') } catch (err) { setError((err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')) } finally { setBusy(false) }
   }
   return (
+    <div className="flex flex-col gap-1.5">
     <div className="flex items-center gap-2">
       <Input id={'k-' + id} type="password" className="flex-1 font-mono" autoComplete="off" placeholder={placeholder} aria-label={label + ' API key'} value={value}
         onChange={(e) => setValue(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } }} autoFocus={!!onCancel} />
       <Button type="button" disabled={!value.trim() || busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save key'}</Button>
       {onCancel && <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>}
+    </div>
+    {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
     </div>
   )
 }
@@ -233,8 +237,8 @@ function ProviderHead({ id, mark, title, maker, size = 40, children }: { id: str
 }
 
 /**
- * Every model provider as a card: OpenRouter first with "Connect with OpenRouter" (its OAuth sign-in), then Claude,
- * ChatGPT and Gemini with an API key plus the adapter that uses the user's own subscription sign-in, then Ollama.
+ * Every model provider as a card: Claude, ChatGPT and Gemini with an API key plus the adapter that uses the user's own
+ * subscription sign-in, then OpenRouter (key, checked in main before saving, or its OAuth sign-in), then Ollama.
  * `onOpenEngines` jumps to Settings → Agent engines; without it the path is named in text.
  */
 export function ModelKeys({ settings, onSaved, onOpenEngines }: {
@@ -260,6 +264,9 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
   useEffect(() => { if (settings) setOllama(settings.ollamaUrl) }, [settings?.ollamaUrl])
 
   const orSet = !!settings?.openrouterKeySet
+  // How many OpenRouter models can take tool calls (what agents need); null until loaded, 0 when offline.
+  const [orModels, setOrModels] = useState<number | null>(null)
+  useEffect(() => { if (SHOW_OPENROUTER) void window.tyslin.settings.openrouterModels().then((m) => setOrModels(m.filter((x) => x.tools).length)).catch(() => setOrModels(0)) }, [])
   useEffect(() => {
     if (!orSet || !SHOW_OPENROUTER) { setOrAccount(null); return }
     void window.tyslin.settings.openrouterAccount().then(setOrAccount).catch(() => setOrAccount(null))
@@ -293,57 +300,9 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
   const [or, ...rest] = KEY_PROVIDERS
   return (
     <div className="tw flex flex-col gap-4 text-foreground">
-      {SHOW_OPENROUTER && <article className={cn(cardCls(orSet), !orSet && 'border-lime-soft bg-lime-soft')} aria-labelledby="pv-openrouter">
-        <ProviderHead id="pv-openrouter" mark="openrouter" title={or.label} maker={or.maker}>
-          {!orSet && <Badge variant="lime" className="font-mono text-[11px] uppercase">Easiest start</Badge>}
-          <Status on={orSet && orAccount?.valid !== false} text={orSet && orAccount?.valid === false ? 'Key revoked' : undefined} />
-        </ProviderHead>
-        <p className="text-sm leading-relaxed text-muted-foreground">{or.line}</p>
-        {orSet ? (
-          <>
-            {orAccount?.valid && (
-              <dl className="flex flex-wrap gap-x-7 gap-y-2">
-                {orAccount.label && <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Key</dt><dd className="font-mono text-[15px]">{orAccount.label}</dd></div>}
-                <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Spent</dt><dd className="font-mono text-[15px]">{money(orAccount.usage)}</dd></div>
-                <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Limit</dt><dd className="font-mono text-[15px]">{orAccount.limit === null ? 'None' : money(orAccount.limit)}</dd></div>
-                {orAccount.freeTier && <div className="flex flex-col gap-0.5"><dt className="text-xs text-muted-foreground">Plan</dt><dd className="text-[15px]">Free tier</dd></div>}
-              </dl>
-            )}
-            {editing === 'openrouter'
-              ? <KeyField id="openrouter" placeholder={or.placeholder} label={or.label} onSave={(k) => saveKey('openrouter', or.label, k)} onCancel={() => setEditing(null)} />
-              : (
-                <div className="flex flex-wrap items-center gap-2">
-                  {orAccount?.valid === false && <Button type="button" onClick={() => void connect()} disabled={connecting}>Connect again</Button>}
-                  <Button asChild variant="outline"><a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Credits and usage</a></Button>
-                  <Button type="button" variant="ghost" onClick={() => setEditing('openrouter')}>Replace key</Button>
-                  <Button type="button" variant="ghost" className="text-destructive" onClick={() => void remove('openrouter', or.label)}>Disconnect</Button>
-                </div>
-              )}
-          </>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              {connecting ? (
-                <>
-                  <span className="flex-1 text-sm" role="status">Finish signing in on openrouter.ai in your browser…</span>
-                  <Button type="button" variant="outline" onClick={() => void window.tyslin.settings.cancelOpenRouter()}>Cancel</Button>
-                </>
-              ) : (
-                <>
-                  <Button type="button" size="lg" className="min-w-[220px]" onClick={() => void connect()}>Connect with OpenRouter</Button>
-                  {editing !== 'openrouter' && <Button type="button" variant="ghost" onClick={() => setEditing('openrouter')}>Paste a key instead</Button>}
-                </>
-              )}
-            </div>
-            {editing === 'openrouter' && !connecting && <KeyField id="openrouter" placeholder={or.placeholder} label={or.label} onSave={(k) => saveKey('openrouter', or.label, k)} onCancel={() => setEditing(null)} />}
-            <p className="text-xs text-muted-foreground">Opens openrouter.ai to sign in. OpenRouter makes a key for Tyslin that you can see, limit or revoke at any time on openrouter.ai/keys.</p>
-          </>
-        )}
-        {orError && <p className={errorCls} role="alert">{orError}</p>}
-      </article>}
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
-        {rest.map((k) => {
+        {[...rest, ...(SHOW_OPENROUTER ? [or] : [])].map((k) => {
           const saved = !!settings?.[k.flag]
           const acct = k.signIn && accounts.find((x) => x.engine === k.signIn!.engine)
           const viaAccount = !!acct?.signedIn && acct.useAccount
@@ -364,10 +323,27 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
                 ) : (
                   <>
                     <KeyField id={k.id} placeholder={k.placeholder} label={k.label} onSave={(key) => saveKey(k.id, k.label, key)} onCancel={saved ? () => setEditing(null) : undefined} />
-                    <a href={k.getKey} target="_blank" rel="noreferrer" className={linkCls}>Get a {k.label} key</a>
+                    <a href={k.getKey} target="_blank" rel="noreferrer" className={linkCls}>Get {/^[AEIOU]/i.test(k.label) ? 'an' : 'a'} {k.label} key</a>
                   </>
                 )}
               </div>
+              {k.id === 'openrouter' && (
+                <div className="flex flex-col gap-2">
+                  {saved && orAccount?.valid === false && <p className={errorCls} role="alert">OpenRouter no longer accepts this key. Replace it.</p>}
+                  {saved && orAccount?.valid && (
+                    <span className="font-mono text-xs text-muted-foreground">{money(orAccount.usage)} spent{orAccount.limit === null ? '' : ` of ${money(orAccount.limit)}`}{orAccount.freeTier ? ' · free tier' : ''}</span>
+                  )}
+                  {orModels !== null && <span className="text-xs text-muted-foreground">{orModels ? `${orModels} models with tool calls. Pick one for the default model, a Lead, or a Claude Code or Codex worker (Gemini CLI can't use OpenRouter).` : "Couldn't load OpenRouter's model list."}</span>}
+                  <span className="flex flex-wrap items-center gap-2">
+                    {saved
+                      ? <Button asChild variant="outline" size="sm"><a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Credits and usage</a></Button>
+                      : connecting
+                        ? <><span className="text-sm" role="status">Finish signing in on openrouter.ai in your browser…</span><Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.settings.cancelOpenRouter()}>Cancel</Button></>
+                        : <Button type="button" variant="ghost" size="sm" onClick={() => void connect()}>Or sign in with OpenRouter</Button>}
+                  </span>
+                  {orError && <p className={errorCls} role="alert">{orError}</p>}
+                </div>
+              )}
               {k.signIn && (
                 <AccountSignIn info={k.signIn} status={accounts.find((x) => x.engine === k.signIn!.engine)} engine={engines.find((e) => e.id === k.signIn!.engine)}
                   keySaved={saved} onChange={putAccount} onSaved={onSaved} onOpenEngines={onOpenEngines} />
@@ -408,7 +384,7 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
   idPrefix?: string
 }): JSX.Element {
   // OpenRouter stays in the list only while it is shown, or when it is already the chosen provider.
-  const providers: ProviderId[] = (['openrouter', 'anthropic', 'openai', 'gemini', 'ollama'] as ProviderId[])
+  const providers: ProviderId[] = (['anthropic', 'openai', 'gemini', 'openrouter', 'ollama'] as ProviderId[])
     .filter((p) => p !== 'openrouter' || SHOW_OPENROUTER || value.provider === 'openrouter')
     .filter((p) => p !== 'ollama' || SHOW_OLLAMA || value.provider === 'ollama')
   // OpenRouter lists hundreds of models; load them once the provider is picked.
@@ -419,7 +395,7 @@ export function DefaultModelPicker({ settings, value, onChange, idPrefix = 'dm' 
     void window.tyslin.settings.openrouterModels().then(setOrModels).catch(() => setOrModels([]))
   }, [value.provider, orModels])
   const isOr = value.provider === 'openrouter' && !!orModels && orModels.length > 0
-  const all: OpenRouterModel[] = isOr ? orModels! : MODEL_SUGGESTIONS[value.provider].map((m) => ({ id: m, name: m, context: null, input: null, output: null }))
+  const all: OpenRouterModel[] = isOr ? orModels!.filter((m) => m.tools) : MODEL_SUGGESTIONS[value.provider].map((m) => ({ id: m, name: m, context: null, input: null, output: null, tools: true }))
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!isOr || !q) return all

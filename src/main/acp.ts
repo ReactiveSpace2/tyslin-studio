@@ -161,7 +161,9 @@ const TEXT_FAILURE_FORMS = [
   /^(Warning: Falling back from WebSockets to HTTPS transport\. )?unexpected status [45]\d\d\b/,
   /\bauth error code: [a-z_]+/,
   /^Authentication required\b/,
-  /^You have been logged out\b/
+  /^You have been logged out\b/,
+  // Claude Code's API failures as text, e.g. "API Error: 402 {…}" from OpenRouter (out of credits) (10 Nov 2026).
+  /^(Failed to authenticate\. )?API Error: [45]\d\d\b/
 ]
 
 /** What the agent said went wrong during the turn, if anything; checked when the turn stops. */

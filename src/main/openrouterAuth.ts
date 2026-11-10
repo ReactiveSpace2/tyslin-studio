@@ -42,6 +42,14 @@ export async function connectOpenRouter(): Promise<void> {
 }
 
 /** Label, spend and limit of the saved key (GET /api/v1/key). Null without a key or when offline. */
+/** Throws a readable error when OpenRouter refuses `key` (GET /api/v1/key). Network failures pass: the key is saved unchecked. */
+export async function checkOpenRouterKey(key: string): Promise<void> {
+  if (!/^\S{10,}$/.test(key)) throw new Error('That doesn\'t look like an OpenRouter key. It starts with sk-or-.')
+  let res: Response
+  try { res = await fetch('https://openrouter.ai/api/v1/key', { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) }) } catch { return }
+  if (res.status === 401 || res.status === 403) throw new Error('OpenRouter refused this key. Copy it again from openrouter.ai/settings/keys.')
+}
+
 export async function openRouterAccount(): Promise<OpenRouterAccount | null> {
   const key = getSecret('openrouter')
   if (!key) return null

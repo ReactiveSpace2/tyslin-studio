@@ -8,6 +8,8 @@ import { ENGINE_NAMES } from '@shared/engines'
 import { getSetting, setSetting } from './db'
 import { getSecret as getKey } from './secrets'
 import type { AcpLaunch } from './acp'
+import { usesOpenRouter } from '@shared/openrouter'
+import { openRouterLaunchEnv } from './openrouterLaunch'
 
 type EngineDef = Omit<EngineStatus, 'command' | 'resolvedPath' | 'install'>
 
@@ -275,6 +277,11 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
   // ~/.gemini, which Tyslin never writes. For an agent the user set to write directly (and only then), this one
   // process trusts its own agency folder, the same as `gemini --skip-trust` (10 Nov 2026).
   if (id === 'gemini-cli' && agent?.writeMode === 'direct' && agent.tools.write) env.GEMINI_CLI_TRUST_WORKSPACE = 'true'
+  // A Claude Code or Codex worker set to OpenRouter in the agent editor: its own key route and a Tyslin-owned home.
+  if (agent && usesOpenRouter(agent)) {
+    openRouterEnv(id, agent, env)
+    return { command: path, args: finalArgs, cwd, env }
+  }
   return { command: path, args: finalArgs, cwd, env, authMethodId: keyAuthMethod(id, env) }
 }
 
@@ -290,6 +297,22 @@ export function codexKeyHome(): string {
   const dir = join(app.getPath('userData'), ADAPTERS_DIR, 'codex-home')
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   return dir
+}
+
+/** A Tyslin-owned folder under userData/adapters, private to this user (mode 700). */
+function adapterDir(...parts: string[]): string {
+  const dir = join(app.getPath('userData'), ADAPTERS_DIR, ...parts)
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  return dir
+}
+
+/** OpenRouter for one Claude Code or Codex worker; the environment and Codex config come from openrouterLaunch.ts. */
+function openRouterEnv(id: ExternalEngineId, agent: Agent, env: NodeJS.ProcessEnv): void {
+  const key = (() => { try { return getKey('openrouter') } catch { return null } })()
+  if (!key) throw new Error('No OpenRouter key yet. Add one in Settings → Models, or set this agent back to your own key.')
+  if (id !== 'claude-code' && id !== 'codex') return
+  const home = id === 'claude-code' ? adapterDir('claude-openrouter') : adapterDir('codex-openrouter', agent.id.replace(/[^a-zA-Z0-9-]/g, ''))
+  openRouterLaunchEnv(id, agent.model.trim(), key, home, env)
 }
 
 /** The adapter's environment: widened PATH, saved keys, and in account mode no key variables at all. */
