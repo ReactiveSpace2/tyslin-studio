@@ -43,6 +43,8 @@ interface Props {
   onAgency?: (id: string) => void
   /** Makes the agency's name under the box a link to its page (the task screen). */
   onOpenAgency?: () => void
+  /** Extra pills in the line under the box (the task's Tools overview). */
+  footer?: React.ReactNode
   /** The agent the message goes to (the agency's Lead, or a worker in a direct chat). */
   agent: Agent | null
   value: string
@@ -67,7 +69,7 @@ interface Props {
  * attachments, and under it the agency, the model it runs on and the mode. Modes aren't built yet, so the
  * mode is shown but can't be changed.
  */
-export function Composer({ agencies, agencyId, onAgency, onOpenAgency, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
+export function Composer({ agencies, agencyId, onAgency, onOpenAgency, footer, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
   const [attachMenu, setAttachMenu] = useState(false)
   const attach = async (kind: 'file' | 'folder'): Promise<void> => {
     setAttachMenu(false)
@@ -130,6 +132,7 @@ export function Composer({ agencies, agencyId, onAgency, onOpenAgency, agent, va
         <Button type="button" variant="ghost" size="sm" className={foot} disabled title="Modes (Ask first, Plan, Auto) come in a later version; agents ask before they change files.">
           Ask first <Badge variant="secondary" className="h-4 px-1 text-[10px]">New</Badge>
         </Button>
+        {footer}
       </div>
     </form>
   )

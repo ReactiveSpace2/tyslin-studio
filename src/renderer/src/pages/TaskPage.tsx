@@ -11,6 +11,9 @@ import { AgencyPageView, shownPages } from '../agency/pages'
 import { PreviewPanel } from '../task/PreviewPanel'
 import { TaskHeader, type Pane } from '../task/TaskHeader'
 import { Thread } from '../task/Thread'
+import { ToolsPill } from '../task/ToolsPill'
+import type { ToolDef } from '@shared/toolCatalog'
+import type { McpServerInfo } from '@shared/types'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
 
@@ -55,6 +58,14 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const started = task.session?.createdAt ?? 0
   const nextTask = sessions.filter((s) => s.projectId === task.session?.projectId && s.id !== sessionId && !s.title.startsWith('Card: ') && s.messageCount > 0 && s.createdAt > started).reduce<number | null>((min, s) => (min === null || s.createdAt < min ? s.createdAt : min), null)
   const composerRef = useRef<HTMLDivElement>(null)
+  // Tools from the chat (owner, 12 Nov 2026: B + C + D on the canvas): the organization's connectors, a setup card
+  // in the thread, and the "Tools · n" overview under the box.
+  const [servers, setServers] = useState<McpServerInfo[]>([])
+  const [toolSetup, setToolSetup] = useState<{ tool: ToolDef; agentIds: string[] } | null>(null)
+  const loadServers = (): void => { void window.tyslin.integrations.list().then(setServers).catch(() => undefined) }
+  useEffect(loadServers, [sessionId])
+  const testServer = async (id: string): Promise<void> => { try { const r = await window.tyslin.integrations.test(id); setServers((l) => l.map((x) => (x.id === r.id ? r : x))) } catch { /* shown as not tested */ } }
+  const team = view ? [view.lead, ...view.workers].filter((a): a is Agent => !!a) : [agent]
   const running = task.streaming !== null
   const pendingOwn = task.changes.filter((c) => c.status === 'pending')
 
@@ -119,11 +130,12 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}
-        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onReview={openReview}
+        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
           onOpenAgency={onOpenAgency} onSettings={onSettings} onChanged={onSessionsChanged} />
         <div ref={composerRef} className="mx-auto w-full max-w-[760px] flex-none px-6 pt-2 pb-4">
-          <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent} value={text} onChange={setText} attached={attached} onAttached={setAttached}
+          <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent}
+            footer={view ? <ToolsPill agencyName={view.agency.name} team={team} servers={servers} onTest={testServer} onAdd={(tool) => setToolSetup({ tool, agentIds: team.filter((a) => a.engine !== 'builtin').map((a) => a.id) })} onMore={onConnectors} className="h-8 gap-1.5 px-2 font-mono text-xs text-muted-foreground has-[>svg]:px-2" /> : undefined} value={text} onChange={setText} attached={attached} onAttached={setAttached}
             running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />
         </div>
       </section>

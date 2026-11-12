@@ -11,6 +11,9 @@ import { ChannelCard, needsYou } from './ChannelCard'
 import { PermissionCard } from './PermissionCard'
 import { PlanCard } from './PlanCard'
 import { PreviewCard, useMadeFiles } from './PreviewCard'
+import { ToolSetupCard, ToolSuggestCard } from './ToolCards'
+import { connectedTool, toolById, toolHint, type ToolDef } from '@shared/toolCatalog'
+import type { McpServerInfo } from '@shared/types'
 import { StatusTable } from './StatusTable'
 import { WorkerWork } from './WorkerWork'
 import { activityLabel, type Task } from './useTask'
@@ -62,6 +65,12 @@ interface Props {
   until: number | null
   /** Opens a made file full screen in Preview. */
   onPreview: (path: string) => void
+  /** The organization's connectors, for the tool suggestion and setup cards. */
+  servers: McpServerInfo[]
+  /** A tool being set up in the thread (D on the canvas), and who should get it. */
+  toolSetup: { tool: ToolDef; agentIds: string[] } | null
+  onToolSetup: (setup: { tool: ToolDef; agentIds: string[] } | null) => void
+  onToolConnected: (s: McpServerInfo) => void
   onReview: (changes: PendingChange[], from: { agent: Agent | null; card: KanbanCard | null; message: ChannelMessage | null; sessionId: string }) => void
   onAskLead: () => void
   onOpenAgency: () => void
@@ -74,7 +83,7 @@ interface Props {
  * plan waiting for your OK, where each card stands, each worker's folded run, and anything asking for
  * permission or review, all in time order.
  */
-export function Thread({ task, agent, view, sessionId, focus, until, onPreview, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
+export function Thread({ task, agent, view, sessionId, focus, until, onPreview, servers, toolSetup, onToolSetup, onToolConnected, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const isLead = !!view && view.lead?.id === agent.id
@@ -85,6 +94,23 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
   const made = useMadeFiles(view?.project.id ?? null, task.session?.createdAt ?? null, until,
     `${task.streaming === null}:${task.changes.map((c) => c.status).join('')}:${task.cards.map((c) => c.status ?? '-').join('')}:${Object.values(task.workerRuns).map((r) => (r.running ? 1 : 0)).join('')}`)
 
+  // C on the canvas: the newest thing an agent said that a tool would solve, unless that tool is connected or the
+  // suggestion was waved away for this task (localStorage).
+  const teamIds = new Set(team.map((a) => a.id))
+  const isConnected = (toolId: string): boolean => { const t = toolById(toolId); return !!t && !!connectedTool(t, servers, teamIds) }
+  const [dismissed, setDismissed] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem(`tyslin:toolhint:${sessionId}`) ?? '[]') as string[] } catch { return [] } })
+  const dismiss = (toolId: string): void => { const next = [...dismissed, toolId]; setDismissed(next); try { localStorage.setItem(`tyslin:toolhint:${sessionId}`, JSON.stringify(next)) } catch { /* per-window */ } }
+  const said: { at: number; text: string; agent: Agent | null }[] = [
+    ...task.messages.filter((m) => m.role !== 'user').map((m) => ({ at: m.createdAt, text: m.content, agent })),
+    ...task.cards.filter((c) => c.result).map((c) => ({ at: [...(c.log ?? [])].reverse()[0]?.at ?? c.createdAt, text: c.result!, agent: agentOf(c.assignee || c.agentId) ?? null })),
+    ...Object.values(task.workerRuns).filter((r) => r.error).map((r) => ({ at: Date.now(), text: r.error!, agent: agentOf(r.agentId) ?? null }))
+  ].sort((a, b) => b.at - a.at)
+  const suggestion = (() => {
+    for (const s of said) { const h = toolHint(s.text, isConnected); if (h && !dismissed.includes(h.toolId)) return { ...h, agent: s.agent, at: s.at } }
+    return null
+  })()
+  const suggestedTool = suggestion ? toolById(suggestion.toolId) ?? null : null
+
   // Follow the bottom while it is in view; a message to focus wins once.
   const focusDone = useRef<string | null>(null)
   useEffect(() => {
@@ -94,7 +120,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
       return
     }
     if (atBottom) ref.current?.scrollTo({ top: ref.current.scrollHeight })
-  }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, made.shown.length, focus])
+  }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, made.shown.length, toolSetup, focus])
 
   const planned = isLead && !view!.agency.autoRun ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
   const active = task.cards.filter((c) => c.status || task.board?.columns.some((col) => /progress|review|done/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
@@ -193,6 +219,12 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
               </div>
             )
           })}
+          {suggestedTool && suggestion && !toolSetup && (
+            <ToolSuggestCard tool={suggestedTool} agent={suggestion.agent} reason={suggestion.reason}
+              onAdd={(whole) => onToolSetup({ tool: suggestedTool, agentIds: whole || !suggestion.agent || suggestion.agent.engine === 'builtin' ? team.filter((a) => a.engine !== 'builtin').map((a) => a.id) : [suggestion.agent.id] })}
+              onDismiss={() => dismiss(suggestedTool.id)} />
+          )}
+          {toolSetup && <ToolSetupCard key={toolSetup.tool.id} tool={toolSetup.tool} team={team} initialAgentIds={toolSetup.agentIds} onConnected={onToolConnected} onCancel={() => onToolSetup(null)} />}
           {task.permissions.map((p) => <PermissionCard key={p.id} p={p} agent={agent} onAnswer={task.answerPermission} />)}
           {workerPermissions.map(({ p, a }) => <PermissionCard key={p.id} p={p} agent={a} onAnswer={task.answerPermission} />)}
           {task.streaming !== null && !task.waiting && (
