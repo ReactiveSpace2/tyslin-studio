@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import type { Account, Agent, Session } from '@shared/types'
 import type { Route } from '../App'
 import type { AgencyView } from '../agencies'
+import { Avatar } from '../components/Avatar'
 import { Icon, type IconName } from '../components/Icon'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { StarCard } from './StarCard'
 import { UserMenu } from './UserMenu'
 import logo from '../assets/logo-horizontal.png'
@@ -30,7 +33,11 @@ interface Props {
   onSignOut: () => void
 }
 
-const RECENT = 8
+/** Recent tasks per agency in the sidebar (owner, 12 Nov 2026: grouped by agency, no "All tasks" row; Search lists the rest). */
+const RECENT_PER_AGENCY = 4
+/** Agency groups the user closed, kept per computer. */
+const CLOSED_KEY = 'tyslin:sidebar:closed'
+const readClosed = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem(CLOSED_KEY) ?? '[]') as string[]) } catch { return new Set() } }
 
 /**
  * The chats worth listing as tasks: not a worker's card run (cards.ts titles them "Card: …"; they show inside
@@ -41,8 +48,8 @@ export const listedTask = (s: Session, openId?: string | null): boolean =>
 
 /**
  * The left column, the same on every screen (shadcn sidebar-07, collapses to icons): the logo (the first
- * window drag area), New task / Search / Agencies / Scheduled / Files, the most recent tasks with what
- * needs you, and the user menu at the foot.
+ * window drag area), New task / Search / Agencies / Scheduled / Files, recent tasks grouped by agency with what
+ * needs you, and the user menu at the foot. Older tasks are found through Search.
  */
 export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds, needsYouBySession, account, canSignOut, onNavigate, onSearch, onSettings, onSignOut }: Props): JSX.Element {
   // New task goes Home and puts the cursor in the box (Home's Composer renders it as #composer). There is no Home
@@ -60,9 +67,23 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
     { name: 'Files', icon: 'folder', on: route.name === 'files', go: () => onNavigate({ name: 'files' }) }
   ]
   // Tasks are chats with an agency's agents; the newest first.
-  const agencyAgents = new Set(agencies.flatMap((v) => [v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => a.id)))
   const openTask = route.name === 'task' ? route.sessionId : null
-  const recent = [...sessions].filter((s) => agencyAgents.has(s.agentId) && listedTask(s, openTask)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT)
+  const [closed, setClosed] = useState<Set<string>>(readClosed)
+  const toggleGroup = (id: string, open: boolean): void => {
+    setClosed((prev) => { const next = new Set(prev); if (open) next.delete(id); else next.add(id); try { localStorage.setItem(CLOSED_KEY, JSON.stringify([...next])) } catch { /* per-window only */ } return next })
+  }
+  // One group per agency with recent tasks, the agency with the newest task first; a title that starts with the
+  // agency's name ("Web Design: Plan…") drops it, since the group says it.
+  const groups = agencies.map((v) => {
+    const ids = new Set([v.lead, ...v.workers].filter((a): a is Agent => !!a).map((a) => a.id))
+    const tasks = sessions.filter((s) => ids.has(s.agentId) && listedTask(s, openTask)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, RECENT_PER_AGENCY)
+    return { view: v, tasks }
+  }).filter((g) => g.tasks.length > 0).sort((a, b) => b.tasks[0].updatedAt - a.tasks[0].updatedAt)
+  const shortTitle = (title: string, agencyName: string): string => {
+    const t = title || 'New task'
+    const prefix = new RegExp(`^${agencyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\s*[:·-]\s*`, 'i')
+    return t.replace(prefix, '') || t
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -98,41 +119,66 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup className="pt-0">
-          <SidebarGroupLabel>Recents</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {recent.length === 0 && <li className="px-2 py-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">No tasks yet.</li>}
-              {recent.map((s) => {
-                const a = agents.find((x) => x.id === s.agentId)
-                const need = needsYouBySession[s.id] ?? 0
-                const running = runningIds.has(s.id)
-                const title = s.title || 'New task'
-                return (
-                  <SidebarMenuItem key={s.id}>
-                    <SidebarMenuButton isActive={openTask === s.id} tooltip={title} onClick={() => onNavigate({ name: 'task', sessionId: s.id, agentId: s.agentId })} className="h-9 pr-9" title={a ? `${title} · ${a.name}` : title}>
-                      <Icon name="chat" size={15} className="text-muted-foreground" />
-                      <span>{title}</span>
+        {groups.length === 0 && (
+          <SidebarGroup className="pt-0">
+            <SidebarGroupLabel>Recent tasks</SidebarGroupLabel>
+            <SidebarGroupContent><p className="px-2 py-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">No tasks yet.</p></SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {groups.map(({ view, tasks }) => {
+          const lead = view.lead
+          // The group stays open while its task is the one on screen, so the current task never hides.
+          const open = !closed.has(view.agency.id) || tasks.some((s) => s.id === openTask)
+          const needs = tasks.reduce((n, s) => n + (needsYouBySession[s.id] ?? 0), 0)
+          return (
+            <Collapsible key={view.agency.id} open={open} onOpenChange={(o) => toggleGroup(view.agency.id, o)} className="group/agency">
+              <SidebarGroup className="pt-0 group-data-[collapsible=icon]:p-0">
+                {/* Collapsed to icons: one button per agency with the Lead's head, opening its newest task (owner, 12 Nov 2026). */}
+                <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
+                  <SidebarMenuItem>
+                    <SidebarMenuButton isActive={tasks.some((s) => s.id === openTask)} tooltip={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name} onClick={() => onNavigate({ name: 'task', sessionId: tasks[0].id, agentId: tasks[0].agentId })} className="h-9 justify-center" aria-label={`${view.agency.name}: open its newest task`}>
+                      {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={24} /> : <span className="grid size-6 flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}
                     </SidebarMenuButton>
-                    {need > 0 ? (
-                      <SidebarMenuBadge className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${need} need you`}>{need}</SidebarMenuBadge>
-                    ) : running ? (
-                      <SidebarMenuBadge aria-label="Running"><span className="size-2 animate-blink rounded-full bg-green" /></SidebarMenuBadge>
-                    ) : null}
+                    {needs > 0 && <SidebarMenuBadge className="top-0 right-0 size-2 min-w-0 rounded-full bg-lime p-0" aria-label={`${needs} need you`} />}
                   </SidebarMenuItem>
-                )
-              })}
-              {sessions.length > 0 && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton onClick={onSearch} className="h-8 text-xs text-muted-foreground" tooltip="All tasks">
-                    <Icon name="list" size={14} />
-                    <span>All tasks</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                </SidebarMenu>
+                <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
+                  <CollapsibleTrigger className="h-9 w-full cursor-pointer gap-2 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${view.agency.name}: ${open ? 'hide' : 'show'} its tasks`}>
+                    {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}
+                    <span className="min-w-0 flex-1 truncate font-medium" title={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name}>{view.agency.name}</span>
+                    {!open && needs > 0 && <span className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${needs} need you`}>{needs}</span>}
+                    <Icon name="chevronDown" size={13} className="flex-none text-muted-foreground transition-transform group-data-[state=closed]/agency:-rotate-90 motion-reduce:transition-none" />
+                  </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent className="group-data-[collapsible=icon]:hidden">
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {tasks.map((s) => {
+                        const a = agents.find((x) => x.id === s.agentId)
+                        const need = needsYouBySession[s.id] ?? 0
+                        const running = runningIds.has(s.id)
+                        const title = shortTitle(s.title, view.agency.name)
+                        return (
+                          <SidebarMenuItem key={s.id}>
+                            <SidebarMenuButton isActive={openTask === s.id} tooltip={title} onClick={() => onNavigate({ name: 'task', sessionId: s.id, agentId: s.agentId })} className="h-9 pr-9 pl-3" title={a ? `${s.title || 'New task'} · ${a.name}` : s.title || 'New task'}>
+                              <Icon name="chat" size={15} className="text-muted-foreground" />
+                              <span>{title}</span>
+                            </SidebarMenuButton>
+                            {need > 0 ? (
+                              <SidebarMenuBadge className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${need} need you`}>{need}</SidebarMenuBadge>
+                            ) : running ? (
+                              <SidebarMenuBadge aria-label="Running"><span className="size-2 animate-blink rounded-full bg-green" /></SidebarMenuBadge>
+                            ) : null}
+                          </SidebarMenuItem>
+                        )
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+          )
+        })}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <StarCard />
