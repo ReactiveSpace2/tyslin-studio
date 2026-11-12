@@ -387,7 +387,9 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
+      sandbox: false,
+      // Chromium's PDF viewer (the Preview panel's PDFs and converted Office files) is a plugin.
+      plugins: true
     }
   })
   win = w

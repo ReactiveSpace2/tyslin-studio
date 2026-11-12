@@ -56,11 +56,14 @@ export function registerPreviewProtocol(): void {
       // `?as=pdf` on an Office file: the LibreOffice conversion (main/office.ts), cached, shown in the PDF viewer.
       if (u.searchParams.get('as') === 'pdf' && OFFICE.has(previewKind(abs) ?? 'page')) {
         return officeToPdf(abs).then(
-          (pdf) => new Response(readFileSync(pdf), { headers: { 'content-type': 'application/pdf', 'content-security-policy': CSP, 'cache-control': 'no-store' } }),
+          (pdf) => new Response(readFileSync(pdf), { headers: { 'content-type': 'application/pdf', 'cache-control': 'no-store' } }),
           (err) => new Response(err instanceof Error ? err.message : String(err), { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } }))
       }
       const body = readFileSync(abs)
-      return new Response(body, { headers: { 'content-type': MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream', 'content-security-policy': CSP, 'cache-control': 'no-store' } })
+      // A PDF is drawn by Chromium's own viewer, which is a frame of its own: the page CSP (frame-src 'none') blocked it
+      // and every PDF came up blank (ERR_BLOCKED_BY_CLIENT; found 12 Nov 2026). PDFs carry no page scripts, so they go without it.
+      const type = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
+      return new Response(body, { headers: { 'content-type': type, ...(type === 'application/pdf' ? {} : { 'content-security-policy': CSP }), 'cache-control': 'no-store' } })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return new Response(msg, { status: msg.includes('Outside') || msg.includes('No such') ? 403 : 404, headers: { 'content-type': 'text/plain' } })

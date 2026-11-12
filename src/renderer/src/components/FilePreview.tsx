@@ -95,7 +95,7 @@ export function FilePreview({ projectId, path, viewport, nonce = 0, zoom = 1, cl
       <div className={cn('relative flex min-h-0 flex-col', className)}>
         {kind !== 'pdf' && !frameReady && <p className="absolute inset-x-0 top-6 text-center text-[13px] text-muted-foreground" role="status">Converting with LibreOffice…</p>}
         {office.available !== null || kind === 'pdf'
-          ? <iframe key={`${url}#${nonce}`} title={`Preview of ${path}`} src={kind === 'pdf' ? url : previewUrl(projectId, path, true)} sandbox="allow-scripts allow-same-origin"
+          ? <iframe key={`${url}#${nonce}`} title={`Preview of ${path}`} src={kind === 'pdf' ? url : previewUrl(projectId, path, true)}
               referrerPolicy="no-referrer" onLoad={() => setFrameReady(true)} className="block min-h-0 w-full flex-1 border-0" />
           : null}
       </div>
