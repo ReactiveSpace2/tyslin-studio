@@ -18,6 +18,27 @@ export function WorkingBorder(): JSX.Element {
   )
 }
 
+/**
+ * A short lime line travelling round a head (the sidebar's Lead while its agency works; owner's pick A on the
+ * canvas, 12 Nov 2026): the same motion as WorkingBorder, on a circle. Wrap the Avatar: `<WorkingRing size={22}>`.
+ * Decorative; the row's green dot and the status bar say "working" in words. A steady ring under reduced motion.
+ */
+export function WorkingRing({ size, on, children }: { size: number; on: boolean; children: React.ReactNode }): JSX.Element {
+  const pad = 4
+  const box = size + pad * 2
+  return (
+    <span className="relative inline-grid flex-none place-items-center" style={{ width: size, height: size }}>
+      {children}
+      {on && (
+        <svg className="pointer-events-none absolute" style={{ left: -pad, top: -pad, width: box, height: box }} viewBox={`0 0 ${box} ${box}`} aria-hidden="true">
+          <circle cx={box / 2} cy={box / 2} r={box / 2 - 1.5} pathLength={100}
+            className="animate-travel fill-none stroke-lime [stroke-dasharray:22_78] [stroke-linecap:round] [stroke-width:2] motion-reduce:animate-none motion-reduce:[stroke-dasharray:none]" />
+        </svg>
+      )}
+    </span>
+  )
+}
+
 const DOT = 'size-1 rounded-full bg-current animate-hop motion-reduce:animate-none motion-reduce:opacity-100'
 
 /** Three small dots after a "Working" label. */

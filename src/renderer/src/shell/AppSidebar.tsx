@@ -4,6 +4,7 @@ import type { Route } from '../App'
 import type { AgencyView } from '../agencies'
 import { Avatar } from '../components/Avatar'
 import { Icon, type IconName } from '../components/Icon'
+import { WorkingRing } from '../components/Working'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { StarCard } from './StarCard'
 import { UserMenu } from './UserMenu'
@@ -132,6 +133,9 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
           // The group stays open while its task is the one on screen, so the current task never hides.
           const open = !closed.has(view.agency.id) || tasks.some((s) => s.id === openTask)
           const needs = tasks.reduce((n, s) => n + (needsYouBySession[s.id] ?? 0), 0)
+          // Any run in the agency (a task or a worker's card chat) puts the travelling arc round the Lead's head.
+          const members = new Set([view.lead, ...view.workers].filter((a): a is Agent => !!a).map((a) => a.id))
+          const working = sessions.some((s) => runningIds.has(s.id) && members.has(s.agentId))
           return (
             <Collapsible key={view.agency.id} open={open} onOpenChange={(o) => toggleGroup(view.agency.id, o)} className="group/agency">
               <SidebarGroup className="pt-0 group-data-[collapsible=icon]:p-0">
@@ -139,14 +143,14 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
                 <SidebarMenu className="hidden group-data-[collapsible=icon]:flex">
                   <SidebarMenuItem>
                     <SidebarMenuButton isActive={tasks.some((s) => s.id === openTask)} tooltip={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name} onClick={() => onNavigate({ name: 'task', sessionId: tasks[0].id, agentId: tasks[0].agentId })} className="h-9 justify-center" aria-label={`${view.agency.name}: open its newest task`}>
-                      {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={24} /> : <span className="grid size-6 flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}
+                      <WorkingRing size={24} on={working}>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={24} /> : <span className="grid size-6 flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}</WorkingRing>
                     </SidebarMenuButton>
                     {needs > 0 && <SidebarMenuBadge className="top-0 right-0 size-2 min-w-0 rounded-full bg-lime p-0" aria-label={`${needs} need you`} />}
                   </SidebarMenuItem>
                 </SidebarMenu>
                 <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
-                  <CollapsibleTrigger className="h-9 w-full cursor-pointer gap-2 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${view.agency.name}: ${open ? 'hide' : 'show'} its tasks`}>
-                    {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}
+                  <CollapsibleTrigger className="h-9 w-full cursor-pointer gap-2 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${view.agency.name}${working ? ', working' : ''}: ${open ? 'hide' : 'show'} its tasks`}>
+                    <WorkingRing size={22} on={working}>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}</WorkingRing>
                     <span className="min-w-0 flex-1 truncate text-left font-medium" title={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name}>{view.agency.name}</span>
                     {!open && needs > 0 && <span className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${needs} need you`}>{needs}</span>}
                     <Icon name="chevronDown" size={13} className="flex-none text-muted-foreground transition-transform group-data-[state=closed]/agency:-rotate-90 motion-reduce:transition-none" />
