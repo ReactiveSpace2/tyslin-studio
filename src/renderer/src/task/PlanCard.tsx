@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Agent, KanbanCard } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
@@ -22,9 +22,11 @@ const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
  * "Plan ready for your OK": the Lead's planned cards that haven't run. Each row can be run now, given to
  * someone else, edited or removed; Approve runs them one after another (cards.runPlan).
  */
-export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
+export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenAgency }: {
   view: AgencyView
   cards: KanbanCard[]
+  /** The card running now and who has it, when one is. */
+  workingOn?: { title: string; who: string } | null
   onAskLead: () => void
   onChanged: () => void
   onOpenAgency: () => void
@@ -33,6 +35,15 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<KanbanCard | null>(null)
   const [confirmEl, confirm] = useConfirm()
+  // Approved already (cards.runPlan): the rest are queued, one at a time, so the card stops asking (owner, 12 Nov 2026:
+  // it kept saying "Plan ready for your OK" with the Approve button while the approved plan was running).
+  const [approved, setApproved] = useState(false)
+  const key = cards.map((c) => c.id).join(',') + (workingOn?.title ?? '')
+  useEffect(() => {
+    let live = true
+    void window.tyslin.cards.approved().then((ids) => { if (live) setApproved(ids.includes(view.agency.id)) }).catch(() => undefined)
+    return () => { live = false }
+  }, [view.agency.id, key, busy])
   const team = [view.lead, ...view.workers].filter((a): a is Agent => !!a)
   const who = (c: KanbanCard): Agent | undefined => team.find((a) => a.id === (c.assignee || c.agentId))
   const lead = view.lead ? firstName(view.lead.name) : 'the Lead'
@@ -42,13 +53,15 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
   }
 
   return (
-    <Card className="gap-3 border-green px-4 py-3.5" role="group" aria-label="Plan">
+    <Card className={approved ? 'gap-3 px-4 py-3.5' : 'gap-3 border-green px-4 py-3.5'} role="group" aria-label="Plan">
       {confirmEl}
       <span className="flex items-center justify-between gap-2">
-        <strong className="text-[15px] font-semibold">Plan ready for your OK</strong>
-        <Badge variant="lime">Needs you</Badge>
+        <strong className="text-[15px] font-semibold">{approved ? 'Plan approved' : 'Plan ready for your OK'}</strong>
+        {approved ? <Badge variant="soft">Queued</Badge> : <Badge variant="lime">Needs you</Badge>}
       </span>
-      <span className="text-[13.5px] text-muted-foreground">{cards.length} card{cards.length === 1 ? '' : 's'}. Nothing runs until you approve, because auto-run is off for {view.agency.name}.</span>
+      <span className="text-[13.5px] text-muted-foreground">{approved
+        ? `${cards.length} card${cards.length === 1 ? '' : 's'} still to run, one at a time. ${workingOn ? `${cards.length === 1 ? 'It starts' : 'The next starts'} when ${workingOn.who} finishes “${workingOn.title}”.` : 'The next one starts on its own.'}`
+        : `${cards.length} card${cards.length === 1 ? '' : 's'}. Nothing runs until you approve, because auto-run is off for ${view.agency.name}.`}</span>
       <div className="overflow-hidden rounded-lg border border-border">
         <Table>
           <TableHeader className="bg-muted/60">
@@ -97,7 +110,7 @@ export function PlanCard({ view, cards, onAskLead, onChanged, onOpenAgency }: {
         </Table>
       </div>
       <span className="flex flex-wrap items-center gap-2">
-        <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={busy} onClick={() => void run(() => window.tyslin.cards.runPlan(view.agency.id))}><Icon name="play" size={12} /> Approve and run the plan</Button>
+        {!approved && <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={busy} onClick={() => void run(() => window.tyslin.cards.runPlan(view.agency.id))}><Icon name="play" size={12} /> Approve and run the plan</Button>}
         <Button variant="outline" size="sm" className="min-h-9" onClick={onAskLead}>Ask {lead} to change it</Button>
         <Button variant="link" size="sm" className="ml-auto h-9 px-1 text-xs text-muted-foreground" onClick={onOpenAgency}>Auto-run: Agency → Goals → Limits</Button>
       </span>

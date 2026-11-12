@@ -41,6 +41,8 @@ interface Props {
   agencies: AgencyView[]
   agencyId: string | null
   onAgency?: (id: string) => void
+  /** Makes the agency's name under the box a link to its page (the task screen). */
+  onOpenAgency?: () => void
   /** The agent the message goes to (the agency's Lead, or a worker in a direct chat). */
   agent: Agent | null
   value: string
@@ -65,7 +67,7 @@ interface Props {
  * attachments, and under it the agency, the model it runs on and the mode. Modes aren't built yet, so the
  * mode is shown but can't be changed.
  */
-export function Composer({ agencies, agencyId, onAgency, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
+export function Composer({ agencies, agencyId, onAgency, onOpenAgency, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
   const [attachMenu, setAttachMenu] = useState(false)
   const attach = async (kind: 'file' | 'folder'): Promise<void> => {
     setAttachMenu(false)
@@ -117,7 +119,9 @@ export function Composer({ agencies, agencyId, onAgency, agent, value, onChange,
               {agencies.map((v) => <SelectItem key={v.agency.id} value={v.agency.id}>{v.agency.name}{!v.lead ? ' · no Lead' : ''}</SelectItem>)}
             </SelectContent>
           </Select>
-        ) : agency ? <span className={cn(foot, 'inline-flex items-center')}>{agency.agency.name}</span> : null}
+        ) : agency ? (onOpenAgency
+          ? <button type="button" className={cn(foot, 'inline-flex cursor-pointer items-center rounded-sm underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/40')} onClick={onOpenAgency} title={`Open ${agency.agency.name}`}>{agency.agency.name}</button>
+          : <span className={cn(foot, 'inline-flex items-center')}>{agency.agency.name}</span>) : null}
         {agent && (
           <Badge variant="outline" className={cn(foot, 'border-0 bg-transparent font-normal')} title={`Runs on ${runsOnLabel(agent)}`}>
             <RunsOnBadge agent={agent} size={12} /><span className="truncate">{agent.engine === 'builtin' ? agent.model : runsOnLabel(agent)}</span>

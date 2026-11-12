@@ -10,6 +10,7 @@ import { Pose } from '../components/Pose'
 import { ChannelCard, needsYou } from './ChannelCard'
 import { PermissionCard } from './PermissionCard'
 import { PlanCard } from './PlanCard'
+import { PreviewCard, useMadeFiles } from './PreviewCard'
 import { StatusTable } from './StatusTable'
 import { WorkerWork } from './WorkerWork'
 import { activityLabel, type Task } from './useTask'
@@ -57,6 +58,10 @@ interface Props {
   view: AgencyView | null
   sessionId: string
   focus?: string
+  /** When the agency's next task began (null = this is the newest): files changed after it belong to that task. */
+  until: number | null
+  /** Opens a made file full screen in Preview. */
+  onPreview: (path: string) => void
   onReview: (changes: PendingChange[], from: { agent: Agent | null; card: KanbanCard | null; message: ChannelMessage | null; sessionId: string }) => void
   onAskLead: () => void
   onOpenAgency: () => void
@@ -69,12 +74,16 @@ interface Props {
  * plan waiting for your OK, where each card stands, each worker's folded run, and anything asking for
  * permission or review, all in time order.
  */
-export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
+export function Thread({ task, agent, view, sessionId, focus, until, onPreview, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const isLead = !!view && view.lead?.id === agent.id
   const team = view ? [view.lead, ...view.workers].filter((a): a is Agent => !!a) : [agent]
   const agentOf = (id: string | null | undefined): Agent | undefined => team.find((a) => a.id === id)
+
+  // Files made during this task, each as a card where it was last changed (reloaded when a run ends or a change is answered).
+  const made = useMadeFiles(view?.project.id ?? null, task.session?.createdAt ?? null, until,
+    `${task.streaming === null}:${task.changes.map((c) => c.status).join('')}:${task.cards.map((c) => c.status ?? '-').join('')}:${Object.values(task.workerRuns).map((r) => (r.running ? 1 : 0)).join('')}`)
 
   // Follow the bottom while it is in view; a message to focus wins once.
   const focusDone = useRef<string | null>(null)
@@ -85,10 +94,11 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
       return
     }
     if (atBottom) ref.current?.scrollTo({ top: ref.current.scrollHeight })
-  }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, focus])
+  }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, made.shown.length, focus])
 
   const planned = isLead && !view!.agency.autoRun ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
   const active = task.cards.filter((c) => c.status || task.board?.columns.some((col) => /progress|review|done/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
+  const runningCard = task.cards.find((c) => c.status === 'running') ?? null
   const runs = task.cards.filter((c) => c.sessionId).sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))
   // Where the cards stand and each worker's run take their place in time (when the first card started), so a
   // newer reply from the Lead shows below them, not above (10 Nov 2026).
@@ -125,7 +135,8 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
           </div>
         </div>
       )
-    }))
+    })),
+    ...made.shown.map((f) => ({ at: f.updatedAt, node: <PreviewCard key={'file:' + f.path} projectId={view!.project.id} file={f} onOpen={onPreview} /> }))
   ].sort((a, b) => a.at - b.at)
 
   const needs = task.channel.filter(needsYou)
@@ -145,7 +156,8 @@ export function Thread({ task, agent, view, sessionId, focus, onReview, onAskLea
             </div>
           )}
           {items.map((it) => it.node)}
-          {planned.length > 0 && view && <PlanCard view={view} cards={planned} onAskLead={onAskLead} onChanged={() => { task.reloadChannel(); onChanged() }} onOpenAgency={onOpenAgency} />}
+          {made.more > 0 && <p className="pl-11 text-xs text-muted-foreground">{made.more} more file{made.more === 1 ? '' : 's'} from this task in <Button variant="link" size="sm" className="h-auto p-0 text-xs underline" onClick={() => onPreview(made.shown[0].path)}>Preview</Button>.</p>}
+          {planned.length > 0 && view && <PlanCard view={view} cards={planned} workingOn={runningCard ? { title: runningCard.title, who: firstName(agentOf(runningCard.assignee || runningCard.agentId)?.name ?? 'the worker') } : null} onAskLead={onAskLead} onChanged={() => { task.reloadChannel(); onChanged() }} onOpenAgency={onOpenAgency} />}
           {task.streaming && (
             <div className="flex items-start gap-3">
               <span className="flex-none"><Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={32} /></span>

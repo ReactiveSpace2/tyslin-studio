@@ -98,6 +98,9 @@ function startLeadReview(agency: Agency): void {
 
 export const runningCards = (): string[] => [...active]
 
+/** Agencies running a plan the boss approved (in memory: after a restart the plan asks again). The Plan card reads it. */
+export const approvedPlans = (): string[] => [...approved]
+
 /** The card a run works on (for the cost ledger), while cards.ts still knows the run. */
 export const cardForRun = (runId: string): string | null => runs.get(runId)?.cardId ?? null
 

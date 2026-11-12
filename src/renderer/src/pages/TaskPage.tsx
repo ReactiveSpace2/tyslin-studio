@@ -49,6 +49,11 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const [wide, setWide] = useState(false)
   const expanded = wide && pane === 'preview'
   const openPreview = (p: string): void => { setPreviewPath(p); setPane('preview') }
+  // A file's card in the conversation opens it full screen; the panel's close button brings the conversation back.
+  const openPreviewFull = (p: string): void => { openPreview(p); setWide(true) }
+  // The agency's next task after this one: files changed from then on belong to it, not to this conversation.
+  const started = task.session?.createdAt ?? 0
+  const nextTask = sessions.filter((s) => s.projectId === task.session?.projectId && s.id !== sessionId && !s.title.startsWith('Card: ') && s.messageCount > 0 && s.createdAt > started).reduce<number | null>((min, s) => (min === null || s.createdAt < min ? s.createdAt : min), null)
   const composerRef = useRef<HTMLDivElement>(null)
   const running = task.streaming !== null
   const pendingOwn = task.changes.filter((c) => c.status === 'pending')
@@ -114,11 +119,11 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}
-        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} onReview={openReview}
+        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
           onOpenAgency={onOpenAgency} onSettings={onSettings} onChanged={onSessionsChanged} />
         <div ref={composerRef} className="mx-auto w-full max-w-[760px] flex-none px-6 pt-2 pb-4">
-          <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} agent={agent} value={text} onChange={setText} attached={attached} onAttached={setAttached}
+          <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent} value={text} onChange={setText} attached={attached} onAttached={setAttached}
             running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />
         </div>
       </section>

@@ -171,6 +171,7 @@ const api: TyslinApi = {
   cards: {
     run: (agencyId, cardId) => ipcRenderer.invoke('cards:run', agencyId, cardId),
     running: () => ipcRenderer.invoke('cards:running'),
+    approved: () => ipcRenderer.invoke('cards:approved'),
     runPlan: (agencyId) => ipcRenderer.invoke('cards:runPlan', agencyId),
     update: (agencyId, cardId, patch) => ipcRenderer.invoke('cards:update', agencyId, cardId, patch),
     remove: (agencyId, cardId) => ipcRenderer.invoke('cards:remove', agencyId, cardId),

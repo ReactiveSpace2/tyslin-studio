@@ -32,7 +32,7 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, cardForRun, runNext, updateCard, removeCard, type CardPatch } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, updateCard, removeCard, type CardPatch } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -762,6 +762,7 @@ function registerIpc(): void {
   ipcMain.handle('costs:agency', (_e, agencyId: string) => db.agencyCosts(String(agencyId ?? '')))
   ipcMain.handle('costs:task', (_e, taskId: string) => db.taskCosts(String(taskId ?? '')))
   ipcMain.handle('costs:usage', () => db.usageThisMonth())
+  ipcMain.handle('cards:approved', () => approvedPlans())
   ipcMain.handle('cards:runPlan', (_e, agencyId: string) => runPlan(String(agencyId ?? '')))
   ipcMain.handle('cards:update', (_e, agencyId: string, cardId: string, patch: CardPatch) => updateCard(String(agencyId ?? ''), String(cardId ?? ''), patch ?? {}))
   ipcMain.handle('cards:remove', (_e, agencyId: string, cardId: string) => removeCard(String(agencyId ?? ''), String(cardId ?? '')))

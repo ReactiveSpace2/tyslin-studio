@@ -1,14 +1,15 @@
 /**
  * Integrations suggested on each agency's Integrations screen, by template id (src/shared/agencies/).
  * `presets` are ids from mcpPresets.ts (connect with a token); `searches` are app names that run an MCP Registry
- * search. These are suggestions only: every integration needs the user's own token, so nothing is installed for them.
+ * search (`playwright` first where workers need to see a page: Microsoft's @playwright/mcp gives them a real browser
+ * instead of improvised headless-Chrome shell scripts, 12 Nov 2026). These are suggestions only: every integration needs the user's own token, so nothing is installed for them.
  */
 export const AGENCY_INTEGRATIONS: Record<string, { presets: string[]; searches: string[] }> = {
-  'app-development': { presets: ['github', 'linear'], searches: ['sentry', 'vercel', 'supabase'] },
+  'app-development': { presets: ['github', 'linear'], searches: ['playwright', 'sentry', 'vercel', 'supabase'] },
   devops: { presets: ['github'], searches: ['cloudflare', 'sentry', 'aws', 'docker'] },
   'qa-testing': { presets: ['github', 'linear'], searches: ['playwright', 'sentry', 'browserstack'] },
   'mobile-apps': { presets: ['github', 'linear'], searches: ['expo', 'firebase', 'app store'] },
-  'web-design': { presets: ['github'], searches: ['figma', 'webflow', 'vercel'] },
+  'web-design': { presets: ['github'], searches: ['playwright', 'figma', 'webflow', 'vercel'] },
   'product-management': { presets: ['linear', 'github'], searches: ['notion', 'jira', 'posthog'] },
   'sales-lead-gen': { presets: [], searches: ['hubspot', 'salesforce', 'apollo', 'linkedin'] },
   'email-marketing': { presets: [], searches: ['mailchimp', 'resend', 'hubspot', 'brevo'] },

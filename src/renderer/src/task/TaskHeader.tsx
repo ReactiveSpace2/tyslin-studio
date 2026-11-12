@@ -47,7 +47,16 @@ export function TaskHeader({ session, agent, view, running, pane, pendingChanges
 
   return (
     <>
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        {/* The agency this chat belongs to, as the way back to it (owner, 12 Nov 2026). */}
+        {view && renaming === null && (
+          <>
+            <Button variant="ghost" className="h-9 max-w-[200px] flex-none gap-1.5 px-2 text-[15px] font-normal text-muted-foreground hover:text-foreground" onClick={onOpenAgency} title={`Open ${view.agency.name}`}>
+              <Icon name="agency" size={14} className="flex-none" /><span className="truncate">{view.agency.name}</span>
+            </Button>
+            <span className="flex-none text-muted-foreground" aria-hidden="true">/</span>
+          </>
+        )}
         {renaming !== null ? (
           <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={(e) => { e.preventDefault(); void rename() }}>
             <Input autoFocus value={renaming} onChange={(e) => setRenaming(e.target.value)} onBlur={() => void rename()} onKeyDown={(e) => { if (e.key === 'Escape') setRenaming(null) }} className="h-8 max-w-[420px]" aria-label="Task name" maxLength={80} />

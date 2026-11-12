@@ -1225,6 +1225,8 @@ export interface TyslinApi {
     /** Card ids with a run in progress. */
     running(): Promise<string[]>
     /** Approve the plan: the Planned cards run one after another, whatever the auto-run setting. Returns how many. */
+    /** Agencies whose approved plan is still running its cards one at a time. */
+    approved(): Promise<string[]>
     runPlan(agencyId: string): Promise<number>
     /** Edits a card that isn't running: title, notes, who does it. */
     update(agencyId: string, cardId: string, patch: Partial<Pick<KanbanCard, 'title' | 'notes' | 'assignee'>>): Promise<void>
