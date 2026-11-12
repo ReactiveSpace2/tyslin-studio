@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Account, Agent, Session } from '@shared/types'
 import type { Route } from '../App'
 import type { AgencyView } from '../agencies'
+import { firstName } from '../boardStats'
 import { Avatar } from '../components/Avatar'
 import { Icon, type IconName } from '../components/Icon'
 import { WorkingRing } from '../components/Working'
@@ -136,6 +137,9 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
           // Any run in the agency (a task or a worker's card chat) puts the travelling arc round the Lead's head.
           const members = new Set([view.lead, ...view.workers].filter((a): a is Agent => !!a).map((a) => a.id))
           const working = sessions.some((s) => runningIds.has(s.id) && members.has(s.agentId))
+          // One word for the agency, in colour (owner, 12 Nov 2026): Working while anything runs, Ready when it has
+          // been used in the last day, Idle after that (or when paused).
+          const state = working ? { word: 'Working', cls: 'text-green' } : view.agency.paused ? { word: 'Paused', cls: 'text-text-amber' } : Date.now() - tasks[0].updatedAt < 24 * 60 * 60 * 1000 ? { word: 'Ready', cls: 'text-text-teal' } : { word: 'Idle', cls: 'text-muted-foreground' }
           return (
             <Collapsible key={view.agency.id} open={open} onOpenChange={(o) => toggleGroup(view.agency.id, o)} className="group/agency">
               <SidebarGroup className="pt-0 group-data-[collapsible=icon]:p-0">
@@ -149,9 +153,12 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
                   </SidebarMenuItem>
                 </SidebarMenu>
                 <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
-                  <CollapsibleTrigger className="h-9 w-full cursor-pointer gap-2 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${view.agency.name}${working ? ', working' : ''}: ${open ? 'hide' : 'show'} its tasks`}>
-                    <WorkingRing size={22} on={working}>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}</WorkingRing>
-                    <span className="min-w-0 flex-1 truncate text-left font-medium" title={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name}>{view.agency.name}</span>
+                  <CollapsibleTrigger className="h-11 w-full cursor-pointer gap-2.5 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${lead ? firstName(lead.name) + ', ' : ''}${view.agency.name}, ${state.word.toLowerCase()}: ${open ? 'hide' : 'show'} its tasks`}>
+                    <WorkingRing size={26} on={working}>{lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={26} /> : <span className="grid size-[26px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}</WorkingRing>
+                    <span className="flex min-w-0 flex-1 flex-col text-left leading-tight" title={lead ? `${lead.name} · ${view.agency.name}` : view.agency.name}>
+                      <span className="truncate font-medium">{lead ? <>{firstName(lead.name)} <span className="font-normal text-muted-foreground">· {view.agency.name}</span></> : view.agency.name}</span>
+                      <span className={`flex items-center gap-1.5 text-[11.5px] font-medium ${state.cls}`}><span className={`size-1.5 rounded-full bg-current ${working ? 'animate-blink motion-reduce:animate-none' : ''}`} aria-hidden="true" />{state.word}</span>
+                    </span>
                     {!open && needs > 0 && <span className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${needs} need you`}>{needs}</span>}
                     <Icon name="chevronDown" size={13} className="flex-none text-muted-foreground transition-transform group-data-[state=closed]/agency:-rotate-90 motion-reduce:transition-none" />
                   </CollapsibleTrigger>
