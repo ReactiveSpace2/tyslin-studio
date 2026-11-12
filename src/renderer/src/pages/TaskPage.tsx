@@ -13,7 +13,7 @@ import { TaskHeader, type Pane } from '../task/TaskHeader'
 import { Thread } from '../task/Thread'
 import { ToolsPill } from '../task/ToolsPill'
 import type { ToolDef } from '@shared/toolCatalog'
-import type { McpServerInfo } from '@shared/types'
+import type { McpServerInfo, Skill } from '@shared/types'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
 
@@ -28,6 +28,8 @@ interface Props {
   /** Slot in the window's header for the title menu and panel switches. */
   setHeader: (node: JSX.Element | null) => void
   onSessionsChanged: () => void
+  /** Agents changed from the task (a skill attached): App reloads them. */
+  onAgentsChanged: () => void
   onOpenAgency: () => void
   onOpenAgent: (a: Agent) => void
   onConnectors: () => void
@@ -39,7 +41,7 @@ interface Props {
 }
 
 /** A task: the conversation in the middle, the composer under it, and one right panel (Details, Changes or Preview). */
-export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, onSessionsChanged, onOpenAgency, onOpenAgent, onConnectors, onFiles, onSettings, onTalkTo, onBackToLead, onDeleted }: Props): JSX.Element {
+export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, onSessionsChanged, onAgentsChanged, onOpenAgency, onOpenAgent, onConnectors, onFiles, onSettings, onTalkTo, onBackToLead, onDeleted }: Props): JSX.Element {
   const task = useTask(sessionId, agent, view, sessions, onSessionsChanged)
   const [text, setText] = useState('')
   const [attached, setAttached] = useState<Attachment[]>([])
@@ -64,6 +66,8 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const [toolSetup, setToolSetup] = useState<{ tool: ToolDef; agentIds: string[] } | null>(null)
   const loadServers = (): void => { void window.tyslin.integrations.list().then(setServers).catch(() => undefined) }
   useEffect(loadServers, [sessionId])
+  const [skills, setSkills] = useState<Skill[]>([])
+  useEffect(() => { void window.tyslin.skills.list().then(setSkills).catch(() => undefined) }, [sessionId])
   const testServer = async (id: string): Promise<void> => { try { const r = await window.tyslin.integrations.test(id); setServers((l) => l.map((x) => (x.id === r.id ? r : x))) } catch { /* shown as not tested */ } }
   const team = view ? [view.lead, ...view.workers].filter((a): a is Agent => !!a) : [agent]
   const running = task.streaming !== null
@@ -130,7 +134,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}
-        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} onReview={openReview}
+        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
           onOpenAgency={onOpenAgency} onSettings={onSettings} onChanged={onSessionsChanged} />
         <div ref={composerRef} className="mx-auto w-full max-w-[760px] flex-none px-6 pt-2 pb-4">

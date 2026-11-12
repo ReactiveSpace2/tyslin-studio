@@ -5,7 +5,7 @@ Paste these into github.com/ReactiveSpace2/tyslin-studio: the gear icon next to 
 ## Description
 
 ```
-Run AI agencies made of AI agents: a Lead plans on a Kanban board and delegates to Claude Code, Codex and Gemini CLI. Open source, local, your keys.
+Free AI agent dashboard: run AI agencies made of AI agents. A Lead plans the work and delegates to Claude Code, Codex and Gemini CLI. Open source, local, your keys.
 ```
 
 ## Website
@@ -17,14 +17,14 @@ https://tyslin.ai
 ## Topics
 
 ```
-ai-agents ai-agency multi-agent agent-client-protocol claude-code codex gemini-cli kanban electron desktop-app agent-skills telegram-bot slack-bot open-source
+ai-agents ai-agent-dashboard ai-agency multi-agent agent-client-protocol claude-code codex gemini-cli kanban electron desktop-app agent-skills telegram-bot slack-bot open-source
 ```
 
 Or with the GitHub CLI:
 
 ```bash
 gh repo edit ReactiveSpace2/tyslin-studio \
-  --description "Run AI agencies made of AI agents: a Lead plans on a Kanban board and delegates to Claude Code, Codex and Gemini CLI. Open source, local, your keys." \
+  --description "Free AI agent dashboard: run AI agencies made of AI agents. A Lead plans the work and delegates to Claude Code, Codex and Gemini CLI. Open source, local, your keys." \
   --homepage "https://tyslin.ai" \
   --add-topic ai-agents,ai-agency,multi-agent,agent-client-protocol,claude-code,codex,gemini-cli,kanban,electron,desktop-app,agent-skills,telegram-bot,slack-bot,open-source
 ```

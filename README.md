@@ -4,13 +4,13 @@
 
 <p align="center"><strong>Every agent you run. One studio.</strong></p>
 
-<p align="center">Tyslin Studio is an open-source desktop app for running AI agencies made of AI agents.</p>
+<p align="center">Tyslin Studio is a free AI agent dashboard: an open-source desktop app for running AI agencies made of AI agents.</p>
 
 > **BETA.** Tyslin Studio is in beta. Tested on Linux; macOS and Windows builds are not yet tested much or signed. Expect rough edges and breaking changes.
 
 ## Run your own AI agency
 
-You give an agency a task. Its Lead plans the work and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is open source and runs on your machine with your keys.
+You give an agency a task. Its Lead plans the work and hands it to a team of agents on Claude Code, Codex or Gemini CLI. They work on their own, and you approve what ships. It is a free dashboard for agents: open source, on your machine, with your keys, and one place to see every agent, what it is doing and what it needs from you.
 
 Three places, one left column (New task, Search, Agencies, Scheduled, Files; the logo and New task take you Home): **Home** (type a task, see what needs you: questions, file changes to review and plans waiting for your OK, and what is running), a **Task** (one conversation with the Lead: the plan, the workers' progress, questions and the changes to review), and the **Agency** (goals, team, skills, connectors, channel, memory, schedule).
 

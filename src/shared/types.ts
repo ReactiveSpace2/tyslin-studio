@@ -214,6 +214,13 @@ type AgentExtras = 'projectId' | 'leadId' | 'pinned' | 'paused' | 'tools' | 'cha
 export type AgentInput = Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | AgentExtras> & Partial<Pick<Agent, AgentExtras>>
 
 /** Kanban: columns of cards (boards/<name>.board.json). A card can be given to an agent and run. */
+/** Something a card needs that the team may not have yet: a tool (connector) or a skill, named by the Lead when it plans. */
+export interface CardNeed {
+  kind: 'tool' | 'skill'
+  name: string
+  why?: string
+}
+
 export interface KanbanCard {
   id: string
   title: string
@@ -240,6 +247,8 @@ export interface KanbanCard {
   /** The last run on this card and where it stands. */
   runId?: string
   status?: 'running' | 'done' | 'failed'
+  /** Tools and skills this card needs (12 Nov 2026); the Plan card lets the boss add them before approving. */
+  needs?: CardNeed[]
   createdAt: number
 }
 
@@ -511,7 +520,7 @@ export interface SlackStatus {
 }
 
 /** 'budget' is Tyslin's own message at the monthly cap (budget.ts), sent as the Lead; the Lead's tools can't send it. */
-export type MessageKind = 'brief' | 'question' | 'review' | 'digest' | 'budget'
+export type MessageKind = 'brief' | 'question' | 'review' | 'digest' | 'budget' | 'needs'
 
 /** A message from an agency's Lead to the boss, kept whether or not it left the app (channels.ts). */
 export interface ChannelMessage {

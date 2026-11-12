@@ -10,9 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
+import { resolveTool } from '@shared/toolCatalog'
+import { NeedList, needMet, type NeedHandlers, type NeedItem } from './ToolCards'
 
 /** Waiting on you: a question or review not answered yet. */
-export const needsYou = (m: ChannelMessage): boolean => (m.kind === 'question' || m.kind === 'review' || m.kind === 'budget') && !m.reply
+export const needsYou = (m: ChannelMessage): boolean => (m.kind === 'question' || m.kind === 'review' || m.kind === 'budget' || m.kind === 'needs') && !m.reply
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const clock = (t: number): string => new Date(t).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
@@ -25,7 +27,7 @@ export const findCard = (board: KanbanDoc | null, id: string | null | undefined)
  * with its changed files (Review the changes opens the Changes panel), a brief, or a folded digest.
  * Answers go back to the Lead in this task (`channels.reply` with the task's chat id).
  */
-export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }: {
+export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview, needs }: {
   m: ChannelMessage
   lead: Agent | null
   board: KanbanDoc | null
@@ -33,6 +35,8 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
   sessionId: string
   onAnswered: () => void
   onReview: (changes: PendingChange[], card: KanbanCard, message: ChannelMessage) => void
+  /** For a needs message: the team, its tools and skills, and the handlers that add them (ToolCards NeedList). */
+  needs?: NeedHandlers
 }): JSX.Element {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -79,6 +83,7 @@ export function ChannelCard({ m, lead, board, sessionId, onAnswered, onReview }:
     )
   }
 
+  if (m.kind === 'needs' && needs) return <NeedsCard m={m} card={card} lead={lead} head={head} answered={answered} errorLine={errorLine} busy={busy} reply={reply} h={needs} />
   if (m.kind === 'budget') return <BudgetCard m={m} lead={lead} head={head} answered={answered} errorLine={errorLine} busy={busy} reply={reply} />
 
   if (m.kind === 'brief') {
@@ -202,6 +207,50 @@ function BudgetCard({ m, head, answered, errorLine, busy, reply }: {
             <Button type="button" size="sm" variant="outline" className="min-h-9" disabled={busy} onClick={() => void reply(`Keep it paused until ${until}`)}>Keep paused until {until}</Button>
           </form>
           {cap.trim() !== '' && !ok && agency && <span className="text-xs text-destructive">Raise it above what's spent this month (${agency.spent.toFixed(2)}).</span>}
+          {errorLine}
+        </>
+      )}
+    </Card>
+  )
+}
+
+/**
+ * B on the canvas: the Lead says the plan needs tools or skills the team lacks. Each option "Add <name>" becomes a row
+ * with its own button (a skill is added at once, a tool opens the setup card); "Plan without them" and "Go ahead"
+ * answer the Lead. From Telegram or Slack a tapped "Add <name>" is applied by main (channels.ts applyNeedAnswer).
+ */
+function NeedsCard({ m, card, lead, head, answered, errorLine, busy, reply, h }: {
+  m: ChannelMessage
+  card: KanbanCard | undefined
+  lead: Agent | null
+  head: (label: string, tone: 'lime' | 'secondary') => JSX.Element
+  answered: JSX.Element | '' | null
+  errorLine: JSX.Element | '' | false
+  busy: boolean
+  reply: (text: string) => Promise<void>
+  h: NeedHandlers
+}): JSX.Element {
+  const workers = h.team.filter((a) => a.engine !== 'builtin').map((a) => a.id)
+  const forIds = card?.assignee && workers.includes(card.assignee) ? [card.assignee] : workers
+  const items: NeedItem[] = m.options.filter((o) => /^add\s+/i.test(o)).map((o) => {
+    const name = o.replace(/^add\s+/i, '').trim()
+    const tool = resolveTool(name)
+    return tool ? { kind: 'tool' as const, name: tool.id, forIds } : { kind: 'skill' as const, name: name.toLowerCase(), forIds }
+  })
+  const allMet = items.length > 0 && items.every((n) => needMet(n, h))
+  const who = lead ? firstName(lead.name) : 'the Lead'
+  return (
+    <Card className={cn('gap-2.5 px-4 py-3.5', !m.reply && 'border-green')}>
+      {head('Needs', m.reply ? 'secondary' : 'lime')}
+      {card && <span className="text-[13px] text-muted-foreground">About: {card.title}</span>}
+      <p className="text-[14px] leading-relaxed whitespace-pre-wrap">{m.text}</p>
+      {items.length > 0 && <div className="rounded-lg border border-border px-3"><NeedList items={items} h={h} busy={busy} /></div>}
+      {m.reply ? answered : (
+        <>
+          <span className="flex flex-wrap gap-2">
+            <Button variant={allMet ? 'lime' : 'outline'} size="sm" className={cn('min-h-9', allMet && 'font-semibold')} disabled={busy} onClick={() => void reply(allMet ? 'All added, go ahead.' : `Go ahead with what the team has: ${items.filter((n) => needMet(n, h)).map((n) => n.kind === 'skill' ? n.name : (resolveTool(n.name)?.title ?? n.name)).join(', ') || 'nothing added yet'}.`)}>{allMet ? `Tell ${who} to go ahead` : 'Go ahead anyway'}</Button>
+            {m.options.filter((o) => !/^add\s+/i.test(o)).map((o) => <Button key={o} variant="ghost" size="sm" className="min-h-9" disabled={busy} onClick={() => void reply(o)}>{o}</Button>)}
+          </span>
           {errorLine}
         </>
       )}

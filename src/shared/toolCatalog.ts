@@ -55,3 +55,52 @@ export function toolHint(text: string, isConnected: (toolId: string) => boolean)
     return { toolId: 'stripe', reason: 'needs Stripe to look at customers and payments' }
   return null
 }
+
+/** A tool by id, title or connector name, any case ("Playwright", "github", "a browser"). */
+export function resolveTool(name: string): ToolDef | undefined {
+  const n = name.trim().toLowerCase().replace(/^(a |the )/, '')
+  if (n === 'browser' || n === 'a browser') return toolById('playwright')
+  return TOOL_CATALOG.find((t) => t.id === n || t.name === n || t.title.toLowerCase() === n)
+}
+
+/** How a need reads to the boss: "a browser (Playwright)", "GitHub", "the accessibility-check skill". */
+export function needLabel(need: { kind: 'tool' | 'skill'; name: string }): string {
+  if (need.kind === 'skill') return `the ${need.name} skill`
+  const t = resolveTool(need.name)
+  return t ? (t.id === 'playwright' ? 'a browser (Playwright)' : t.title) : need.name
+}
+
+/** Whether a connector is this tool (by preset, else by name), for needs the Lead wrote. */
+export const serverIsTool = (s: McpServerInfo, name: string): boolean => {
+  const t = resolveTool(name)
+  return t ? (t.presetId ? s.preset === t.presetId : s.name === t.name) : s.name === name.trim().toLowerCase()
+}
+
+export interface SkillLike { name: string; description: string }
+
+const SKILL_NEED = /\b(?:don'?t|do not|doesn'?t|didn'?t) have (?:a |an |any )?(?:checklist|guide|skill|instructions?|template|playbook|process|method|rubric)\b|\bnot sure how to\b|\bno (?:checklist|guide|instructions|template|process|rubric) for\b|\bgoing by what i know\b|\bwithout (?:a |any )?(?:checklist|guide|instructions)\b|\bwould help to have\b/i
+const STOP = new Set(['that','this','with','from','have','what','when','which','will','your','their','there','about','into','then','than','them','they','been','were','page','file','files','task','card','work','make','also','just','like','more','some','only','very','each','does','done','need','needs','know','going','check','checks','write','using','used'])
+const words = (t: string): Set<string> => new Set(t.toLowerCase().replace(/[^a-z0-9-]+/g, ' ').split(' ').filter((w) => w.length > 3 && !STOP.has(w)))
+
+/**
+ * D on the canvas, for skills: an agent said it lacks a checklist or a way to do something. The library skill whose
+ * name and description share the most words with that text wins (at least two), unless it is attached already.
+ */
+export function skillHint(text: string, skills: SkillLike[], attached: Set<string>): { name: string; reason: string } | null {
+  const t = text.slice(0, 4000)
+  const m = SKILL_NEED.exec(t)
+  if (!m) return null
+  // The sentence around the phrase says what is missing.
+  const start = Math.max(0, t.lastIndexOf('.', m.index) + 1)
+  const end = t.indexOf('.', m.index + m[0].length)
+  const around = words(t.slice(start, end < 0 ? undefined : end + 1))
+  let best: { name: string; score: number; description: string } | null = null
+  for (const s of skills) {
+    if (attached.has(s.name)) continue
+    const own = new Set([...s.name.split('-'), ...words(s.description)].filter((w) => w.length > 3 && !STOP.has(w)))
+    let score = 0
+    for (const w of own) if (around.has(w) || [...around].some((a) => a.startsWith(w) || w.startsWith(a))) score++
+    if (score >= 2 && (!best || score > best.score)) best = { name: s.name, score, description: s.description }
+  }
+  return best ? { name: best.name, reason: `could use the ${best.name} skill: ${best.description.replace(/\.$/, '').toLowerCase()}` } : null
+}

@@ -5,6 +5,8 @@ import { pointLinkedChatsAt, sendToLinkedChats } from './telegram'
 import { slackSendToLinked } from './slack'
 import { findCard, log, patchCard, readBoard } from './boardTools'
 import { answerBudget } from './budget'
+import { saveIntegration, testIntegration } from './integrations'
+import { needLabel, resolveTool, serverIsTool } from '@shared/toolCatalog'
 
 /**
  * The channel gateway. Every message from an agency to the boss goes through here as one normalized
@@ -16,8 +18,8 @@ import { answerBudget } from './budget'
  */
 
 const ALLOWED: Record<Agency['notify'], MessageKind[]> = {
-  all: ['brief', 'question', 'review', 'digest', 'budget'],
-  questions: ['question', 'review', 'budget'],
+  all: ['brief', 'question', 'review', 'digest', 'budget', 'needs'],
+  questions: ['question', 'review', 'budget', 'needs'],
   digest: ['digest', 'budget']
 }
 
@@ -117,9 +119,45 @@ export function replyToLead(messageId: string, text: string, sessionId?: string)
   const quoted = m.text.length > 400 ? `${m.text.slice(0, 400)}…` : m.text
   const card = m.cardId ? ` (card ${m.cardId})` : ''
   const inTask = sessionId && db.getSession(sessionId)?.agentId === lead.id ? sessionId : null
-  deliver(inTask ?? inboxSession(lead), `The boss answered your ${m.kind}${card}${inTask ? '' : " in the app's Inbox"}.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
+  // A needs message answered with "Add <name>" (from Telegram or Slack, where the app's buttons aren't there): Tyslin
+  // attaches the skill, or adds a tool that needs no account, and tells the Lead what happened.
+  const did = m.kind === 'needs' ? applyNeedAnswer(agency, answer) : ''
+  deliver(inTask ?? inboxSession(lead), `The boss answered your ${m.kind}${card}${inTask ? '' : " in the app's Inbox"}.\n\nYou wrote:\n> ${quoted.replace(/\n/g, '\n> ')}\n\nThe boss's answer:\n${answer}${did ? `\n\n${did}` : ''}\n\nAct on it: update the board and tell the worker on the card if their work changes.`)
   if (m.cardId) patchCard(agency, m.cardId, (c) => log(c, `Boss: ${answer}`))
   const saved = db.replyChannelMessage(messageId, answer)!
   onChannelMessage(saved, false)
   return saved
+}
+
+/** "Add Playwright" / "Add accessibility-check" from a needs message: done here for things that need no token. */
+function applyNeedAnswer(agency: Agency, answer: string): string {
+  const notes: string[] = []
+  const team = db.listAgents().filter((a) => a.agency === agency.id && a.engine !== 'builtin')
+  for (const part of answer.split(/\s*(?:,|;| and )\s*/)) {
+    const m = /^add\s+(.+)$/i.exec(part.trim())
+    if (!m) continue
+    const name = m[1].trim()
+    const tool = resolveTool(name)
+    if (tool) {
+      const have = db.listMcpServers().find((s) => serverIsTool(s, tool.id))
+      if (have) {
+        const ids = [...new Set([...have.agentIds, ...team.map((a) => a.id)])]
+        if (ids.length !== have.agentIds.length) db.setMcpAgents(have.id, ids)
+        notes.push(`Tyslin: ${tool.title} is connected for ${team.map((a) => a.name.split(' ')[0]).join(', ')}.`)
+      } else if (tool.commandLine) {
+        try {
+          const saved = saveIntegration({ name: tool.name, title: tool.title, source: tool.source ?? '', preset: '', transport: 'stdio', commandLine: tool.commandLine, env: '', agentIds: team.map((a) => a.id) })
+          void testIntegration(saved.id).catch(() => undefined)
+          notes.push(`Tyslin: added ${needLabel({ kind: 'tool', name: tool.id })} for ${team.map((a) => a.name.split(' ')[0]).join(', ')}.`)
+        } catch (err) { notes.push(`Tyslin: could not add ${tool.title}: ${err instanceof Error ? err.message : String(err)}`) }
+      } else notes.push(`Tyslin: ${tool.title} needs the boss's token, so it is connected from the app, not from here. Plan as if it will be there.`)
+      continue
+    }
+    const skill = db.listSkills().find((s) => s.name === name.toLowerCase())
+    if (skill) {
+      for (const a of team) if (!a.skills.includes(skill.name)) db.saveAgent({ ...a, skills: [...a.skills, skill.name] })
+      notes.push(`Tyslin: the ${skill.name} skill is now on ${team.map((a) => a.name.split(' ')[0]).join(', ')}.`)
+    } else notes.push(`Tyslin: no tool or skill called "${name}".`)
+  }
+  return notes.join('\n')
 }

@@ -3,6 +3,8 @@ import { join } from 'path'
 import type { Agency, Agent, KanbanCard, KanbanDoc } from '@shared/types'
 import type { ToolCall, ToolDef, ToolResult } from './tools'
 import * as db from './db'
+import { needLabel, resolveTool, serverIsTool, TOOL_CATALOG } from '@shared/toolCatalog'
+import type { CardNeed } from '@shared/types'
 
 /**
  * The Lead's board tools: list, add, edit, move, assign and comment on cards of its agency's board, run a card,
@@ -104,6 +106,20 @@ function cardState(c: KanbanCard): string {
 }
 
 /** What the Lead sees in its system prompt: the roster with ids and every card by column. */
+/** "Team tools: GitHub (Zoe, Ryan); Playwright (Nora)" from the connectors switched on for the roster. */
+function teamTools(team: Agent[]): string {
+  const ids = new Set(team.map((a) => a.id))
+  const list = db.listMcpServers().filter((s) => s.agentIds.some((id) => ids.has(id))).map((s) => `${resolveTool(s.preset || s.name)?.title ?? s.title ?? s.name} (${team.filter((a) => s.agentIds.includes(a.id)).map((a) => a.name.split(' ')[0]).join(', ')})`)
+  return `Team tools: ${list.length ? list.join('; ') : 'none yet'}.`
+}
+
+/** Needs on a card the assignee still lacks (a tool not connected for them, a skill not attached). */
+export function missingNeeds(card: KanbanCard, agent: Agent): CardNeed[] {
+  const servers = db.mcpServersForAgent(agent.id)
+  return (card.needs ?? []).filter((n) => (n.kind === 'skill' ? !agent.skills.includes(n.name) : !servers.some((s) => serverIsTool(s, n.name))))
+}
+export { needLabel }
+
 export function boardSummary(agency: Agency): string {
   const team = roster(agency)
   const doc = readBoard(agency)
@@ -115,7 +131,9 @@ export function boardSummary(agency: Agency): string {
       : APPROVAL_LINE,
     '',
     'Roster (name: job):',
-    ...team.map((a) => `- ${a.name}${a.id === agency.leadId ? ' (you, the Lead)' : ''}: ${a.description || 'agent'}; runs on ${a.engine === 'builtin' ? a.model : a.engine}`),
+    ...team.map((a) => `- ${a.name}${a.id === agency.leadId ? ' (you, the Lead)' : ''}: ${a.description || 'agent'}; runs on ${a.engine === 'builtin' ? a.model : a.engine}${a.skills.length ? `; skills: ${a.skills.join(', ')}` : ''}`),
+    teamTools(team),
+    `Tools the boss can add from the chat: ${TOOL_CATALOG.map((t) => (t.id === 'playwright' ? 'Playwright (a browser)' : t.title)).join(', ')}. Skills in the library: ${db.listSkills().map((s) => s.name).join(', ') || 'none'}.`,
     ''
   ]
   if (!doc) { lines.push('Board: (missing)'); return lines.join('\n') }
@@ -130,6 +148,27 @@ export function boardSummary(agency: Agency): string {
   return lines.join('\n')
 }
 
+/** The Lead's `needs` on a card, checked against the tool catalogue and the skill library so a typo can't ask for nothing. */
+function parseNeeds(raw: unknown): CardNeed[] {
+  if (!Array.isArray(raw)) return []
+  const skills = new Set(db.listSkills().map((s) => s.name))
+  const out: CardNeed[] = []
+  for (const n of raw as { kind?: unknown; name?: unknown; why?: unknown }[]) {
+    const kind = n?.kind === 'skill' ? 'skill' : n?.kind === 'tool' ? 'tool' : null
+    const name = String(n?.name ?? '').trim()
+    if (!kind || !name) continue
+    if (kind === 'tool') {
+      const t = resolveTool(name)
+      if (!t) throw new Error(`No tool called "${name}". Tools: ${TOOL_CATALOG.map((x) => x.title).join(', ')}.`)
+      out.push({ kind, name: t.id, ...(n.why ? { why: String(n.why).slice(0, 200) } : {}) })
+    } else {
+      if (!skills.has(name)) throw new Error(`No skill called "${name}" in the library. Use a name from the roster's skills or the library list.`)
+      out.push({ kind, name, ...(n.why ? { why: String(n.why).slice(0, 200) } : {}) })
+    }
+  }
+  return out.slice(0, 6)
+}
+
 export const BOARD_TOOLS: ToolDef[] = [
   { name: 'board_list_cards', description: 'The agency board: every column and card with its id, assignee and state.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   {
@@ -139,7 +178,8 @@ export const BOARD_TOOLS: ToolDef[] = [
       title: { type: 'string' }, notes: { type: 'string', description: 'What to do, what done looks like, estimate' },
       column: { type: 'string', description: 'Inbox, Planned, In progress, Review or Done (default Planned)' },
       assignee: { type: 'string', description: 'A roster member by name, e.g. "Sam (Backend)"' },
-      parent_card: { type: 'string', description: 'The card id this one was split from, if any' }
+      parent_card: { type: 'string', description: 'The card id this one was split from, if any' },
+      needs: { type: 'array', description: 'What the card needs that the team may not have: a tool (Playwright = a browser, GitHub, Linear, Stripe) or a skill from the library, by name, with why', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'skill'] }, name: { type: 'string' }, why: { type: 'string' } }, required: ['kind', 'name'] } }
     }, required: ['title'] }
   },
   {
@@ -148,7 +188,8 @@ export const BOARD_TOOLS: ToolDef[] = [
     parameters: { type: 'object', properties: {
       card_id: { type: 'string' },
       title: { type: 'string', description: 'New title (left as is when omitted)' },
-      notes: { type: 'string', description: 'New notes, replacing the old ones (left as is when omitted)' }
+      notes: { type: 'string', description: 'New notes, replacing the old ones (left as is when omitted)' },
+      needs: { type: 'array', description: 'What the card needs that the team may not have: a tool (Playwright = a browser, GitHub, Linear, Stripe) or a skill from the library, by name, with why', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'skill'] }, name: { type: 'string' }, why: { type: 'string' } }, required: ['kind', 'name'] } }
     }, required: ['card_id'] }
   },
   { name: 'board_move_card', description: 'Move a card to another column.', parameters: { type: 'object', properties: { card_id: { type: 'string' }, column: { type: 'string' } }, required: ['card_id', 'column'] } },
@@ -157,8 +198,8 @@ export const BOARD_TOOLS: ToolDef[] = [
   { name: 'board_run_card', description: 'Start a card: its assignee works on it now in its own chat. The result lands on the card and it moves to Review.', parameters: { type: 'object', properties: { card_id: { type: 'string' } }, required: ['card_id'] } },
   {
     name: 'message_boss',
-    description: 'Send the boss one message. kind: brief (a brief was received and planned), question (put two to four short answers in options), review (work is ready to review) or digest (what moved, what is next, what you need). Name the card it is about in card_id. The boss answers in the Inbox and the answer comes back to you. Only you, the Lead, can do this.',
-    parameters: { type: 'object', properties: { kind: { type: 'string', enum: ['brief', 'question', 'review', 'digest'] }, text: { type: 'string' }, options: { type: 'array', items: { type: 'string' }, description: 'For a question: two to four short answers the boss can tap.' }, card_id: { type: 'string', description: 'The card this is about, if any.' } }, required: ['kind', 'text'] }
+    description: 'Send the boss one message. kind: brief (a brief was received and planned), question (put two to four short answers in options), review (work is ready to review), digest (what moved, what is next, what you need) or needs (the plan needs a tool or skill the team lacks: say which and why in text, and put "Add <name>" for each in options plus "Plan without them"; the boss adds them in the app). Name the card it is about in card_id. The boss answers in the Inbox and the answer comes back to you. Only you, the Lead, can do this.',
+    parameters: { type: 'object', properties: { kind: { type: 'string', enum: ['brief', 'question', 'review', 'digest', 'needs'] }, text: { type: 'string' }, options: { type: 'array', items: { type: 'string' }, description: 'For a question: two to four short answers the boss can tap.' }, card_id: { type: 'string', description: 'The card this is about, if any.' } }, required: ['kind', 'text'] }
   },
   { name: 'agency_log', description: 'Append a line to agency-log.md (date, card, decision, cost).', parameters: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }
 ]
@@ -172,7 +213,7 @@ export const boardHooks: {
   runsOnItsOwn: (agency: Agency) => boolean
   /** The agency's card that is running right now, if any (cards.ts); board_run_card refuses a second one. */
   runningCard: (agency: Agency) => { id: string; title: string } | null
-  messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
+  messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest' | 'needs', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
 } = {
   runCard: async () => { throw new Error('Card runs are not available.') },
   runsOnItsOwn: (agency) => agency.autoRun,
@@ -187,7 +228,7 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   if (call.name === 'message_boss') {
     const kind = String(input.kind ?? 'digest') as 'brief' | 'question' | 'review' | 'digest'
     const options = Array.isArray(input.options) ? input.options.map(String) : []
-    return ok(await boardHooks.messageBoss(agency, agent, ['brief', 'question', 'review', 'digest'].includes(kind) ? kind : 'digest', String(input.text ?? ''), { options, cardId: input.card_id ? String(input.card_id) : null }))
+    return ok(await boardHooks.messageBoss(agency, agent, ['brief', 'question', 'review', 'digest', 'needs'].includes(kind) ? kind : 'digest', String(input.text ?? ''), { options, cardId: input.card_id ? String(input.card_id) : null }))
   }
   if (call.name === 'agency_log') {
     const project = db.getProject(agency.projectId)
@@ -222,6 +263,8 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
     const card: KanbanCard = { id: uid(), title, notes: String(input.notes ?? ''), labels: [], agency: agency.id, createdAt: Date.now(), log: [] }
     if (who) { card.assignee = who.id; card.agentId = who.id }
     if (input.parent_card) card.parentCard = String(input.parent_card)
+    const needs = parseNeeds(input.needs)
+    if (needs.length) card.needs = needs
     log(card, `Added by ${agent.name}${who ? `, assigned to ${who.name}` : ''}`)
     column.cards.push(card)
     writeBoard(agency, doc)
@@ -232,11 +275,12 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   if (call.name === 'board_edit_card') {
     const title = typeof input.title === 'string' ? input.title.trim().slice(0, 120) : ''
     const notes = typeof input.notes === 'string' ? input.notes : null
-    if (!title && notes === null) throw new Error('Give a new title, new notes, or both.')
+    if (!title && notes === null && input.needs === undefined) throw new Error('Give a new title, new notes, needs, or all three.')
     if (hit.card.status === 'running') throw new Error('That card is running; wait for it to finish.')
     const changed: string[] = []
     if (title && title !== hit.card.title) { hit.card.title = title; changed.push('title') }
     if (notes !== null && notes !== hit.card.notes) { hit.card.notes = notes; changed.push('notes') }
+    if (input.needs !== undefined) { const needs = parseNeeds(input.needs); if (JSON.stringify(needs) !== JSON.stringify(hit.card.needs ?? [])) { if (needs.length) hit.card.needs = needs; else delete hit.card.needs; changed.push('needs') } }
     if (changed.length) {
       log(hit.card, `Edited by ${agent.name} (${changed.join(' and ')})`)
       writeBoard(agency, doc)

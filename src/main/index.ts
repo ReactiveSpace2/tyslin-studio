@@ -470,7 +470,7 @@ function openInbox(messageId: string): void {
 
 /** Kept so notifications aren't garbage-collected before they're clicked. */
 const shownNotifications = new Set<Notification>()
-const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest', budget: 'reached the monthly cap' }
+const NOTIFY_VERB: Record<ChannelMessage['kind'], string> = { question: 'asks', review: 'has work for you to review', brief: 'sent a brief', digest: 'sent a digest', budget: 'reached the monthly cap', needs: 'needs a tool or a skill for the plan' }
 
 /** A desktop notification for a Lead's message. macOS shows a reply field and the quick answers; elsewhere a click opens the agency's Inbox. */
 function notifyBoss(m: ChannelMessage): void {

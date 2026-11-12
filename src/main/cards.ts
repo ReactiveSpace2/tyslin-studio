@@ -1,3 +1,4 @@
+import { missingNeeds, needLabel } from './boardTools'
 import { randomUUID } from 'crypto'
 import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
 import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
@@ -208,6 +209,8 @@ export async function runCard(agencyId: string, cardId: string): Promise<string>
   hit.card.assignee = hit.card.assignee || agent.id
   hit.card.status = 'running'
   log(hit.card, `Started with ${agent.name}`)
+  const missing = missingNeeds(hit.card, agent)
+  if (missing.length) log(hit.card, `Started without ${missing.map(needLabel).join(' and ')}; add them from the plan or the Tools pill`)
   const inProgress = doc.columns.find((c) => c.title.toLowerCase() === 'in progress')
   if (inProgress && hit.column !== inProgress && !/review|done/i.test(hit.column.title)) moveCard(doc, cardId, inProgress.title)
   writeBoard(agency, doc)

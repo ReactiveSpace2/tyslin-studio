@@ -127,3 +127,113 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
     </div>
   )
 }
+
+// ---- Needs: what a card or the Lead says the team lacks (A and B on the canvas, 12 Nov 2026) -------------------
+
+import type { CardNeed, Skill } from '@shared/types'
+import { connectedTool, needLabel, resolveTool, serverIsTool } from '@shared/toolCatalog'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+
+export interface NeedItem extends CardNeed { /** Who should get it (the card's assignee, or every worker). */ forIds: string[] }
+
+export interface NeedHandlers {
+  team: Agent[]
+  servers: McpServerInfo[]
+  skills: Skill[]
+  /** Opens the tool setup card in the thread. */
+  onToolSetup: (tool: ToolDef, agentIds: string[]) => void
+  onAgentsChanged: () => void
+  /** The agency's Connectors tab, for a tool that isn't in the catalogue. */
+  onFindTool: () => void
+  /** The agency's Skills tab, for a skill that isn't in the library. */
+  onFindSkill: () => void
+}
+
+/** Whether a need is met for the agents it is for. */
+export function needMet(n: NeedItem, h: Pick<NeedHandlers, 'team' | 'servers'>): boolean {
+  const who = h.team.filter((a) => n.forIds.includes(a.id) && a.engine !== 'builtin')
+  if (n.kind === 'skill') return who.length > 0 && who.every((a) => a.skills.includes(n.name))
+  const t = resolveTool(n.name)
+  if (!t) return h.servers.some((s) => serverIsTool(s, n.name) && who.some((a) => s.agentIds.includes(a.id)))
+  const c = connectedTool(t, h.servers, new Set(who.map((a) => a.id)))
+  return !!c && who.every((a) => c.agentIds.length === 0 || c.agentIds.includes(a.id))
+}
+
+/** The list of needs with one button each; met ones show a tick. Used by the Plan card and the Lead's needs message. */
+export function NeedList({ items, h, busy }: { items: NeedItem[]; h: NeedHandlers; busy?: boolean }): JSX.Element {
+  const [working, setWorking] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const who = (ids: string[]): string => h.team.filter((a) => ids.includes(a.id) && a.engine !== 'builtin').map((a) => firstName(a.name)).join(', ') || 'the team'
+  const addSkill = async (n: NeedItem): Promise<void> => {
+    setWorking(n.kind + n.name); setErr('')
+    try {
+      for (const a of h.team) if (n.forIds.includes(a.id) && a.engine !== 'builtin' && !a.skills.includes(n.name)) await window.tyslin.agents.save({ ...a, skills: [...a.skills, n.name] })
+      h.onAgentsChanged()
+    } catch (e) { setErr(errText(e)) } finally { setWorking(null) }
+  }
+  return (
+    <div className="flex flex-col">
+      {items.map((n) => {
+        const key = n.kind + n.name + n.forIds.join(',')
+        const met = needMet(n, h)
+        const tool = n.kind === 'tool' ? resolveTool(n.name) : undefined
+        const skill = n.kind === 'skill' ? h.skills.find((s) => s.name === n.name) : undefined
+        const known = n.kind === 'tool' ? !!tool : !!skill
+        return (
+          <span key={key} className="flex items-center gap-3 border-t border-border py-2 first:border-t-0">
+            <span className={`grid size-8 flex-none place-items-center rounded-lg border border-border bg-muted text-[11px] font-bold ${n.kind === 'skill' ? 'font-mono' : ''}`}>{n.kind === 'skill' ? 'sk' : (tool?.title ?? n.name).slice(0, 1).toUpperCase()}</span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[13.5px]">{n.kind === 'skill' ? <>The <span className="font-mono text-[13px]">{n.name}</span> skill, for {who(n.forIds)}</> : `${needLabel(n).replace(/^a /, 'A ')}, for ${who(n.forIds)}`}</span>
+              <span className={HINT}>{met ? (n.kind === 'skill' ? 'Added' : 'Connected') : n.why ? n.why : n.kind === 'skill' ? (skill ? skill.description : 'Not in your library yet') : tool ? tool.needs : 'Not in the catalogue; find it under Connectors'}</span>
+            </span>
+            {met ? <span className="flex items-center gap-1 text-xs text-green"><Icon name="check" size={13} /> Done</span>
+              : !known ? <Button variant="outline" size="sm" className="h-8" disabled={busy} onClick={n.kind === 'skill' ? h.onFindSkill : h.onFindTool}>Find</Button>
+              : n.kind === 'skill' ? <Button variant="lime" size="sm" className="h-8 font-semibold" disabled={busy || working === n.kind + n.name} onClick={() => void addSkill(n)}>{working === n.kind + n.name ? 'Adding…' : 'Add'}</Button>
+              : <Button variant={tool!.presetId ? 'outline' : 'lime'} size="sm" className={`h-8 ${tool!.presetId ? '' : 'font-semibold'}`} disabled={busy} onClick={() => h.onToolSetup(tool!, n.forIds)}>{tool!.presetId ? 'Connect' : 'Add'}</Button>}
+          </span>
+        )
+      })}
+      {err && <p className="pt-1 text-[13px] text-destructive" role="alert">{err}</p>}
+    </div>
+  )
+}
+
+/** D on the canvas, for a skill: an agent said it lacks a checklist for something the library has. Add is instant. */
+export function SkillSuggestCard({ skill, agent, reason, team, onAdded, onDismiss }: { skill: Skill; agent: Agent | null; reason: string; team: Agent[]; onAdded: () => void; onDismiss: () => void }): JSX.Element {
+  const worker = agent && agent.engine !== 'builtin' ? agent : null
+  const who = worker ? firstName(worker.name) : 'the team'
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const [err, setErr] = useState('')
+  const add = async (whole: boolean): Promise<void> => {
+    setBusy(true); setErr('')
+    try {
+      const targets = team.filter((a) => a.engine !== 'builtin' && (whole || !worker || a.id === worker.id))
+      for (const a of targets) if (!a.skills.includes(skill.name)) await window.tyslin.agents.save({ ...a, skills: [...a.skills, skill.name] })
+      setDone(targets.map((a) => firstName(a.name)).join(', ')); onAdded()
+    } catch (e) { setErr(errText(e)) } finally { setBusy(false) }
+  }
+  if (done) return <p className="flex items-center gap-2 pl-11 text-[13px] text-muted-foreground"><Icon name="check" size={13} className="text-green" /><span className="font-mono text-foreground">{skill.name}</span> added to {done}</p>
+  return (
+    <div className="flex items-start gap-3">
+      <span className="flex-none">{agent ? <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={32} /> : <span className="block size-8" />}</span>
+      <Card className="max-w-[560px] min-w-0 flex-1 gap-3 border-green px-4 py-3.5" role="group" aria-label={`Give ${who} the ${skill.name} skill`}>
+        <span className="flex items-center gap-3">
+          <span className="grid size-9 flex-none place-items-center rounded-lg border border-border bg-muted font-mono text-[11px] font-bold">sk</span>
+          <span className="flex min-w-0 flex-col"><strong className="text-sm font-semibold">Give {who} the <span className="font-mono">{skill.name}</span> skill</strong><span className={HINT}>In your library{team.some((a) => a.skills.includes(skill.name)) ? '' : ' · nobody on the team has it yet'}</span></span>
+        </span>
+        <p className="text-[13.5px] leading-relaxed text-foreground/85">{worker ? firstName(worker.name) : 'The team'} {reason}. {who === 'the team' ? 'Every worker' : firstName(worker!.name)} gets it on the next step; it costs nothing.</p>
+        <Collapsible>
+          <CollapsibleTrigger asChild><Button variant="link" size="sm" className="h-7 px-0 text-[13px]">Read the skill</Button></CollapsibleTrigger>
+          <CollapsibleContent><pre className="mt-1 max-h-[200px] overflow-y-auto rounded-md bg-muted px-3 py-2 font-mono text-xs leading-relaxed whitespace-pre-wrap">{skill.body}</pre></CollapsibleContent>
+        </Collapsible>
+        {err && <p className="text-[13px] text-destructive" role="alert">{err}</p>}
+        <span className="flex flex-wrap items-center gap-2">
+          <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={busy} onClick={() => void add(false)}>{busy ? 'Adding…' : worker ? `Add to ${who}` : 'Add to the team'}</Button>
+          {worker && <Button variant="ghost" size="sm" className="min-h-9" disabled={busy} onClick={() => void add(true)}>Add to the whole team</Button>}
+          <Button variant="ghost" size="sm" className="ml-auto min-h-9 text-muted-foreground" onClick={onDismiss}>Not now</Button>
+        </span>
+      </Card>
+    </div>
+  )
+}

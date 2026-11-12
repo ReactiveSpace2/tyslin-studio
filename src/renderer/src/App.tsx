@@ -285,6 +285,7 @@ export default function App(): JSX.Element {
         return (
           <TaskPage key={route.sessionId} sessionId={route.sessionId} agent={a} view={v} sessions={sessions} focus={route.focus} setHeader={setHeaderSlot}
             onSessionsChanged={() => { void refreshSessions(); refreshChannel() }}
+            onAgentsChanged={() => void refresh()}
             onOpenAgency={() => { if (v) openAgency(v.agency.id) }}
             onOpenAgent={(x) => { if (v) setRoute({ name: 'agent', agencyId: v.agency.id, agentId: x.id }) }}
             onConnectors={() => { if (v) openAgency(v.agency.id, 'connectors') }}

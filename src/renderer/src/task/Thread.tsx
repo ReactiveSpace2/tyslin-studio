@@ -11,9 +11,9 @@ import { ChannelCard, needsYou } from './ChannelCard'
 import { PermissionCard } from './PermissionCard'
 import { PlanCard } from './PlanCard'
 import { PreviewCard, useMadeFiles } from './PreviewCard'
-import { ToolSetupCard, ToolSuggestCard } from './ToolCards'
-import { connectedTool, toolById, toolHint, type ToolDef } from '@shared/toolCatalog'
-import type { McpServerInfo } from '@shared/types'
+import { SkillSuggestCard, ToolSetupCard, ToolSuggestCard, type NeedHandlers } from './ToolCards'
+import { connectedTool, skillHint, toolById, toolHint, type ToolDef } from '@shared/toolCatalog'
+import type { McpServerInfo, Skill } from '@shared/types'
 import { StatusTable } from './StatusTable'
 import { WorkerWork } from './WorkerWork'
 import { activityLabel, type Task } from './useTask'
@@ -71,6 +71,10 @@ interface Props {
   toolSetup: { tool: ToolDef; agentIds: string[] } | null
   onToolSetup: (setup: { tool: ToolDef; agentIds: string[] } | null) => void
   onToolConnected: (s: McpServerInfo) => void
+  /** The skill library, for needs and the skill suggestion card. */
+  skills: Skill[]
+  onAgentsChanged: () => void
+  onConnectors: () => void
   onReview: (changes: PendingChange[], from: { agent: Agent | null; card: KanbanCard | null; message: ChannelMessage | null; sessionId: string }) => void
   onAskLead: () => void
   onOpenAgency: () => void
@@ -83,7 +87,7 @@ interface Props {
  * plan waiting for your OK, where each card stands, each worker's folded run, and anything asking for
  * permission or review, all in time order.
  */
-export function Thread({ task, agent, view, sessionId, focus, until, onPreview, servers, toolSetup, onToolSetup, onToolConnected, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
+export function Thread({ task, agent, view, sessionId, focus, until, onPreview, servers, toolSetup, onToolSetup, onToolConnected, skills, onAgentsChanged, onConnectors, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const isLead = !!view && view.lead?.id === agent.id
@@ -110,6 +114,16 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
     return null
   })()
   const suggestedTool = suggestion ? toolById(suggestion.toolId) ?? null : null
+  // The same for a skill: the newest "I don't have a checklist for…" that a library skill answers.
+  const skillSuggestion = (() => {
+    for (const s of said) {
+      const attached = new Set(s.agent && s.agent.engine !== 'builtin' ? s.agent.skills : team.flatMap((a) => (a.engine !== 'builtin' ? a.skills : [])))
+      const h = skillHint(s.text, skills, attached)
+      if (h && !dismissed.includes('skill:' + h.name)) { const skill = skills.find((x) => x.name === h.name); if (skill) return { skill, reason: h.reason, agent: s.agent } }
+    }
+    return null
+  })()
+  const needHandlers: NeedHandlers = { team, servers, skills, onToolSetup: (tool, agentIds) => onToolSetup({ tool, agentIds }), onAgentsChanged, onFindTool: onConnectors, onFindSkill: onOpenAgency }
 
   // Follow the bottom while it is in view; a message to focus wins once.
   const focusDone = useRef<string | null>(null)
@@ -156,7 +170,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
         <div key={m.id} id={`cm-${m.id}`} className="flex scroll-mt-4 items-start gap-3">
           <span className="flex-none"><Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={32} /></span>
           <div className="max-w-[640px] min-w-0 flex-1">
-            <ChannelCard m={m} lead={view?.lead ?? null} board={task.board} sessionId={sessionId} onAnswered={() => { task.reloadChannel(); onChanged() }}
+            <ChannelCard m={m} lead={view?.lead ?? null} board={task.board} sessionId={sessionId} needs={needHandlers} onAnswered={() => { task.reloadChannel(); onChanged() }}
               onReview={(changes, card, message) => onReview(changes, { agent: agentOf(card.assignee || card.agentId) ?? null, card, message, sessionId: card.sessionId! })} />
           </div>
         </div>
@@ -183,7 +197,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
           )}
           {items.map((it) => it.node)}
           {made.more > 0 && <p className="pl-11 text-xs text-muted-foreground">{made.more} more file{made.more === 1 ? '' : 's'} from this task in <Button variant="link" size="sm" className="h-auto p-0 text-xs underline" onClick={() => onPreview(made.shown[0].path)}>Preview</Button>.</p>}
-          {planned.length > 0 && view && <PlanCard view={view} cards={planned} workingOn={runningCard ? { title: runningCard.title, who: firstName(agentOf(runningCard.assignee || runningCard.agentId)?.name ?? 'the worker') } : null} onAskLead={onAskLead} onChanged={() => { task.reloadChannel(); onChanged() }} onOpenAgency={onOpenAgency} />}
+          {planned.length > 0 && view && <PlanCard view={view} cards={planned} needs={needHandlers} workingOn={runningCard ? { title: runningCard.title, who: firstName(agentOf(runningCard.assignee || runningCard.agentId)?.name ?? 'the worker') } : null} onAskLead={onAskLead} onChanged={() => { task.reloadChannel(); onChanged() }} onOpenAgency={onOpenAgency} />}
           {task.streaming && (
             <div className="flex items-start gap-3">
               <span className="flex-none"><Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={32} /></span>
@@ -224,6 +238,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
               onAdd={(whole) => onToolSetup({ tool: suggestedTool, agentIds: whole || !suggestion.agent || suggestion.agent.engine === 'builtin' ? team.filter((a) => a.engine !== 'builtin').map((a) => a.id) : [suggestion.agent.id] })}
               onDismiss={() => dismiss(suggestedTool.id)} />
           )}
+          {skillSuggestion && !toolSetup && <SkillSuggestCard key={'skill:' + skillSuggestion.skill.name} skill={skillSuggestion.skill} agent={skillSuggestion.agent} reason={skillSuggestion.reason} team={team} onAdded={onAgentsChanged} onDismiss={() => dismiss('skill:' + skillSuggestion.skill.name)} />}
           {toolSetup && <ToolSetupCard key={toolSetup.tool.id} tool={toolSetup.tool} team={team} initialAgentIds={toolSetup.agentIds} onConnected={onToolConnected} onCancel={() => onToolSetup(null)} />}
           {task.permissions.map((p) => <PermissionCard key={p.id} p={p} agent={agent} onAnswer={task.answerPermission} />)}
           {workerPermissions.map(({ p, a }) => <PermissionCard key={p.id} p={p} agent={a} onAnswer={task.answerPermission} />)}

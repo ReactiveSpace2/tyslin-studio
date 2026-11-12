@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { NeedList, needMet, type NeedHandlers, type NeedItem } from './ToolCards'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
@@ -22,7 +23,7 @@ const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
  * "Plan ready for your OK": the Lead's planned cards that haven't run. Each row can be run now, given to
  * someone else, edited or removed; Approve runs them one after another (cards.runPlan).
  */
-export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenAgency }: {
+export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenAgency, needs }: {
   view: AgencyView
   cards: KanbanCard[]
   /** The card running now and who has it, when one is. */
@@ -30,6 +31,8 @@ export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenA
   onAskLead: () => void
   onChanged: () => void
   onOpenAgency: () => void
+  /** The team's tools and skills and the handlers that add what the cards need (ToolCards NeedList). */
+  needs?: NeedHandlers
 }): JSX.Element {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -47,6 +50,13 @@ export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenA
   const team = [view.lead, ...view.workers].filter((a): a is Agent => !!a)
   const who = (c: KanbanCard): Agent | undefined => team.find((a) => a.id === (c.assignee || c.agentId))
   const lead = view.lead ? firstName(view.lead.name) : 'the Lead'
+  // A on the canvas: what the cards need, one row each, met ones ticked; the same need for the same person once.
+  const needItems: NeedItem[] = []
+  for (const c of cards) for (const n of c.needs ?? []) {
+    const forIds = c.assignee || c.agentId ? [(c.assignee || c.agentId)!] : team.filter((a) => a.engine !== 'builtin').map((a) => a.id)
+    if (!needItems.some((x) => x.kind === n.kind && x.name === n.name && x.forIds.join() === forIds.join())) needItems.push({ ...n, forIds })
+  }
+  const unmet = needs ? needItems.filter((n) => !needMet(n, needs)).length : 0
   const run = async (fn: () => Promise<unknown>): Promise<void> => {
     setBusy(true); setError('')
     try { await fn(); onChanged() } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
@@ -109,6 +119,13 @@ export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenA
           </TableBody>
         </Table>
       </div>
+      {needs && needItems.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[13px] font-medium">Before they start, the team needs</span>
+          <div className="rounded-lg border border-border px-3"><NeedList items={needItems} h={needs} busy={busy} /></div>
+          {unmet > 0 && !approved && <span className="text-xs text-muted-foreground">You can approve without {unmet === 1 ? 'it' : 'them'}; a card that still lacks one says so when it runs.</span>}
+        </div>
+      )}
       <span className="flex flex-wrap items-center gap-2">
         {!approved && <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={busy} onClick={() => void run(() => window.tyslin.cards.runPlan(view.agency.id))}><Icon name="play" size={12} /> Approve and run the plan</Button>}
         <Button variant="outline" size="sm" className="min-h-9" onClick={onAskLead}>Ask {lead} to change it</Button>
