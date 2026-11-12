@@ -31,6 +31,7 @@ const PATHS = {
   updown: <path d="m5 6 3-3 3 3M5 10l3 3 3-3" />,
   more: <><circle cx="3.25" cy="8" r="0.9" fill="currentColor" /><circle cx="8" cy="8" r="0.9" fill="currentColor" /><circle cx="12.75" cy="8" r="0.9" fill="currentColor" /></>,
   chat: <path d="M2.5 3h11v8H7.5L4.5 13.5V11h-2z" />,
+  bell: <><path d="M4 11.5V7a4 4 0 0 1 8 0v4.5l1.25 1.25H2.75z" /><path d="M6.75 14.25a1.4 1.4 0 0 0 2.5 0" /></>,
   art: <><path d="M8 2a6 6 0 1 0 0 12c1 0 1.3-.8.9-1.5-.5-.9 0-1.7 1-1.7h1.6A2.5 2.5 0 0 0 14 8.3 6 6 0 0 0 8 2z" /><circle cx="5" cy="7.5" r="0.8" fill="currentColor" /><circle cx="7.5" cy="4.8" r="0.8" fill="currentColor" /><circle cx="10.7" cy="6" r="0.8" fill="currentColor" /></>,
   connectors: <><path d="M6 1.5V5M10 1.5V5" /><path d="M4 5h8v2.5a4 4 0 0 1-8 0z" /><path d="M8 11.5v3" /></>,
   help: <><circle cx="8" cy="8" r="6.25" /><path d="M6.3 6.3a1.75 1.75 0 1 1 2.4 1.6c-.45.2-.7.6-.7 1.1v.3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>,

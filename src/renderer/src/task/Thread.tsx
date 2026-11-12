@@ -37,11 +37,11 @@ function UserMessage({ m }: { m: Message }): JSX.Element {
   const system = SYSTEM_PROMPT.test(m.content)
   return (
     <div className="flex justify-end">
-      <div className="flex max-w-[80%] flex-col items-end gap-1">
+      <div className="flex max-w-[min(80%,640px)] flex-col items-end gap-1">
         <span className="text-xs text-muted-foreground">{system ? systemLabel(m.content) : 'You'} · <span className="font-mono">{clock(m.createdAt)}</span></span>
         {m.attachments?.length ? <div className="flex flex-wrap justify-end gap-1.5" aria-label="Attachments">{m.attachments.map((a) => <AttachmentChip key={a.id} a={a} />)}</div> : null}
         {m.content && (
-          <div className={cn('max-w-full rounded-[14px_14px_4px_14px] px-4 py-3 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-foreground', system ? 'border border-dashed border-border bg-muted text-[14px] text-muted-foreground' : 'bg-accent', long && !open && 'text-foreground/75')}>
+          <div className={cn('max-w-full rounded-[12px_12px_4px_12px] px-4 py-3 text-[15px] leading-relaxed break-words whitespace-pre-wrap text-foreground', system ? 'border border-dashed border-border bg-muted text-[14px] text-muted-foreground' : 'bg-accent', long && !open && 'text-foreground/75')}>
             {long && !open ? m.content.slice(0, LONG_USER).trimEnd() + '…' : m.content}
           </div>
         )}

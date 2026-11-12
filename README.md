@@ -164,7 +164,7 @@ npm run dev        # the app with hot reload
 npm run typecheck  # run after every change
 ```
 
-The interface is React with Tailwind CSS v4 and shadcn/ui (Radix) components only (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens in `src/renderer/src/index.css`. The window is one shadcn sidebar (Home, Agencies, Scheduled, Files, recent tasks) beside the screen: Home, a task, or an agency.
+The interface is React with Tailwind CSS v4 and shadcn/ui (Radix) components only (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens in `src/renderer/src/index.css`. The window is one shadcn sidebar beside the screen (Home, a task, or an agency): Search, Activity and Create at the top, each agency's team chat and agents below, Connectors and the account menu (Agencies, Skills, Files, Scheduled, Settings) at the foot. In a task, the agent's name pill opens its panel (About, Routines, Instructions).
 
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which stops Electron from opening a window. Start it with `env -u ELECTRON_RUN_AS_NODE npm run dev`.
 

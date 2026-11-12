@@ -15,7 +15,7 @@ const errorText = (e: unknown): string => (e instanceof Error ? e.message.replac
 const when = (ms: number | null): string => (ms ? new Date(ms).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '')
 
 /** The scheduled tasks for one agency (or all of them), with switch, run now, edit and delete. */
-export function ScheduleList({ agencies, only, onOpenTask }: { agencies: AgencyView[]; only?: AgencyView | null; onOpenTask: (sessionId: string, agentId: string) => void }): JSX.Element {
+export function ScheduleList({ agencies, only, agentId, onOpenTask }: { agencies: AgencyView[]; only?: AgencyView | null; /** One agent's routines (the task's agent panel). */ agentId?: string; onOpenTask: (sessionId: string, agentId: string) => void }): JSX.Element {
   const [tasks, setTasks] = useState<ScheduledTask[] | null>(null)
   const [form, setForm] = useState<{ task: ScheduledTask | null } | null>(null)
   const [confirm, setConfirm] = useState<ScheduledTask | null>(null)
@@ -26,12 +26,12 @@ export function ScheduleList({ agencies, only, onOpenTask }: { agencies: AgencyV
     for (const v of agencies) { const a = [v.lead, ...v.workers].find((x) => x?.id === t.agentId); if (a) return { a, v } }
     return null
   }
-  const rows = (tasks ?? []).map((t) => ({ t, who: agentOf(t) })).filter(({ who }) => !!who && (!only || who.v.agency.id === only.agency.id))
+  const rows = (tasks ?? []).map((t) => ({ t, who: agentOf(t) })).filter(({ t, who }) => !!who && (!only || who.v.agency.id === only.agency.id) && (!agentId || t.agentId === agentId))
   const run = async (fn: () => Promise<unknown>): Promise<void> => { setError(''); try { await fn(); load() } catch (e) { setError(errorText(e)) } }
 
   return (
     <div className="flex flex-col gap-4">
-      {form && <ScheduleForm agencies={agencies} task={form.task} agencyId={only?.agency.id ?? null} onSaved={() => { setForm(null); load() }} onCancel={() => setForm(null)} />}
+      {form && <ScheduleForm agencies={agencies} task={form.task} agencyId={only?.agency.id ?? null} agentId={agentId ?? null} onSaved={() => { setForm(null); load() }} onCancel={() => setForm(null)} />}
       <Card className="gap-0 overflow-hidden py-0">
         {tasks === null && <span className="px-4 py-3 text-[13px] text-muted-foreground">Loading…</span>}
         {tasks !== null && rows.length === 0 && <span className="px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled{only ? ` for ${only.agency.name}` : ''}. Agencies made from a template get the Lead's weekly digest.</span>}

@@ -291,6 +291,7 @@ export default function App(): JSX.Element {
             onFiles={() => setRoute({ name: 'files', agencyId: v?.agency.id })}
             onSettings={() => setRoute({ name: 'settings', tab: 'models' })}
             onTalkTo={(x) => openChat(x.id, v?.project.id ?? x.projectId)}
+            onOpenTask={(sid, aid) => { void refreshSessions().then(() => openTask(sid, aid)) }}
             onBackToLead={v?.lead && v.lead.id !== a.id ? () => openChat(v.lead!.id, v.project.id) : null}
             onDeleted={() => { void refreshSessions(); setRoute({ name: 'home' }) }} />
         )
@@ -329,8 +330,20 @@ export default function App(): JSX.Element {
   return (
     <SidebarProvider className="h-screen min-h-0 overflow-hidden bg-background text-foreground">
       <AppSidebar route={route} mac={mac} agencies={agencies} agents={agents} sessions={sessions} runningIds={runningIds} needsYouBySession={needsYouBySession}
+        channelMessages={channelMsgs} waiting={waiting} activeAgency={activeAgency}
         account={auth.account} canSignOut={auth.configured && !!auth.account}
-        onNavigate={(r) => { if (r.name === 'agency') setActiveAgency(r.id); setRoute(r) }}
+        onNavigate={(r) => {
+          const agencyId = r.name === 'agency' ? r.id : r.name === 'agent' || r.name === 'files' ? r.agencyId : undefined
+          if (agencyId) setActiveAgency(agencyId)
+          setRoute(r)
+        }}
+        onOpenAgent={(a) => { const v = viewById(a.agency) ?? viewByProject(a.projectId); openChat(a.id, v?.project.id ?? a.projectId) }}
+        onOpenTask={openTask} onOpenAgency={openAgency} onNewAgency={() => setNewAgency({})}
+        onNewTask={(agencyId) => {
+          if (agencyId) setActiveAgency(agencyId)
+          setRoute({ name: 'home' })
+          window.setTimeout(() => (document.getElementById('composer') as HTMLTextAreaElement | null)?.focus(), 50)
+        }}
         onSearch={() => setSearch(true)} onSettings={() => setRoute({ name: 'settings' })}
         onSignOut={() => { void window.tyslin.auth.signOut().then(setAuth) }} />
       <SidebarInset className="min-h-0 overflow-hidden">

@@ -7,6 +7,7 @@ import { Composer } from '../components/Composer'
 import { Icon } from '../components/Icon'
 import { ChangesPanel, type Review } from '../task/ChangesPanel'
 import { DetailsPanel } from '../task/DetailsPanel'
+import { AgentPanel } from '../task/AgentPanel'
 import { AgencyPageView, shownPages } from '../agency/pages'
 import { PreviewPanel } from '../task/PreviewPanel'
 import { TaskHeader, type Pane } from '../task/TaskHeader'
@@ -14,7 +15,7 @@ import { Thread } from '../task/Thread'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
 
-const PANE_TITLE: Record<'details' | 'changes' | 'preview' | '', string> = { details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
+const PANE_TITLE: Record<'agent' | 'details' | 'changes' | 'preview' | '', string> = { agent: 'Agent', details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
 
 interface Props {
   sessionId: string
@@ -31,12 +32,13 @@ interface Props {
   onFiles: () => void
   onSettings: () => void
   onTalkTo: (a: Agent) => void
+  onOpenTask: (sessionId: string, agentId: string) => void
   onBackToLead: (() => void) | null
   onDeleted: () => void
 }
 
 /** A task: the conversation in the middle, the composer under it, and one right panel (Details, Changes or Preview). */
-export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, onSessionsChanged, onOpenAgency, onOpenAgent, onConnectors, onFiles, onSettings, onTalkTo, onBackToLead, onDeleted }: Props): JSX.Element {
+export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, onSessionsChanged, onOpenAgency, onOpenAgent, onConnectors, onFiles, onSettings, onTalkTo, onOpenTask, onBackToLead, onDeleted }: Props): JSX.Element {
   const task = useTask(sessionId, agent, view, sessions, onSessionsChanged)
   const [text, setText] = useState('')
   const [attached, setAttached] = useState<Attachment[]>([])
@@ -129,6 +131,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => { setPane(''); setWide(false) }}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {pane === 'agent' && <AgentPanel agent={agent} view={view} onEdit={onOpenAgent} onOpenTask={onOpenTask} />}
             {pane === 'details' && <DetailsPanel view={view} agent={agent} taskId={sessionId} cards={task.cards} channel={task.channel} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
             {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
             {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} expanded={expanded} onExpand={() => setWide((w) => !w)} />}

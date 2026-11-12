@@ -13,7 +13,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 
 /** The right panel; `page:<id>` is one of the agency's pages (agency/pages). */
-export type Pane = 'details' | 'changes' | 'preview' | '' | `page:${string}`
+export type Pane = 'agent' | 'details' | 'changes' | 'preview' | '' | `page:${string}`
 const menuItem = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5'
 
 interface Props {
@@ -80,7 +80,13 @@ export function TaskHeader({ session, agent, view, running, pane, pendingChanges
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {running && <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:inline-flex"><span className="size-2 animate-blink rounded-full bg-green" aria-hidden="true" />{firstName(agent.name)} is working</span>}
+        {/* The name pill (blueprint): the agent's head and name; opens its panel. */}
+        <Button variant="outline" aria-pressed={pane === 'agent'} onClick={() => onPane(pane === 'agent' ? '' : 'agent')}
+          className={cn('h-8 flex-none gap-2 rounded-full pr-3 pl-1 text-[13px] font-medium', pane === 'agent' && 'bg-accent')} aria-label={`${agent.name}: open the agent panel`}>
+          <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={22} />
+          {firstName(agent.name)}
+          {running && <span className="size-2 animate-blink rounded-full bg-green" aria-label="Working" />}
+        </Button>
       </div>
       <ToggleGroup type="single" spacing={1} value={pane} onValueChange={(v) => onPane((v || '') as Pane)} aria-label="Panels">
         <ToggleGroupItem value="details" className={toggle} aria-label="Details" title="Details"><Icon name="list" size={17} /></ToggleGroupItem>

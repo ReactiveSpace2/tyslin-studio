@@ -20,17 +20,19 @@ interface Props {
   task?: ScheduledTask | null
   /** The agency preselected for a new task. */
   agencyId?: string | null
+  /** The agent preselected for a new task. */
+  agentId?: string | null
   onSaved: (t: ScheduledTask) => void
   onCancel: () => void
 }
 
 /** New or edited scheduled task: what to do, which agency and agent, and when (daily, weekdays or weekly). */
-export function ScheduleForm({ agencies, task, agencyId, onSaved, onCancel }: Props): JSX.Element {
+export function ScheduleForm({ agencies, task, agencyId, agentId: forAgent, onSaved, onCancel }: Props): JSX.Element {
   const agentOf = (id: string): AgencyView | undefined => agencies.find((v) => [v.lead, ...v.workers].some((a) => a?.id === id))
-  const [agency, setAgency] = useState<string>(task ? agentOf(task.agentId)?.agency.id ?? agencies[0]?.agency.id ?? '' : agencyId ?? agencies[0]?.agency.id ?? '')
+  const [agency, setAgency] = useState<string>(task ? agentOf(task.agentId)?.agency.id ?? agencies[0]?.agency.id ?? '' : agencyId ?? (forAgent ? agentOf(forAgent)?.agency.id : undefined) ?? agencies[0]?.agency.id ?? '')
   const view = agencies.find((v) => v.agency.id === agency) ?? null
   const team = view ? [view.lead, ...view.workers].filter((a): a is Agent => !!a) : []
-  const [agentId, setAgentId] = useState<string>(task?.agentId ?? view?.lead?.id ?? '')
+  const [agentId, setAgentId] = useState<string>(task?.agentId ?? forAgent ?? view?.lead?.id ?? '')
   const [prompt, setPrompt] = useState(task?.prompt ?? '')
   const [schedule, setSchedule] = useState<TaskSchedule>(task?.schedule ?? { repeat: 'weekly', time: '09:00', day: 1 })
   const [busy, setBusy] = useState(false)

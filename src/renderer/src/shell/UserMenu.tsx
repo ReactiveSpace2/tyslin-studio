@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Account, Organization, OrgColor } from '@shared/types'
 import { ORG_COLORS } from '@shared/types'
 import { refreshAppearance } from '../appearance'
-import { Icon } from '../components/Icon'
+import { Icon, type IconName } from '../components/Icon'
 import { ColorSwatches } from '../components/ColorSwatches'
 import { NewOrgModal } from '../components/NewOrgModal'
 import { Button } from '@/components/ui/button'
@@ -20,16 +20,18 @@ const item = 'min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5 [&_svg:not([clas
 interface Props {
   account: Account | null
   canSignOut: boolean
+  /** Places that moved off the sidebar into this menu (blueprint: Agencies, Skills, Files, Scheduled). */
+  links?: { name: string; icon: IconName; go: () => void }[]
   onSettings: () => void
   onSignOut: () => void
 }
 
 /**
  * The menu at the foot of the left column: who is signed in, the organizations (switch, new, rename or
- * recolour), Settings, help, feedback and Sign out. Switching or creating an organization reloads the window,
+ * recolour), Agencies, Skills, Files and Scheduled, Settings, help, feedback and Sign out. Switching or creating an organization reloads the window,
  * as every screen reads the current organization's database.
  */
-export function UserMenu({ account, canSignOut, onSettings, onSignOut }: Props): JSX.Element {
+export function UserMenu({ account, canSignOut, links = [], onSettings, onSignOut }: Props): JSX.Element {
   const [orgs, setOrgs] = useState<Organization[]>([])
   const [open, setOpen] = useState(false)
   const [newOrg, setNewOrg] = useState(false)
@@ -82,6 +84,8 @@ export function UserMenu({ account, canSignOut, onSettings, onSignOut }: Props):
           <DropdownMenuItem className={item} onSelect={() => setNewOrg(true)}><Icon name="plus" size={14} /> New organization…</DropdownMenuItem>
           {current && <DropdownMenuItem className={item} onSelect={() => setEditOrg(true)}><Icon name="art" size={14} /> Rename or recolour {current.name}</DropdownMenuItem>}
           <DropdownMenuSeparator className="mx-0.5" />
+          {links.map((l) => <DropdownMenuItem key={l.name} className={item} onSelect={l.go}><Icon name={l.icon} size={14} /> {l.name}</DropdownMenuItem>)}
+          {links.length > 0 && <DropdownMenuSeparator className="mx-0.5" />}
           <DropdownMenuItem className={item} onSelect={onSettings}><Icon name="settings" size={14} /> Settings</DropdownMenuItem>
           <DropdownMenuItem asChild className={item}><a href={DOCS} target="_blank" rel="noreferrer"><Icon name="help" size={14} /> Help and docs</a></DropdownMenuItem>
           <DropdownMenuItem asChild className={item}><a href={ISSUES} target="_blank" rel="noreferrer"><Icon name="github" size={14} /> Send feedback on GitHub</a></DropdownMenuItem>
