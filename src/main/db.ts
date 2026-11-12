@@ -1145,14 +1145,15 @@ export function getMcpServer(id: string): McpServerInfo | null {
   return r ? toMcp(r) : null
 }
 
-export function saveMcpServer(s: Omit<McpServerInfo, 'createdAt' | 'lastTest'> & { id: string }): McpServerInfo {
+/** `secretsChanged`: the caller (integrations.ts) saw the token, headers or env values change, which also clears the last test. */
+export function saveMcpServer(s: Omit<McpServerInfo, 'createdAt' | 'lastTest'> & { id: string }, secretsChanged = false): McpServerInfo {
   const existing = getMcpServer(s.id)
   if (db.prepare('SELECT 1 FROM mcp_servers WHERE name = ? AND id != ?').get(s.name, s.id)) throw new Error(`An integration called ${s.name} already exists.`)
   if (existing) {
     db.prepare('UPDATE mcp_servers SET title = ?, source = ?, name = ?, preset = ?, transport = ?, url = ?, command = ?, args = ?, agent_ids = ?, secret_names = ?, last_test = ? WHERE id = ?')
       .run(s.title, s.source, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames),
-        // A changed address or command makes the last test meaningless.
-        existing.url === s.url && existing.command === s.command && JSON.stringify(existing.args) === JSON.stringify(s.args) && JSON.stringify(existing.secretNames) === JSON.stringify(s.secretNames) && existing.lastTest ? JSON.stringify(existing.lastTest) : '', s.id)
+        // A changed address, command or secret makes the last test meaningless.
+        !secretsChanged && existing.url === s.url && existing.command === s.command && JSON.stringify(existing.args) === JSON.stringify(s.args) && JSON.stringify(existing.secretNames) === JSON.stringify(s.secretNames) && existing.lastTest ? JSON.stringify(existing.lastTest) : '', s.id)
   } else {
     db.prepare('INSERT INTO mcp_servers (id, title, source, name, preset, transport, url, command, args, agent_ids, secret_names, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(s.id, s.title, s.source, s.name, s.preset, s.transport, s.url, s.command, JSON.stringify(s.args), JSON.stringify(s.agentIds), JSON.stringify(s.secretNames), Date.now())

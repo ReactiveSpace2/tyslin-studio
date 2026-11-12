@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Agent, ClaudeSkill, Skill, SkillInput, SkillPack, SkillPackSearch } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
@@ -21,6 +21,7 @@ const toSlug = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, '-'
 const CLAUDE_PACK = 'anthropic-skills'
 const HINT = 'text-xs text-muted-foreground'
 const BLANK: SkillInput = { name: '', description: '', body: '' }
+const DISCARD = { title: 'Discard your changes?', description: "The skill has edits you haven't saved.", action: 'Discard', destructive: true }
 
 type Open = { kind: 'skill'; skill: SkillInput } | { kind: 'packs' } | null
 
@@ -29,15 +30,28 @@ export function SkillsTab({ view, agents, onAgentsChanged }: { view: AgencyView;
   const [skills, setSkills] = useState<Skill[] | null>(null)
   const [open, setOpen] = useState<Open>(null)
   const [notice, setNotice] = useState('')
+  const [filter, setFilter] = useState('')
+  // Whether the editor in the sheet has unsaved edits; closing or switching to the packs asks first.
+  const dirty = useRef(false)
+  const [confirmEl, confirm] = useConfirm()
   const team = [view.lead, ...view.workers].filter((a): a is Agent => !!a)
   const load = (): void => { void window.tyslin.skills.list().then(setSkills) }
   useEffect(load, [])
   const users = (s: Skill): Agent[] => team.filter((a) => a.skills.includes(s.name))
-  const used = (skills ?? []).filter((s) => users(s).length > 0)
-  const rest = (skills ?? []).filter((s) => users(s).length === 0)
+  const q = filter.trim().toLowerCase()
+  const matches = (s: Skill): boolean => !q || s.name.includes(q) || s.description.toLowerCase().includes(q)
+  const used = (skills ?? []).filter((s) => users(s).length > 0 && matches(s))
+  const rest = (skills ?? []).filter((s) => users(s).length === 0 && matches(s))
   const importFiles = async (): Promise<void> => {
     try { const r = await window.tyslin.skills.importFiles(); setNotice(r.imported.length ? `Imported ${r.imported.length}.${r.skipped.length ? ` Skipped: ${r.skipped.join('; ')}` : ''}` : r.skipped.join('; ')); load() } catch (e) { setNotice(errorText(e)) }
   }
+  const leaveEditor = async (): Promise<boolean> => {
+    if (dirty.current && !(await confirm(DISCARD))) return false
+    dirty.current = false
+    return true
+  }
+  const close = async (): Promise<void> => { if (await leaveEditor()) { setOpen(null); load() } }
+  const toPacks = async (): Promise<void> => { if (open?.kind !== 'packs' && (await leaveEditor())) setOpen({ kind: 'packs' }) }
   const row = (s: Skill): JSX.Element => (
     <div key={s.id} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
       <span className="flex min-w-[220px] flex-1 flex-col gap-0.5"><strong className="font-mono text-[13.5px] font-medium">{s.name}</strong><span className={HINT}>{s.description}</span></span>
@@ -48,6 +62,13 @@ export function SkillsTab({ view, agents, onAgentsChanged }: { view: AgencyView;
   )
   return (
     <div className="flex flex-col gap-4">
+      {confirmEl}
+      {skills && skills.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`Filter ${skills.length} skills…`} aria-label="Filter skills" className="max-w-[320px]" />
+          {q && <span className={HINT}>{used.length + rest.length} match{used.length + rest.length === 1 ? '' : 'es'}</span>}
+        </div>
+      )}
       {used.length > 0 && <Card className="gap-0 overflow-hidden py-0">{used.map(row)}</Card>}
       {rest.length > 0 && (
         <div className="flex flex-col gap-1.5">
@@ -56,21 +77,22 @@ export function SkillsTab({ view, agents, onAgentsChanged }: { view: AgencyView;
         </div>
       )}
       {skills && skills.length === 0 && <p className="text-[13px] text-muted-foreground">No skills yet.</p>}
+      {skills && skills.length > 0 && q && used.length + rest.length === 0 && <p className="text-[13px] text-muted-foreground">No skill matches "{filter.trim()}".</p>}
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={() => setOpen({ kind: 'skill', skill: BLANK })}><Icon name="plus" size={12} /> New skill</Button>
         <Button variant="ghost" size="sm" onClick={() => void importFiles()}>Import a .md file</Button>
         <Button variant="ghost" size="sm" onClick={() => setOpen({ kind: 'packs' })}>Browse skill packs</Button>
       </div>
       {notice && <p className={HINT} role="status">{notice}</p>}
-      <Sheet open={!!open} onOpenChange={(o) => { if (!o) { setOpen(null); load() } }}>
+      <Sheet open={!!open} onOpenChange={(o) => { if (!o) void close() }}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-[720px]">
           <SheetHeader className="border-b border-border px-5 py-4">
             <SheetTitle className="sr-only">Skills</SheetTitle>
             <SheetDescription className="sr-only">Edit a skill or browse skill packs.</SheetDescription>
-            <TabsList aria-label="Skills"><TabsTrigger active={open?.kind === 'skill'} onClick={() => setOpen((o) => (o?.kind === 'skill' ? o : { kind: 'skill', skill: BLANK }))}>Skill</TabsTrigger><TabsTrigger active={open?.kind === 'packs'} onClick={() => setOpen({ kind: 'packs' })}>Skill packs</TabsTrigger></TabsList>
+            <TabsList aria-label="Skills"><TabsTrigger active={open?.kind === 'skill'} onClick={() => setOpen((o) => (o?.kind === 'skill' ? o : { kind: 'skill', skill: BLANK }))}>Skill</TabsTrigger><TabsTrigger active={open?.kind === 'packs'} onClick={() => void toPacks()}>Skill packs</TabsTrigger></TabsList>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {open?.kind === 'skill' && <SkillEditor key={open.skill.id ?? 'new'} skill={open.skill} team={team} agencyName={view.agency.name} onSaved={(s) => { setOpen({ kind: 'skill', skill: s }); load() }} onDeleted={() => { setOpen(null); load() }} onAgentsChanged={onAgentsChanged} />}
+            {open?.kind === 'skill' && <SkillEditor key={open.skill.id ?? 'new'} skill={open.skill} team={team} agencyName={view.agency.name} onDirty={(d) => { dirty.current = d }} onSaved={(s) => { setOpen({ kind: 'skill', skill: s }); load() }} onDeleted={() => { setOpen(null); load() }} onAgentsChanged={onAgentsChanged} />}
             {open?.kind === 'packs' && <Packs installed={new Map((skills ?? []).map((s) => [s.name, s]))} onChanged={load} onEdit={(s) => setOpen({ kind: 'skill', skill: s })} />}
           </div>
         </SheetContent>
@@ -80,15 +102,28 @@ export function SkillsTab({ view, agents, onAgentsChanged }: { view: AgencyView;
 }
 
 /** The skill edited in place: name, use, Markdown body (40,000 cap), who uses it (saves straight away), export, delete. */
-function SkillEditor({ skill, team, agencyName, onSaved, onDeleted, onAgentsChanged }: { skill: SkillInput; team: Agent[]; agencyName: string; onSaved: (s: Skill) => void; onDeleted: () => void; onAgentsChanged: () => void }): JSX.Element {
+function SkillEditor({ skill, team, agencyName, onDirty, onSaved, onDeleted, onAgentsChanged }: { skill: SkillInput; team: Agent[]; agencyName: string; onDirty: (dirty: boolean) => void; onSaved: (s: Skill) => void; onDeleted: () => void; onAgentsChanged: () => void }): JSX.Element {
   const [form, setForm] = useState<SkillInput>(skill)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [agentsLocal, setAgentsLocal] = useState(team)
+  // Agents' skill lists change outside this form too (a rename rewrites them in main), so follow the team when it changes;
+  // the key keeps a fresh `team` array on every render from resetting an optimistic switch.
+  const teamKey = team.map((a) => `${a.id}:${a.skills.join(',')}`).join('|')
+  useEffect(() => { setAgentsLocal(team) }, [teamKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = form.name !== skill.name || form.description !== skill.description || form.body !== skill.body
+  useEffect(() => { onDirty(dirty); return () => onDirty(false) }, [dirty]) // eslint-disable-line react-hooks/exhaustive-deps
   const save = async (): Promise<void> => {
     setBusy(true); setError('')
-    try { onSaved(await window.tyslin.skills.save({ ...form, name: form.name.replace(/-+$/, '') })) } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
+    try {
+      const name = form.name.replace(/-+$/, '')
+      const renamed = !!skill.id && name !== skill.name
+      const saved = await window.tyslin.skills.save({ ...form, name })
+      // A rename rewrites every agent's skill list in main (db.saveSkill); show it at once and refresh the agents.
+      if (renamed) setAgentsLocal((l) => l.map((a) => ({ ...a, skills: a.skills.map((n) => (n === skill.name ? saved.name : n)) })))
+      onSaved(saved)
+      if (renamed) onAgentsChanged()
+    } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
   }
   const [confirmEl, confirm] = useConfirm()
   const remove = async (): Promise<void> => {
@@ -102,7 +137,7 @@ function SkillEditor({ skill, team, agencyName, onSaved, onDeleted, onAgentsChan
     const on = a.skills.includes(skill.name)
     const next = { ...a, skills: on ? a.skills.filter((n) => n !== skill.name) : [...a.skills, skill.name] }
     setAgentsLocal((l) => l.map((x) => (x.id === a.id ? next : x)))
-    try { await window.tyslin.agents.save(next); onAgentsChanged() } catch (e) { setError(errorText(e)) }
+    try { await window.tyslin.agents.save(next); onAgentsChanged() } catch (e) { setAgentsLocal((l) => l.map((x) => (x.id === a.id ? a : x))); setError(errorText(e)) }
   }
   return (
     <form className="flex flex-col gap-4 px-5 py-4" onSubmit={(e) => { e.preventDefault(); void save() }}>
@@ -128,7 +163,7 @@ function SkillEditor({ skill, team, agencyName, onSaved, onDeleted, onAgentsChan
       </div>
       {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
       <div className="flex items-center justify-between gap-2 border-t border-border pt-4">
-        <span className="flex gap-1">{skill.id && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void window.tyslin.skills.exportFile(skill.id!)}>Export .md</Button>}{skill.id && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={busy} onClick={() => void remove()}>Delete</Button>}</span>
+        <span className="flex gap-1">{skill.id && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void window.tyslin.skills.exportFile(skill.id!).catch((e) => setError(errorText(e)))}>Export .md</Button>}{skill.id && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={busy} onClick={() => void remove()}>Delete</Button>}</span>
         <Button type="submit" disabled={busy || !form.name || !form.body.trim() || (!!skill.id && !dirty)}>{busy ? 'Saving…' : 'Save'}</Button>
       </div>
     </form>
@@ -141,6 +176,8 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
   const [catalog, setCatalog] = useState<ClaudeSkill[] | null>(null)
   const [found, setFound] = useState<SkillPackSearch | null>(null)
   const [q, setQ] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [more, setMore] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -149,17 +186,21 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
     void window.tyslin.skillPacks.claudeCatalog().then(setCatalog).catch((e) => setError(errorText(e)))
   }, [])
   const act = async (id: string, fn: () => Promise<unknown>): Promise<void> => { setBusy(id); setError(''); try { await fn(); setPacks(await window.tyslin.skillPacks.list()); onChanged() } catch (e) { setError(errorText(e)) } finally { setBusy(null) } }
-  const search = async (): Promise<void> => { try { setFound(await window.tyslin.skillPacks.discover(q.trim(), 1)) } catch (e) { setError(errorText(e)) } }
+  /** Page 1 replaces the results; a later page (Show more) adds to them. */
+  const search = async (page = 1): Promise<void> => {
+    setSearching(true); setMore(page > 1); setError('')
+    try { const r = await window.tyslin.skillPacks.discover(q.trim(), page); setFound((prev) => (page > 1 && prev ? { ...r, packs: [...prev.packs, ...r.packs] } : r)) } catch (e) { setError(errorText(e)) } finally { setSearching(false) }
+  }
   const packCard = (p: SkillPack): JSX.Element => (
     <Card key={p.id} className="gap-2 px-4 py-3.5">
       <span className="flex items-start justify-between gap-2"><strong className="text-sm font-semibold">{p.name}</strong><Badge variant="outline">{p.license || 'no licence'}</Badge></span>
-      <span className={HINT}>{[p.author, p.stars !== undefined && `${p.stars} stars`, p.installed && `${p.skillCount} installed`].filter(Boolean).join(' · ')}</span>
+      <span className={HINT}>{[p.author, p.stars !== undefined && `${p.stars.toLocaleString()} stars`, p.installed && `${p.skillCount} installed`].filter(Boolean).join(' · ')}</span>
       {p.description && <span className="line-clamp-2 text-[13px]">{p.description}</span>}
       {p.blockedReason && <span className={HINT}>{p.blockedReason}</span>}
       <span className="flex items-center gap-1.5">
         {p.installed && <Badge variant="soft">Installed</Badge>}
-        {!p.installed && p.installable && <Button size="sm" variant="outline" disabled={busy === p.id} onClick={() => void act(p.id, () => window.tyslin.skillPacks.install(p.id))}>Install</Button>}
-        {p.installed && p.updateAvailable && <Button size="sm" variant="ghost" disabled={busy === p.id} onClick={() => void act(p.id, () => window.tyslin.skillPacks.install(p.id))}>Update</Button>}
+        {!p.installed && p.installable && <Button size="sm" variant="outline" disabled={busy === p.id} onClick={() => void act(p.id, () => window.tyslin.skillPacks.install(p.id))}>{busy === p.id ? 'Installing…' : 'Install'}</Button>}
+        {p.installed && p.updateAvailable && <Button size="sm" variant="ghost" disabled={busy === p.id} onClick={() => void act(p.id, () => window.tyslin.skillPacks.install(p.id))}>{busy === p.id ? 'Updating…' : 'Update'}</Button>}
         {p.installed && <Button size="sm" variant="ghost" disabled={busy === p.id} onClick={() => void act(p.id, () => window.tyslin.skillPacks.uninstall(p.id))}>Uninstall</Button>}
         <a href={p.url} target="_blank" rel="noreferrer" className="ml-auto text-xs text-green underline-offset-2 hover:underline">GitHub</a>
       </span>
@@ -184,7 +225,7 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
                 <div key={c.folder} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0">
                   <span className="min-w-[160px] flex-1 font-mono text-[13px]">{c.name}</span>
                   <Badge variant={c.license === 'Apache-2.0' ? 'outline' : 'secondary'}>{c.license === 'Apache-2.0' ? 'Apache 2.0' : c.license === 'source-available' ? 'Source-available' : 'No licence'}</Badge>
-                  {mine ? <Button size="sm" variant="ghost" onClick={() => onEdit(mine)}>Installed · edit</Button> : c.installable ? <span className={HINT}>Installs with the Claude pack</span> : <a href={c.url} target="_blank" rel="noreferrer" className="text-xs text-green underline-offset-2 hover:underline">View on GitHub</a>}
+                  {mine ? <Button size="sm" variant="ghost" onClick={() => onEdit(mine)}>Installed · edit</Button> : c.installable ? <span className={HINT}>Installs with the Claude pack</span> : <span className="flex items-center gap-2">{c.blockedReason && <span className={HINT}>{c.blockedReason}</span>}<a href={c.url} target="_blank" rel="noreferrer" className="text-xs text-green underline-offset-2 hover:underline">View on GitHub</a></span>}
                 </div>
               )
             })}
@@ -193,9 +234,11 @@ function Packs({ installed, onChanged, onEdit }: { installed: Map<string, Skill>
       </div>
       <div className="flex flex-col gap-2">
         <span className="font-mono text-[11px] tracking-[0.08em] text-green uppercase">More on GitHub · repos tagged agent-skills</span>
-        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void search() }}><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search repos tagged agent-skills…" aria-label="Search GitHub" /><Button type="submit" variant="outline">Search</Button></form>
+        <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void search() }}><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search repos tagged agent-skills…" aria-label="Search GitHub" /><Button type="submit" variant="outline" disabled={searching}>{searching && !more ? 'Searching…' : 'Search'}</Button></form>
+        {found && found.packs.length > 0 && <span className={HINT}>{found.packs.length} of {found.total.toLocaleString()} repos, most stars first.</span>}
         {found && <div className="grid gap-2.5 sm:grid-cols-2">{found.packs.map(packCard)}</div>}
         {found && found.packs.length === 0 && <span className={HINT}>Nothing found.</span>}
+        {found?.nextPage && <Button variant="ghost" size="sm" className="self-start" disabled={searching} onClick={() => void search(found.nextPage)}>{searching && more ? 'Loading…' : 'Show more'}</Button>}
       </div>
       {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
     </div>

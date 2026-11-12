@@ -27,6 +27,7 @@ const publisher = (name: string): string => { const ns = name.split('/')[0] ?? '
 const canUse = (a: Agent): boolean => a.engine !== 'builtin'
 const slugOf = (s: string): string => s.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
 const when = (ms: number): string => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+const toolCount = (n: number): string => `${n} tool${n === 1 ? '' : 's'}`
 
 /** Connectors: the MCP servers this agency's workers can call, with their test state. Add opens the dialog; Edit the sheet-like dialog. */
 export function ConnectorsTab({ view }: { view: AgencyView }): JSX.Element {
@@ -54,7 +55,7 @@ export function ConnectorsTab({ view }: { view: AgencyView }): JSX.Element {
               <span className="grid size-9 flex-none place-items-center rounded-lg border border-border bg-muted text-xs font-bold">{titleOf(s).slice(0, 1).toUpperCase()}</span>
               <span className="flex min-w-[220px] flex-1 flex-col gap-0.5">
                 <strong className="text-sm font-semibold">{titleOf(s)}</strong>
-                <span className={cn(HINT, t && !t.ok && 'text-destructive')}>{t ? (t.ok ? `${t.tools?.length ?? 0} tools · tested ${when(t.at)}` : `Test failed: ${t.error ?? 'no answer'}`) : s.transport === 'http' ? s.url : [s.command, ...s.args].join(' ')}</span>
+                <span className={cn(HINT, t && !t.ok && 'text-destructive')} title={t?.ok && t.tools?.length ? t.tools.join(', ') : undefined}>{t ? (t.ok ? `${toolCount(t.tools?.length ?? 0)} · tested ${when(t.at)}` : `Test failed: ${t.error ?? 'no answer'}`) : s.transport === 'http' ? s.url : [s.command, ...s.args].join(' ')}</span>
               </span>
               <span className="w-[140px] truncate text-xs text-muted-foreground">{who.length ? who.map((a) => firstName(a.name)).join(', ') : 'Nobody yet'}</span>
               {t ? <Badge variant={t.ok ? 'soft' : 'destructive'}>{t.ok ? 'Connected' : 'Test failed'}</Badge> : <Badge variant="secondary">Not tested</Badge>}
@@ -70,7 +71,8 @@ export function ConnectorsTab({ view }: { view: AgencyView }): JSX.Element {
       </div>
       {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
       {adding && <ConnectorDialog view={view} team={team} onClose={() => setAdding(false)} onSaved={(s) => { setAdding(false); setList((l) => [...(l ?? []), s]); void test(s.id) }} />}
-      {editing && <EditConnectorDialog server={editing} team={team} onClose={() => setEditing(null)} onChanged={(s) => { if (s) setList((l) => (l ?? []).map((x) => (x.id === s.id ? s : x))); else setList((l) => (l ?? []).filter((x) => x.id !== editing.id)); setEditing(null) }} />}
+      {/* A replaced token or headers clears the last test in main, so a saved server without one is tested again at once. */}
+      {editing && <EditConnectorDialog server={editing} team={team} onClose={() => setEditing(null)} onChanged={(s) => { if (s) { setList((l) => (l ?? []).map((x) => (x.id === s.id ? s : x))); if (!s.lastTest) void test(s.id) } else setList((l) => (l ?? []).filter((x) => x.id !== editing.id)); setEditing(null) }} />}
     </div>
   )
 }
@@ -100,6 +102,7 @@ function ConnectorDialog({ view, team, onClose, onSaved }: { view: AgencyView; t
     if (!q) { setResults(null); return }
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => { setSearching(true); window.tyslin.integrations.search(q).then((r) => setResults(r.servers)).catch((e) => setError(errText(e))).finally(() => setSearching(false)) }, 350)
+    return () => { if (timer.current) clearTimeout(timer.current) }
   }, [query, source])
 
   const input = (): McpServerInput => {
@@ -242,7 +245,9 @@ function EditConnectorDialog({ server, team, onClose, onChanged }: { server: Mcp
       <DialogContent className="w-[520px] max-w-[calc(100%-32px)] gap-4 rounded-2xl p-6 sm:max-w-[calc(100%-32px)]">
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void save() }}>
           <DialogHeader className="text-left"><DialogTitle>{titleOf(server)}</DialogTitle><DialogDescription className="font-mono text-xs">{server.transport === 'http' ? server.url : [server.command, ...server.args].join(' ')}</DialogDescription></DialogHeader>
-          <div className="flex flex-col gap-1.5"><Label htmlFor="ec-token">{preset ? preset.tokenLabel : server.transport === 'http' ? 'Headers, one per line' : 'Environment variables, one per line'}</Label>{preset || server.transport === 'stdio' ? <Input id="ec-token" type="password" className="font-mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder={server.secretNames.length ? '•••••• saved (type to replace)' : preset?.tokenPlaceholder} autoComplete="off" /> : <Textarea id="ec-token" rows={2} className="font-mono text-xs" value={token} onChange={(e) => setToken(e.target.value)} placeholder={server.secretNames.length ? 'Saved. Type to replace all.' : 'Authorization: Bearer your-token'} />}</div>
+          {server.lastTest?.ok && server.lastTest.tools?.length ? <p className={HINT}>{toolCount(server.lastTest.tools.length)}: <span className="font-mono">{server.lastTest.tools.slice(0, 12).join(', ')}{server.lastTest.tools.length > 12 ? ', …' : ''}</span></p> : null}
+          {/* Presets take one token; your own server takes headers or environment variables, one per line (a one-line field can't hold those). */}
+          <div className="flex flex-col gap-1.5"><Label htmlFor="ec-token">{preset ? preset.tokenLabel : server.transport === 'http' ? 'Headers, one per line' : 'Environment variables, one per line'}</Label>{preset ? <Input id="ec-token" type="password" className="font-mono" value={token} onChange={(e) => setToken(e.target.value)} placeholder={server.secretNames.length ? '•••••• saved (type to replace)' : preset.tokenPlaceholder} autoComplete="off" /> : <Textarea id="ec-token" rows={2} className="font-mono text-xs" value={token} onChange={(e) => setToken(e.target.value)} placeholder={server.secretNames.length ? `Saved: ${server.secretNames.join(', ')}. Type to replace all.` : server.transport === 'http' ? 'Authorization: Bearer your-token' : 'API_TOKEN=your-token'} />}{!preset && server.secretNames.length > 0 && <span className={HINT}>Values stay encrypted on this computer and are never shown again.</span>}</div>
           <div className="flex flex-col gap-2"><span className="text-[13px] font-medium">Which agents can use it</span>{team.map((a) => <span key={a.id} className="flex min-h-9 items-center justify-between gap-3 text-sm"><span className="flex items-center gap-2"><Avatar shape={a.shape} tone={a.tone} head={a.head} size={22} />{firstName(a.name)}</span><Switch checked={agentIds.includes(a.id)} disabled={!canUse(a)} aria-label={`${a.name} can use it`} onCheckedChange={(v) => setAgentIds((ids) => (v ? [...ids, a.id] : ids.filter((x) => x !== a.id)))} /></span>)}</div>
           {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
           <DialogFooter className="justify-between sm:justify-between"><Button type="button" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => void remove()}>Remove</Button><span className="flex gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save'}</Button></span></DialogFooter>

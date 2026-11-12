@@ -68,6 +68,7 @@ export function saveIntegration(input: McpServerInput): McpServerInfo {
   }
 
   const secrets = old ? readSecrets(id) : { headers: [], env: [] }
+  const before = JSON.stringify(secrets)
   if (preset && input.token !== undefined) {
     const t = input.token.trim()
     secrets.headers = t ? [{ name: 'Authorization', value: `Bearer ${t}` }] : []
@@ -83,7 +84,8 @@ export function saveIntegration(input: McpServerInput): McpServerInfo {
     title: (input.title ?? old?.title ?? '').trim().slice(0, 80), source: (input.source ?? old?.source ?? '').trim().slice(0, 200),
     agentIds: input.agentIds ?? old?.agentIds ?? [],
     secretNames: [...secrets.headers.map((h) => h.name), ...secrets.env.map((e) => e.name)]
-  })
+    // A replaced token (same header name, new value) makes the last test meaningless too; the screen tests again.
+  }, !!old && JSON.stringify(secrets) !== before)
   setSecret(secretKey(id), secrets.headers.length || secrets.env.length ? JSON.stringify(secrets) : '')
   return saved
 }
@@ -126,12 +128,26 @@ function pickMessage(body: string, contentType: string, id: number): Rpc | null 
   return msgs.find((m) => m.id === id) ?? null
 }
 
+/** Why a fetch to the server failed before it answered, in plain words ("fetch failed" says nothing). */
+function unreachable(url: string, err: unknown): string {
+  const e = err as { name?: string; message?: string; cause?: { code?: string; message?: string } }
+  const code = e?.cause?.code ?? ''
+  let host = url
+  try { host = new URL(url).host } catch { /* shown as given */ }
+  if (e?.name === 'TimeoutError') return 'The server did not answer within a minute.'
+  if (code === 'ECONNREFUSED') return `Nothing is listening at ${host}. Is the server running?`
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') return `Can't find ${host}. Check the address and your connection.`
+  if (code === 'ECONNRESET' || code === 'UND_ERR_SOCKET') return `${host} closed the connection before answering.`
+  if (/CERT|certificate|SSL|TLS/i.test(code + ' ' + (e?.cause?.message ?? ''))) return `${host} has a certificate problem: ${e?.cause?.message ?? code}.`
+  return `Couldn't reach ${host}${code ? ` (${code})` : e?.cause?.message ? ` (${e.cause.message})` : ''}.`
+}
+
 async function testHttp(s: McpServerInfo): Promise<string[]> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': PROTOCOL }
   for (const h of readSecrets(s.id).headers) headers[h.name] = h.value
   const signal = AbortSignal.timeout(TEST_TIMEOUT_MS)
   const post = async (msg: object, id?: number): Promise<{ res: Response; msg: Rpc | null }> => {
-    const res = await fetch(s.url, { method: 'POST', headers, body: JSON.stringify(msg), signal })
+    const res = await fetch(s.url, { method: 'POST', headers, body: JSON.stringify(msg), signal }).catch((err: unknown) => { throw new Error(unreachable(s.url, err)) })
     if (res.status === 401 || res.status === 403) throw new Error(`The server refused the credentials (${res.status}). Check the token.`)
     if (res.status === 404) throw new Error('No MCP server at that address (404).')
     if (!res.ok && res.status !== 202) throw new Error(`The server answered ${res.status}.`)
