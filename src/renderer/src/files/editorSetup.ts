@@ -51,14 +51,16 @@ export function languageFor(path: string): Language {
 }
 
 /** What the editor does with a file: text opens in Edit; images and PDFs open in Preview only. */
-export type FileKind = 'text' | 'image' | 'pdf'
+/** `office`: Word, Excel, slides and old Office formats; they open in Preview only (CSV and TSV stay text). */
+export type FileKind = 'text' | 'image' | 'pdf' | 'office'
 export function fileKind(path: string): FileKind {
   const k = previewKind(path)
   if (k === 'pdf') return 'pdf'
   if (k === 'image' && extOf(path) !== 'svg') return 'image'
+  if (k === 'word' || k === 'slides' || k === 'office' || (k === 'sheet' && extOf(path) !== 'csv' && extOf(path) !== 'tsv')) return 'office'
   return 'text'
 }
-/** Preview is offered for Markdown, HTML, images and PDFs (through components/FilePreview.tsx). */
+/** Preview is offered for Markdown, HTML, images, PDFs and Office files (through components/FilePreview.tsx). */
 export const canPreview = (path: string): boolean => previewKind(path) !== null
 
 /** Tabs or the smallest space indent the file uses (2 when it doesn't say). */

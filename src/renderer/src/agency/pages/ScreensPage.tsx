@@ -17,7 +17,11 @@ const KIND: Record<PreviewFile['kind'], { label: string; icon: IconName }> = {
   page: { label: 'Page', icon: 'frame' },
   image: { label: 'Image', icon: 'art' },
   pdf: { label: 'PDF', icon: 'file' },
-  markdown: { label: 'Markdown', icon: 'knowledge' }
+  markdown: { label: 'Markdown', icon: 'knowledge' },
+  word: { label: 'Word', icon: 'file' },
+  sheet: { label: 'Spreadsheet', icon: 'table' },
+  slides: { label: 'Slides', icon: 'frame' },
+  office: { label: 'Document', icon: 'file' }
 }
 const ago = (ms: number): string => {
   const m = Math.round((Date.now() - ms) / 60_000)

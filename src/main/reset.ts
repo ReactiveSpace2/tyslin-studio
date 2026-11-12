@@ -53,8 +53,9 @@ export async function resetEverything(stopWork: () => void): Promise<void> {
   }
 
   const data = app.getPath('userData')
-  // `adapters` holds Codex's key-mode home (its auth.json with the API key); app data, so deleted, not trashed.
-  for (const name of ['tyslin.db', 'tyslin.db-wal', 'tyslin.db-shm', 'orgs', 'attachments', ADAPTERS_DIR]) {
+  // `adapters` holds Codex's key-mode home (its auth.json with the API key) and LibreOffice's profile; `captures` the
+  // Preview screenshots; `preview-cache` the Office→PDF conversions. App data, so deleted, not trashed.
+  for (const name of ['tyslin.db', 'tyslin.db-wal', 'tyslin.db-shm', 'orgs', 'attachments', 'captures', 'preview-cache', ADAPTERS_DIR]) {
     rmSync(join(data, name), { recursive: true, force: true })
   }
   mkdirSync(data, { recursive: true })

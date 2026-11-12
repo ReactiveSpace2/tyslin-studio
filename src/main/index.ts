@@ -25,7 +25,7 @@ import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } fr
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
-import { capturePreview, listPreviewFiles, registerPreviewProtocol, registerPreviewScheme } from './preview'
+import { capturePreview, exportPdf, listPreviewFiles, officeStatus, previewBytes, registerPreviewProtocol, registerPreviewScheme, saveCopy } from './preview'
 import { readPage, unwatchAgency, watchAgency } from './pages'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
@@ -531,6 +531,10 @@ function registerIpc(): void {
   ipcMain.handle('pages:watch', (_e, agencyId: string) => watchAgency(String(agencyId ?? ''), (p) => win?.webContents.send('pages:changed', p)))
   ipcMain.handle('pages:unwatch', (_e, agencyId: string) => unwatchAgency(String(agencyId ?? '')))
   ipcMain.handle('preview:capture', (_e, rect: { x: number; y: number; width: number; height: number }, name: string) => capturePreview(win!, rect, String(name ?? 'screenshot.png')))
+  ipcMain.handle('preview:bytes', (_e, projectId: string, path: string) => previewBytes(String(projectId ?? ''), String(path ?? '')))
+  ipcMain.handle('preview:office', () => officeStatus())
+  ipcMain.handle('preview:exportPdf', (_e, projectId: string, path: string) => exportPdf(win!, String(projectId ?? ''), String(path ?? '')))
+  ipcMain.handle('preview:saveCopy', (_e, projectId: string, path: string) => saveCopy(win!, String(projectId ?? ''), String(path ?? '')))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.
     checkCanRun(sessionId)

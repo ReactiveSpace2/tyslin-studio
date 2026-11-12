@@ -111,7 +111,7 @@ Ollama (local models) is hidden for now (`SHOW_OLLAMA` in `ModelSetup.tsx`); an 
 
 ### Preview
 
-Open a task's Preview panel (the eye button) to see what the agency made without leaving Tyslin: pages, images, PDFs and Markdown from the agency's folder, at desktop, tablet or phone width. Pages open in a locked-down view that can only show files from that folder; a link to the web opens in your browser instead. "Send with screenshot" sends the Lead or worker a note with a picture of exactly what you see, so they can fix what you point at. Running the app itself (a dev server, Expo on your phone) is planned next.
+Open a task's Preview panel (the eye button) to see what the agency made without leaving Tyslin: pages, images, PDFs, Markdown, Word documents and spreadsheets from the agency's folder, with pages at desktop, tablet or phone width. Slides (.pptx) and older Office files (.doc, .odt, .rtf) are shown through your own [LibreOffice](https://www.libreoffice.org/download/) if it's installed. Each file has zoom, **Download as PDF** (or the original), Open in its app and Expand. Pick **All screens** to see every page and image side by side on one board. Pages open in a locked-down view that can only show files from that folder; a link to the web opens in your browser instead. "Send with screenshot" sends the Lead or worker a note with a picture of exactly what you see, so they can fix what you point at. Running the app itself (a dev server, Expo on your phone) is planned next.
 
 ### Agency pages
 

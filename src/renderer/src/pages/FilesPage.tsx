@@ -4,6 +4,8 @@ import { diffLines } from 'diff'
 import type { DriveText, GitDiff, KanbanDoc } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { FilePreview } from '../components/FilePreview'
+import { ArtifactToolbar } from '../components/preview/ArtifactToolbar'
+import { KIND_LABEL, previewKind } from '@shared/preview'
 import { GoogleDriveCard, syncNote, useGDrive } from '../components/GoogleDrive'
 import { Icon } from '../components/Icon'
 import { Pose } from '../components/Pose'
@@ -99,6 +101,8 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
   const [working, setWorking] = useState<Working | null>(null)
   const [diff, setDiff] = useState<{ key: string; diff: GitDiff | null; loading: boolean; error: string | null } | null>(null)
   const [previewNonce, setPreviewNonce] = useState(0)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const [previewStatus, setPreviewStatus] = useState<string | null>(null)
 
   const tabsRef = useRef(tabs)
   tabsRef.current = tabs
@@ -199,6 +203,7 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
 
   // Show the active tab's state in the editor; jump to a search hit once it has loaded.
   const activeTab = tabs.find((t) => t.key === active) ?? null
+  useEffect(() => { setPreviewZoom(1); setPreviewStatus(null) }, [activeTab?.path])
   useEffect(() => {
     const t = activeTab
     if (t && t.kind === 'text' && t.loaded && !t.commit) cm.show(t.key)
@@ -491,7 +496,13 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           <CodeEditor mount={cm.ref} hidden={!showEdit} />
           {t && t.mode === 'diff' && <DiffView diff={diff?.key === t.key ? diff.diff : null} loading={diff?.key !== t.key || diff.loading} error={diff?.key === t.key ? diff.error : null} />}
-          {t && t.mode === 'preview' && <FilePreview projectId={projectId} path={t.path} viewport="desktop" nonce={previewNonce} className="min-h-0 flex-1 bg-card" />}
+          {t && t.mode === 'preview' && previewKind(t.path) && (
+            <div className="flex flex-none items-center gap-2 border-b border-border px-3 py-1">
+              <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" role="status">{previewStatus ?? KIND_LABEL[previewKind(t.path)!]}</span>
+              <ArtifactToolbar projectId={projectId} path={t.path} kind={previewKind(t.path)!} zoom={previewZoom} onZoom={setPreviewZoom} onStatus={setPreviewStatus} />
+            </div>
+          )}
+          {t && t.mode === 'preview' && <FilePreview projectId={projectId} path={t.path} viewport="desktop" nonce={previewNonce} zoom={previewZoom} className="min-h-0 flex-1 bg-card" />}
           {t && t.mode === 'edit' && t.kind === 'text' && !t.loaded && (
             <div className="flex flex-1 flex-col items-start gap-3 p-6 text-[13px]">
               {t.error ? <>

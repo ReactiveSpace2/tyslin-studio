@@ -1,11 +1,13 @@
-import { app, protocol, type BrowserWindow } from 'electron'
+import { app, BrowserWindow, dialog, protocol } from 'electron'
 import { randomUUID } from 'crypto'
-import { mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
-import { extname, isAbsolute, join, relative, resolve, sep } from 'path'
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs'
+import { readFile } from 'fs/promises'
+import { basename, extname, isAbsolute, join, relative, resolve, sep } from 'path'
 import type { Attachment, PreviewFile } from '@shared/types'
-import { PREVIEW_SCHEME, previewKind } from '@shared/preview'
+import { PREVIEW_SCHEME, previewKind, previewUrl } from '@shared/preview'
 import * as db from './db'
 import { addCapturedImage } from './attachments'
+import { officeToPdf, soffice } from './office'
 
 /**
  * The Preview tab's back end: a custom `tyslin-preview://<projectId>/<path>` scheme that serves files from
@@ -25,6 +27,7 @@ const CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'; conne
 const SKIP = new Set(['node_modules', '.git', 'dist', 'out', '.next', '.expo', 'coverage', 'build', 'memory', 'boards'])
 const SKIP_FILES = new Set(['agency-log.md'])
 const MAX_FILES = 400
+const OFFICE = new Set(['word', 'sheet', 'slides', 'office'])
 
 /** Must run before `app.whenReady`: makes the scheme behave like https (relative URLs, fetch, service-worker-free). */
 export function registerPreviewScheme(): void {
@@ -50,6 +53,12 @@ export function registerPreviewProtocol(): void {
       let rel = decodeURIComponent(u.pathname.replace(/^\/+/, ''))
       let abs = fileFor(u.hostname, rel)
       if (statSync(abs).isDirectory()) { rel = join(rel, 'index.html'); abs = fileFor(u.hostname, rel) }
+      // `?as=pdf` on an Office file: the LibreOffice conversion (main/office.ts), cached, shown in the PDF viewer.
+      if (u.searchParams.get('as') === 'pdf' && OFFICE.has(previewKind(abs) ?? 'page')) {
+        return officeToPdf(abs).then(
+          (pdf) => new Response(readFileSync(pdf), { headers: { 'content-type': 'application/pdf', 'content-security-policy': CSP, 'cache-control': 'no-store' } }),
+          (err) => new Response(err instanceof Error ? err.message : String(err), { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } }))
+      }
       const body = readFileSync(abs)
       return new Response(body, { headers: { 'content-type': MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream', 'content-security-policy': CSP, 'cache-control': 'no-store' } })
     } catch (err) {
@@ -100,3 +109,53 @@ export async function capturePreview(win: BrowserWindow, rect: { x: number; y: n
   writeFileSync(file, img.toPNG())
   return addCapturedImage(file, name.replace(/[\\/:*?"<>|]+/g, '-').slice(0, 80) || 'screenshot.png')
 }
+
+const BYTES_MAX = 50 * 1024 * 1024
+
+/** A Word or Excel file's bytes for the in-window viewers (docx-preview, SheetJS). Project folder only. */
+export async function previewBytes(projectId: string, rel: string): Promise<Uint8Array> {
+  const abs = fileFor(projectId, rel)
+  const k = previewKind(abs)
+  if (k !== 'word' && k !== 'sheet') throw new Error('Only Word and spreadsheet files are read this way')
+  if (statSync(abs).size > BYTES_MAX) throw new Error('This file is over 50 MB, too big to show here. Open it in its app instead.')
+  return new Uint8Array(await readFile(abs))
+}
+
+export const officeStatus = (): { available: boolean } => ({ available: !!soffice() })
+
+const pdfName = (rel: string): string => `${basename(rel, extname(rel))}.pdf`
+
+/**
+ * "Download as PDF": PDFs are copied, Office files go through LibreOffice, pages are printed by Chromium in a
+ * hidden, sandboxed window on the same locked-down scheme (no Node, no network, navigation refused).
+ */
+export async function exportPdf(win: BrowserWindow, projectId: string, rel: string): Promise<string | null> {
+  const abs = fileFor(projectId, rel)
+  const k = previewKind(abs)
+  if (!k || k === 'image' || k === 'markdown') throw new Error('This kind of file can\'t be saved as PDF.')
+  const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: join(app.getPath('downloads'), pdfName(rel)), filters: [{ name: 'PDF', extensions: ['pdf'] }] })
+  if (canceled || !filePath) return null
+  if (k === 'pdf') { copyFileSync(abs, filePath); return filePath }
+  if (k !== 'page') { copyFileSync(await officeToPdf(abs), filePath); return filePath }
+  const page = new BrowserWindow({ show: false, width: 1280, height: 900, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: true } })
+  try {
+    page.webContents.on('will-navigate', (e) => e.preventDefault())
+    page.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    await page.loadURL(previewUrl(projectId, rel))
+    const pdf = await page.webContents.printToPDF({ printBackground: true, pageSize: 'A4', margins: { marginType: 'default' } })
+    writeFileSync(filePath, pdf)
+    return filePath
+  } finally {
+    page.destroy()
+  }
+}
+
+/** "Download original": a copy wherever the user picks. */
+export async function saveCopy(win: BrowserWindow, projectId: string, rel: string): Promise<string | null> {
+  const abs = fileFor(projectId, rel)
+  const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: join(app.getPath('downloads'), basename(rel)) })
+  if (canceled || !filePath) return null
+  copyFileSync(abs, filePath)
+  return filePath
+}
+

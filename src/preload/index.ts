@@ -36,7 +36,11 @@ const api: TyslinApi = {
       const fn = (_e: unknown, url: string): void => cb(url)
       ipcRenderer.on('preview:blocked', fn)
       return () => ipcRenderer.removeListener('preview:blocked', fn)
-    }
+    },
+    bytes: (projectId, path) => ipcRenderer.invoke('preview:bytes', projectId, path),
+    office: () => ipcRenderer.invoke('preview:office'),
+    exportPdf: (projectId, path) => ipcRenderer.invoke('preview:exportPdf', projectId, path),
+    saveCopy: (projectId, path) => ipcRenderer.invoke('preview:saveCopy', projectId, path)
   },
   sessions: {
     list: (agentId) => ipcRenderer.invoke('sessions:list', agentId),

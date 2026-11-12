@@ -45,6 +45,9 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const paneTitle = agencyPage ? agencyPage.title : PANE_TITLE[pane as keyof typeof PANE_TITLE] ?? ''
   const [review, setReview] = useState<Review | null>(null)
   const [previewPath, setPreviewPath] = useState<string | null>(null)
+  // Expand (Claude's artifact panel): Preview takes the whole task; the conversation comes back with collapse or close.
+  const [wide, setWide] = useState(false)
+  const expanded = wide && pane === 'preview'
   const openPreview = (p: string): void => { setPreviewPath(p); setPane('preview') }
   const composerRef = useRef<HTMLDivElement>(null)
   const running = task.streaming !== null
@@ -100,7 +103,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
 
   return (
     <div className="flex h-full min-h-0">
-      <section className="flex min-w-0 flex-1 flex-col" aria-label="Conversation">
+      <section className={expanded ? 'hidden' : 'flex min-w-0 flex-1 flex-col'} aria-label="Conversation">
         {!isLead && view && (
           <div className="flex flex-none items-center gap-2.5 border-b border-border bg-lime-soft px-5 py-2 text-[13px]">
             <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={20} />
@@ -120,15 +123,15 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         </div>
       </section>
       {pane && (
-        <aside className={pane === 'preview' || pane.startsWith('page:') ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={paneTitle}>
+        <aside className={expanded ? 'flex min-w-0 flex-1 flex-col overflow-hidden bg-background' : pane === 'preview' || pane.startsWith('page:') ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={paneTitle}>
           <div className="flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4">
             <span className="text-[13px] font-semibold">{paneTitle}</span>
-            <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => setPane('')}><Icon name="close" size={14} /></Button>
+            <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => { setPane(''); setWide(false) }}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pane === 'details' && <DetailsPanel view={view} agent={agent} taskId={sessionId} cards={task.cards} channel={task.channel} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
             {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
-            {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} />}
+            {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} expanded={expanded} onExpand={() => setWide((w) => !w)} />}
             {pane === 'changes' && (shownReview
               ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} onPreview={openPreview} />
               : <p className="p-4 text-[13px] text-muted-foreground">No changes to review in this task yet. When a worker finishes, its changes show here.</p>)}

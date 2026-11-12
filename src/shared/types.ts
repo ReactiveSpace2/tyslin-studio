@@ -1,4 +1,5 @@
 import type { PageData } from './pages'
+import type { PreviewKind } from './preview'
 export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
@@ -600,7 +601,7 @@ export interface Message {
 /** A file the Preview tab can show (see shared/preview.ts). */
 export interface PreviewFile {
   path: string
-  kind: 'page' | 'image' | 'pdf' | 'markdown'
+  kind: PreviewKind
   size: number
   updatedAt: number
 }
@@ -1064,6 +1065,14 @@ export interface TyslinApi {
     capture(rect: { x: number; y: number; width: number; height: number }, name: string): Promise<Attachment>
     /** A preview tried to leave the project folder (a link to the web): it was opened in the browser instead. */
     onBlocked(cb: (url: string) => void): () => void
+    /** A Word or Excel file's bytes for the in-window viewers (50 MB cap, project folder only). */
+    bytes(projectId: string, path: string): Promise<Uint8Array>
+    /** Whether LibreOffice was found (slides, old Office files and Office "Download as PDF" need it). */
+    office(): Promise<{ available: boolean }>
+    /** Asks where to save and writes the file as PDF; null when the user cancelled. */
+    exportPdf(projectId: string, path: string): Promise<string | null>
+    /** Asks where to save and copies the file as it is; null when cancelled. */
+    saveCopy(projectId: string, path: string): Promise<string | null>
   }
   sessions: {
     list(agentId?: string): Promise<Session[]>

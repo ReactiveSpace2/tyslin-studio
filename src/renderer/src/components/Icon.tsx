@@ -77,7 +77,10 @@ const PATHS = {
   // Agency pages in the task header (10 Nov 2026).
   table: <><rect x="2" y="2.5" width="12" height="11" rx="1.5" /><path d="M2 6h12M2 9.75h12M6.5 6v7.5" /></>,
   calendar: <><rect x="2" y="3" width="12" height="11" rx="1.5" /><path d="M2 6.5h12M5.5 1.5v3M10.5 1.5v3" /><circle cx="8" cy="10" r="0.7" fill="currentColor" /></>,
-  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>
+  warning: <><path d="M8 2 1.5 13.5h13z" /><path d="M8 6.5v3" /><circle cx="8" cy="11.5" r="0.6" fill="currentColor" /></>,
+  expand: <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" />,
+  collapse: <path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M6.5 13V9.5H3" />,
+  chevron: <path d="m4 6 4 4 4-4" />
 } as const
 
 export type IconName = keyof typeof PATHS

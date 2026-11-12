@@ -56,7 +56,7 @@ export function EditorTabs(p: Props): JSX.Element {
           <ToggleGroup type="single" variant="outline" size="sm" value={p.mode} onValueChange={(v) => { if (v) p.onMode(v as Mode) }} aria-label="View">
             {(['edit', 'diff', 'preview'] as Mode[]).map((m) => (
               <ToggleGroupItem key={m} value={m} disabled={!p.modes[m]} className="h-8 px-2.5 text-xs" aria-label={MODE_LABEL[m]}
-                title={!p.modes[m] ? (m === 'diff' ? 'Only for files with git changes' : m === 'preview' ? 'Only for Markdown, HTML, images and PDFs' : 'Images and PDFs open in Preview only') : MODE_LABEL[m]}>{MODE_LABEL[m]}</ToggleGroupItem>
+                title={!p.modes[m] ? (m === 'diff' ? 'Only for files with git changes' : m === 'preview' ? 'Only for Markdown, HTML, images, PDFs and Office files' : 'Images, PDFs and Office files open in Preview only') : MODE_LABEL[m]}>{MODE_LABEL[m]}</ToggleGroupItem>
             ))}
           </ToggleGroup>
           <DropdownMenu>
