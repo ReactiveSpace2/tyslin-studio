@@ -125,6 +125,8 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
             <SidebarGroupContent><p className="px-2 py-1 text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">No tasks yet.</p></SidebarGroupContent>
           </SidebarGroup>
         )}
+        {/* Agencies and their tasks sit a little apart from the menu above (owner, 12 Nov 2026). */}
+        <div className="mt-3 flex flex-col gap-1 border-t border-sidebar-border pt-3 group-data-[collapsible=icon]:mt-1 group-data-[collapsible=icon]:gap-0.5 group-data-[collapsible=icon]:pt-1">
         {groups.map(({ view, tasks }) => {
           const lead = view.lead
           // The group stays open while its task is the one on screen, so the current task never hides.
@@ -145,7 +147,7 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
                 <SidebarGroupLabel asChild className="group-data-[collapsible=icon]:hidden">
                   <CollapsibleTrigger className="h-9 w-full cursor-pointer gap-2 pl-1.5 text-[13px] text-sidebar-foreground hover:bg-sidebar-accent" aria-label={`${view.agency.name}: ${open ? 'hide' : 'show'} its tasks`}>
                     {lead ? <Avatar shape={lead.shape} tone={lead.tone} head={lead.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-full bg-muted text-[10px] font-bold">{view.agency.name.slice(0, 1)}</span>}
-                    <span className="min-w-0 flex-1 truncate font-medium" title={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name}>{view.agency.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-left font-medium" title={lead ? `${view.agency.name} · ${lead.name}` : view.agency.name}>{view.agency.name}</span>
                     {!open && needs > 0 && <span className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${needs} need you`}>{needs}</span>}
                     <Icon name="chevronDown" size={13} className="flex-none text-muted-foreground transition-transform group-data-[state=closed]/agency:-rotate-90 motion-reduce:transition-none" />
                   </CollapsibleTrigger>
@@ -179,6 +181,7 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
             </Collapsible>
           )
         })}
+        </div>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
         <StarCard />
