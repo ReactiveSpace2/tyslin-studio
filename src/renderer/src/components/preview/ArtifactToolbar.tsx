@@ -18,6 +18,8 @@ interface Props {
   onStatus: (s: string | null) => void
   expanded?: boolean
   onExpand?: () => void
+  /** One download icon with the whole menu behind it (the task's one-row Preview header). */
+  compact?: boolean
 }
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
@@ -26,7 +28,7 @@ const msg = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*
  * The right side of an artifact's header, as in Claude's artifact panel: zoom, "Download as PDF" with a menu
  * (as PDF, original, open in its app, show in folder) and expand. Used by the task's Preview panel and Files.
  */
-export function ArtifactToolbar({ projectId, path, kind, zoom, onZoom, onStatus, expanded, onExpand }: Props): JSX.Element {
+export function ArtifactToolbar({ projectId, path, kind, zoom, onZoom, onStatus, expanded, onExpand, compact }: Props): JSX.Element {
   const { available: office } = useOffice()
   const [busy, setBusy] = useState(false)
   // Office files need LibreOffice for PDF; pages and PDFs never do.
@@ -54,6 +56,20 @@ export function ArtifactToolbar({ projectId, path, kind, zoom, onZoom, onStatus,
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+      {compact ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8" aria-label="Download" title="Download" disabled={busy}><Icon name="download" size={14} /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {pdfExportable(kind) && <DropdownMenuItem disabled={!canPdf} onSelect={() => void asPdf()}>Download as PDF{!canPdf && needsLibreOfficeHint(kind)}</DropdownMenuItem>}
+            <DropdownMenuItem onSelect={() => void original()}>Download original</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void window.tyslin.drive.open(projectId, path).catch((e: unknown) => onStatus(msg(e)))}>Open in its app</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => void window.tyslin.drive.reveal(projectId, path).catch((e: unknown) => onStatus(msg(e)))}>Show in folder</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
       <ButtonGroup>
         <Button variant="outline" size="sm" className="h-8 text-xs" disabled={busy} onClick={() => void (canPdf ? asPdf() : original())}>
           {canPdf ? 'Download as PDF' : 'Download'}
@@ -71,6 +87,7 @@ export function ArtifactToolbar({ projectId, path, kind, zoom, onZoom, onStatus,
           </DropdownMenuContent>
         </DropdownMenu>
       </ButtonGroup>
+      )}
       {onExpand && (
         <Button variant="ghost" size="icon" className="size-8" aria-label={expanded ? 'Back to the conversation' : 'Expand'} title={expanded ? 'Back to the conversation' : 'Expand'} onClick={onExpand}>
           <Icon name={expanded ? 'collapse' : 'expand'} size={14} />

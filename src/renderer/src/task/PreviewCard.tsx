@@ -15,17 +15,18 @@ const clock = (ms: number): string => new Date(ms).toLocaleTimeString(undefined,
  * panel (notes and logs would crowd the thread). Reloaded whenever `refreshKey` changes (a run ended, a change was
  * accepted, a card moved).
  */
-export function useMadeFiles(projectId: string | null, since: number | null, until: number | null, refreshKey: string): { shown: PreviewFile[]; more: number } {
+export function useMadeFiles(projectId: string | null, since: number | null, until: number | null, refreshKey: string): { shown: PreviewFile[]; more: number; loaded: boolean } {
   const [files, setFiles] = useState<PreviewFile[]>([])
+  const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     if (!projectId || since === null) { setFiles([]); return }
     let live = true
-    void window.tyslin.preview.list(projectId).then((l) => { if (live) setFiles(l) }).catch(() => undefined)
+    void window.tyslin.preview.list(projectId).then((l) => { if (live) { setFiles(l); setLoaded(true) } }).catch(() => undefined)
     return () => { live = false }
   }, [projectId, since, refreshKey])
-  if (since === null) return { shown: [], more: 0 }
+  if (since === null) return { shown: [], more: 0, loaded: false }
   const mine = files.filter((f) => f.kind !== 'markdown' && f.updatedAt >= since && (until === null || f.updatedAt < until))
-  return { shown: mine.slice(0, MAX_CARDS), more: Math.max(0, mine.length - MAX_CARDS) }
+  return { shown: mine.slice(0, MAX_CARDS), more: Math.max(0, mine.length - MAX_CARDS), loaded }
 }
 
 /**

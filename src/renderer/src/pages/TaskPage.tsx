@@ -16,6 +16,7 @@ import type { ToolDef } from '@shared/toolCatalog'
 import type { McpServerInfo, Skill } from '@shared/types'
 import { useTask } from '../task/useTask'
 import { Button } from '@/components/ui/button'
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 
 const PANE_TITLE: Record<'details' | 'changes' | 'preview' | '', string> = { details: 'Details', changes: 'Changes', preview: 'Preview', '': '' }
 
@@ -53,6 +54,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   // Expand (Claude's artifact panel): Preview takes the whole task; the conversation comes back with collapse or close.
   const [wide, setWide] = useState(false)
   const expanded = wide && pane === 'preview'
+  const widePane = pane === 'preview' || pane.startsWith('page:')
   const openPreview = (p: string): void => { setPreviewPath(p); setPane('preview') }
   // A file's card in the conversation opens it full screen; the panel's close button brings the conversation back.
   const openPreviewFull = (p: string): void => { openPreview(p); setWide(true) }
@@ -122,8 +124,11 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const isLead = !!view && view.lead?.id === agent.id
 
   return (
-    <div className="flex h-full min-h-0">
-      <section className={expanded ? 'hidden' : 'flex min-w-0 flex-1 flex-col'} aria-label="Conversation">
+    // The conversation and the panel beside it share the width; drag the line between them (owner, 12 Nov 2026).
+    // The split is remembered per kind of panel (Preview and pages are wide, Details and Changes narrow).
+    <ResizablePanelGroup direction="horizontal" autoSaveId="tyslin:task-split" className="h-full min-h-0">
+      <ResizablePanel id="chat" order={1} minSize={30} className={expanded ? 'hidden' : 'flex min-w-0 flex-col'}>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label="Conversation">
         {!isLead && view && (
           <div className="flex flex-none items-center gap-2.5 border-b border-border bg-lime-soft px-5 py-2 text-[13px]">
             <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={20} />
@@ -134,7 +139,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}
-        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
+        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onMade={(p) => { if (pane !== 'changes' && !expanded) openPreview(p) }} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
           onOpenAgency={onOpenAgency} onSettings={onSettings} onChanged={onSessionsChanged} />
         <div ref={composerRef} className="mx-auto w-full max-w-[760px] flex-none px-6 pt-2 pb-4">
@@ -143,22 +148,27 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />
         </div>
       </section>
+      </ResizablePanel>
+      {pane && !expanded && <ResizableHandle withHandle aria-label="Drag to resize the conversation and the panel" />}
       {pane && (
-        <aside className={expanded ? 'flex min-w-0 flex-1 flex-col overflow-hidden bg-background' : pane === 'preview' || pane.startsWith('page:') ? 'flex w-[min(640px,52%)] min-w-[420px] flex-none flex-col overflow-hidden border-l border-border bg-background' : 'flex w-[380px] min-w-[300px] max-w-[480px] flex-none flex-col overflow-hidden border-l border-border bg-background'} aria-label={paneTitle}>
-          <div className="flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4">
+        <ResizablePanel id={widePane ? 'pane-wide' : 'pane-side'} order={2} defaultSize={widePane ? 45 : 28} minSize={widePane ? 26 : 18} className="flex min-w-0 flex-col">
+        <aside className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background" aria-label={paneTitle}>
+          {/* Preview brings its own one-row header with the close button. */}
+          <div className={pane === 'preview' && view ? 'hidden' : 'flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4'}>
             <span className="text-[13px] font-semibold">{paneTitle}</span>
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => { setPane(''); setWide(false) }}><Icon name="close" size={14} /></Button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             {pane === 'details' && <DetailsPanel view={view} agent={agent} taskId={sessionId} cards={task.cards} channel={task.channel} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
             {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
-            {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} expanded={expanded} onExpand={() => setWide((w) => !w)} />}
+            {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} expanded={expanded} onExpand={() => setWide((w) => !w)} onClose={() => { setPane(''); setWide(false) }} />}
             {pane === 'changes' && (shownReview
               ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} onPreview={openPreview} />
               : <p className="p-4 text-[13px] text-muted-foreground">No changes to review in this task yet. When a worker finishes, its changes show here.</p>)}
           </div>
         </aside>
+        </ResizablePanel>
       )}
-    </div>
+    </ResizablePanelGroup>
   )
 }

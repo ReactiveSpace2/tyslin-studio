@@ -24,13 +24,13 @@ interface Props {
   /** The panel fills the task (the conversation is hidden) while expanded. */
   expanded: boolean
   onExpand: () => void
+  /** Closes the panel (the header's last button; the panel has no separate title bar). */
+  onClose: () => void
 }
 
 /** The file picker's value for the screens board. */
 export const BOARD = '__board'
 
-const VIEW_KEY = 'preview:viewport'
-const savedViewport = (): Viewport => { try { const v = localStorage.getItem(VIEW_KEY); return v === 'desktop' || v === 'tablet' || v === 'phone' ? v : 'phone' } catch { return 'phone' } }
 
 /**
  * The task's Preview panel, laid out like Claude's artifact panel (11 Nov 2026): the file picker (newest first,
@@ -38,10 +38,11 @@ const savedViewport = (): Viewport => { try { const v = localStorage.getItem(VIE
  * Desktop / Tablet / Phone for pages and the board; the surface; and a note that goes to the agent with a
  * screenshot of the preview so the Lead or a worker can see what you see.
  */
-export function PreviewPanel({ view, agent, path, onPath, onSend, expanded, onExpand }: Props): JSX.Element {
+export function PreviewPanel({ view, agent, path, onPath, onSend, expanded, onExpand, onClose }: Props): JSX.Element {
   const [files, setFiles] = useState<PreviewFile[]>([])
-  const [viewport, setViewportState] = useState<Viewport>(savedViewport)
-  const setViewport = (v: Viewport): void => { setViewportState(v); try { localStorage.setItem(VIEW_KEY, v) } catch { /* per-window only */ } }
+  // A page always opens at Desktop width (owner, 12 Nov 2026: it used to open at Phone and remember the last pick).
+  // Tablet and Phone are a click away and last until Preview is closed.
+  const [viewport, setViewport] = useState<Viewport>('desktop')
   const [nonce, setNonce] = useState(0)
   const [note, setNote] = useState('')
   const [sending, setSending] = useState(false)
@@ -91,30 +92,28 @@ export function PreviewPanel({ view, agent, path, onPath, onSend, expanded, onEx
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-none flex-wrap items-center gap-1.5 border-b border-border px-3 py-2">
+      {/* One header row, icons only (owner, 12 Nov 2026: three bars became one): file, reload, widths, open, download, expand, close. */}
+      <div className="flex min-h-11 flex-none flex-wrap items-center gap-1 border-b border-border py-1 pr-1 pl-2">
         <Select value={current} onValueChange={(v) => { onPath(v); setStatus(null) }}>
-          <SelectTrigger className="h-8 min-w-0 max-w-[300px] flex-1 font-mono text-xs" aria-label="File to preview"><SelectValue /></SelectTrigger>
+          <SelectTrigger size="sm" className="h-8 max-w-[260px] min-w-[110px] flex-1 font-mono text-xs" aria-label="File to preview" title={kind ? `${current} · ${KIND_LABEL[kind]}` : undefined}><SelectValue /></SelectTrigger>
           <SelectContent className="max-h-[360px]">
             {hasScreens && <SelectItem value={BOARD} className="text-xs">All screens (board)</SelectItem>}
             {options.map((f) => <SelectItem key={f.path} value={f.path} className="font-mono text-xs">{f.path}</SelectItem>)}
           </SelectContent>
         </Select>
-        {kind && <span className="flex-none text-xs text-muted-foreground">{KIND_LABEL[kind]}</span>}
         <Button variant="ghost" size="icon" className="size-8 flex-none" aria-label="Reload" title="Reload" onClick={() => { setNonce((n) => n + 1); load() }}><Icon name="reload" size={14} /></Button>
-        <div className="ml-auto flex items-center gap-1">
-          {kind
-            ? <ArtifactToolbar projectId={projectId} path={current} kind={kind} zoom={zoom} onZoom={setZoom} onStatus={setStatus} expanded={expanded} onExpand={onExpand} />
-            : <Button variant="ghost" size="icon" className="size-8" aria-label={expanded ? 'Back to the conversation' : 'Expand'} title={expanded ? 'Back to the conversation' : 'Expand'} onClick={onExpand}><Icon name={expanded ? 'collapse' : 'expand'} size={14} /></Button>}
-        </div>
-      </div>
-      {(kind === 'page' || board) && (
-        <div className="flex flex-none items-center gap-2 border-b border-border px-3 py-1.5">
-          <ToggleGroup type="single" spacing={1} value={viewport} onValueChange={(v) => { if (v) setViewport(v as Viewport) }} aria-label="Viewport">
-            {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => <ToggleGroupItem key={v} value={v} className="h-7 px-2.5 text-xs data-[state=on]:bg-accent" aria-label={`${VIEWPORTS[v].label}, ${VIEWPORTS[v].width} px`}>{VIEWPORTS[v].label}</ToggleGroupItem>)}
+        {(kind === 'page' || board) && (
+          <ToggleGroup type="single" spacing={1} value={viewport} onValueChange={(v) => { if (v) setViewport(v as Viewport) }} aria-label="Width" className="flex-none">
+            {(Object.keys(VIEWPORTS) as Viewport[]).map((v) => <ToggleGroupItem key={v} value={v} className="size-8 p-0 text-muted-foreground data-[state=on]:bg-accent data-[state=on]:text-foreground" aria-label={`${VIEWPORTS[v].label}, ${VIEWPORTS[v].width} px`} title={`${VIEWPORTS[v].label} · ${VIEWPORTS[v].width} px`}><Icon name={v} size={15} /></ToggleGroupItem>)}
           </ToggleGroup>
-          {kind === 'page' && <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => void window.tyslin.drive.open(projectId, current)}><Icon name="open" size={13} />Open in your browser</Button>}
-        </div>
-      )}
+        )}
+        <span className="min-w-0 flex-1 basis-0" />
+        {kind === 'page' && <Button variant="ghost" size="icon" className="size-8 flex-none" aria-label="Open in your browser" title="Open in your browser" onClick={() => void window.tyslin.drive.open(projectId, current)}><Icon name="open" size={14} /></Button>}
+        {kind
+          ? <ArtifactToolbar compact projectId={projectId} path={current} kind={kind} zoom={zoom} onZoom={setZoom} onStatus={setStatus} expanded={expanded} onExpand={onExpand} />
+          : <Button variant="ghost" size="icon" className="size-8" aria-label={expanded ? 'Back to the conversation' : 'Expand'} title={expanded ? 'Back to the conversation' : 'Expand'} onClick={onExpand}><Icon name={expanded ? 'collapse' : 'expand'} size={14} /></Button>}
+        <Button variant="ghost" size="icon" className="size-8 flex-none" aria-label="Close panel" title="Close" onClick={onClose}><Icon name="close" size={14} /></Button>
+      </div>
       <div ref={surface} className="flex min-h-0 flex-1 flex-col bg-muted">
         {board
           ? <ScreensBoard projectId={projectId} files={files} viewport={viewport} nonce={nonce} onOpen={(p) => { onPath(p); setStatus(null) }} />
@@ -123,8 +122,8 @@ export function PreviewPanel({ view, agent, path, onPath, onSend, expanded, onEx
       <form className="flex flex-none flex-col gap-2 border-t border-border px-3 py-2.5" onSubmit={(e) => { e.preventDefault(); void send() }}>
         {status && <p className="text-xs text-green" role="status">{status}</p>}
         <Label htmlFor="preview-note" className="text-xs">Tell {firstName(agent.name)} what to change</Label>
-        <div className="flex items-center gap-2">
-          <Input id="preview-note" className="h-9 text-[13px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="The button is too far from the field on phone" disabled={sending} />
+        <div className="flex flex-wrap items-center gap-2">
+          <Input id="preview-note" className="h-9 min-w-[140px] flex-1 text-[13px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="The button is too far from the field on phone" disabled={sending} />
           <Button type="submit" size="sm" className="h-9 flex-none" disabled={sending}>{sending ? 'Sending…' : 'Send with screenshot'}</Button>
         </div>
         <span className="text-[11px] leading-snug text-muted-foreground">Shown from the agency folder in a locked-down view: no network, only files inside {view.agency.name}'s folder. The screenshot goes into this task as an image.</span>

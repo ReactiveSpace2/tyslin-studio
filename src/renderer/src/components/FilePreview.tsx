@@ -31,6 +31,8 @@ export function FilePreview({ projectId, path, viewport, nonce = 0, zoom = 1, cl
   const url = previewUrl(projectId, path)
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  // How tall the surface is, so a page at Desktop width can fill it instead of stopping at 800 px (owner, 12 Nov 2026).
+  const [boxH, setBoxH] = useState(0)
   const vp = VIEWPORTS[viewport]
   const [md, setMd] = useState<string | null>(null)
   const [frameReady, setFrameReady] = useState(false)
@@ -39,7 +41,7 @@ export function FilePreview({ projectId, path, viewport, nonce = 0, zoom = 1, cl
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const fit = (): void => setScale(Math.min(1, (el.clientWidth - 2) / vp.width))
+    const fit = (): void => { setScale(Math.min(1, (el.clientWidth - 2) / vp.width)); setBoxH(el.clientHeight) }
     fit()
     const ro = new ResizeObserver(fit)
     ro.observe(el)
@@ -104,16 +106,19 @@ export function FilePreview({ projectId, path, viewport, nonce = 0, zoom = 1, cl
 
   // Page: a fixed-size frame scaled to the panel. No popups, no top navigation; main blocks navigation off the scheme.
   const device = viewport !== 'desktop'
+  // Desktop: the frame is as tall as the panel (24 px for its margins), so the page shows at full length and scrolls
+  // inside itself. Tablet and Phone keep the device's own height.
+  const frameH = device ? vp.height : Math.max(vp.height, Math.floor((boxH - 24) / scale))
   return (
     <div ref={box} className={cn('overflow-x-hidden overflow-y-auto', className)}>
-      <div style={{ width: vp.width * scale, height: vp.height * scale }} className={cn('relative mx-auto my-3 origin-top-left overflow-hidden bg-card shadow-md', device ? 'rounded-[22px] border-[6px] border-primary' : 'rounded-md border border-border-strong')}>
+      <div style={{ width: vp.width * scale, height: frameH * scale }} className={cn('relative mx-auto my-3 origin-top-left overflow-hidden bg-card shadow-md', device ? 'rounded-[22px] border-[6px] border-primary' : 'rounded-md border border-border-strong')}>
         <iframe
           key={`${url}#${nonce}`}
           title={`Preview of ${path}`}
           src={url}
           sandbox="allow-scripts allow-same-origin allow-forms"
           referrerPolicy="no-referrer"
-          style={{ width: vp.width, height: vp.height, transform: `scale(${scale})`, transformOrigin: 'top left' }}
+          style={{ width: vp.width, height: frameH, transform: `scale(${scale})`, transformOrigin: 'top left' }}
           className="block border-0 bg-white"
         />
       </div>

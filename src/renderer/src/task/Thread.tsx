@@ -65,6 +65,8 @@ interface Props {
   until: number | null
   /** Opens a made file full screen in Preview. */
   onPreview: (path: string) => void
+  /** Something new was made while this task is open: Preview opens beside the conversation on its own. */
+  onMade: (path: string) => void
   /** The organization's connectors, for the tool suggestion and setup cards. */
   servers: McpServerInfo[]
   /** A tool being set up in the thread (D on the canvas), and who should get it. */
@@ -87,7 +89,7 @@ interface Props {
  * plan waiting for your OK, where each card stands, each worker's folded run, and anything asking for
  * permission or review, all in time order.
  */
-export function Thread({ task, agent, view, sessionId, focus, until, onPreview, servers, toolSetup, onToolSetup, onToolConnected, skills, onAgentsChanged, onConnectors, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
+export function Thread({ task, agent, view, sessionId, focus, until, onPreview, onMade, servers, toolSetup, onToolSetup, onToolConnected, skills, onAgentsChanged, onConnectors, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const isLead = !!view && view.lead?.id === agent.id
@@ -97,6 +99,16 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
   // Files made during this task, each as a card where it was last changed (reloaded when a run ends or a change is answered).
   const made = useMadeFiles(view?.project.id ?? null, task.session?.createdAt ?? null, until,
     `${task.streaming === null}:${task.changes.map((c) => c.status).join('')}:${task.cards.map((c) => c.status ?? '-').join('')}:${Object.values(task.workerRuns).map((r) => (r.running ? 1 : 0)).join('')}`)
+
+  // When the team makes or changes something while you watch, Preview opens on it by itself (owner, 12 Nov 2026).
+  // Not for what was already there when the task was opened: only files newer than the first look.
+  const newest = made.shown[0]
+  const seenUntil = useRef<number | null>(null)
+  useEffect(() => {
+    if (!made.loaded) return
+    if (seenUntil.current === null) { seenUntil.current = newest?.updatedAt ?? 0; return }
+    if (newest && newest.updatedAt > seenUntil.current) { seenUntil.current = newest.updatedAt; onMade(newest.path) }
+  }, [made.loaded, newest?.path, newest?.updatedAt])
 
   // C on the canvas: the newest thing an agent said that a tool would solve, unless that tool is connected or the
   // suggestion was waved away for this task (localStorage).
