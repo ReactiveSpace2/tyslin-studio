@@ -8,6 +8,7 @@ import { GoalsTab } from '../agency/GoalsTab'
 import { MemoryTab } from '../agency/MemoryTab'
 import { ScheduleTab } from '../agency/ScheduleTab'
 import { BudgetTab } from '../agency/BudgetTab'
+import { BoardTab } from '../agency/BoardTab'
 import { SkillsTab } from '../agency/SkillsTab'
 import { TeamTab } from '../agency/TeamTab'
 import { AgencyPageView, shownPages } from '../agency/pages'
@@ -37,10 +38,11 @@ interface Props {
 /** One agency on one page: its header, seven tabs, and the extra pages its template declares (shared/pages.ts). */
 export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onPick, onNewAgency, onNewTask, onOpenAgent, onAddWorker, onOpenTask, onChanged, onDeleted }: Props): JSX.Element {
   const pages = shownPages(view)
-  const tabs: [AgencyTab, string][] = [...TABS, ...pages.map((p): [AgencyTab, string] => [`page:${p.id}`, p.title])]
+  // The board comes last, after the agency's own pages (owner, 12 Nov 2026).
+  const tabs: [AgencyTab, string][] = [...TABS, ...pages.map((p): [AgencyTab, string] => [`page:${p.id}`, p.title]), ['board', 'Board']]
   const page = tab.startsWith('page:') ? pages.find((p) => `page:${p.id}` === tab) : undefined
   return (
-    <div className="flex w-full max-w-[1180px] flex-col gap-5 px-10 pt-6 pb-12">
+    <div className={`flex w-full flex-col gap-5 px-10 pt-6 pb-12 ${tab === 'board' ? '' : 'max-w-[1180px]'}`}>{/* the board uses the whole width (owner, 12 Nov 2026) */}
       <AgencyHeader view={view} agencies={agencies} onPick={onPick} onNewAgency={onNewAgency} onNewTask={onNewTask} onChanged={onChanged} onDeleted={onDeleted} />
       <TabsList aria-label="Agency" className="h-auto flex-wrap self-start">
         {tabs.map(([id, label]) => <TabsTrigger key={id} active={tab === id} onClick={() => onTab(id)} className="h-9 px-3">{label}</TabsTrigger>)}
@@ -53,6 +55,7 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
       {tab === 'channel' && <ChannelTab view={view} onChanged={onChanged} />}
       {tab === 'memory' && <MemoryTab key={view.agency.id} view={view} agents={agents} initial={focus} />}
       {tab === 'schedule' && <ScheduleTab view={view} agencies={agencies} onOpenTask={onOpenTask} />}
+      {tab === 'board' && <BoardTab key={view.agency.id} view={view} onOpenTask={onOpenTask} />}
       {page && <AgencyPageView view={view} page={page} />}
       {tab.startsWith('page:') && !page && <p className="text-sm text-muted-foreground">{view.agency.name} has no such page.</p>}
     </div>

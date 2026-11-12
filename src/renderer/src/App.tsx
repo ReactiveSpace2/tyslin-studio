@@ -29,7 +29,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
  * and an Agency (its goals, team, skills, connectors, channel, memory and schedule). Everything else is a
  * dialog, a tab or a panel. The left column is the same everywhere (AppSidebar).
  */
-export type AgencyTab = 'goals' | 'team' | 'skills' | 'connectors' | 'channel' | 'memory' | 'schedule' | 'budget' | `page:${string}`
+export type AgencyTab = 'goals' | 'team' | 'skills' | 'connectors' | 'channel' | 'memory' | 'schedule' | 'budget' | 'board' | `page:${string}`
 export type Route =
   | { name: 'home' }
   | { name: 'task'; sessionId: string; agentId: string; /** A Lead message to scroll to. */ focus?: string }
