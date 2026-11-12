@@ -40,6 +40,8 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState<string | null>(null)
+  // "Help me choose": no agency is made here; Home asks what you want to get done and suggests the teams (StartChat).
+  const [suggest, setSuggest] = useState(false)
   // The picked provider follows the keys: when the current pick has no key and one provider does, the pick moves
   // there with its first suggested model, so saving an OpenAI key doesn't leave the Lead on "Claude (not connected)".
   const loadSettings = async (): Promise<void> => {
@@ -62,6 +64,7 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
       // The organization's name and the default model first, so the agency's folder lands under the new name.
       await window.tyslin.onboarding.finish({ orgName: org.trim(), projectName: 'Default project', defaultProvider: pick?.provider ?? null, defaultModel: pick?.model.trim() ?? '' })
       await refreshDefaultModel()
+      if (suggest) { onDone('', ''); return }
       const a = await window.tyslin.agencies.create({ name: tpl.name, templateId: tpl.id, description: '', goal: '', prompt: '', adapter: 'template', packs: [], autoRun: false, channel: 'none', notify: 'questions', budget: null })
       setCreated(a.projectId)
       setStep(2)
@@ -102,7 +105,7 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
                   </div>
                 )
               })}
-              <div className={ACTIONS}><Button size="lg" disabled={!org.trim()} onClick={() => setStep(1)}>Continue with {tpl.name}</Button><span className="text-xs text-muted-foreground">Workers run on {[...new Set(tpl.roster.filter((m) => !m.lead).map((m) => ENGINE_NAMES[m.engine]))].join(', ')}. Change it later per agent.</span></div>
+              <div className={ACTIONS}><Button size="lg" disabled={!org.trim()} onClick={() => { setSuggest(false); setStep(1) }}>Continue with {tpl.name}</Button><Button size="lg" variant="outline" disabled={!org.trim()} onClick={() => { setSuggest(true); setStep(1) }}>Not sure? Tyslin helps you choose</Button><span className="text-xs text-muted-foreground">Workers run on {[...new Set(tpl.roster.filter((m) => !m.lead).map((m) => ENGINE_NAMES[m.engine]))].join(', ')}. Change it later per agent.</span></div>
             </>
           )}
           {step === 1 && (

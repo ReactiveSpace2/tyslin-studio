@@ -32,6 +32,8 @@ import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
 import { nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
+import { suggestAgencies } from './starter'
+import type { StarterTurn } from '@shared/types'
 import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, updateCard, removeCard, type CardPatch } from './cards'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
@@ -730,6 +732,7 @@ function registerIpc(): void {
 
   ipcMain.handle('agencies:list', () => db.listAgencies())
   ipcMain.handle('agencies:get', (_e, id: string) => db.getAgency(id))
+  ipcMain.handle('agencies:suggest', (_e, turns: StarterTurn[]) => suggestAgencies(Array.isArray(turns) ? turns.map((t) => ({ role: t?.role === 'user' ? 'user' as const : 'tyslin' as const, text: String(t?.text ?? '') })) : []))
   ipcMain.handle('agencies:create', (_e, input: AgencyCreateInput) => {
     const a = createAgency(input)
     win?.webContents.send('tasks:changed')

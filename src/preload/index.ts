@@ -158,6 +158,7 @@ const api: TyslinApi = {
     list: () => ipcRenderer.invoke('agencies:list'),
     get: (id) => ipcRenderer.invoke('agencies:get', id),
     create: (input) => ipcRenderer.invoke('agencies:create', input),
+    suggest: (turns) => ipcRenderer.invoke('agencies:suggest', turns),
     update: (id, input) => ipcRenderer.invoke('agencies:update', id, input),
     remove: (id) => ipcRenderer.invoke('agencies:remove', id),
     plan: (id) => ipcRenderer.invoke('agencies:plan', id),

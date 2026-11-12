@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { StartChat, StartReady, type StartedAgency } from './StartChat'
 import type { Agent, Attachment, ChannelMessage, DashboardStats, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { useAgentStatuses } from '../agentStatus'
@@ -29,7 +30,9 @@ interface Props {
   activeAgency: string | null
   onActiveAgency: (id: string) => void
   /** Starts a task with the agency's Lead; resolves when the first message is sent (throws if the Lead can't run). */
-  onStartTask: (agencyId: string, text: string, attachmentIds: string[]) => Promise<void>
+  onStartTask: (agencyId: string, text: string, attachmentIds: string[], known?: { leadId: string; projectId: string }) => Promise<void>
+  /** Agencies were made from Home's start chat: App reloads its lists. */
+  onAgenciesChanged: () => Promise<void>
   onOpenTask: (sessionId: string, agentId: string, focus?: string) => void
   onOpenAgency: (agencyId: string, tab?: 'budget') => void
   onOpenAgent: (agencyId: string, agentId: string) => void
@@ -56,7 +59,10 @@ const ago = (ms: number): string => {
  * Home: one question, one box. The Lead of the picked agency gets the message and plans it. Under the box,
  * what needs you (questions and reviews from any Lead) and what is running.
  */
-export function HomePage({ you, agencies, agents, sessions, channelMessages, waiting, runningIds, activeAgency, onActiveAgency, onStartTask, onOpenTask, onOpenAgency, onOpenAgent, onNewAgency, onSettings, draft, onDraftUsed }: Props): JSX.Element {
+export function HomePage({ you, agencies, agents, sessions, channelMessages, waiting, runningIds, activeAgency, onActiveAgency, onStartTask, onOpenTask, onOpenAgency, onOpenAgent, onNewAgency, onSettings, onAgenciesChanged, draft, onDraftUsed }: Props): JSX.Element {
+  const [started, setStarted] = useState<StartedAgency[] | null>(null)
+  // "I'll pick a template myself": the plain empty state behind the template dialog.
+  const [byHand, setByHand] = useState(false)
   const [text, setText] = useState(draft ?? '')
   useEffect(() => { if (draft) { setText(draft); onDraftUsed?.() } }, [draft])
   const [attached, setAttached] = useState<Attachment[]>([])
@@ -114,6 +120,14 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
     }
   }
 
+  // Agencies just made from the start chat: shown as ready (with their first tasks) until one is started or Home is picked.
+  if (started) {
+    return <StartReady made={started} onHome={() => setStarted(null)}
+      onStart={async (m) => { if (!m.agency.leadId) throw new Error('This agency has no Lead yet.'); onActiveAgency(m.agency.id); await onStartTask(m.agency.id, m.firstTask, [], { leadId: m.agency.leadId, projectId: m.agency.projectId }); setStarted(null) }} />
+  }
+  if (agencies.length === 0 && !byHand) {
+    return <StartChat you={you} onPickTemplate={() => { setByHand(true); onNewAgency() }} onSettings={onSettings} onCreated={(made) => { setStarted(made); void onAgenciesChanged() }} />
+  }
   if (agencies.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8">
@@ -125,6 +139,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
           </EmptyHeader>
           <EmptyContent>
             <Button onClick={onNewAgency}>Create your first agency</Button>
+            <Button variant="ghost" onClick={() => setByHand(false)}>Or tell Tyslin what you want</Button>
             <span className="text-xs text-muted-foreground">Software, marketing and sales agencies today. More are coming.</span>
           </EmptyContent>
         </Empty>

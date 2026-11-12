@@ -258,7 +258,7 @@ export default function App(): JSX.Element {
       case 'home':
         return (
           <HomePage you={you} agencies={agencies} agents={agents} sessions={sessions} channelMessages={channelMsgs} waiting={waiting} runningIds={runningIds}
-            activeAgency={activeAgency} onActiveAgency={setActiveAgency} onStartTask={startTask} onOpenTask={openTask} draft={draft} onDraftUsed={() => setDraft('')}
+            activeAgency={activeAgency} onActiveAgency={setActiveAgency} onStartTask={startTask} onAgenciesChanged={refresh} onOpenTask={openTask} draft={draft} onDraftUsed={() => setDraft('')}
             onOpenAgency={(id, tab) => openAgency(id, tab)} onOpenAgent={(agencyId, agentId) => setRoute({ name: 'agent', agencyId, agentId })}
             onNewAgency={() => setNewAgency({})} onSettings={() => setRoute({ name: 'settings', tab: 'models' })} />
         )

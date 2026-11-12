@@ -284,6 +284,14 @@ export interface Agency {
   updatedAt: number
 }
 
+/** One line of the "What do you want to get done?" chat on Home (main/starter.ts). */
+export interface StarterTurn { role: 'user' | 'tyslin'; text: string }
+/** Tyslin's answer: a short reply and the agencies it would set up, each from a template. */
+export interface AgencySuggestion {
+  reply: string
+  picks: { templateId: string; why: string; firstTask: string }[]
+}
+
 export interface AgencyCreateInput {
   name: string
   templateId: string | null
@@ -1214,6 +1222,8 @@ export interface TyslinApi {
     get(id: string): Promise<Agency | null>
     /** Creates the project folder, the Lead and workers, the board, the channel link and the Lead's task. */
     create(input: AgencyCreateInput): Promise<Agency>
+    /** Suggests agencies (from the templates) for what the user said; one call to the default model, nothing is created. */
+    suggest(turns: StarterTurn[]): Promise<AgencySuggestion>
     update(id: string, input: AgencyUpdateInput): Promise<Agency>
     /** Deletes the agency, its agents, board and task; files in its folder stay. */
     remove(id: string): Promise<void>
