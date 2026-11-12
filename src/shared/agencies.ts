@@ -1,6 +1,7 @@
 import { pageInstructions, type AgencyPageSpec } from './pages'
 import type { HeadId } from './heads'
 import type { TaskSchedule } from './types'
+import { researchPlanning } from './agencies/research-planning'
 import { appDevelopment } from './agencies/app-development'
 import { mobileApps } from './agencies/mobile-apps'
 import { webDesign } from './agencies/web-design'
@@ -44,9 +45,10 @@ export interface AgencyMember {
 }
 
 /** How screens group the templates (wizard, Home, the site). */
-export type AgencyGroup = 'software' | 'documents' | 'marketing'
+export type AgencyGroup = 'planning' | 'software' | 'documents' | 'marketing'
 
 export const AGENCY_GROUPS: { id: AgencyGroup; title: string; hint: string }[] = [
+  { id: 'planning', title: 'Research and planning', hint: 'Before you build' },
   { id: 'software', title: 'Software', hint: 'Code in a repo' },
   { id: 'documents', title: 'Documents and data', hint: 'Specs, reports and writing' },
   { id: 'marketing', title: 'Marketing and sales', hint: 'Campaigns, outreach and growth' }
@@ -76,11 +78,12 @@ export interface AgencyTemplate {
 }
 
 /**
- * The templates in screen order. Workers run on Claude Code, Codex or Gemini CLI only. Seven more templates
+ * The templates in screen order (Research & Planning first since 12 Nov 2026, in its own group). Workers run on Claude Code, Codex or Gemini CLI only. Seven more templates
  * (Customer Support, Research & Intelligence, Startup Visa, Finance & Bookkeeping, Legal & Contracts,
  * HR & Recruiting, Video & Creative) are in archive/shared/agencies/; agencies made from them still open and run.
  */
 export const AGENCY_TEMPLATES: AgencyTemplate[] = [
+  researchPlanning,
   appDevelopment, mobileApps, webDesign, qaTesting, devops,
   productManagement, dataAnalytics, contentWriting,
   socialMediaMarketing, seo, paidAds, emailMarketing, salesLeadGen

@@ -5,6 +5,7 @@
  * instead of improvised headless-Chrome shell scripts, 12 Nov 2026). These are suggestions only: every integration needs the user's own token, so nothing is installed for them.
  */
 export const AGENCY_INTEGRATIONS: Record<string, { presets: string[]; searches: string[] }> = {
+  'research-planning': { presets: [], searches: ['playwright', 'brave search', 'firecrawl', 'notion'] },
   'app-development': { presets: ['github', 'linear'], searches: ['playwright', 'sentry', 'vercel', 'supabase'] },
   devops: { presets: ['github'], searches: ['cloudflare', 'sentry', 'aws', 'docker'] },
   'qa-testing': { presets: ['github', 'linear'], searches: ['playwright', 'sentry', 'browserstack'] },

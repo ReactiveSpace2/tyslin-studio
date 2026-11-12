@@ -234,5 +234,36 @@ Report: the command, pass and fail counts, the names of failing tests with their
     name: 'roadmap',
     description: 'Keep a roadmap in three horizons.',
     body: `Now (being built), Next (decided, not started), Later (likely, not committed). Each item: one line, score, status, link to its spec or evidence. Update it when cards move, not on a schedule. Keep it short enough to read in two minutes.`
+  },
+  // Research and planning
+  {
+    name: 'market-research',
+    description: 'Size a market and describe who else serves it, with sources.',
+    body: `Answer four questions, each with sources and the date you read them: how big is the need (people, searches, spending) and where; how is it changing; who already serves it and what do they charge; which rules apply in the target country or city.
+Search the web and open the pages; never answer from memory. Prefer official statistics, regulators and the companies' own pages over blogs. Show the number, the source and how the source got it. When two sources disagree, show both and say which you trust and why. Write "not found" where you found nothing; a gap is better than a guess.`
+  },
+  {
+    name: 'audience-profile',
+    description: 'Describe the people a project is for and what they are trying to do.',
+    body: `Describe two or three kinds of people, not one average person. For each: who they are, the situation that makes them look for this, what they are trying to get done, what they search for (real phrases), where they look today, what stops them, and what would make them trust a new service.
+Base each point on something you can link: forum threads, reviews of competitors, search suggestions, official figures. Say which points are evidence and which are your reading of it. End with the one group to serve first and why.`
+  },
+  {
+    name: 'data-source-map',
+    description: 'Find where a project\'s information will come from and on what terms.',
+    body: `List each kind of information the project needs. For each, find sources in this order: the official body that owns it, an official API or open data set, a trusted publisher. Open the pages and read the terms.
+Record per source: what it gives, the link, how to get it (API, file download, reading the page by hand), cost, the licence or terms of use in one line, how often it changes, and how a change would be noticed. Say plainly when terms forbid copying or automated reading. Mark each source: ready to use, needs permission, or by hand only. Finish with the gaps: information no source gives.`
+  },
+  {
+    name: 'tech-stack-choice',
+    description: 'Compare ways to build something and recommend one.',
+    body: `Start from what the project must do, how many people will use it, the budget and who will look after it. Compare two or three realistic options on the same points: cost to build, cost to run per month, time to a first version, how it gets and stores its data, hosting, skills needed, and the likeliest regret in a year.
+Check versions, prices and limits on the makers' own pages and link them with the date. Put the recommendation first, then the table, then what would change your mind. Prefer the boring, well-supported option unless the project truly needs otherwise.`
+  },
+  {
+    name: 'project-roadmap',
+    description: 'Turn research into phases with sizes, costs, risks and open questions.',
+    body: `Read the research first and use only what it supports; mark every assumption as one. Three phases: a first version that proves the idea, what comes next, and later. Per phase: what is built, what is left out on purpose, what it depends on, a size in weeks as a range, a cost range, and how you will know it worked.
+Then the risks, each with what would reduce it, and the questions still open with who can answer them. Put a one-page summary at the top that a busy reader can decide from.`
   }
 ]

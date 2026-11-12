@@ -6,7 +6,7 @@ import { AGENCY_SKILLS } from './seedSkillsAgencies'
  * has here (the conversation and, in a linked project, its files). No connectors assumed.
  * Bump SKILL_LIBRARY_VERSION when adding skills so existing installs pick them up.
  */
-export const SKILL_LIBRARY_VERSION = 5
+export const SKILL_LIBRARY_VERSION = 6
 
 export const BUILT_IN_SKILLS: Omit<Skill, 'id'>[] = [
   ...AGENCY_SKILLS,
