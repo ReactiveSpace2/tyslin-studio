@@ -1,0 +1,107 @@
+[
+  {
+    "title": "Agency template: make Product Management available",
+    "labels": ["enhancement", "agency template", "help wanted"],
+    "body": "`src/shared/agencies/product-management.ts` exists with `comingSoon: true` (Erin leads; roadmap, specs, feedback). To ship it:\n\n- Read the roster and instructions and tighten them to the voice in CONTRIBUTING.md (plain, about the work).\n- Add the skills the team needs to `src/main/seedSkillsAgencies.ts` and bump `SKILL_LIBRARY_VERSION` in `seedSkills.ts`.\n- Check its suggested connectors in `src/shared/agencyIntegrations.ts`.\n- Flip `comingSoon` and run `node scripts/readme-agencies.mjs --write`.\n\n**Done when:** the template can be created from Agencies and from first-run setup, a first task (\"turn these notes into a PRD\") produces a plan with cards for the right workers, and `npm run typecheck` passes."
+  },
+  {
+    "title": "Agency template: make Data & Analytics available",
+    "labels": ["enhancement", "agency template", "help wanted"],
+    "body": "`src/shared/agencies/data-analytics.ts` is declared with `comingSoon: true` (Nadia leads; cleaning data, reports, explaining numbers). Same steps as the Product Management issue: review roster and instructions, add skills to `seedSkillsAgencies.ts` (bump `SKILL_LIBRARY_VERSION`), check `agencyIntegrations.ts` (Stripe is suggested; Postgres, BigQuery, PostHog, Google Sheets searches), flip `comingSoon`, regenerate the README table.\n\nWorth adding a `table` agency page (`src/shared/pages.ts`, `AgencyTemplate.pages`) for the reports it keeps, like SEO's keywords table.\n\n**Done when:** creatable, a first task on a CSV in the agency folder produces a plan, typecheck passes."
+  },
+  {
+    "title": "Agency template: make Content Writing available",
+    "labels": ["enhancement", "agency template", "help wanted"],
+    "body": "`src/shared/agencies/content-writing.ts` is declared with `comingSoon: true` (Clara leads; articles, guides, newsletters). Review roster and instructions, add its skills to `seedSkillsAgencies.ts` (bump `SKILL_LIBRARY_VERSION`), check `agencyIntegrations.ts` (notion, wordpress, google docs searches), flip `comingSoon`, regenerate the README table.\n\nA `calendar` page (like Social Media Marketing's) for the editorial calendar would fit.\n\n**Done when:** creatable, a first task (\"write a 1,200-word guide on X from these notes\") produces a plan and a Markdown file in the folder, typecheck passes."
+  },
+  {
+    "title": "Agency template: make Paid Ads available",
+    "labels": ["enhancement", "agency template", "help wanted"],
+    "body": "`src/shared/agencies/paid-ads.ts` is declared with `comingSoon: true` (Ray leads; campaign plans, ad copy, reports). Review roster and instructions, add its skills to `seedSkillsAgencies.ts` (`ad-copy`, `campaign-plan` and `bid-rules` already exist in the library), check `agencyIntegrations.ts`, flip `comingSoon`, regenerate the README table.\n\nNote: there is no official token-based MCP server for Google Ads or Meta Ads yet, so the first version works from files the user exports (CSV reports in the agency folder).\n\n**Done when:** creatable, a first task on an exported report produces a plan, typecheck passes."
+  },
+  {
+    "title": "Suggest Browserbase and Playwright MCP to the agencies that need a browser",
+    "labels": ["enhancement", "good first issue"],
+    "body": "Workers on Claude Code, Codex and Gemini CLI have no browser. Two MCP servers in the official registry give them one, and both already install from Connectors → Add a connector → Search the registry:\n\n- `io.github.microsoft/playwright-mcp` (`@playwright/mcp`), free, drives a Chrome on the user's computer.\n- `io.github.browserbase/mcp-server-browserbase`, a cloud browser (needs `BROWSERBASE_API_KEY`, `BROWSERBASE_PROJECT_ID`, `GEMINI_API_KEY`).\n\nAdd `playwright` and `browserbase` to the `searches` chips in `src/shared/agencyIntegrations.ts` for `qa-testing`, `web-design`, `seo`, `sales-lead-gen` and `social-media-marketing` (playwright first for the software ones). Suggestions only; the user brings the key.\n\n**Done when:** the chips show in the Add a connector dialog for those agencies and a click runs the search."
+  },
+  {
+    "title": "Connector presets that run a command (stdio) with environment variables",
+    "labels": ["enhancement", "help wanted"],
+    "body": "`src/shared/mcpPresets.ts` only describes remote servers that take a Bearer token (GitHub, Linear, Stripe). Servers that run on the user's computer, such as `@playwright/mcp` or Browserbase's `@browserbasehq/mcp-server-browserbase`, can be found through the registry search but not picked in one click.\n\nExtend `McpPreset` with a stdio shape (`commandLine`, `env` fields with label, secret flag and a link to where the value comes from), teach `ConnectorDialog` (`src/renderer/src/agency/ConnectorsTab.tsx`) to render those fields, and `saveIntegration` in `src/main/integrations.ts` to store them like the custom stdio path does today. Keep the rule that presets come only from the project's official docs.\n\n**Done when:** a Playwright preset installs with one click, Test shows its tools, and the existing remote presets still work."
+  },
+  {
+    "title": "Add connector presets for remote MCP servers that take a token",
+    "labels": ["enhancement", "good first issue", "help wanted"],
+    "body": "`MCP_PRESETS` in `src/shared/mcpPresets.ts` has GitHub, Linear and Stripe. Each preset is a remote URL plus a Bearer token, copied from the company's own docs (link to the docs page and the token page in the entry).\n\nCandidates to check against official docs (only add ones that authenticate with a token in a header; OAuth-only servers such as Notion's wait for MCP OAuth support): PostHog, Supabase, Vercel, Cloudflare, Sentry, Hugging Face. One preset per pull request is fine.\n\nAlso add the preset id to the right agencies in `src/shared/agencyIntegrations.ts`.\n\n**Done when:** the preset shows under Suggested, Add and test reaches the server (a wrong token must show \"refused the credentials (401)\"), and the docs link in the entry is the official page."
+  },
+  {
+    "title": "Skill packs: list the skills a pack installed on its card",
+    "labels": ["enhancement", "good first issue"],
+    "body": "On Agency → Skills → Browse skill packs, an installed pack's card says \"12 installed\" but not which skills. Add a Collapsible (shadcn `ui/collapsible.tsx`) under the card that lists the pack's skills by name (the `Skill` rows with that `packId`, already loaded in `SkillsTab`), each opening the editor through the existing `onEdit`.\n\nFile: `src/renderer/src/agency/SkillsTab.tsx` (`Packs`, `packCard`).\n\n**Done when:** the list shows for installed packs only, names are in Geist Mono like the skills list, and a click opens that skill in the sheet."
+  },
+  {
+    "title": "Skill editor: a Preview of the Markdown instructions",
+    "labels": ["enhancement", "good first issue"],
+    "body": "The skill editor (`src/renderer/src/agency/SkillsTab.tsx`, `SkillEditor`) shows the instructions as a plain Textarea. Add an Edit / Preview toggle above it (shadcn `ToggleGroup`, as the Files editor tabs do) that renders the body with `components/Markdown.tsx`.\n\n**Done when:** switching to Preview renders headings, lists and code from the body, switching back keeps the text and the caret, and the 40,000 counter stays visible."
+  },
+  {
+    "title": "Connectors: a Test all button",
+    "labels": ["enhancement", "good first issue"],
+    "body": "Agency → Connectors tests one server at a time. Add a \"Test all\" ghost button next to \"Add a connector\" that runs `integrations.test` for each listed server in turn (not in parallel; stdio servers start a process each) and updates the rows as results arrive, with the button disabled while it runs.\n\nFile: `src/renderer/src/agency/ConnectorsTab.tsx` (`test`).\n\n**Done when:** rows update one by one, a failure in one doesn't stop the rest, and the button is hidden when there are no connectors."
+  },
+  {
+    "title": "Connectors: show a server's tools in the row, not only on hover",
+    "labels": ["enhancement", "good first issue"],
+    "body": "After a successful test the row shows \"2 tools · tested 6:01 AM\" and lists the tool names only in a hover title. Make the count a small ghost button that opens a Popover (shadcn `ui/popover.tsx`) listing the tool names in Geist Mono, so they can be read on a touchpad and copied.\n\nFile: `src/renderer/src/agency/ConnectorsTab.tsx`.\n\n**Done when:** the popover lists every tool from `lastTest.tools`, closes on Escape, and the row layout doesn't move."
+  },
+  {
+    "title": "Files: keep open tabs when leaving and coming back",
+    "labels": ["enhancement", "help wanted"],
+    "body": "Leaving the Files screen drops the open editor tabs; coming back starts empty. Keep the open paths and the active tab per agency (localStorage `files:tabs:<agencyId>`, like `files:panel:<agencyId>` does for the side panel) and reopen them on return, skipping files that no longer exist.\n\nFiles: `src/renderer/src/pages/FilesPage.tsx`, `src/renderer/src/files/EditorTabs.tsx`, `useCodeMirror.ts` (one EditorState per open file).\n\n**Done when:** open two files, go Home, come back: both tabs are open with the same active one; a deleted file is quietly left out; unsaved edits are not expected to survive (they still prompt on leave)."
+  },
+  {
+    "title": "Files: closing the window with unsaved tabs doesn't ask",
+    "labels": ["bug", "good first issue"],
+    "body": "Leaving the Files screen or switching agency with unsaved edits asks first (`src/renderer/src/files/leaveGuard.ts`, used by `App.tsx setRoute`), but closing the app window doesn't, so edits are lost.\n\nHook the same guard into the window: a `beforeunload` listener in the renderer that calls `preventDefault` while Files has unsaved tabs, and in main (`src/main/index.ts`) the window's `close` event asking the renderer first, or simplest, let the renderer's `beforeunload` do it and confirm with the shared `useConfirm` dialog is not possible there, so use the system dialog from main (`dialog.showMessageBox`) with Close / Cancel.\n\n**Done when:** with an unsaved tab, closing the window shows a Close / Keep editing choice; without unsaved tabs it closes at once."
+  },
+  {
+    "title": "Source control: fetch in the background so the pull count is current",
+    "labels": ["enhancement", "help wanted"],
+    "body": "The Source control panel shows ↓n only from what the last pull or fetch saw. Add a `git fetch` in `src/main/git.ts` run when the panel opens and every few minutes while it is open (one agency at a time, `GIT_TERMINAL_PROMPT=0` so it never prompts; a failure, for example offline, is ignored and shown as a muted \"Couldn't reach origin\" line).\n\nFiles: `src/main/git.ts`, `src/renderer/src/files/SourceControlPanel.tsx`, `useGit.ts`.\n\n**Done when:** a commit pushed to the remote from elsewhere shows as ↓1 within a few minutes without pressing Pull, and nothing hangs when the remote needs credentials."
+  },
+  {
+    "title": "Pricing: add rows for newer OpenAI and Anthropic models so costs aren't \"not reported\"",
+    "labels": ["good first issue", "documentation"],
+    "body": "`src/shared/pricing.ts` prices only families whose list price is recorded (gpt-5, gpt-5-mini/nano, gpt-4.1 sizes, gpt-4o sizes, and the Claude families). Runs on gpt-5.1 and later show their cost as not reported.\n\nAdd rows from the providers' official price pages (link the page in a comment above the row, with the date you checked), including cached-input prices where the file has them. Keep the rule: no guessed numbers; a model without a published price stays unpriced.\n\n**Done when:** a run on each added model shows an estimated cost on its card and in Agency → Budget, and the comment names the source page."
+  },
+  {
+    "title": "Test the macOS build and report what works",
+    "labels": ["help wanted", "documentation"],
+    "body": "The README says \"Tested on Linux; macOS and Windows builds are not yet tested much\". If you have a Mac (Apple Silicon or Intel), install the `.dmg` from the latest release (right-click → Open, it is unsigned) and report here:\n\n- the first run (organization, template, a model key), Home and creating a task;\n- an agency with Claude Code, Codex or Gemini CLI workers running one card (sign-in or key);\n- the Files editor (tabs, save, git), Preview (a page, an image, a PDF) and dark mode;\n- the window title bar: traffic lights at the right place, both drag strips drag;\n- anything that looks wrong at 1024 px wide.\n\nScreenshots welcome. Each problem you find becomes its own issue; link them here."
+  },
+  {
+    "title": "Test the Windows build and report what works",
+    "labels": ["help wanted", "documentation"],
+    "body": "The README says \"Tested on Linux; macOS and Windows builds are not yet tested much\". If you run Windows 10 or 11, install the `-windows-x64-setup.exe` from the latest release (More info → Run anyway, it is unsigned) and report here:\n\n- the first run (organization, template, a model key), Home and creating a task;\n- an agency with Claude Code, Codex or Gemini CLI workers running one card (the adapters are installed with npm; the `.cmd` shims must be found);\n- the Files editor (tabs, save, git with Git for Windows), Preview and dark mode;\n- the window buttons (minimise, maximise, close) and the two drag strips;\n- the in-app updater, if a newer release exists while you test.\n\nScreenshots welcome. Each problem you find becomes its own issue; link them here."
+  },
+  {
+    "title": "Screenshots of a real task for the README and tyslin.ai",
+    "labels": ["help wanted", "documentation"],
+    "body": "The README's screenshot is the Home screen; the site's section 05 (\"The task\") waits for `public/tyslin-app-task.webp` (1360×880). We need a screenshot of a task thread with the plan card, one worker's work folded open and the Changes panel, from a real run (any model), with no keys, names or private paths visible.\n\nLight theme, default accent, window at 1360×880, zoom 100%. Add it to `docs/screenshots/` with a line in `docs/screenshots/README.md`, and attach the PNG here so the site can take it too.\n\n**Done when:** the README shows the task screenshot under \"How an agency works\" and the file is in the repo."
+  },
+  {
+    "title": "Email Marketing: build the campaigns agency page",
+    "labels": ["enhancement", "help wanted"],
+    "body": "`src/shared/pages.ts` declares the `campaigns` page kind and the Email Marketing template lists a page of that kind, but `BUILT` in `src/renderer/src/agency/pages/index.tsx` only has `screens`, `table` and `calendar`, so no tab shows.\n\nBuild `CampaignsPage` in `src/renderer/src/agency/pages/`: reads `<agency folder>/data/campaigns.json` through `pages:read` (define the file shape in `shared/pages.ts`, for example `{ \"campaigns\": [{ \"name\", \"audience\", \"send_at\", \"state\": draft|approved|scheduled|sent, \"subject\", \"stats\": { \"sent\", \"opened\", \"clicked\" } }] }`), shows them as a shadcn Table with state badges and a small summary row, updates on `pages:changed`, and add the shape to `pageInstructions` so agents know the file. Add `campaigns` to `BUILT`.\n\n**Done when:** the Campaigns tab shows on an Email Marketing agency and in its task's panel buttons, reads the file, and shows a clear empty state when it is missing."
+  },
+  {
+    "title": "Discord channel next to Telegram and Slack",
+    "labels": ["enhancement", "help wanted"],
+    "body": "The Lead can reach the boss on Telegram (`src/main/telegram.ts`) and Slack (`src/main/slack.ts`), both through the user's own bot, polled from this computer, linked chats only (one-time code), with questions as buttons. Discord is next on the roadmap.\n\nAdd `src/main/discord.ts` following `slack.ts`: a bot token the user makes in the Discord developer portal (shown as a setting, stored as a secret), the gateway or polling, channels linked with a one-time code, the four message kinds through `channels.ts` (every Lead → boss message goes through it), quick answers as buttons, and the Channel tab UI (`src/renderer/src/agency/ChannelTab.tsx`). Keep the linked-accounts-only rule.\n\nOpen the design in this issue before coding; a maintainer will answer questions about `channels.ts`.\n\n**Done when:** a Lead question arrives in a linked Discord channel with buttons, the answer lands in the task, and an unlinked channel is ignored."
+  },
+  {
+    "title": "Scheduled tasks: monthly and custom schedules",
+    "labels": ["enhancement", "good first issue"],
+    "body": "`src/shared/schedule.ts` knows daily, weekdays and weekly. Add monthly (a day of the month, with the last day handled for short months) and \"every N days\" to the maths there and to `components/ScheduleForm.tsx` (shadcn Select and Input only), with the next-run preview the form already shows.\n\n**Done when:** a monthly task shows the right next run in the list and on the status line, fires once through `startScheduler` (`src/main/index.ts`), and a missed run still fires once on launch."
+  }
+]

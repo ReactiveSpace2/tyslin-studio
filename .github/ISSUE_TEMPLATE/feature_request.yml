@@ -1,0 +1,38 @@
+name: Feature request
+description: Something the app should do, or do differently.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The job you want an agency or the app to get done, in your words.
+      placeholder: I want the SEO agency to check my pages in a real browser before it reports …
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: What the app would show or do. Rough is fine; a sketch or a screenshot of another tool is welcome.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where in the app
+      options:
+        - Home or the task thread
+        - An agency (goals, team, skills, connectors, channel, memory, schedule, budget)
+        - Agency templates and skills
+        - Adapters and models (Claude Code, Codex, Gemini CLI, keys, sign-in)
+        - Files editor or Preview
+        - Telegram or Slack channel
+        - Settings
+        - Somewhere else
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you work on it?
+      options:
+        - label: I'd like to send a pull request for this, with some guidance.

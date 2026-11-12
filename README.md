@@ -21,9 +21,8 @@ Three places, one left column (New task, Search, Agencies, Scheduled, Files; the
 - **Your keys or your sign-in:** API keys for Claude, OpenAI and Gemini, or your Claude, ChatGPT or Google sign-in through Claude Code, Codex and Gemini CLI.
 - **You approve:** every file change is a diff you accept or reject, the plan waits for your OK and cards run one at a time, and each agency has a monthly budget. Agents on Claude Code, Codex or Gemini CLI ask before each command; read-only looks inside the folder (`ls`, `cat`, `git status`, version checks) are allowed without asking unless you turn that off in Settings → Notifications → Approvals.
 
-<!-- TODO: replace with docs/screenshots/agency-board.png (an agency's Kanban board) once it is added. -->
 <p align="center">
-  <img src="docs/screenshots/agency-overview.png" alt="The Research & Intelligence agency in Tyslin Studio: Iris, the Lead, with Hugo (Analyst), Beatrice (Fact-check) and Felix (Writer) on Claude Code, the five-step plan and how it runs" width="900">
+  <img src="docs/screenshots/home.png" alt="Tyslin Studio's Home screen: the mascot, the question What should your agency do?, a box to describe the task for Hannah, the Lead of the QA & Testing agency, and three starter cards: Build a feature, Fix a bug, Write the docs." width="900">
 </p>
 
 ## Download
@@ -191,7 +190,9 @@ Assistants, Automation, Canvas and Mind mapper from earlier versions are archive
 
 ## Contributing
 
-Report bugs and ideas in [GitHub Issues](https://github.com/ReactiveSpace2/tyslin-studio/issues). Discussions are off. Pull requests will open once the licence is set. Keep changes small and run `npm run typecheck`.
+Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the ten-minute setup, where things live, the rules that keep the app consistent and the three easiest contributions: an agency template, a skill, a connector preset. Issues labelled [good first issue](https://github.com/ReactiveSpace2/tyslin-studio/labels/good%20first%20issue) name the file to touch and how to check the result. Report bugs and ideas in [GitHub Issues](https://github.com/ReactiveSpace2/tyslin-studio/issues); security problems go to the address in [SECURITY.md](SECURITY.md), not to a public issue. Keep changes small and run `npm run typecheck`.
+
+If Tyslin is useful to you, [star the repo](https://github.com/ReactiveSpace2/tyslin-studio). It is how other people find it.
 
 **Add an agency template.** Create one file in `src/shared/agencies/` exporting an `AgencyTemplate` (see `src/shared/agencies.ts` for the type), and add it to `AGENCY_TEMPLATES` there. The roster lists the Lead first, with `engine: 'builtin'` and `lead: true`; workers run on `claude-code`, `codex` or `gemini-cli`. Set `group` (`software`, `documents` or `marketing`) and `comingSoon: true` to show it without letting people create it yet. Name agents by first name and job (they show as "Sam (Backend)"), give each a different head from `src/shared/heads.ts`, and start each of the five plan steps with the first name of the member who does it. Every name in `skills` must be a built-in skill. Then run `node scripts/readme-agencies.mjs --write`.
 

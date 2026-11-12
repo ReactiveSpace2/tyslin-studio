@@ -2,6 +2,7 @@ import type { Account, Agent, Session } from '@shared/types'
 import type { Route } from '../App'
 import type { AgencyView } from '../agencies'
 import { Icon, type IconName } from '../components/Icon'
+import { StarCard } from './StarCard'
 import { UserMenu } from './UserMenu'
 import logo from '../assets/logo-horizontal.png'
 import mark from '../assets/logo-mark.png'
@@ -134,6 +135,7 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
+        <StarCard />
         <SidebarMenu>
           <SidebarMenuItem>
             <UserMenu account={account} canSignOut={canSignOut} onSettings={onSettings} onSignOut={onSignOut} />

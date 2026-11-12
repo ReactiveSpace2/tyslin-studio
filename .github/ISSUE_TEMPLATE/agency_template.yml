@@ -1,0 +1,50 @@
+name: New agency template
+description: Propose an agency (a Lead and a team) the app should ship.
+labels: ["enhancement", "agency template"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        An agency is one file in `src/shared/agencies/`: a Lead, three or four workers with jobs and instructions, the skills they use, and the connectors to suggest. See CONTRIBUTING.md. Fill in what you can; a maintainer can help with the rest.
+  - type: input
+    id: name
+    attributes:
+      label: Agency name
+      placeholder: Customer Support
+    validations:
+      required: true
+  - type: textarea
+    id: job
+    attributes:
+      label: What it does
+      description: One or two sentences, like the cards on the Agencies screen.
+      placeholder: Answers support tickets from your docs and escalates what it can't answer.
+    validations:
+      required: true
+  - type: textarea
+    id: team
+    attributes:
+      label: The team
+      description: The Lead and each worker, with a job title and what they are responsible for. Which adapter each worker should run on (Claude Code, Codex or Gemini CLI) if you have a view.
+      placeholder: |
+        Lead: plans the week, assigns tickets, reports to you
+        Worker 1 (Triage): reads new tickets, labels them, drafts a first answer
+        Worker 2 (Docs): keeps the help centre articles up to date
+    validations:
+      required: true
+  - type: textarea
+    id: task
+    attributes:
+      label: A first task a user would give it
+      placeholder: Go through the 40 open tickets in tickets.csv, draft answers, and list the ones that need a human.
+  - type: textarea
+    id: connectors
+    attributes:
+      label: Connectors it would use
+      description: Services with an MCP server (for example Zendesk, Intercom, Linear). Suggestions only; users bring their own token.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you build it?
+      options:
+        - label: I'd like to send the pull request for this template.

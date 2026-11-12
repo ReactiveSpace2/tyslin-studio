@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security problem
+    url: https://github.com/ReactiveSpace2/tyslin-studio/blob/main/SECURITY.md
+    about: Please don't open a public issue. SECURITY.md says where to write.
+  - name: Download and docs
+    url: https://tyslin.ai
+    about: Installers, how it works, and the FAQ.
