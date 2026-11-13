@@ -51,6 +51,14 @@ Use only what the research supports; mark anything you had to assume as an assum
   skills: ['deep-research', 'cite-sources', 'market-research', 'audience-profile', 'competitor-brief', 'data-source-map', 'compare-options', 'tech-stack-choice', 'project-roadmap', 'plain-language'],
   starterCards: ['Research questions for the idea', 'Market and competitors', 'Who it is for', 'Where the data comes from', 'Tech stack comparison', 'Roadmap', 'Project plan'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Check the open research cards, chase missing sources, update the project plan and send a digest.' },
+  intake: [
+    "What is the idea, in a sentence or two, and who is it for?",
+    "Is it a new idea, or is there already a product, site or company? Share the link if there is one.",
+    "Which countries or markets should we look at first?",
+    "Do you know competitors, or products you like? Links help.",
+    "Any limits to plan around: budget, deadline, team size, or tools and tech you already use?",
+    "What do you need at the end: a plan for yourself, a document for investors, or a brief for the build teams?"
+  ],
   folders: ['research', 'plan', 'data'],
   pages: [{ id: 'sources', kind: 'table', title: 'Data sources', about: 'one row per source of information the project needs', columns: ['information', 'source', 'how to get it', 'cost', 'terms', 'changes', 'status'] }]
 }

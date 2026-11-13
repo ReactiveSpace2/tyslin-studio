@@ -27,6 +27,8 @@ interface Props {
   sessions: Session[]
   runningIds: Set<string>
   needsYouBySession: Record<string, number>
+  /** Lead tasks whose plan has run and been reported on (the Lead's digest), with nothing running or waiting. */
+  doneSessions?: Set<string>
   account: Account | null
   canSignOut: boolean
   onNavigate: (r: Route) => void
@@ -53,7 +55,7 @@ export const listedTask = (s: Session, openId?: string | null): boolean =>
  * window drag area), New task / Search / Agencies / Scheduled / Files, recent tasks grouped by agency with what
  * needs you, and the user menu at the foot. Older tasks are found through Search.
  */
-export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds, needsYouBySession, account, canSignOut, onNavigate, onSearch, onSettings, onSignOut }: Props): JSX.Element {
+export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds, needsYouBySession, doneSessions, account, canSignOut, onNavigate, onSearch, onSettings, onSignOut }: Props): JSX.Element {
   // New task goes Home and puts the cursor in the box (Home's Composer renders it as #composer). There is no Home
   // item (owner, 10 Nov 2026): the logo and New task both lead there, so New task is shown as current on Home.
   const newTask = (): void => {
@@ -181,6 +183,8 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
                               <SidebarMenuBadge className="rounded-md bg-lime px-1.5 font-mono text-[11px] text-on-lime" aria-label={`${need} need you`}>{need}</SidebarMenuBadge>
                             ) : running ? (
                               <SidebarMenuBadge aria-label="Running"><span className="size-2 animate-blink rounded-full bg-green" /></SidebarMenuBadge>
+                            ) : doneSessions?.has(s.id) ? (
+                              <SidebarMenuBadge className="text-green" aria-label="Done"><Icon name="check" size={13} /></SidebarMenuBadge>
                             ) : null}
                           </SidebarMenuItem>
                         )

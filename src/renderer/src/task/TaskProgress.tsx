@@ -56,7 +56,9 @@ export function ProgressRail({ cards, board, team }: Props): JSX.Element {
   return (
     <TooltipProvider delayDuration={100}>
       <nav className="flex w-11 flex-none flex-col items-center gap-2 border-l border-border py-3.5" aria-label={`Progress: ${done} of ${cards.length} cards finished`}>
-        <span className="font-mono text-[11.5px] text-muted-foreground" aria-hidden="true">{done}/{cards.length}</span>
+        {done === cards.length
+          ? <span className="grid size-5 place-items-center rounded-full bg-lime text-on-lime" aria-hidden="true"><Icon name="check" size={11} /></span>
+          : <span className="font-mono text-[11.5px] text-muted-foreground" aria-hidden="true">{done}/{cards.length}</span>}
         <div className="flex min-h-0 w-11 flex-1 flex-col gap-[3px]">
           {cards.map((c, i) => {
             const s = states[i]
@@ -81,6 +83,32 @@ export function ProgressRail({ cards, board, team }: Props): JSX.Element {
         </div>
       </nav>
     </TooltipProvider>
+  )
+}
+
+/**
+ * The line under the Progress card once nothing is working or planned (owner, 14 Nov 2026: "All done"):
+ * every card finished, some still in Review, or some that couldn't finish.
+ */
+function Outcome({ states }: { states: CardState[] }): JSX.Element | null {
+  if (!states.length || states.some((s) => s === 'working' || s === 'planned')) return null
+  const failed = states.filter((s) => s === 'failed').length
+  const review = states.filter((s) => s === 'review').length
+  const n = (k: number, word: string): string => `${k} ${word}${k === 1 ? '' : 's'}`
+  if (failed) {
+    return (
+      <p className="flex items-center gap-2 rounded-lg bg-destructive-soft px-3 py-2 text-[13px] text-destructive">
+        <Icon name="warning" size={14} />{n(failed, 'card')} couldn't finish. Open {failed === 1 ? 'its' : 'their'} work above to see why and try again.
+      </p>
+    )
+  }
+  return (
+    <p className="flex items-center gap-2 rounded-lg bg-lime-soft px-3 py-2 text-[13px]" role="status">
+      <span className="grid size-5 flex-none place-items-center rounded-full bg-lime text-on-lime" aria-hidden="true"><Icon name="check" size={11} /></span>
+      {review
+        ? <span><strong className="font-semibold">All cards finished.</strong> {n(review, 'card')} still in Review: the Lead checks {review === 1 ? 'it' : 'them'} and sends you a digest.</span>
+        : <span><strong className="font-semibold">All done.</strong> {n(states.length, 'card')} finished.</span>}
+    </p>
   )
 }
 
@@ -117,6 +145,7 @@ export function ProgressTimeline({ cards, board, team }: Props): JSX.Element {
           )
         })}
       </ol>
+      <Outcome states={states} />
     </section>
   )
 }

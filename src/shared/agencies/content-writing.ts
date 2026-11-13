@@ -35,6 +35,13 @@ export const contentWriting: AgencyTemplate = {
   skills: ['seo-outline', 'deep-research', 'long-form-writing', 'edit-for-clarity', 'seo-on-page'],
   starterCards: ['Outline for the first piece', 'Draft', 'Edit', 'SEO check', 'Style guide'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan new briefs into outline cards, move drafts through edit and SEO, send a digest.' },
+  intake: [
+    "What should we write about, for whom, and what should the reader do after reading?",
+    "Where will it be published (blog link, newsletter, LinkedIn), and how long should pieces be?",
+    "How should it sound? Link writing you like, yours or someone else's.",
+    "Are there keywords to target, or should we ask the SEO agency for its keyword map?",
+    "Any sources, people to quote, or topics and claims to stay away from?"
+  ],
   folders: ['drafts', 'published']
   // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

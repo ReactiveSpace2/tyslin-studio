@@ -13,7 +13,7 @@ import { engineLaunch, engineStatus } from './engines'
 import { BOARD_TOOLS, boardSummary } from './boardTools'
 import { getAgency } from './db'
 import { memoryPrompt } from './memory'
-import { templatePages } from '@shared/agencies'
+import { AGENCY_TEMPLATES, intakeInstructions, templatePages } from '@shared/agencies'
 import { pageInstructions } from '@shared/pages'
 import { openRouterError, usesOpenRouter } from '@shared/openrouter'
 
@@ -97,6 +97,11 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
     parts.push('## Your agency and its board\n' + boardSummary(agency) + '\n\nUse the board tools to add, edit, assign, move and comment on cards, board_run_card to start one (only when cards start on their own, see above), message_boss to talk to the boss (one message per card unless the boss replies) and agency_log for decisions.\nA worker reads only its card\'s title and notes, so put each card\'s full instructions in the notes: what to do, which files, what "done" looks like. Comments are for your log, not for instructions. When a starter card from the template matches part of the brief, edit it with board_edit_card (new title and notes) and use it; when it doesn\'t, leave it where it is (out of Planned) and leave it out of your plan and digests. Never move a card to Done unless its work was done, and never hand out a card with empty notes.\nYou have no shell: you cannot run tests, builds or commands. When you review, report what the worker\'s result and the files show and say whose result it is ("per Martin\'s card, 13 tests pass"); never say you ran or verified something yourself. Cards run one at a time, in board order; put the card others depend on first.\nWhen a card needs something the team may not have, put it in the card\'s needs (board_add_card or board_edit_card): a tool (Playwright, a browser; GitHub; Linear; Stripe) or a skill from the library, by name. If the plan needs a tool or skill the roster lacks, send one message_boss with kind "needs" before you say the plan is ready: say what and why in the text, and put "Add <name>" for each in options plus "Plan without them". The boss adds them in the app and Tyslin tells you what was added; never ask the boss to install anything by hand.')
   } else if (agency) {
     parts.push(`## Your agency\nYou work in the agency "${agency.name}"${agency.goal ? ` (goal: ${agency.goal})` : ''}. You report to the Lead, never to the boss. Put your result on the card you were given (your reply is saved on it). Never edit or move anything in the boards/ folder: Tyslin moves your card to Review when you finish, and only the Lead changes the board.`)
+  }
+  // What the Lead asks before planning a new brief; read from the template on every run so older agencies get it.
+  if (agency && agency.leadId === agent.id) {
+    const intake = intakeInstructions(AGENCY_TEMPLATES.find((t) => t.id === agency.templateId))
+    if (intake) parts.push(intake)
   }
   // Agency pages: agencies created before their template had pages don't have the paragraph in their saved instructions.
   if (agency && !agent.instructions.includes('## Agency pages')) {

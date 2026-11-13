@@ -34,6 +34,13 @@ export const emailMarketing: AgencyTemplate = {
   skills: ['email-sequence', 'email-copy', 'list-segmentation', 'deliverability-check'],
   starterCards: ['Sequence plan', 'Segments', 'Email 1 draft', 'Deliverability checklist'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Plan this week\'s sends, review drafts, send a digest.' },
+  intake: [
+    "Which email tool do you use (Mailchimp, Brevo, HubSpot, Resend…), and about how many people are on the list?",
+    "What should we send: a newsletter, a welcome sequence, a launch, or a win-back?",
+    "Who are the readers, and are there groups that should get different emails?",
+    "Your website, the sender name, and past emails that did well.",
+    "Should we write the emails for you to send, or send them through a connector for your email tool added in Connectors?"
+  ],
   folders: ['emails', 'segments'],
   pages: [{ id: 'campaigns', kind: 'campaigns', title: 'Campaigns', about: 'one item per campaign' }]
 }

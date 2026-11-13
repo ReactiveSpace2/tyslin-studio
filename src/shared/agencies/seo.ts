@@ -34,6 +34,13 @@ export const seo: AgencyTemplate = {
   skills: ['keyword-research', 'seo-on-page', 'seo-audit', 'link-outreach', 'metrics-report'],
   starterCards: ['Target pages and queries', 'Keyword map', 'On-page proposals for page 1', 'Link targets', 'Monthly report template'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Review rankings, plan this month\'s on-page and link cards, send a digest.' },
+  intake: [
+    "Your website address, and the pages that matter most to you.",
+    "Can we reach the site's code? A GitHub repository (connected through Connectors) lets us propose changes as edits; with a site builder such as WordPress or Webflow you apply our changes yourself.",
+    "Do you have Google Search Console or Analytics data? Attach exports (CSV); we can't sign in to them.",
+    "Which country and language, and who are your competitors in search?",
+    "What should more traffic bring: sign-ups, sales, calls, local customers?"
+  ],
   folders: ['keywords', 'pages', 'reports'],
   pages: [{ id: 'keywords', kind: 'table', title: 'Keywords', about: 'one row per target query', columns: ['query', 'intent', 'target page', 'volume', 'position', 'status'] }]
 }

@@ -35,6 +35,13 @@ export const paidAds: AgencyTemplate = {
   skills: ['campaign-plan', 'ad-copy', 'creative-brief', 'bid-rules', 'metrics-report'],
   starterCards: ['Campaign plan', 'Ad copy set 1', 'Creative brief', 'Weekly report template'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Read last week\'s numbers, plan changes, review new copy, send a digest.' },
+  intake: [
+    "Which platforms (Google, Meta, LinkedIn, TikTok), and have you run ads before? Attach past results if you have them.",
+    "Monthly budget, and the result you are paying for (a lead, a sale, a sign-up) with a target cost if you know it.",
+    "Which landing page do the ads send people to?",
+    "Who are we trying to reach: country, age, job, interests?",
+    "Do you have images, videos and brand guidelines, or should we write and brief the creative?"
+  ],
   folders: ['campaigns', 'copy', 'reports']
   // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

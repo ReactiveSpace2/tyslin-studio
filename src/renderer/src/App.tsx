@@ -162,6 +162,18 @@ export default function App(): JSX.Element {
     if (n) needsYouBySession[s.id] = n
   }
 
+  // A Lead task is done once the Lead's digest has come in since it started and nothing in the agency is running
+  // or waiting on you (owner, 14 Nov 2026: a "Done" mark on the task in the sidebar).
+  const doneSessions = new Set<string>()
+  for (const v of agencies) {
+    if (!v.lead) continue
+    const s = latestSession(v.lead.id)
+    if (!s || needsYouBySession[s.id]) continue
+    const ids = memberIds(v)
+    if (sessions.some((x) => runningIds.has(x.id) && ids.has(x.agentId))) continue
+    if (channelMsgs.some((m) => m.agencyId === v.agency.id && m.kind === 'digest' && m.createdAt >= s.createdAt)) doneSessions.add(s.id)
+  }
+
   const runningByAgency: Record<string, number> = {}
   const needsYouByAgency: Record<string, number> = {}
   for (const v of agencies) {
@@ -329,7 +341,7 @@ export default function App(): JSX.Element {
 
   return (
     <SidebarProvider className="h-screen min-h-0 overflow-hidden bg-background text-foreground">
-      <AppSidebar route={route} mac={mac} agencies={agencies} agents={agents} sessions={sessions} runningIds={runningIds} needsYouBySession={needsYouBySession}
+      <AppSidebar route={route} mac={mac} agencies={agencies} agents={agents} sessions={sessions} runningIds={runningIds} needsYouBySession={needsYouBySession} doneSessions={doneSessions}
         account={auth.account} canSignOut={auth.configured && !!auth.account}
         onNavigate={(r) => { if (r.name === 'agency') setActiveAgency(r.id); setRoute(r) }}
         onSearch={() => setSearch(true)} onSettings={() => setRoute({ name: 'settings' })}

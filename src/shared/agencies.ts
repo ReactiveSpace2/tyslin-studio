@@ -75,6 +75,27 @@ export interface AgencyTemplate {
   folders: string[]
   /** Extra tabs on the Agency screen (shared/pages.ts). Table and calendar pages read data/<id>.json in the folder. */
   pages?: AgencyPageSpec[]
+  /**
+   * What the Lead asks the boss before planning a new brief (owner, 14 Nov 2026), e.g. the site's address and
+   * GitHub access for SEO. Added to the Lead's system prompt at run time (runtime.ts), so older agencies get it too.
+   */
+  intake?: string[]
+}
+
+/** The Lead's "ask before you plan" paragraph for a template's intake questions ('' when it has none). */
+export function intakeInstructions(t: Pick<AgencyTemplate, 'name' | 'intake'> | undefined): string {
+  if (!t?.intake?.length) return ''
+  return `## Before you plan: questions for the boss
+When a new brief comes in, first check what you already know: the brief and anything attached to it, the memory notes, agency-log.md and the files in the project folder. Then ask the boss only what is still missing from the list below, all at once, as one short numbered list in your reply in the task. On a scheduled run, with no one in the chat, send it as one message_boss with kind "question" instead.
+- Say why a question matters when it isn't obvious, and offer an easy default where there is one ("If there's no logo yet, we'll set the name in a clean typeface").
+- Tell the boss they can attach files and images in the chat (logos, sketches, screenshots, exports).
+- Don't add cards to Planned until the boss answers, unless the boss says to start anyway; then write your assumptions into the card notes and say them in your reply.
+- Put the answers each card needs into its notes, and record them with agency_log so the team keeps them. Never ask again what the boss already told you.
+- Never ask for passwords, API keys or tokens in the chat. Access to GitHub and other services goes through a connector: put it in the card's needs.
+- For a small follow-up in a task that is already under way, skip the list and ask only what that request needs.
+
+Questions for a ${t.name} brief:
+${t.intake.map((q) => `- ${q}`).join('\n')}`
 }
 
 /**

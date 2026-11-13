@@ -35,6 +35,13 @@ export const productManagement: AgencyTemplate = {
   skills: ['feedback-themes', 'prioritisation', 'roadmap', 'spec-writing', 'changelog'],
   starterCards: ['Feedback inventory', 'Scoring sheet', 'Roadmap v1', 'First spec'],
   leadTask: { schedule: { repeat: 'weekly', day: 1, time: '09:00' }, prompt: 'Review new feedback themes, rescore, update the roadmap, send a digest.' },
+  intake: [
+    "Which product, and where can we see it (link, repository, screenshots)?",
+    "Where does feedback come from: support emails, reviews, interviews, issues? Attach exports if you have them.",
+    "What is the main business goal for the next three months?",
+    "Is there a roadmap or specs already? Attach or link them.",
+    "Who builds from our specs: an App Development agency here, or another team?"
+  ],
   folders: ['feedback', 'specs']
   // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

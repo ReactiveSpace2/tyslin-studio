@@ -35,6 +35,12 @@ export const dataAnalytics: AgencyTemplate = {
   skills: ['metric-definition', 'sql', 'data-cleanup', 'data-validation', 'charting', 'metrics-report'],
   starterCards: ['Data sources and access', 'Metric definitions', 'First query', 'Dashboard skeleton'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan data questions into cards, review results, send a digest.' },
+  intake: [
+    "What question do you want answered, and what decision will the answer help you make?",
+    "Where is the data: files (CSV, Excel), a database, or a tool such as Stripe or Google Analytics? Attach exports, or say how we can reach it.",
+    "Which period, and how do you define the key terms (for example what counts as an active customer)?",
+    "Do you want a one-off report, or a chart or dashboard we keep up to date?"
+  ],
   folders: ['queries', 'dashboards', 'metrics']
   // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.
 }

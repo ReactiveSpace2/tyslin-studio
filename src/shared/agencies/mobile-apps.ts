@@ -38,6 +38,14 @@ export const mobileApps: AgencyTemplate = {
   skills: ['spec-writing', 'spec-breakdown', 'code-review', 'git-workflow', 'test-runner', 'store-listing', 'release-checklist'],
   starterCards: ['Feature list and screen map', 'Project setup on both platforms', 'First screen on iOS and Android', 'Device test matrix', 'Store listing draft'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan Inbox briefs into platform cards, review finished cards, check both platforms are at the same feature, send a digest.' },
+  intake: [
+    "Is this a new app or existing code? If existing: the GitHub repository and the branch to work on.",
+    "iPhone, Android or both? Do you want a particular way of building it (React Native/Expo, Flutter, native), or is that our call?",
+    "Any designs, wireframes or screenshots? Attach them, or name apps you would like it to feel like.",
+    "What must the first version do? The three to five most important things.",
+    "Is there a backend or API already, or do we build that too?",
+    "Do you have Apple Developer and Google Play accounts yet? Do you have the app's name and icon?"
+  ],
   folders: ['specs', 'tests', 'store'],
   pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

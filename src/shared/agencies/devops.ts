@@ -34,6 +34,13 @@ export const devops: AgencyTemplate = {
   skills: ['ci-workflow', 'infra-as-code', 'deploy', 'incident-triage', 'dependency-audit'],
   starterCards: ['Pipeline map', 'CI baseline', 'Infra inventory', 'Alert rules', 'Dependency audit'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check CI and alerts, plan infra cards, review proposed changes, send a digest.' },
+  intake: [
+    "Where does the code live (GitHub repository), and where does it run today (hosting, cloud provider, server)?",
+    "What should we set up first: builds, deploys, monitoring, backups?",
+    "Which environments (only live, or a test one too) and which domains?",
+    "Which accounts will the team need (cloud, DNS, CI)? We ask for each through Connectors, never in the chat.",
+    "Where should alerts go: email, Slack or Telegram? Any monthly budget for hosting and tools?"
+  ],
   folders: ['infra', 'runbooks', 'incidents'],
   pages: [{ id: 'environments', kind: 'table', title: 'Environments', about: 'one row per environment and its current state', columns: ['environment', 'url', 'version', 'status', 'last deploy', 'owner'] }]
 }

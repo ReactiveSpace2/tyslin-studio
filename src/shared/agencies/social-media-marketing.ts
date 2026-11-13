@@ -38,6 +38,14 @@ export const socialMediaMarketing: AgencyTemplate = {
   skills: ['content-calendar', 'social-copy', 'hashtag-research', 'community-replies', 'weekly-update'],
   starterCards: ['Themes for this month', 'Calendar for week 1', 'Write week 1 posts', 'Reply bank', 'Weekly report template'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check the calendar for posts due this week, plan missing cards, review written posts, send a digest.' },
+  intake: [
+    "Links to your accounts on each network you use (LinkedIn, X, Instagram, TikTok, Facebook, YouTube).",
+    "Your website, and what we are promoting: the product, a launch, an offer or the brand in general.",
+    "Your logo, colours and tone of voice, and a few posts you like (yours or others').",
+    "How far should we go: write the posts for you to post, plan them in the Calendar ready to paste into your scheduling tool, or post for you? Posting for you only works through a connector for that network or tool (for example Buffer) added in Connectors; Tyslin has none built in, so say this plainly and offer the first two until one is added.",
+    "How many posts a week on each network, and any dates to plan around (launches, events)?",
+    "Do you have photos or videos to use, or should we make simple graphics?"
+  ],
   folders: ['posts', 'reports'],
   pages: [{ id: 'calendar', kind: 'calendar', title: 'Calendar', about: 'one item per post, with its channel and state' }]
 }

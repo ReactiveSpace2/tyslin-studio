@@ -38,6 +38,15 @@ export const webDesign: AgencyTemplate = {
   skills: ['design-brief', 'ui-tokens', 'ux-copy', 'html-css', 'accessibility-check'],
   starterCards: ['Page brief', 'Layout and tokens', 'Copy for every section', 'Build the page', 'Mobile and desktop check'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan new page briefs, review design, copy and build cards, send a digest.' },
+  intake: [
+    "Is this a new idea, or an existing brand or site? Link the current site if there is one.",
+    "Do you have a logo, brand colours and fonts? Attach them or say where they are.",
+    "Is there a wireframe, sketch or rough layout? A photo of a paper sketch is fine.",
+    "Two or three sites you like, and what you like about them (and any you don't).",
+    "What is the page for, who visits it, and the one thing they should do (sign up, buy, book a call)?",
+    "Do you have the copy, photos and product screenshots, or should we write and source them?",
+    "Where will it live: a GitHub repository, a site builder such as Webflow or WordPress, or HTML files handed over?"
+  ],
   folders: ['briefs', 'design', 'copy', 'site'],
   pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

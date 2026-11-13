@@ -38,6 +38,14 @@ export const appDevelopment: AgencyTemplate = {
   skills: ['spec-writing', 'spec-breakdown', 'code-review', 'git-workflow', 'test-runner', 'test-report', 'changelog'],
   starterCards: ['Write the spec from the brief', 'Set up the repo and CI', 'First feature slice', 'Test plan for v0.1', 'README and changelog'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Read Inbox and Review. Plan new briefs into cards, review finished cards, send the boss a digest.' },
+  intake: [
+    "Is this a new app or existing code? If existing: the GitHub repository and the branch to work on (we connect GitHub through Connectors), or is the code already in this folder?",
+    "Is there a spec, mockup, wireframe or screenshots? Attach them, or link apps that work the way you want.",
+    "Web, desktop or both? Any tech you want or must keep (framework, language, database, hosting)?",
+    "What must the first version do? The three to five most important things.",
+    "Does it need sign-in, payments or other services, and do you have accounts for them?",
+    "What does \"done\" mean for you, and by when: a demo on this computer, a deployed site, or a release?"
+  ],
   folders: ['specs', 'docs', 'tests/reports'],
   pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
 }

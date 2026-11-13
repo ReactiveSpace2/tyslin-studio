@@ -34,6 +34,13 @@ export const qaTesting: AgencyTemplate = {
   skills: ['test-plan', 'test-automation', 'test-runner', 'test-report', 'issue-triage', 'release-signoff'],
   starterCards: ['Test strategy', 'Test plan for the current spec', 'Automation setup', 'Bug template'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Check builds waiting for test, plan test cards, review bug reports, send a digest.' },
+  intake: [
+    "What are we testing: the app or site link, the GitHub repository, and which version or branch?",
+    "Is there a test account we can sign in with? Say where its details are kept; don't paste passwords here.",
+    "What changed in this release, and which parts matter most if something breaks?",
+    "Which devices and browsers must we cover?",
+    "Are there existing tests or a test plan, and where should bugs go: GitHub Issues, Linear, or a file in this folder?"
+  ],
   folders: ['tests/plans', 'tests/reports', 'bugs'],
   pages: [{ id: 'tests', kind: 'table', title: 'Test results', about: 'one row per test case and its latest result', columns: ['test', 'area', 'result', 'last run', 'owner', 'notes'] }]
 }
