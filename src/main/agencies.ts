@@ -1,8 +1,10 @@
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, rmSync, statSync, writeFileSync } from 'fs'
 import { dirname, isAbsolute, join } from 'path'
-import type { Agency, AgencyCreateInput, AgencyUpdateInput, AgentInput, EngineId, KanbanDoc } from '@shared/types'
-import { AGENCY_COLUMNS, AGENCY_TEMPLATES, agentName, memberInstructions, type AgencyMember, type AgencyTemplate } from '@shared/agencies'
+import type { Agency, AgencyCreateInput, AgencyUpdateInput, AgentInput, EngineId, KanbanDoc, LeadModel } from '@shared/types'
+import { AGENCY_ADAPTERS, AGENCY_COLUMNS, AGENCY_TEMPLATES, agentName, memberInstructions, type AgencyMember, type AgencyTemplate } from '@shared/agencies'
+import { PROVIDER_NAME } from '@shared/models'
+import { canUseOpenRouter, slugFits } from '@shared/openrouter'
 import { nextRunAfter } from '@shared/schedule'
 import * as db from './db'
 import { defaultModel } from './defaultModel'
@@ -49,6 +51,24 @@ function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, e
 const engineFor = (m: AgencyMember, adapter: string): EngineId =>
   m.lead ? 'builtin' : adapter && adapter !== 'template' ? (adapter as EngineId) : (m.engine as EngineId)
 
+/** The adapter's own provider, for a worker that can't stay on OpenRouter. */
+const nativeProvider = (engine: EngineId): 'anthropic' | 'openai' | 'gemini' =>
+  engine === 'codex' ? 'openai' : engine === 'gemini-cli' ? 'gemini' : 'anthropic'
+
+/** 'template' or one of the three agency adapters; anything else is refused. */
+function checkAdapter(adapter: string): void {
+  if (adapter !== 'template' && !AGENCY_ADAPTERS.some((a) => a.id === adapter)) throw new Error('Pick Claude Code, Codex or Gemini CLI for the workers.')
+}
+
+/** A Lead's model picked for one agency: a known provider and a model name. */
+function checkLeadModel(v: LeadModel): LeadModel {
+  const provider = v?.provider
+  const model = String(v?.model ?? '').trim()
+  if (!provider || !(provider in PROVIDER_NAME)) throw new Error('Pick a provider for the Lead\'s model.')
+  if (!model) throw new Error('Pick a model for the Lead.')
+  return { provider, model }
+}
+
 function boardDoc(t: AgencyTemplate | null, agencyId: string): KanbanDoc {
   const now = Date.now()
   const cards = (t?.starterCards ?? []).map((title) => ({ id: uid(), title, notes: '', labels: [], agency: agencyId, createdAt: now, log: [{ at: now, text: 'Added from the template' }] }))
@@ -73,6 +93,8 @@ export function createAgency(input: AgencyCreateInput): Agency {
   const t = input.templateId ? AGENCY_TEMPLATES.find((x) => x.id === input.templateId) ?? null : null
   if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
   const prompt = String(input.prompt ?? '').trim()
+  checkAdapter(input.adapter || 'template')
+  const leadModel = input.leadModel ? checkLeadModel(input.leadModel) : null
 
   // 1. Folder and project: the folder the user picked (made when missing, as long as its parent exists, so
   // several agencies can be pointed at one folder), else a new one under Documents/Tyslin Studio.
@@ -99,7 +121,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
     let leadId: string | null = null
     if (t) {
       const lead = t.roster.find((m) => m.lead)
-      if (lead) leadId = db.saveAgent(memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId, name)).id
+      if (lead) leadId = db.saveAgent({ ...memberAgent(t, lead, prompt, 'builtin', project.id, null, agencyId, name), ...(leadModel ?? {}) }).id
       for (const m of t.roster.filter((x) => !x.lead)) db.saveAgent(memberAgent(t, m, prompt, engineFor(m, input.adapter), project.id, leadId, agencyId, name))
     }
 
@@ -155,7 +177,35 @@ const clip = (text: string, max: number): string => {
 
 export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
   if (typeof input.name === 'string') assertFreeName(input.name, id)
-  return db.updateAgency(id, input)
+  const { leadModel, ...rest } = input
+  if (typeof rest.adapter === 'string') checkAdapter(rest.adapter)
+  const lm = leadModel ? checkLeadModel(leadModel) : null
+  const agency = db.updateAgency(id, rest)
+  if (typeof rest.adapter === 'string') setWorkersAdapter(agency, rest.adapter)
+  if (lm && agency.leadId) {
+    const lead = db.getAgent(agency.leadId)
+    if (lead) db.saveAgent({ ...lead, provider: lm.provider, model: lm.model })
+  }
+  return agency
+}
+
+/**
+ * Edit agency → "Workers run on": every worker moves to the picked adapter, or back to the one its
+ * template names ('template'; a worker the template doesn't know keeps its own). The Lead stays on the
+ * built-in model. A worker on OpenRouter keeps it only when the new adapter can run that model.
+ */
+function setWorkersAdapter(agency: Agency, adapter: string): void {
+  const t = AGENCY_TEMPLATES.find((x) => x.id === agency.templateId)
+  for (const a of db.listAgents()) {
+    if (a.agency !== agency.id || a.id === agency.leadId || a.kind !== 'agent') continue
+    const engine = adapter === 'template'
+      ? (t?.roster.find((m) => !m.lead && agentName(m) === a.name)?.engine as EngineId | undefined) ?? a.engine
+      : adapter as EngineId
+    if (engine === a.engine) continue
+    if (a.engine === 'hermes') deleteHermesProfile(a)
+    const keepOr = a.provider === 'openrouter' && canUseOpenRouter(engine) && slugFits(engine, a.model)
+    db.saveAgent({ ...a, engine, ...(a.provider === 'openrouter' && !keepOr ? { provider: nativeProvider(engine), model: '' } : {}) })
+  }
 }
 
 /** Removes the agency, its agents, task and board file. The folder and the files in it stay. */

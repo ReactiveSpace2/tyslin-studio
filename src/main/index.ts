@@ -7,7 +7,7 @@ import { setSecret, getSecret } from './secrets'
 import { answerPermission, cancelRunPermissions, pendingPermissions, runtimeFor } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
-import { killAllAdapters, testAcp } from './acp'
+import { killAllAdapters, listAcpModels, testAcp } from './acp'
 import { driveCopyIn, driveCreateFile, driveDuplicate, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveReadText, driveRemove, driveRename, driveReveal, driveSearch, driveUnwatch, driveUpload, driveWatch, driveWriteText } from './drive'
 import { gitBranches, gitCheckout, gitCommit, gitCommitDiff, gitCommitFiles, gitCreateBranch, gitDiff, gitDiscard, gitIdentity, gitInit, gitLog, gitPull, gitPush, gitSetIdentity, gitShow, gitStage, gitStatus, gitUnstage } from './git'
 import { defaultModel } from './defaultModel'
@@ -38,7 +38,7 @@ import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCa
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
-import type { AccountEngine, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, Session, SessionStatus, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
+import type { AccountEngine, EngineModels, McpServerInput, AgencyCreateInput, AgencyUpdateInput, Agent, ChannelMessage, AgentStatus, AgentTestResult, StudioKind, TelegramNotify, OrgColor, ScheduledTask, TaskInput, AgentInput, AppInfo, Session, SessionStatus, ExternalEngineId, KeyProvider, OnboardingInput, OnboardingStatus, OpenRouterModel, Preferences, ProviderSettings, RunEvent, RunEventBody, SkillImportResult, SkillInput } from '@shared/types'
 
 let win: BrowserWindow | null = null
 /** Replies in progress, by session, so they can be stopped. */
@@ -310,6 +310,8 @@ function startScheduler(): void {
 const PROVIDER_NAMES: Record<string, string> = { anthropic: 'Claude', openai: 'OpenAI', gemini: 'Gemini', openrouter: 'OpenRouter' }
 
 /** Why an agent can't run right now, or '' when it can (missing key, engine not installed). */
+const engineModels = new Map<string, { at: number; value: EngineModels }>()
+
 function setupProblem(a: Agent): string {
   if (a.engine === 'builtin') {
     if (a.provider === 'ollama') return ''
@@ -597,6 +599,20 @@ function registerIpc(): void {
   ipcMain.handle('accounts:cancelSignIn', (_e, engine: AccountEngine) => cancelAccountSignIn(engine))
   ipcMain.handle('accounts:setUseAccount', (_e, engine: AccountEngine, on: boolean) => setUseAccount(engine, !!on))
   ipcMain.handle('engines:cancelInstall', (_e, id: ExternalEngineId) => cancelInstall(id))
+  // The adapter's own model list, for the agent page's model picker. Kept for five minutes per adapter, because
+  // each read starts the adapter; a failed read is never kept, so signing in or installing shows up at once.
+  ipcMain.handle('engines:models', async (_e, id: ExternalEngineId): Promise<EngineModels> => {
+    const hit = engineModels.get(id)
+    if (hit && Date.now() - hit.at < 5 * 60_000) return hit.value
+    try {
+      const r = await listAcpModels(engineStatus(id).name, engineLaunch(id, app.getPath('home')), app.getVersion())
+      engineModels.set(id, { at: Date.now(), value: r })
+      return r
+    } catch (err) {
+      const error = err instanceof Error ? err.message : String(err)
+      return { models: [], current: null, error, needsSignIn: /sign in|Authentication required|logged out|API key/i.test(error) }
+    }
+  })
   ipcMain.handle('engines:test', async (_e, id: ExternalEngineId) => {
     try {
       return await testAcp(engineStatus(id).name, engineLaunch(id, app.getPath('home')), app.getVersion())

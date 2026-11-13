@@ -4,13 +4,14 @@ import type { AgencyView } from '../agencies'
 import { useAgentStatuses } from '../agentStatus'
 import { firstName, plural } from '../boardStats'
 import { Icon } from '../components/Icon'
+import { EditAgencyDialog } from './EditAgencyDialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
@@ -26,11 +27,11 @@ interface Props {
   onDeleted: () => void
 }
 
-/** The agency pills, the agency's name and folder, New task here, and the ⋯ menu (rename, pause, folder, delete). */
+/** The agency pills, the agency's name and folder, New task here, Edit agency (name, workers' adapter, the Lead's model), and the ⋯ menu (edit, pause, folder, delete). */
 export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, onChanged, onDeleted }: Props): JSX.Element {
   const { agency, project, lead, workers } = view
   const statuses = useAgentStatuses()
-  const [renaming, setRenaming] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState('')
   const leadStatus = lead ? statuses.get(lead.id) : undefined
@@ -61,17 +62,26 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
               {agency.paused && <Badge variant="secondary">Paused</Badge>}
               {leadStatus?.state === 'setup' && <Badge variant="destructive" title={leadStatus.reason}>Needs setup</Badge>}
             </span>
-            <span className="text-[13.5px] text-muted-foreground">{lead ? `Lead: ${firstName(lead.name)}` : 'No Lead yet'} · {plural(workers.length, 'worker')} · <span className="font-mono text-xs break-all">{project.folder}</span></span>
+            <span className="flex items-center gap-1 text-[13.5px] text-muted-foreground">
+              <span>{lead ? `Lead: ${firstName(lead.name)}` : 'No Lead yet'} · {plural(workers.length, 'worker')}</span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="size-8 text-muted-foreground" aria-label={`Open the folder ${project.folder}`} onClick={() => void window.tyslin.drive.reveal(project.id, '')}><Icon name="folder" size={15} /></Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-[420px] font-mono text-xs break-all">{project.folder}</TooltipContent>
+              </Tooltip>
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setEditing(true)}><Icon name="settings" size={14} /> Edit agency</Button>
           <Button onClick={onNewTask} disabled={!lead || agency.paused}>New task here</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="size-11" aria-label={`More for ${agency.name}`}><Icon name="more" size={16} /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl p-1.5 shadow-lg">
-              <DropdownMenuItem className={menuItem} onSelect={() => setRenaming(true)}><Icon name="file" size={14} /> Rename</DropdownMenuItem>
+              <DropdownMenuItem className={menuItem} onSelect={() => setEditing(true)}><Icon name="settings" size={14} /> Edit agency</DropdownMenuItem>
               <DropdownMenuItem className={menuItem} onSelect={() => void run(() => window.tyslin.agencies.update(agency.id, { paused: !agency.paused }))}>
                 <Icon name={agency.paused ? 'play' : 'pause'} size={14} /> {agency.paused ? 'Resume agency' : 'Pause agency'}
               </DropdownMenuItem>
@@ -83,25 +93,10 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
         </div>
       </div>
       {error && <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
-      {renaming && <RenameDialog name={agency.name} onClose={() => setRenaming(false)} onSave={(name) => run(() => window.tyslin.agencies.update(agency.id, { name })).then(() => setRenaming(false))} />}
+      {editing && <EditAgencyDialog view={view} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onChanged() }} />}
       <DeleteDialog open={confirm} onOpenChange={setConfirm} view={view} members={[lead, ...workers].filter((a): a is Agent => !!a).length}
         onDelete={() => run(() => window.tyslin.agencies.remove(agency.id)).then(onDeleted)} />
     </div>
-  )
-}
-
-function RenameDialog({ name, onClose, onSave }: { name: string; onClose: () => void; onSave: (name: string) => Promise<void> }): JSX.Element {
-  const [value, setValue] = useState(name)
-  return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[440px] max-w-[calc(100%-32px)] gap-4 rounded-2xl p-6 sm:max-w-[calc(100%-32px)]">
-        <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); if (value.trim()) void onSave(value.trim()) }}>
-          <DialogHeader className="text-left"><DialogTitle>Rename the agency</DialogTitle><DialogDescription className="sr-only">Change the agency's name.</DialogDescription></DialogHeader>
-          <div className="flex flex-col gap-1.5"><Label htmlFor="ag-rename">Name</Label><Input id="ag-rename" value={value} maxLength={80} onChange={(e) => setValue(e.target.value)} autoFocus /><span className="text-xs text-muted-foreground">The folder keeps its name.</span></div>
-          <DialogFooter><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="submit" disabled={!value.trim()}>Save</Button></DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }
 

@@ -16,6 +16,7 @@ import { connectedTool, skillHint, toolById, toolHint, type ToolDef } from '@sha
 import type { McpServerInfo, Skill } from '@shared/types'
 import { StatusTable } from './StatusTable'
 import { WorkerWork } from './WorkerWork'
+import { RunFix } from './RunProblem'
 import { activityLabel, type Task } from './useTask'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -81,6 +82,7 @@ interface Props {
   onAskLead: () => void
   onOpenAgency: () => void
   onSettings: () => void
+  onOpenAgent?: (a: Agent) => void
   onChanged: () => void
 }
 
@@ -89,7 +91,7 @@ interface Props {
  * plan waiting for your OK, where each card stands, each worker's folded run, and anything asking for
  * permission or review, all in time order.
  */
-export function Thread({ task, agent, view, sessionId, focus, until, onPreview, onMade, servers, toolSetup, onToolSetup, onToolConnected, skills, onAgentsChanged, onConnectors, onReview, onAskLead, onOpenAgency, onSettings, onChanged }: Props): JSX.Element {
+export function Thread({ task, agent, view, sessionId, focus, until, onPreview, onMade, servers, toolSetup, onToolSetup, onToolConnected, skills, onAgentsChanged, onConnectors, onReview, onAskLead, onOpenAgency, onSettings, onOpenAgent, onChanged }: Props): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [atBottom, setAtBottom] = useState(true)
   const isLead = !!view && view.lead?.id === agent.id
@@ -263,8 +265,8 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
           {task.stoppedAt && task.streaming === null && <p className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">Stopped by you · {clock(task.stoppedAt)}</p>}
           {task.error && (
             <div className="flex flex-wrap items-center gap-2 rounded-lg bg-destructive-soft px-3.5 py-2.5 text-sm text-destructive" role="alert">
-              {task.error}{' '}
-              {/key/i.test(task.error) && <Button variant="outline" size="sm" onClick={onSettings}>Open Settings</Button>}
+              <span className="min-w-0 basis-full">{task.error}</span>
+              <span className="text-foreground"><RunFix error={task.error} agent={agent} onOpenAgent={onOpenAgent} /></span>
             </div>
           )}
         </div>

@@ -64,6 +64,7 @@ const api: TyslinApi = {
     list: () => ipcRenderer.invoke('engines:list'),
     setCommand: (id, command) => ipcRenderer.invoke('engines:setCommand', id, command),
     test: (id) => ipcRenderer.invoke('engines:test', id),
+    models: (id) => ipcRenderer.invoke('engines:models', id),
     install: (id) => ipcRenderer.invoke('engines:install', id),
     cancelInstall: (id) => ipcRenderer.invoke('engines:cancelInstall', id),
     onInstallOutput: (cb) => {

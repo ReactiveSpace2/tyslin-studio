@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import { AGENCY_ADAPTERS, AGENCY_GROUPS, AGENCY_TEMPLATES, agentName, templateAdapters, type AgencyTemplate } from '@shared/agencies'
 import { ENGINE_NAMES } from '@shared/engines'
-import { modelLabel, useDefaultModel } from '../defaultModel'
+import type { LeadModel } from '@shared/types'
+import { LeadModelField, WorkersRunOn } from './RunsOnFields'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 
-/** One dialog: template, name, folder, goal, which adapter the workers run on; Create makes the folder, the team and the board. */
+/** One dialog: template, name, folder, goal, which adapter the workers run on and the Lead's model; Create makes the folder, the team and the board. */
 export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId?: string; onClose: () => void; onCreated: (projectId: string) => void }): JSX.Element {
   const first = AGENCY_TEMPLATES.find((t) => t.id === templateId && !t.comingSoon) ?? AGENCY_TEMPLATES.find((t) => !t.comingSoon)!
   const [tpl, setTpl] = useState<AgencyTemplate>(first)
@@ -25,7 +25,7 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
   const [adapter, setAdapter] = useState<string>('template')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const dm = useDefaultModel()
+  const [leadModel, setLeadModel] = useState<LeadModel | null>(null)
   // Agency names are unique (main refuses a second one), so suggest "Web Design 2" when "Web Design" is taken.
   const [taken, setTaken] = useState<Set<string>>(new Set())
   useEffect(() => { void window.tyslin.agencies.list().then((g) => setTaken(new Set(g.map((a) => a.name.trim().toLowerCase())))).catch(() => undefined) }, [])
@@ -37,7 +37,7 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
   const create = async (): Promise<void> => {
     setBusy(true); setError('')
     try {
-      const a = await window.tyslin.agencies.create({ name: name.trim(), templateId: tpl.id, description: '', goal: goal.trim(), prompt: '', adapter, packs: [], autoRun: false, channel: 'none', notify: 'questions', budget: null, folder })
+      const a = await window.tyslin.agencies.create({ name: name.trim(), templateId: tpl.id, description: '', goal: goal.trim(), prompt: '', adapter, packs: [], autoRun: false, channel: 'none', notify: 'questions', budget: null, folder, leadModel })
       onCreated(a.projectId)
     } catch (e) { setError(errorText(e)); setBusy(false) }
   }
@@ -76,18 +76,9 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
               </div>
             </div>
             <div className="flex flex-col gap-1.5"><Label htmlFor="na-goal">Goal <span className="font-normal text-muted-foreground">· optional, you can write it later</span></Label><Textarea id="na-goal" rows={2} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={tpl.goal} /></div>
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] font-medium">Workers run on</span>
-              <RadioGroup value={adapter} onValueChange={setAdapter} className="grid gap-2 sm:grid-cols-2">
-                {[{ id: 'template', name: "Template's mix", sub: mix || 'each worker on its own adapter' }, ...AGENCY_ADAPTERS.map((a) => ({ id: a.id, name: a.name, sub: `by ${a.by}` }))].map((o) => (
-                  <Label key={o.id} htmlFor={`na-ad-${o.id}`} className={cn('flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 font-normal', adapter === o.id ? 'border-primary ring-1 ring-primary' : 'border-border')}>
-                    <RadioGroupItem id={`na-ad-${o.id}`} value={o.id} />
-                    <span className="flex min-w-0 flex-col"><strong className="text-[13.5px] font-semibold">{o.name}</strong><span className="truncate text-xs text-muted-foreground">{o.sub}</span></span>
-                  </Label>
-                ))}
-              </RadioGroup>
-              <span className="text-xs text-muted-foreground">The Lead runs on the default model{dm ? ` (${modelLabel(dm)})` : ''}; change either later on each agent's page.</span>
-            </div>
+            <WorkersRunOn idPrefix="na" value={adapter} onChange={setAdapter}
+              options={[{ id: 'template', name: "Template's mix", sub: mix || 'each worker on its own adapter' }, ...AGENCY_ADAPTERS.map((a) => ({ id: a.id as string, name: a.name as string, sub: `by ${a.by}` }))]} />
+            <LeadModelField idPrefix="na" value={leadModel} onChange={setLeadModel} />
             <div className="rounded-lg bg-muted px-4 py-3 text-[13px] leading-relaxed">
               <strong className="font-semibold">What you get:</strong> {tpl.roster.map(agentName).join(', ')}, their skills, memory files and a folder for their work.
             </div>
@@ -95,7 +86,7 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
           </div>
           <DialogFooter className="border-t border-border px-6 py-4">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy || !name.trim()}>{busy ? 'Creating…' : 'Create agency'}</Button>
+            <Button type="submit" disabled={busy || !name.trim() || (!!leadModel && !leadModel.model.trim())}>{busy ? 'Creating…' : 'Create agency'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -10,6 +10,7 @@ import { DetailsPanel } from '../task/DetailsPanel'
 import { AgencyPageView, shownPages } from '../agency/pages'
 import { PreviewPanel } from '../task/PreviewPanel'
 import { TaskHeader, type Pane } from '../task/TaskHeader'
+import { SetupCard } from '../task/SetupCard'
 import { Thread } from '../task/Thread'
 import { ToolsPill } from '../task/ToolsPill'
 import type { ToolDef } from '@shared/toolCatalog'
@@ -141,8 +142,9 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         )}
         <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onMade={(p) => { if (pane !== 'changes' && !expanded) openPreview(p) }} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
-          onOpenAgency={onOpenAgency} onSettings={onSettings} onChanged={onSessionsChanged} />
-        <div ref={composerRef} className="mx-auto w-full max-w-[760px] flex-none px-6 pt-2 pb-4">
+          onOpenAgency={onOpenAgency} onSettings={onSettings} onOpenAgent={onOpenAgent} onChanged={onSessionsChanged} />
+        <div ref={composerRef} className="mx-auto flex w-full max-w-[760px] flex-none flex-col gap-2 px-6 pt-2 pb-4">
+          <SetupCard team={team} onOpenAgent={onOpenAgent} />
           <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent}
             footer={view ? <ToolsPill agencyName={view.agency.name} team={team} servers={servers} onTest={testServer} onAdd={(tool) => setToolSetup({ tool, agentIds: team.filter((a) => a.engine !== 'builtin').map((a) => a.id) })} onMore={onConnectors} className="h-8 gap-1.5 px-2 font-mono text-xs text-muted-foreground has-[>svg]:px-2" /> : undefined} value={text} onChange={setText} attached={attached} onAttached={setAttached}
             running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />

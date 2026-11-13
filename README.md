@@ -90,6 +90,8 @@ Workers run on agents you install. Tyslin drives them over the [Agent Client Pro
 | Codex | `npm install -g @agentclientprotocol/codex-acp` | A ChatGPT sign-in (Settings → Models → ChatGPT → Sign in with ChatGPT), your OpenAI key, or your OpenRouter key with any model slug (`openai/gpt-5.5`) |
 | Gemini CLI | `npm install -g @google/gemini-cli` | A Google sign-in (Settings → Models → Gemini → Sign in with Google), or your Gemini key |
 
+The app also finds adapters installed under a Node version manager (nvm, Volta, fnm, asdf, mise). When npm's global folder needs root (a system npm on Linux), the app adds `--prefix "$HOME/.local"` to the command so nothing needs sudo.
+
 The agency templates use only these three. Hermes, Goose, ZeroClaw, OpenClaw and custom ACP commands are still in the code (`src/main/engines.ts`) and keep working for agents already on them, but are hidden from the screens while `SHOW_OTHER_ENGINES` is false in `src/shared/engines.ts`.
 
 ### Models

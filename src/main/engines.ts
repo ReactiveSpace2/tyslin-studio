@@ -1,8 +1,8 @@
 import { app } from 'electron'
 import { spawn, spawnSync, type ChildProcess } from 'child_process'
-import { accessSync, constants, existsSync, mkdirSync, statSync, writeFileSync } from 'fs'
+import { accessSync, constants, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
-import { delimiter, isAbsolute, join } from 'path'
+import { delimiter, dirname, isAbsolute, join } from 'path'
 import type { Agent, EngineInstall, EngineStatus, ExternalEngineId } from '@shared/types'
 import { ENGINE_NAMES } from '@shared/engines'
 import { getSetting, setSetting } from './db'
@@ -68,7 +68,45 @@ const INSTALLERS: Partial<Record<ExternalEngineId, InstallRecipe>> = {
 function installFor(id: ExternalEngineId): EngineInstall | null {
   const r = INSTALLERS[id]
   if (!r) return null
-  return { command: process.platform === 'win32' ? r.windows : r.posix, source: r.source, nextStep: r.nextStep }
+  return { command: process.platform === 'win32' ? r.windows : withUserPrefix(r.posix), source: r.source, nextStep: r.nextStep }
+}
+
+/** Where npm puts global packages when its own folder can't be written: ~/.local (programs land in ~/.local/bin). */
+const USER_PREFIX_FLAG = '--prefix "$HOME/.local"'
+const npmWritable = new Map<string, boolean>()
+
+/** Can this user write to the folder or, when it doesn't exist yet, to the nearest folder above it? */
+function canWriteInto(dir: string): boolean {
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(d)) {
+      try { accessSync(d, constants.W_OK); return true } catch { return false }
+    }
+    if (dirname(d) === d) return false
+  }
+}
+
+/**
+ * An npm that came with the system (apt, a .pkg) installs global packages under /usr or /usr/local, which
+ * only root can write, so `npm install -g` stops with EACCES (13 Nov 2026: exit 243 on Ubuntu). When this
+ * user can't write npm's global folder, the same official package goes into ~/.local instead; never sudo.
+ * The answer is kept per npm program, because asking npm takes a moment.
+ */
+function withUserPrefix(command: string): string {
+  if (!/^npm install -g /.test(command)) return command
+  const npm = which('npm')
+  if (!npm) return command
+  let ok = npmWritable.get(npm)
+  if (ok === undefined) {
+    try {
+      const r = spawnSync(npm, ['config', 'get', 'prefix'], { encoding: 'utf8', timeout: 15_000, env: { ...process.env, PATH: searchDirs().join(delimiter) } })
+      const prefix = r.status === 0 ? r.stdout.trim().split('\n').pop()?.trim() : ''
+      ok = prefix ? canWriteInto(join(prefix, 'lib', 'node_modules')) && canWriteInto(join(prefix, 'bin')) : true
+    } catch {
+      ok = true
+    }
+    npmWritable.set(npm, ok)
+  }
+  return ok ? command : command.replace(/^npm install -g /, `npm install -g ${USER_PREFIX_FLAG} `)
 }
 
 /** External agents Tyslin can drive over ACP. Users install them; Tyslin only starts them. */
@@ -118,13 +156,44 @@ export const ENGINES: EngineDef[] = [
   }
 ]
 
+/**
+ * Folders where Node version managers keep `npm` and the programs it installs. A terminal adds these to
+ * PATH from the shell's start-up files, which an app opened from the desktop never reads, so adapters
+ * installed under nvm were reported as "not installed" (13 Nov 2026). Newest nvm version first.
+ */
+function nodeManagerDirs(home: string): string[] {
+  if (process.platform === 'win32') return [join(home, 'AppData', 'Local', 'Volta', 'bin'), join(home, 'AppData', 'Local', 'pnpm')]
+  const dirs: string[] = []
+  const nvm = join(process.env.NVM_DIR || join(home, '.nvm'), 'versions', 'node')
+  try {
+    const parts = (v: string): number[] => v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0)
+    const versions = readdirSync(nvm).filter((v) => /^v\d/.test(v)).sort((a, b) => {
+      const [x, y] = [parts(a), parts(b)]
+      return (y[0] - x[0]) || (y[1] - x[1]) || (y[2] - x[2])
+    })
+    for (const v of versions) dirs.push(join(nvm, v, 'bin'))
+  } catch { /* no nvm */ }
+  dirs.push(
+    join(home, '.volta', 'bin'),
+    join(home, '.local', 'share', 'fnm', 'aliases', 'default', 'bin'),
+    join(home, '.fnm', 'aliases', 'default', 'bin'),
+    join(home, '.asdf', 'shims'),
+    join(home, '.local', 'share', 'mise', 'shims'),
+    join(home, '.local', 'share', 'pnpm'),
+    join(home, 'Library', 'pnpm'),
+    join(home, '.bun', 'bin'),
+    join(home, 'n', 'bin')
+  )
+  return dirs
+}
+
 /** GUI apps often start with a short PATH (notably on macOS), so look in the usual install folders too. */
 export function searchDirs(): string[] {
   const home = homedir()
   const extra = process.platform === 'win32'
     ? [join(home, 'AppData', 'Roaming', 'npm'), join(home, '.cargo', 'bin'), join(home, '.local', 'bin')]
     : [join(home, '.local', 'bin'), join(home, '.cargo', 'bin'), join(home, 'bin'), join(home, '.npm-global', 'bin'), '/usr/local/bin', '/opt/homebrew/bin', '/usr/bin']
-  return [...new Set([...(process.env.PATH ?? '').split(delimiter).filter(Boolean), ...extra])]
+  return [...new Set([...(process.env.PATH ?? '').split(delimiter).filter(Boolean), ...nodeManagerDirs(home), ...extra])]
 }
 
 function isRunnable(file: string): boolean {
@@ -318,6 +387,11 @@ function openRouterEnv(id: ExternalEngineId, agent: Agent, env: NodeJS.ProcessEn
 /** The adapter's environment: widened PATH, saved keys, and in account mode no key variables at all. */
 export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
+  // The adapter's own folder goes first, so a program installed by one Node (say under nvm) runs on the
+  // `node` beside it and not on an older system one found earlier in PATH.
+  const [program] = splitCommand(commandLine(id))
+  const found = program ? which(program) : null
+  if (found) env.PATH = [...new Set([dirname(found), ...searchDirs()])].join(delimiter)
   if (usesAccount(id)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
   // Only when a key will actually be used (see keyAuthMethod); with no key at all Codex keeps its usual home.
   if (id === 'codex' && keyAuthMethod(id, env)) env.CODEX_HOME = codexKeyHome()

@@ -1,3 +1,4 @@
+import { RunFix } from './RunProblem'
 import { useEffect, useState } from 'react'
 import type { Agent, KanbanCard, PendingChange } from '@shared/types'
 import { firstName } from '../boardStats'
@@ -78,6 +79,7 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
               </ul>
             )}
             {reason && !stopped && <p className="rounded-md bg-destructive-soft px-2.5 py-1.5 text-[13px] leading-relaxed break-words text-destructive">{reason}</p>}
+            {reason && !stopped && <RunFix error={reason} agent={agent} />}
             {card.result && !running && <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{card.result.length > 600 ? card.result.slice(0, 600) + '…' : card.result}</p>}
             {changes.length > 0 && (
               <span className="flex flex-wrap items-center gap-2">

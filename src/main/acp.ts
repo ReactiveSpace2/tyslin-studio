@@ -307,7 +307,7 @@ export async function runAcpTurn(opts: {
         session = await agent.buildSession({ cwd: launch.cwd, mcpServers }).start()
       } catch (err) {
         if (err instanceof RequestError && err.code === -32000) {
-          throw new Error(`${name} needs you to sign in first. Run ${launch.command} in a terminal and follow its sign-in steps, then try again.`)
+          throw new Error(`${name} needs you to sign in first. Sign in under Settings → Accounts and connectors (or add its key in Settings → Models), then try again.`)
         }
         throw err
       }
@@ -334,7 +334,7 @@ export async function runAcpTurn(opts: {
             if (err instanceof RequestError && err.code === -32000) {
               throw new Error(launch.authMethodId
                 ? `${name} rejected the API key from Settings → Models. Check the key, or switch ${name} to your account.`
-                : `${name} needs you to sign in first. Run ${launch.command} in a terminal and follow its sign-in steps, then try again.`)
+                : `${name} needs you to sign in first. Sign in under Settings → Accounts and connectors (or add its key in Settings → Models), then try again.`)
             }
             // Other JSON-RPC errors carry the real reason in `data.message` (Codex: "Quota exceeded…" as a bare "Internal error").
             if (err instanceof RequestError) {
@@ -449,6 +449,43 @@ export async function testAcp(name: string, launch: AcpLaunch, clientVersion: st
   } catch (err) {
     const why = await explain(err, died).catch((e: unknown) => e)
     return { ok: false, error: why instanceof Error ? why.message : String(why) }
+  } finally {
+    killTree(child)
+  }
+}
+
+/** The models an adapter lets clients pick from, and the one it uses when nothing is picked. */
+export interface AcpModels { models: { id: string; name: string }[]; current: string | null }
+
+/**
+ * Starts the agent, opens a session in `launch.cwd` and reads the "model" config option `session/new` returns
+ * (the same list `chooseModel` picks from), then stops it. No prompt is sent, so nothing is spent. An adapter
+ * that offers no model choice gives an empty list; one that isn't signed in rejects with a readable reason.
+ */
+export async function listAcpModels(name: string, launch: AcpLaunch, clientVersion: string): Promise<AcpModels> {
+  const child = start(launch)
+  const stderr = stderrTail(child)
+  const died = exitWatch(child, name, stderr)
+  died.catch(() => undefined)
+  try {
+    return await Promise.race([died, client({ name: 'tyslin-studio' }).connectWith(connection(child), async (agent) => {
+      const init = await timeout(initialize(agent, false, clientVersion), HANDSHAKE_TIMEOUT_MS, `${name} did not answer within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`)
+      await authenticateIfOffered(agent, init, launch, name)
+      let session
+      try {
+        session = await timeout(agent.buildSession({ cwd: launch.cwd, mcpServers: [] }).start(), HANDSHAKE_TIMEOUT_MS, `${name} did not open a session within ${HANDSHAKE_TIMEOUT_MS / 1000} seconds.`)
+      } catch (err) {
+        if (err instanceof RequestError && err.code === -32000) throw new Error(`${name} needs you to sign in first.`)
+        throw err
+      }
+      const option = (session.newSessionResponse.configOptions ?? []).find((o) => o.type === 'select' && (o.category === 'model' || o.id === 'model'))
+      if (!option || option.type !== 'select') return { models: [], current: null }
+      const values = option.options.flatMap((o) => 'options' in o ? o.options : [o])
+      return { models: values.map((v) => ({ id: v.value, name: v.name })), current: typeof option.currentValue === 'string' ? option.currentValue : null }
+    })])
+  } catch (err) {
+    const why = await explain(err, died).catch((e: unknown) => e)
+    throw why instanceof Error ? why : new Error(String(why))
   } finally {
     killTree(child)
   }

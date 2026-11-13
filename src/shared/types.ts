@@ -137,6 +137,16 @@ export interface AccountStatus {
   useAccount: boolean
 }
 
+/** The models an adapter offers, read from the adapter itself; `error` says why the list couldn't be read. */
+export interface EngineModels {
+  models: { id: string; name: string }[]
+  /** The model the adapter uses when none is picked. */
+  current: string | null
+  error?: string
+  /** The adapter answered that it needs a sign-in (or a key) first. */
+  needsSignIn?: boolean
+}
+
 export interface EngineInstall {
   /** Exactly what will run, shown to the user before it does. */
   command: string
@@ -308,9 +318,18 @@ export interface AgencyCreateInput {
   budget: number | null
   /** An existing folder to use instead of a new one under Documents/Tyslin Studio. */
   folder?: string | null
+  /** The Lead's own model for this agency; left out or null = the default model. */
+  leadModel?: LeadModel | null
 }
 
-export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'alertAt' | 'autoRun' | 'paused'> & { channel: Agency['channel'] }>
+/** A provider and model picked for one agency's Lead. */
+export interface LeadModel { provider: ProviderId; model: string }
+
+export type AgencyUpdateInput = Partial<Pick<Agency, 'name' | 'description' | 'goal' | 'prompt' | 'plan' | 'adapter' | 'notify' | 'budget' | 'alertAt' | 'autoRun' | 'paused'> & {
+  channel: Agency['channel']
+  /** Moves the Lead to this model. `adapter`, when sent, also moves every worker to that adapter ('template' = each worker's own from the template). */
+  leadModel: LeadModel
+}>
 
 export interface KanbanColumn {
   id: string
@@ -1117,6 +1136,8 @@ export interface TyslinApi {
     setCommand(id: ExternalEngineId, command: string): Promise<EngineStatus>
     /** Starts the engine, runs the ACP handshake and stops it again. */
     test(id: ExternalEngineId): Promise<EngineTestResult>
+    /** Asks the adapter which models it offers (starts it, opens a session, stops it; nothing is sent to a model). */
+    models(id: ExternalEngineId): Promise<EngineModels>
     /** Runs the engine's official installer; output streams through onInstallOutput. */
     install(id: ExternalEngineId): Promise<{ ok: boolean; error?: string; status: EngineStatus }>
     cancelInstall(id: ExternalEngineId): Promise<void>

@@ -10,6 +10,7 @@ import { getDefaultModel } from '../defaultModel'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { OpenRouterModelPicker } from '../components/OpenRouterModelPicker'
+import { AdapterModelField } from '../components/AdapterSetup'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -179,9 +180,9 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
                   {adapterOr
                     ? <><OpenRouterModelPicker value={form.model} onChange={(m) => set('model', m)} engine={form.engine as 'claude-code' | 'codex'} />
                         <span className={HINT}>{form.engine === 'claude-code' ? 'Claude Code runs only Claude models (anthropic/…).' : 'Codex takes any model with tool calls; OpenAI models work best.'} Runs in a Tyslin-owned {form.engine === 'claude-code' ? 'Claude' : 'Codex'} folder, so your own sign-in isn't used or changed.{!orKey && ' Add your OpenRouter key in Settings → Models first.'}</span></>
-                    : <span className={HINT}>{ENGINE_NAMES[form.engine]} uses its own model and your key or account (Settings → Accounts).</span>}
+                    : <AdapterModelField engine={form.engine} value={form.model} onChange={(m) => set('model', m)} />}
                 </div>
-              ) : <span className={HINT}>{ENGINE_NAMES[form.engine]} uses its own model and your key or account (Settings → Accounts).{form.engine === 'gemini-cli' && ' It has no OpenRouter option.'}</span>}
+              ) : <AdapterModelField engine={form.engine} value={form.model} onChange={(m) => set('model', m)} />}
               {isLead && <span className={HINT}>The Lead always runs on the built-in model.</span>}
             </div>
             <div className="flex items-center justify-between gap-3 border-b border-border py-3">
