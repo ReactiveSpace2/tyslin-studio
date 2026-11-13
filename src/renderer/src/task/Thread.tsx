@@ -14,7 +14,7 @@ import { PreviewCard, useMadeFiles } from './PreviewCard'
 import { SkillSuggestCard, ToolSetupCard, ToolSuggestCard, type NeedHandlers } from './ToolCards'
 import { connectedTool, skillHint, toolById, toolHint, type ToolDef } from '@shared/toolCatalog'
 import type { McpServerInfo, Skill } from '@shared/types'
-import { StatusTable } from './StatusTable'
+import { ProgressRail, ProgressTimeline } from './TaskProgress'
 import { WorkerWork } from './WorkerWork'
 import { RunFix } from './RunProblem'
 import { activityLabel, type Task } from './useTask'
@@ -157,8 +157,13 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
   // Where the cards stand and each worker's run take their place in time (when the first card started), so a
   // newer reply from the Lead shows below them, not above (10 Nov 2026).
   const firstStart = runs.length ? (startOf(runs[0]) ?? runs[0].createdAt) : Date.now()
+  // The plan in order: cards that have started (by start time), then the ones still in Planned. One list feeds
+  // the Progress card in the conversation and the bar on the right edge (owner, 14 Nov 2026).
+  const started = [...active].sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))
+  const waiting = task.cards.filter((c) => !active.includes(c) && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
+  const plan = view ? [...started, ...waiting] : []
   const items: { at: number; node: JSX.Element }[] = [
-    ...(active.length > 0 && view ? [{ at: firstStart - 1, node: <StatusTable key="status" view={view} board={task.board} cards={active} /> }] : []),
+    ...(active.length > 0 && view ? [{ at: firstStart - 1, node: <ProgressTimeline key="status" cards={plan} board={task.board} team={team} /> }] : []),
     ...runs.map((c) => ({
       at: startOf(c) ?? c.createdAt,
       node: (
@@ -199,7 +204,8 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
   const empty = task.messages.length === 0 && task.channel.length === 0 && task.streaming === null
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1">
+    <div className="relative min-h-0 min-w-0 flex-1">
       <div ref={ref} className="h-full overflow-y-auto px-6 pt-6 pb-3" onScroll={(e) => { const el = e.currentTarget; setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80) }}>
         <div className="mx-auto flex w-full max-w-[720px] flex-col gap-5">
           {empty && (
@@ -282,6 +288,8 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
           <Icon name="arrowDown" size={12} /> Latest
         </Button>
       )}
+    </div>
+    {plan.length > 0 && <ProgressRail cards={plan} board={task.board} team={team} />}
     </div>
   )
 }

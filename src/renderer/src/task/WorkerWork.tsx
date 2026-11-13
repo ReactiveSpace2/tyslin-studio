@@ -9,15 +9,15 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { cn } from '@/lib/utils'
 
-const startedAt = (c: KanbanCard): number | null => {
+export const startedAt = (c: KanbanCard): number | null => {
   const hit = [...(c.log ?? [])].reverse().find((l) => /^Started with /.test(l.text))
   return hit?.at ?? null
 }
-const finishedAt = (c: KanbanCard): number | null => {
+export const finishedAt = (c: KanbanCard): number | null => {
   const hit = [...(c.log ?? [])].reverse().find((l) => / finished| failed: /.test(l.text))
   return hit?.at ?? null
 }
-const mins = (ms: number): string => { const m = Math.max(1, Math.round(ms / 60_000)); return `${m} min` }
+export const mins = (ms: number): string => { const m = Math.max(1, Math.round(ms / 60_000)); return `${m} min` }
 /** Why a card failed, from its log ("<name> failed: …" written by cards.ts), when the live run's error is gone. */
 const failedReason = (c: KanbanCard): string | null => {
   const hit = [...(c.log ?? [])].reverse().find((l) => / failed: |^Could not start: /.test(l.text))
@@ -58,7 +58,7 @@ export function WorkerWork({ card, run, agent, onReview }: { card: KanbanCard; r
     : card.status === 'failed' ? `${name} couldn't finish “${card.title}”` : `${name} worked on “${card.title}”${span ? ` for ${span}` : ''}${summary ? ` · ${summary}` : ''}`
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="w-full">
+    <Collapsible id={`cw-${card.id}`} open={open} onOpenChange={setOpen} className="w-full scroll-mt-4">
       <div className={cn('rounded-xl border bg-card', card.status === 'failed' && !stopped ? 'border-destructive/40' : 'border-border')}>
         <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3.5 py-2 text-left text-[13.5px] text-foreground/80 outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/40">
           {agent ? <Avatar shape={agent.shape} tone={agent.tone} head={agent.head} size={22} /> : <Icon name="agents" size={16} />}
