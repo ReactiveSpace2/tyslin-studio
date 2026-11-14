@@ -1241,6 +1241,9 @@ export interface TyslinApi {
   agencies: {
     list(): Promise<Agency[]>
     get(id: string): Promise<Agency | null>
+    /** 'auto' (the default) = the agency's agents run commands without asking, except risky ones; 'ask' = every command asks (14 Nov 2026). */
+    mode(id: string): Promise<'ask' | 'auto'>
+    setMode(id: string, mode: 'ask' | 'auto'): Promise<void>
     /** Creates the project folder, the Lead and workers, the board, the channel link and the Lead's task. */
     create(input: AgencyCreateInput): Promise<Agency>
     /** Suggests agencies (from the templates) for what the user said; one call to the default model, nothing is created. */

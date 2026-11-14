@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
-import { answerPermission, cancelRunPermissions, pendingPermissions, runtimeFor } from './runtime'
+import { answerPermission, approvalMode, cancelRunPermissions, pendingPermissions, runtimeFor, setApprovalMode } from './runtime'
 import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { killAllAdapters, listAcpModels, testAcp } from './acp'
@@ -768,6 +768,8 @@ function registerIpc(): void {
     win?.webContents.send('tasks:changed')
     updateBadge()
   })
+  ipcMain.handle('agencies:mode', (_e, id: string) => approvalMode(String(id ?? '')))
+  ipcMain.handle('agencies:setMode', (_e, id: string, mode: string) => setApprovalMode(String(id ?? ''), mode === 'auto' ? 'auto' : 'ask'))
   ipcMain.handle('agencies:plan', (_e, id: string) => planNow(id))
   ipcMain.handle('agencies:brief', (_e, id: string, text: string) => briefLead(String(id ?? ''), String(text ?? '')))
   ipcMain.handle('slack:status', () => slackStatus())

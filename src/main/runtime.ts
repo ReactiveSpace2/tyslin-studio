@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto'
 import { homedir } from 'os'
 import type { Agent, ExternalEngineId, PendingPermission, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
-import { isReadOnlyCommand } from './readOnly'
-import { getAgent, getPrefs, getProject, getSetting, listAgents, type ModelMessage } from './db'
+import { isReadOnlyCommand, isRiskyCommand } from './readOnly'
+import { getAgent, getPrefs, getProject, getSetting, listAgents, setSetting, type ModelMessage } from './db'
 import { readImage } from './attachments'
 import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
 import { runAcpTurn } from './acp'
@@ -428,7 +428,7 @@ class OpenAICompatibleRuntime implements AgentRuntime {
 }
 
 /** Permission requests from external agents, waiting for the user's answer. */
-const permissions = new Map<string, { runId: string; sessionId: string; title: string; choices: PermissionChoice[]; toolCallId: string; askedAt: number; done: (choiceId: string | null) => void }>()
+const permissions = new Map<string, { runId: string; sessionId: string; agencyId: string | null; title: string; choices: PermissionChoice[]; toolCallId: string; askedAt: number; done: (choiceId: string | null) => void }>()
 
 export function answerPermission(permissionId: string, choiceId: string | null): void {
   permissions.get(permissionId)?.done(choiceId)
@@ -443,6 +443,25 @@ export function pendingPermissions(): PendingPermission[] {
 /** The adapter's own "allow once" choice, when it offers one, for a command Tyslin answers on the user's behalf. */
 function allowOnceChoice(choices: PermissionChoice[]): PermissionChoice | undefined {
   return choices.find((c) => c.kind === 'allow_once') ?? choices.find((c) => c.kind.startsWith('allow'))
+}
+
+/**
+ * An agency's approval mode (owner, 14 Nov 2026): 'ask' shows every request in the task; 'auto' (the default since 14 Nov 2026, owner) lets
+ * its agents' commands run without asking, except the risky ones in readOnly.ts. Per organization (the agency's DB).
+ */
+export type ApprovalMode = 'ask' | 'auto'
+export const approvalMode = (agencyId: string | null | undefined): ApprovalMode =>
+  agencyId && getSetting(`agency:${agencyId}:mode`) === 'ask' ? 'ask' : 'auto'
+
+/** Saves the mode; switching to Auto also answers the agency's requests already waiting (risky ones keep waiting). */
+export function setApprovalMode(agencyId: string, mode: ApprovalMode): void {
+  setSetting(`agency:${agencyId}:mode`, mode)
+  if (mode !== 'auto') return
+  for (const [id, p] of permissions) {
+    if (p.agencyId !== agencyId || isRiskyCommand(p.title)) continue
+    const allow = allowOnceChoice(p.choices)
+    if (allow) answerPermission(id, allow.id)
+  }
 }
 
 /** Declines every open permission request of a stopped run. */
@@ -501,8 +520,13 @@ class AcpRuntime implements AgentRuntime {
         opts.emit({ type: 'tool_result', toolCallId, content: `Allowed without asking (read-only): ${title}`, isError: false })
         return Promise.resolve(allow.id)
       }
+      // Auto mode: the agency's agents go ahead without asking, except for risky commands.
+      if (allow && approvalMode(opts.agent.agency) === 'auto' && !isRiskyCommand(title)) {
+        opts.emit({ type: 'tool_result', toolCallId, content: `Allowed automatically (Auto mode): ${title}`, isError: false })
+        return Promise.resolve(allow.id)
+      }
       const permissionId = randomUUID()
-      const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, sessionId: opts.sessionId, title, choices, toolCallId, askedAt: Date.now(), done }))
+      const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, sessionId: opts.sessionId, agencyId: opts.agent.agency ?? null, title, choices, toolCallId, askedAt: Date.now(), done }))
       opts.emit({ type: 'state_update', status: 'waiting_for_review' })
       opts.emit({ type: 'approval_needed', toolCallId, permissionId, title, choices })
       return answer.finally(() => opts.emit({ type: 'state_update', status: 'running' }))

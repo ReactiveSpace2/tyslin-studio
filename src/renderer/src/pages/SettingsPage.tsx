@@ -182,7 +182,7 @@ function NotificationsTab(): JSX.Element {
         <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5" aria-labelledby="writes-h" value={prefs.defaultWriteMode} onValueChange={(v) => void save({ defaultWriteMode: v as WriteMode }, 'Default saved')}>
           {([['ask', 'Ask before writing files', 'Review each change, accept or send it back.'], ['direct', 'Write directly', 'Changes go straight to disk.']] as [WriteMode, string, string][]).map(([m, t, h]) => <label key={m} className={choiceCls(prefs.defaultWriteMode === m)}><RadioGroupItem className={radioCls} value={m} /><span className="flex flex-col gap-0.5"><strong className="font-semibold">{t}</strong><span className={hintCls}>{h}</span></span></label>)}
         </RadioGroup>
-        <p className={hintCls}>Task modes (Ask first, Plan, Auto) come in a later version.</p>
+        <p className={hintCls}>Each agency also has Ask first or Auto for commands, under the message box in a task.</p>
       </Group>
       <Group id="shared-h" title="Guidelines for every agent, in every agency" hint="Added to each agent's instructions. Agency-level rules live under Agency → Goals.">
         <div className="flex flex-col gap-1.5"><Label htmlFor="shared-ins">Guidelines</Label><Textarea id="shared-ins" rows={6} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'e.g.\nUse British English.\nNever invent numbers; say when you are unsure.'} /></div>

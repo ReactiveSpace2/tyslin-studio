@@ -17,6 +17,30 @@ const PKG_READ = new Set(['ls', 'list', 'why', 'outdated', 'view', 'info', 'conf
 /** Anything that can write, run arbitrary code or leave the folder. `>` covers redirects; `$(`/backticks run code. */
 const FORBIDDEN = /[><`]|\$\(|\$\{|\bsudo\b|\brm\b|\bmv\b|\bcp\b|\bchmod\b|\bchown\b|\bln\b|\btee\b|\bdd\b|\bcurl\b|\bwget\b|\bssh\b|\bscp\b|\brsync\b|\bkill\b|\bpkill\b|\benv\b|\bprintenv\b|\bexport\b|\bexec\b|\beval\b|\bsource\b|\bnohup\b|\bcrontab\b/
 
+/**
+ * Commands that still ask in Auto mode (owner, 14 Nov 2026): running as root, deleting from outside the folder,
+ * rewriting git history or the remote, piping a download into a shell, wiping disks, shutting down.
+ */
+const RISKY = [
+  /\bsudo\b|\bsu\s+-|\bdoas\b/,
+  /\brm\s+(-[a-zA-Z]*\s+)*(\/|~|\$HOME|\.\.)/,
+  /\brm\s+-[a-zA-Z]*[rR][a-zA-Z]*\s+(\*|\.\/?\s*$|\.$)/,
+  /\bgit\s+push\b.*(--force|\s-f\b|--mirror|--delete|\s:)/,
+  /\bgit\s+(reset\s+--hard|clean\s+-[a-zA-Z]*f|filter-branch|filter-repo|rebase)\b/,
+  /\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z|da)?sh\b/,
+  /\b(mkfs|fdisk|parted|diskutil\s+erase|format)\b/,
+  /\bdd\s+[^|]*of=\/dev\//,
+  /\b(shutdown|reboot|halt|poweroff)\b/,
+  /\bchmod\s+-R\s+777\b|\bchown\s+-R\b.*\s\//,
+  /:\(\)\s*\{/,
+  /~\/\.ssh|\.aws\/credentials|\.gnupg/
+]
+
+/** True when Auto mode should still ask the user before this command runs. */
+export function isRiskyCommand(title: string): boolean {
+  return RISKY.some((r) => r.test(title))
+}
+
 /** `which pnpm`, `node -v`, `git status`, `ls src`, `cat package.json`: true. `pnpm test`, `python3 -c …`, `cat ~/.ssh/id_rsa`, `echo x > f`: false. */
 export function isReadOnlyCommand(title: string): boolean {
   const cmd = title.trim()

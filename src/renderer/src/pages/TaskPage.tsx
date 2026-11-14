@@ -146,7 +146,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
         <div ref={composerRef} className="mx-auto flex w-full max-w-[760px] flex-none flex-col gap-2 px-6 pt-2 pb-4">
           <SetupCard team={team} onOpenAgent={onOpenAgent} />
           <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent}
-            footer={view ? <ToolsPill agencyName={view.agency.name} team={team} servers={servers} onTest={testServer} onAdd={(tool) => setToolSetup({ tool, agentIds: team.filter((a) => a.engine !== 'builtin').map((a) => a.id) })} onMore={onConnectors} className="h-8 gap-1.5 px-2 font-mono text-xs text-muted-foreground has-[>svg]:px-2" /> : undefined} value={text} onChange={setText} attached={attached} onAttached={setAttached}
+            footer={view ? <ToolsPill agencyName={view.agency.name} team={team} servers={servers} onTest={testServer} onAdd={(tool) => setToolSetup({ tool, agentIds: team.filter((a) => a.engine !== 'builtin').map((a) => a.id) })} onMore={onConnectors} className="h-8 gap-1.5 px-2 font-mono text-xs text-muted-foreground has-[>svg]:px-2" /> : undefined} value={text} onChange={setText} attached={attached} onAttached={setAttached} onModeChange={() => task.syncPermissions()}
             running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />
         </div>
       </section>

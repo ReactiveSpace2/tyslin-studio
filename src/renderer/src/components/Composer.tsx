@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Agent, Attachment } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { Icon } from './Icon'
@@ -6,7 +6,7 @@ import { RunsOnBadge, runsOnLabel } from './RunsOnBadge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
@@ -45,6 +45,8 @@ interface Props {
   onOpenAgency?: () => void
   /** Extra pills in the line under the box (the task's Tools overview). */
   footer?: React.ReactNode
+  /** Called after the agency's approval mode changes (the task drops requests main answered). */
+  onModeChange?: (mode: 'ask' | 'auto') => void
   /** The agent the message goes to (the agency's Lead, or a worker in a direct chat). */
   agent: Agent | null
   value: string
@@ -69,7 +71,7 @@ interface Props {
  * attachments, and under it the agency, the model it runs on and the mode. Modes aren't built yet, so the
  * mode is shown but can't be changed.
  */
-export function Composer({ agencies, agencyId, onAgency, onOpenAgency, footer, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
+export function Composer({ agencies, agencyId, onAgency, onOpenAgency, footer, onModeChange, agent, value, onChange, attached, onAttached, running, onSend, onStop, placeholder, label, rows = 2, autoFocus, large, disabled, className }: Props): JSX.Element {
   const [attachMenu, setAttachMenu] = useState(false)
   const attach = async (kind: 'file' | 'folder'): Promise<void> => {
     setAttachMenu(false)
@@ -129,11 +131,49 @@ export function Composer({ agencies, agencyId, onAgency, onOpenAgency, footer, a
             <RunsOnBadge agent={agent} size={12} /><span className="truncate">{agent.engine === 'builtin' ? agent.model : runsOnLabel(agent)}</span>
           </Badge>
         )}
-        <Button type="button" variant="ghost" size="sm" className={foot} disabled title="Modes (Ask first, Plan, Auto) come in a later version; agents ask before they change files.">
-          Ask first <Badge variant="secondary" className="h-4 px-1 text-[10px]">New</Badge>
-        </Button>
+        {agencyId && <ModeMenu agencyId={agencyId} className={foot} onChange={onModeChange} />}
         {footer}
       </div>
     </form>
+  )
+}
+
+const MODES = {
+  ask: { label: 'Ask first', hint: 'Agents ask before they run a command. You answer in the task.' },
+  auto: { label: 'Auto', hint: 'Agents run commands without asking. Risky ones (sudo, deleting outside the folder, force push) still ask. File changes still follow each agent\'s review setting.' }
+} as const
+
+/** The agency's approval mode under the composer (owner, 14 Nov 2026): Ask first or Auto. */
+function ModeMenu({ agencyId, className, onChange }: { agencyId: string; className: string; onChange?: (mode: 'ask' | 'auto') => void }): JSX.Element {
+  const [mode, setMode] = useState<'ask' | 'auto'>('auto')
+  useEffect(() => {
+    let live = true
+    void window.tyslin.agencies.mode(agencyId).then((m) => { if (live) setMode(m) })
+    return () => { live = false }
+  }, [agencyId])
+  const pick = (v: string): void => {
+    const m = v === 'auto' ? 'auto' : 'ask'
+    setMode(m)
+    void window.tyslin.agencies.setMode(agencyId, m).then(() => onChange?.(m))
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className={cn(className, mode === 'auto' && 'text-green')} title={MODES[mode].hint} aria-label={`Approvals: ${MODES[mode].label}`}>
+          {mode === 'auto' && <Icon name="check" size={12} />}{MODES[mode].label}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-[300px] rounded-xl p-1.5">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Commands in this agency</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup value={mode} onValueChange={pick}>
+          {(['ask', 'auto'] as const).map((m) => (
+            <DropdownMenuRadioItem key={m} value={m} className="items-start gap-0.5 rounded-md py-2">
+              <span className="flex flex-col gap-0.5"><span className="font-medium">{MODES[m].label}</span><span className="text-xs text-muted-foreground">{MODES[m].hint}</span></span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

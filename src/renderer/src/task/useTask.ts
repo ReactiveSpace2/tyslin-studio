@@ -65,6 +65,8 @@ export interface Task {
   send: (text: string, attachments: Attachment[]) => Promise<void>
   stop: () => Promise<void>
   answerPermission: (p: Permission, choiceId: string | null) => void
+  /** Drops permission cards main has already answered (Auto mode switched on answers the waiting ones). */
+  syncPermissions: () => void
   reloadChanges: () => Promise<void>
   reloadChannel: () => void
 }
@@ -259,6 +261,13 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
     }
   }
   const stop = async (): Promise<void> => { await window.tyslin.sessions.stop(sessionId); setStoppedAt(Date.now()) }
+  const syncPermissions = (): void => {
+    void window.tyslin.sessions.permissions().then((pend) => {
+      const open = new Set(pend.map((p) => p.id))
+      setPermissions((list) => list.filter((x) => open.has(x.id)))
+      setWorkerRuns((prev) => Object.fromEntries(Object.entries(prev).map(([k, r]) => [k, { ...r, permissions: r.permissions.filter((x) => open.has(x.id)) }])))
+    })
+  }
   const answerPermission = (p: Permission, choiceId: string | null): void => {
     if (p.sessionId === sessionId) setPermissions((list) => list.filter((x) => x.id !== p.id))
     else setWorkerRuns((prev) => { const cardId = cardSessions.current.get(p.sessionId); const run = cardId ? prev[cardId] : null; return run ? { ...prev, [cardId!]: { ...run, permissions: run.permissions.filter((x) => x.id !== p.id) } } : prev })
@@ -270,5 +279,5 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
   // The app's session list follows renames and the title set by the first message; the copy loaded here is only
   // the fallback until that list has it (QA, 10 Nov 2026: the header kept "New chat" after a rename).
   const current = allSessions.find((x) => x.id === sessionId) ?? session
-  return { session: current, messages, streaming, activity, waiting, liveRun, permissions, changes, error, stoppedAt, channel: channelInWindow, board, cards, workerRuns, cost, send, stop, answerPermission, reloadChanges, reloadChannel }
+  return { session: current, messages, streaming, activity, waiting, liveRun, permissions, changes, error, stoppedAt, channel: channelInWindow, board, cards, workerRuns, cost, send, stop, answerPermission, syncPermissions, reloadChanges, reloadChannel }
 }
