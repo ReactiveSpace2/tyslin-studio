@@ -160,7 +160,7 @@ Report: the command, pass and fail counts, the names of failing tests with their
   {
     name: 'creative-brief',
     description: 'Brief an image or video so a designer can make it.',
-    body: `Goal, audience, the one message, format and sizes, must-show elements, tone, references described in words, what to avoid, deadline. Keep it to one page. The brief is for a human designer or the video agency; do not try to make the asset yourself.`
+    body: `Goal, audience, the one message, format and sizes, must-show elements, tone, references described in words, what to avoid, deadline. Keep it to one page. The brief is for a human designer or the video team; do not try to make the asset yourself.`
   },
   {
     name: 'bid-rules',

@@ -123,7 +123,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
   // Agencies just made from the start chat: shown as ready (with their first tasks) until one is started or Home is picked.
   if (started) {
     return <StartReady made={started} onHome={() => setStarted(null)}
-      onStart={async (m) => { if (!m.agency.leadId) throw new Error('This agency has no Lead yet.'); onActiveAgency(m.agency.id); await onStartTask(m.agency.id, m.firstTask, [], { leadId: m.agency.leadId, projectId: m.agency.projectId }); setStarted(null) }} />
+      onStart={async (m) => { if (!m.agency.leadId) throw new Error('This team has no Lead yet.'); onActiveAgency(m.agency.id); await onStartTask(m.agency.id, m.firstTask, [], { leadId: m.agency.leadId, projectId: m.agency.projectId }); setStarted(null) }} />
   }
   if (agencies.length === 0 && !byHand) {
     return <StartChat you={you} onPickTemplate={() => { setByHand(true); onNewAgency() }} onSettings={onSettings} onCreated={(made) => { setStarted(made); void onAgenciesChanged() }} />
@@ -134,13 +134,13 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
         <Empty className="max-w-[520px]">
           <EmptyHeader>
             <EmptyMedia><Pose pose={1} height={150} /></EmptyMedia>
-            <EmptyTitle>No agency yet</EmptyTitle>
+            <EmptyTitle>No team yet</EmptyTitle>
             <EmptyDescription>Pick a template and you'll have a Lead and a team in a minute.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={onNewAgency}>Create your first agency</Button>
+            <Button onClick={onNewAgency}>Create your first team</Button>
             <Button variant="ghost" onClick={() => setByHand(false)}>Or tell Tyslin what you want</Button>
-            <span className="text-xs text-muted-foreground">Software, marketing and sales agencies today. More are coming.</span>
+            <span className="text-xs text-muted-foreground">Software, marketing and sales teams today. More are coming.</span>
           </EmptyContent>
         </Empty>
       </div>
@@ -151,7 +151,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
     <div className="flex flex-col items-center gap-7 px-6 pt-10 pb-12">
       <div className="flex flex-col items-center gap-2.5 text-center">
         <Pose pose={1} height={130} />
-        <h1 className="text-[28px] font-semibold tracking-tight">What should your agency do?</h1>
+        <h1 className="text-[28px] font-semibold tracking-tight">What should your team do?</h1>
         <p className="max-w-[520px] text-[15px] text-muted-foreground">
           {lead ? <>{firstName(lead.name)}, the Lead of {view!.agency.name}, plans it, hands it to the team and brings it back for your review.</> : view ? <>{view.agency.name} has no Lead yet. Add one on its page.</> : null}
         </p>
@@ -171,7 +171,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
         )}
         <Composer agencies={agencies} agencyId={view?.agency.id ?? null} onAgency={onActiveAgency} agent={lead}
           value={text} onChange={setText} attached={attached} onAttached={setAttached} running={sending} onSend={() => void start()}
-          placeholder={lead ? `Tell ${firstName(lead.name)} what to do…` : 'Pick an agency with a Lead first'} label="Describe the task" rows={3} large autoFocus
+          placeholder={lead ? `Tell ${firstName(lead.name)} what to do…` : 'Pick a team with a Lead first'} label="Describe the task" rows={3} large autoFocus
           disabled={!lead || leadStatus?.state === 'setup' || view?.paused} />
         {view?.paused && <p className="px-1 text-xs text-muted-foreground">{view.agency.name} is paused. Resume it on its page to send work.</p>}
         {error && <p role="alert" className="rounded-lg bg-destructive-soft px-3.5 py-2.5 text-sm text-destructive">{error}</p>}

@@ -82,7 +82,7 @@ export function setDefaultProjectName(name: string): Project {
 export function projectFor(projectId: string | null): Project {
   if (!projectId) return defaultProject()
   const p = db.getProject(projectId)
-  if (!p) throw new Error('That project no longer exists.')
+  if (!p) throw new Error('That folder no longer exists.')
   if (!p.folder) throw new Error(`${p.name} has no folder linked, so its files can't be saved. Pick a project with a folder, or the Default project.`)
   return p
 }
@@ -91,7 +91,7 @@ export function projectFor(projectId: string | null): Project {
 function inside(folder: string, rel: string): string {
   const abs = resolve(folder, rel)
   const r = relative(folder, abs)
-  if (!r || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the project folder.')
+  if (!r || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the team folder.')
   return abs
 }
 

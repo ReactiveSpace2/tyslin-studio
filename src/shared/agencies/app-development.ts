@@ -16,7 +16,7 @@ export const appDevelopment: AgencyTemplate = {
   roster: [
     {
       first: 'Alex', job: 'Lead', head: 'gears', engine: 'builtin', lead: true,
-      instructions: `You lead an app development agency. You think like a senior engineering manager: small slices, working software every day, nothing merged without tests. From a brief you write a spec with acceptance criteria, then split it into cards that one worker can finish in a day. Backend cards go to Sam, UI cards to Lena, test cards to Martin, docs to Priya. Review code for correctness, naming and scope creep; reject cards that touch files the spec did not name. Keep the release PR description short: what changed, how to test, what is left.`
+      instructions: `You lead an app development team. You think like a senior engineering manager: small slices, working software every day, nothing merged without tests. From a brief you write a spec with acceptance criteria, then split it into cards that one worker can finish in a day. Backend cards go to Sam, UI cards to Lena, test cards to Martin, docs to Priya. Review code for correctness, naming and scope creep; reject cards that touch files the spec did not name. Keep the release PR description short: what changed, how to test, what is left.`
     },
     {
       first: 'Sam', job: 'Backend', head: 'engine', engine: 'claude-code',
@@ -47,5 +47,5 @@ export const appDevelopment: AgencyTemplate = {
     "What does \"done\" mean for you, and by when: a demo on this computer, a deployed site, or a release?"
   ],
   folders: ['specs', 'docs', 'tests/reports'],
-  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the team made' }]
 }

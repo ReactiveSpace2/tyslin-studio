@@ -33,7 +33,7 @@ function Split({ t }: { t: CostTotal }): JSX.Element {
 export function UsageTab({ agencies }: { agencies: AgencyView[] }): JSX.Element {
   const [rows, setRows] = useState<UsageRow[] | null>(null)
   useEffect(() => { void window.tyslin.costs.usage().then(setRows).catch(() => setRows([])) }, [])
-  const name = (id: string | null): string => (id ? agencies.find((v) => v.agency.id === id)?.agency.name ?? 'A removed agency' : 'Outside any agency')
+  const name = (id: string | null): string => (id ? agencies.find((v) => v.agency.id === id)?.agency.name ?? 'A removed team' : 'Outside any team')
   const provider = (p: string | null): string => (p ? PROVIDER_NAME[p as keyof typeof PROVIDER_NAME] ?? p : 'Not known')
   const total = (rows ?? []).reduce((s, r) => add(s, r.total), EMPTY)
   const month = new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
@@ -41,12 +41,12 @@ export function UsageTab({ agencies }: { agencies: AgencyView[] }): JSX.Element 
   return (
     <div className="flex flex-col gap-3">
       <Card className="gap-0 overflow-hidden py-0">
-        <span className="flex items-center justify-between border-b border-border px-5 py-3"><span className="text-sm font-semibold">{month}</span><span className={HINT}>This organization</span></span>
+        <span className="flex items-center justify-between border-b border-border px-5 py-3"><span className="text-sm font-semibold">{month}</span><span className={HINT}>This project</span></span>
         {rows === null ? <p className="px-5 py-6 text-[13px] text-muted-foreground">Loading…</p> : rows.length === 0 ? <p className="px-5 py-6 text-[13px] text-muted-foreground">No runs this month yet.</p> : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow><TableHead className="pl-5">Agency</TableHead><TableHead>Provider</TableHead><TableHead className="text-right">Runs</TableHead><TableHead className="text-right">Tokens in / out</TableHead><TableHead className="pr-5 text-right">Cost</TableHead></TableRow>
+                <TableRow><TableHead className="pl-5">Team</TableHead><TableHead>Provider</TableHead><TableHead className="text-right">Runs</TableHead><TableHead className="text-right">Tokens in / out</TableHead><TableHead className="pr-5 text-right">Cost</TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (

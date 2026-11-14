@@ -116,7 +116,7 @@ export function setOrgColor(id: string, color: OrgColor): void {
 
 export function createOrg(name: string, color: OrgColor = 'teal'): Organization {
   const clean = name.trim().slice(0, 60)
-  if (!clean) throw new Error('Give the organization a name.')
+  if (!clean) throw new Error('Give the project a name.')
   const id = randomUUID()
   home.prepare('INSERT INTO orgs (id, name, color, created_at) VALUES (?, ?, ?, ?)').run(id, clean, ORG_COLOR_IDS.includes(color) ? color : 'teal', Date.now())
   const prev = db
@@ -127,13 +127,13 @@ export function createOrg(name: string, color: OrgColor = 'teal'): Organization 
 
 export function renameOrg(id: string, name: string): void {
   const clean = name.trim().slice(0, 60)
-  if (!clean) throw new Error('Give the organization a name.')
+  if (!clean) throw new Error('Give the project a name.')
   home.prepare('UPDATE orgs SET name = ? WHERE id = ?').run(clean, id)
 }
 
 /** Makes another organization current. The caller makes sure nothing is running first. */
 export function switchOrg(id: string): void {
-  if (!home.prepare('SELECT 1 FROM orgs WHERE id = ?').get(id)) throw new Error('That organization no longer exists.')
+  if (!home.prepare('SELECT 1 FROM orgs WHERE id = ?').get(id)) throw new Error('That project no longer exists.')
   if (db !== home) db.close()
   if (id === DEFAULT_ORG) db = home
   else openOrgDb(id)
@@ -343,7 +343,7 @@ export function saveAgent(raw: AgentInput & { id?: string }): Agent {
   const mascot = existing?.isMascot ?? input.isMascot
   const inProject = kind === 'agent' && !mascot
   const projectId = mascot ? null : input.projectId !== undefined ? input.projectId : existing?.projectId ?? null
-  if (projectId && !getProject(projectId)) throw new Error('That project no longer exists.')
+  if (projectId && !getProject(projectId)) throw new Error('That folder no longer exists.')
   let leadId = !inProject ? null : input.leadId !== undefined ? input.leadId : existing?.leadId ?? null
   // A lead must be another agent in the same project, and not one of this agent's own team (no loops).
   if (leadId) {
@@ -420,7 +420,7 @@ export function removeAgent(id: string): void {
 }
 
 export function renameProjectChecked(id: string, name: string): void {
-  if (!getProject(id)) throw new Error('That project no longer exists.')
+  if (!getProject(id)) throw new Error('That folder no longer exists.')
   renameProject(id, name)
 }
 
@@ -430,7 +430,7 @@ export function renameProjectChecked(id: string, name: string): void {
  */
 export function removeProject(id: string, defaultId: string | null): { agents: number } {
   if (id === defaultId) throw new Error("The Default project can't be deleted.")
-  if (!getProject(id)) throw new Error('That project no longer exists.')
+  if (!getProject(id)) throw new Error('That folder no longer exists.')
   const members = (db.prepare('SELECT id FROM agents WHERE project_id = ? AND is_mascot = 0').all(id) as { id: string }[]).map((r) => r.id)
   db.transaction(() => {
     for (const a of members) removeAgent(a)
@@ -453,7 +453,7 @@ export function getProject(id: string): Project | null {
 
 export function renameProject(id: string, name: string): void {
   const clean = name.trim().slice(0, 80)
-  if (!clean) throw new Error('Give the project a name.')
+  if (!clean) throw new Error('Give the folder a name.')
   db.prepare('UPDATE projects SET name = ? WHERE id = ?').run(clean, id)
 }
 
@@ -930,10 +930,10 @@ export function insertAgency(a: Omit<Agency, 'createdAt' | 'updatedAt' | 'spent'
 
 export function updateAgency(id: string, input: AgencyUpdateInput): Agency {
   const cur = getAgency(id)
-  if (!cur) throw new Error('That agency no longer exists.')
+  if (!cur) throw new Error('That team no longer exists.')
   const next = { ...cur, ...input }
   const name = String(next.name ?? '').trim().slice(0, 80)
-  if (!name) throw new Error('Give the agency a name.')
+  if (!name) throw new Error('Give the team a name.')
   const budget = next.budget === null || next.budget === undefined || Number.isNaN(Number(next.budget)) ? null : Number(next.budget)
   if (budget !== null && budget < 0) throw new Error('The monthly cap can\'t be below zero.')
   const alertAt = Number(next.alertAt)

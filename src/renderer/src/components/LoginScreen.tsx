@@ -45,9 +45,9 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
 
           <div className="flex flex-col gap-2">
             <h1 id="login-title" className="text-[30px] leading-tight font-semibold tracking-[-0.02em]">Welcome</h1>
-            <p className="text-base font-semibold text-green">Every agent you run. One studio.</p>
+            <p className="text-base font-semibold text-green">The Agent management studio.</p>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Run your own AI agency. A Lead plans the work, your agents do it, you approve what ships.
+              Start a project. Put AI agent teams to work. A Lead plans the work, your agents do it, you approve what ships.
             </p>
           </div>
 
@@ -67,14 +67,14 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: (s: AuthStatus) => voi
           </div>
 
           <p className="border-t border-border pt-5 text-xs leading-relaxed text-muted-foreground">
-            Your agencies, chats and keys stay on this computer. Tyslin keeps only your name and email.
+            Your projects, teams, chats and keys stay on this computer. Tyslin keeps only your name and email.
           </p>
         </section>
 
         {/* The banner look: poses 5 and 1 in front of a soft lime circle. Decorative. */}
         <div aria-hidden="true" className="relative hidden min-h-[460px] items-end justify-center overflow-hidden border-l border-border bg-muted min-[820px]:flex">
           <span className="absolute top-12 left-1/2 size-[340px] -translate-x-1/2 rounded-full bg-lime-soft" />
-          <span className="absolute top-8 left-8 font-mono text-xs tracking-[0.08em] text-green uppercase">Run your own AI agency</span>
+          <span className="absolute top-8 left-8 font-mono text-xs tracking-[0.08em] text-green uppercase">AI agent teams</span>
           <img src={tablets} alt="" className="relative -mr-3 mb-6 h-[270px] w-auto" />
           <img src={standing} alt="" className="relative mb-6 h-[320px] w-auto" />
         </div>

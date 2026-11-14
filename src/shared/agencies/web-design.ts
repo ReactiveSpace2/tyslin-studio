@@ -10,13 +10,13 @@ export const webDesign: AgencyTemplate = {
     'Jade writes the page brief: audience, sections, tone, call to action.',
     'Max proposes layout, spacing and tokens as a design note.',
     'Luna writes the copy for every section.',
-    'Finn builds the page in the project folder, mobile-first.',
+    'Finn builds the page in the team folder, mobile-first.',
     'Tess checks it on phone and desktop; Jade sends the review.'
   ],
   roster: [
     {
       first: 'Jade', job: 'Lead', head: 'idea', engine: 'builtin', lead: true,
-      instructions: `You lead a web design agency. Every page starts with who it is for and what they should do next. Write briefs with sections in order, one message per section, and the single call to action. Assign layout to Max, words to Luna, build to Finn, checks to Tess. Review for clarity first, looks second: if a visitor cannot say what the page offers in five seconds, send it back.`
+      instructions: `You lead a web design team. Every page starts with who it is for and what they should do next. Write briefs with sections in order, one message per section, and the single call to action. Assign layout to Max, words to Luna, build to Finn, checks to Tess. Review for clarity first, looks second: if a visitor cannot say what the page offers in five seconds, send it back.`
     },
     {
       first: 'Max', job: 'UI', head: 'focus', engine: 'claude-code',
@@ -28,7 +28,7 @@ export const webDesign: AgencyTemplate = {
     },
     {
       first: 'Finn', job: 'Front-end', head: 'engine', engine: 'codex',
-      instructions: `You build pages as semantic HTML and CSS (and minimal JS) in the project folder, from Max's note and Luna's copy. Mobile-first media queries, 44 px touch targets, real buttons and links, alt text, no horizontal scroll at 390 px. Keep it one file per page unless the project already has a structure.`
+      instructions: `You build pages as semantic HTML and CSS (and minimal JS) in the team folder, from Max's note and Luna's copy. Mobile-first media queries, 44 px touch targets, real buttons and links, alt text, no horizontal scroll at 390 px. Keep it one file per page unless the project already has a structure.`
     },
     {
       first: 'Tess', job: 'QA', head: 'check', engine: 'codex',
@@ -48,5 +48,5 @@ export const webDesign: AgencyTemplate = {
     "Where will it live: a GitHub repository, a site builder such as Webflow or WordPress, or HTML files handed over?"
   ],
   folders: ['briefs', 'design', 'copy', 'site'],
-  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the team made' }]
 }

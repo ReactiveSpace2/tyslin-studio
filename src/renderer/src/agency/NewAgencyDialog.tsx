@@ -46,7 +46,7 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[calc(100%-48px)] w-[680px] max-w-[calc(100%-32px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[calc(100%-32px)]">
-        <DialogHeader className="px-6 pt-6 pb-2 text-left"><DialogTitle className="text-xl">New agency</DialogTitle><DialogDescription>A Lead and a team in their own folder. Nothing runs until you give them a task.</DialogDescription></DialogHeader>
+        <DialogHeader className="px-6 pt-6 pb-2 text-left"><DialogTitle className="text-xl">New team</DialogTitle><DialogDescription>A Lead and a team in their own folder. Nothing runs until you give them a task.</DialogDescription></DialogHeader>
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); void create() }}>
           <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-4">
             <div className="flex flex-col gap-2">
@@ -86,7 +86,7 @@ export function NewAgencyDialog({ templateId, onClose, onCreated }: { templateId
           </div>
           <DialogFooter className="border-t border-border px-6 py-4">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={busy || !name.trim() || (!!leadModel && !leadModel.model.trim())}>{busy ? 'Creating…' : 'Create agency'}</Button>
+            <Button type="submit" disabled={busy || !name.trim() || (!!leadModel && !leadModel.model.trim())}>{busy ? 'Creating…' : 'Create team'}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

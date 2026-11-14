@@ -17,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
-const STEPS = ['Agency', 'Model', 'First task'] as const
+const STEPS = ['Team', 'Model', 'First task'] as const
 
 /**
  * First run, three steps: name the organization and pick the first agency; connect a model (keys and
@@ -79,13 +79,13 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-[260px] flex-none flex-col gap-1 border-r border-border px-6 py-9" aria-label="Steps">
           {STEPS.map((s, i) => <button key={s} type="button" className={stepBtn(i)} disabled={i > step || created !== null} onClick={() => setStep(i)}><span className={dot(i)}>{i < step ? <Icon name="check" size={12} /> : i + 1}</span>{s}</button>)}
-          <p className="mt-6 text-xs leading-relaxed text-muted-foreground">You can change all of this later in Settings and on the agency's page.</p>
+          <p className="mt-6 text-xs leading-relaxed text-muted-foreground">You can change all of this later in Settings and on the team's page.</p>
         </aside>
         <main ref={mainRef} className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-auto px-12 py-9">
           {step === 0 && (
             <>
-              <div className="flex flex-col gap-1.5"><h1 className="text-[26px] font-semibold tracking-tight">Name your organization, pick your first agency</h1><p className="text-sm text-muted-foreground">An organization holds your agencies and their folders. Each agency is a ready-made team: a Lead and workers.</p></div>
-              <div className="flex max-w-[420px] flex-col gap-1.5"><Label htmlFor="fr-org">Organization</Label><Input id="fr-org" value={org} maxLength={60} onChange={(e) => setOrg(e.target.value)} autoFocus /><span className="text-xs text-muted-foreground">Folder: {root}/{folderName(org) || 'My studio'}</span></div>
+              <div className="flex flex-col gap-1.5"><h1 className="text-[26px] font-semibold tracking-tight">Name your project, pick your first team</h1><p className="text-sm text-muted-foreground">A project holds your teams and their folders. Each team is ready-made: a Lead and workers.</p></div>
+              <div className="flex max-w-[420px] flex-col gap-1.5"><Label htmlFor="fr-org">Project</Label><Input id="fr-org" value={org} maxLength={60} onChange={(e) => setOrg(e.target.value)} autoFocus /><span className="text-xs text-muted-foreground">Folder: {root}/{folderName(org) || 'My studio'}</span></div>
               {AGENCY_GROUPS.map((g) => {
                 const list = AGENCY_TEMPLATES.filter((t) => t.group === g.id)
                 if (!list.length) return null
@@ -123,7 +123,7 @@ export function FirstRun({ firstName, onDone }: { firstName?: string; onDone: (p
           )}
           {step === 2 && (
             <>
-              <div className="flex items-end justify-between gap-4"><div className="flex flex-col gap-1.5"><h1 className="text-[26px] font-semibold tracking-tight">Your agency is ready</h1><p className="text-sm text-muted-foreground">{tpl.roster.find((m) => m.lead)?.first} is the Lead. {tpl.roster.filter((m) => !m.lead).map((m) => m.first).join(', ')} work for the Lead. Give them the first task, or do it later from Home.</p></div><Pose pose={2} height={150} className="hidden md:block" /></div>
+              <div className="flex items-end justify-between gap-4"><div className="flex flex-col gap-1.5"><h1 className="text-[26px] font-semibold tracking-tight">Your team is ready</h1><p className="text-sm text-muted-foreground">{tpl.roster.find((m) => m.lead)?.first} is the Lead. {tpl.roster.filter((m) => !m.lead).map((m) => m.first).join(', ')} work for the Lead. Give them the first task, or do it later from Home.</p></div><Pose pose={2} height={150} className="hidden md:block" /></div>
               <Card className="max-w-[620px] gap-0 overflow-hidden py-0">
                 {tpl.roster.map((m) => <div key={m.first} className="flex items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0"><span className="flex min-w-0 flex-1 flex-col"><strong className="text-sm font-semibold">{agentName(m)}</strong><span className="text-xs text-muted-foreground">{m.lead ? 'Lead' : m.job} · {m.lead ? 'default model' : ENGINE_NAMES[m.engine]}</span></span></div>)}
               </Card>

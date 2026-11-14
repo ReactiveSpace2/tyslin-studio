@@ -88,7 +88,7 @@ const safeFile = (name: string): string => name.replace(/[\\/:*?"<>|]+/g, ' ').r
  */
 export function createAgency(input: AgencyCreateInput): Agency {
   const name = String(input.name ?? '').trim().slice(0, 80)
-  if (!name) throw new Error('Give the agency a name.')
+  if (!name) throw new Error('Give the team a name.')
   assertFreeName(name, null)
   const t = input.templateId ? AGENCY_TEMPLATES.find((x) => x.id === input.templateId) ?? null : null
   if (t?.comingSoon) throw new Error(`${t.name} is coming soon. Pick another template or describe the work.`)
@@ -164,7 +164,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
 /** Two agencies with one name look identical in the pills and selects (QA, 10 Nov 2026), so names are unique. */
 function assertFreeName(name: string, id: string | null): void {
   const key = name.trim().toLowerCase()
-  if (db.listAgencies().some((a) => a.id !== id && a.name.trim().toLowerCase() === key)) throw new Error(`An agency named ${name.trim()} already exists. Pick another name.`)
+  if (db.listAgencies().some((a) => a.id !== id && a.name.trim().toLowerCase() === key)) throw new Error(`A team named ${name.trim()} already exists. Pick another name.`)
 }
 
 /** Cuts a generated name at a word and marks the cut, instead of ending in the middle of one ("…send a di"). */

@@ -2,7 +2,7 @@
   "name": "tyslin-studio",
   "productName": "Tyslin Studio",
   "version": "0.6.22",
-  "description": "Tyslin Studio — run your own AI agency",
+  "description": "Tyslin Studio — start a project and put AI agent teams to work",
   "author": "ReactiveSpace <info@tyslin.ai>",
   "homepage": "https://tyslin.ai",
   "main": "./out/main/index.js",

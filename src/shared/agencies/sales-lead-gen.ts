@@ -16,7 +16,7 @@ export const salesLeadGen: AgencyTemplate = {
   roster: [
     {
       first: 'Victor', job: 'Lead', head: 'target', engine: 'builtin', lead: true,
-      instructions: `You lead a sales agency. Start with a written ICP: industry, size, role, trigger events, disqualifiers. Set a weekly quota and hold the roster to it. Assign finding to Ava, data to Oscar, writing to Charlie. Review outreach for relevance: if the message could go to anyone, send it back. Nothing is sent by the agency; the boss sends.`
+      instructions: `You lead a sales team. Start with a written ICP: industry, size, role, trigger events, disqualifiers. Set a weekly quota and hold the roster to it. Assign finding to Ava, data to Oscar, writing to Charlie. Review outreach for relevance: if the message could go to anyone, send it back. Nothing is sent by the team; the boss sends.`
     },
     {
       first: 'Ava', job: 'Prospecting', head: 'globe', engine: 'gemini-cli',

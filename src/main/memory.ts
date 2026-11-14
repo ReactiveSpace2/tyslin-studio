@@ -25,12 +25,12 @@ function folderOf(agency: Agency): string | null {
   return db.getProject(agency.projectId)?.folder ?? null
 }
 
-const agencyTemplate = (agency: Agency): string => `# ${agency.name}: agency memory
+const agencyTemplate = (agency: Agency): string => `# ${agency.name}: team memory
 
 <!--
-Facts every agent in this agency should always know: the business, its customers, your preferences, decisions made.
+Facts every agent in this team should always know: the business, its customers, your preferences, decisions made.
 One note per line, starting with "- ". Newest at the bottom. Tyslin adds this file to every agent's instructions in
-the agency, so keep it short and true. Comments like this one are left out.
+the team, so keep it short and true. Comments like this one are left out.
 -->
 
 `
@@ -91,21 +91,21 @@ function info(dir: string, file: string, key: string, title: string, agent: Agen
 /** The agency file first, then the Lead, then the other agents. */
 export function listMemory(agencyId: string): MemoryFile[] {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   const dir = ensureMemory(agency)
-  if (!dir) throw new Error("The agency's folder is missing, so its memory can't be shown.")
+  if (!dir) throw new Error("The team's folder is missing, so its memory can't be shown.")
   const people = members(agency).sort((a, b) => Number(b.id === agency.leadId) - Number(a.id === agency.leadId))
   return [info(dir, 'agency.md', 'agency', agency.name, null), ...people.map((a) => info(dir, agentFileName(dir, a), a.id, a.name, a))]
 }
 
 function resolve(agencyId: string, key: string): { path: string; agency: Agency } {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   const dir = ensureMemory(agency)
-  if (!dir) throw new Error("The agency's folder is missing.")
+  if (!dir) throw new Error("The team's folder is missing.")
   if (key === 'agency') return { path: join(dir, 'agency.md'), agency }
   const agent = members(agency).find((a) => a.id === key)
-  if (!agent) throw new Error('That agent is not in this agency.')
+  if (!agent) throw new Error('That agent is not in this team.')
   return { path: join(dir, agentFileName(dir, agent)), agency }
 }
 
@@ -155,8 +155,8 @@ export function memoryPrompt(agent: Agent): string {
   // The agent's own notes get at least half the room.
   const ownCap = own ? Math.max(PROMPT_CAP / 2, PROMPT_CAP - shared.length) : 0
   const sharedCap = PROMPT_CAP - Math.min(own.length, ownCap)
-  const parts = ['## Memory\nNotes kept for you in this agency. Treat them as true unless the user says otherwise.']
-  if (shared) parts.push(`### Agency notes (${MEMORY_DIR}/agency.md)\n` + tail(shared, sharedCap, `${MEMORY_DIR}/agency.md`))
+  const parts = ['## Memory\nNotes kept for you in this team. Treat them as true unless the user says otherwise.']
+  if (shared) parts.push(`### Team notes (${MEMORY_DIR}/agency.md)\n` + tail(shared, sharedCap, `${MEMORY_DIR}/agency.md`))
   if (own) parts.push(`### Your notes (${MEMORY_DIR}/${ownFile})\n` + tail(own, ownCap, `${MEMORY_DIR}/${ownFile}`))
   return parts.join('\n\n')
 }

@@ -16,7 +16,7 @@ export const emailMarketing: AgencyTemplate = {
   roster: [
     {
       first: 'Nina', job: 'Lead', head: 'pulse', engine: 'builtin', lead: true,
-      instructions: `You lead an email agency. One email, one purpose, one link. Plan sequences as cards with trigger, delay and goal. Assign segments to Freya, writing to George, technical checks to Arthur. Review for the first line and subject: if they do not earn the open, send it back. Never send; the boss sends.`
+      instructions: `You lead an email team. One email, one purpose, one link. Plan sequences as cards with trigger, delay and goal. Assign segments to Freya, writing to George, technical checks to Arthur. Review for the first line and subject: if they do not earn the open, send it back. Never send; the boss sends.`
     },
     {
       first: 'George', job: 'Copy', head: 'smile', engine: 'gemini-cli',

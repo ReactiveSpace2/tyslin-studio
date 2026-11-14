@@ -39,8 +39,8 @@ export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, r
   const state = (s: Session): string => runningIds.has(s.id) ? 'running' : needsYouBySession[s.id] ? `needs you · ${needsYouBySession[s.id]}` : ''
 
   return (
-    <CommandDialog open={open} onOpenChange={onOpenChange} title="Search" description="Find a task, an agent, an agency or an action">
-      <CommandInput placeholder="Search tasks, agents, agencies…" />
+    <CommandDialog open={open} onOpenChange={onOpenChange} title="Search" description="Find a task, an agent, a team or an action">
+      <CommandInput placeholder="Search tasks, agents, teams…" />
       <CommandList className="max-h-[440px]">
         <CommandEmpty>Nothing matches.</CommandEmpty>
         {tasks.length > 0 && (
@@ -66,7 +66,7 @@ export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, r
           </CommandGroup>
         )}
         {agencies.length > 0 && (
-          <CommandGroup heading="Agencies">
+          <CommandGroup heading="Teams">
             {agencies.map((v) => (
               <CommandItem key={v.agency.id} className={cmdItem} value={`agency ${v.agency.name} ${v.agency.id}`} onSelect={() => go(() => onOpenAgency(v.agency.id))}>
                 {v.lead ? <Avatar shape={v.lead.shape} tone={v.lead.tone} head={v.lead.head} size={20} /> : <Icon name="agency" size={14} />}
@@ -78,9 +78,9 @@ export function SearchDialog({ open, onOpenChange, agencies, agents, sessions, r
         <CommandSeparator />
         <CommandGroup heading="Actions">
           <CommandItem className={cmdItem} value="new task" onSelect={() => go(onNewTask)}><Icon name="plus" size={14} /> New task</CommandItem>
-          <CommandItem className={cmdItem} value="new agency" onSelect={() => go(onNewAgency)}><Icon name="agency" size={14} /> New agency</CommandItem>
+          <CommandItem className={cmdItem} value="new team agency" onSelect={() => go(onNewAgency)}><Icon name="agency" size={14} /> New team</CommandItem>
           <CommandItem className={cmdItem} value="go home start" onSelect={() => go(onHome)}><Icon name="home" size={14} /> Home</CommandItem>
-          <CommandItem className={cmdItem} value="go agencies all teams" onSelect={() => go(onAgencies)}><Icon name="agency" size={14} /> Agencies</CommandItem>
+          <CommandItem className={cmdItem} value="go teams all agencies" onSelect={() => go(onAgencies)}><Icon name="agency" size={14} /> Teams</CommandItem>
           <CommandItem className={cmdItem} value="go files folders drive" onSelect={() => go(onFiles)}><Icon name="folder" size={14} /> Files</CommandItem>
           <CommandItem className={cmdItem} value="schedule a task scheduled" onSelect={() => go(onScheduled)}><Icon name="clock" size={14} /> Scheduled tasks</CommandItem>
           <CommandItem className={cmdItem} value="settings models keys" onSelect={() => go(onSettings)}><Icon name="settings" size={14} /> Settings</CommandItem>

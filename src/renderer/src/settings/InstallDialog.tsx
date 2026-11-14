@@ -76,7 +76,7 @@ export function InstallDialog({ engine, account, start = 'install', onChange, on
   }
 
   const title: Record<Step, string> = { confirm: `Install ${engine.name}`, running: `Installing ${engine.name}…`, failed: 'Install failed', done: `${engine.name} is installed`, signing: 'Waiting for your browser…', signed: 'Signed in' }
-  const foot: Record<Step, string> = { confirm: "The command is copied from the project's own docs.", running: accountEngine ? '' : 'Output streams here as it runs.', failed: 'Nothing else was changed.', done: accountEngine ? 'Tyslin keeps it up to date.' : '', signing: 'Cancel stops waiting; nothing is saved.', signed: `Sign out from ${engine.name} itself, not here.` }
+  const foot: Record<Step, string> = { confirm: "The command is copied from the tool's own docs.", running: accountEngine ? '' : 'Output streams here as it runs.', failed: 'Nothing else was changed.', done: accountEngine ? 'Tyslin keeps it up to date.' : '', signing: 'Cancel stops waiting; nothing is saved.', signed: `Sign out from ${engine.name} itself, not here.` }
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o && (step !== 'running' || accountEngine)) onClose() }}>

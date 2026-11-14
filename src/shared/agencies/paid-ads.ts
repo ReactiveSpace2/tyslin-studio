@@ -17,7 +17,7 @@ export const paidAds: AgencyTemplate = {
   roster: [
     {
       first: 'Ray', job: 'Lead', head: 'target', engine: 'builtin', lead: true,
-      instructions: `You lead a paid ads agency. Every campaign has one goal, one audience, one number to beat. Write campaign plans with channel, audience, budget, offer and the metric. Assign copy to Amelia, creative briefs to Harry, bids and reporting to Isla. Review copy for the platform's rules and for honesty. Never change spend or launch anything; you propose, the boss applies.`
+      instructions: `You lead a paid ads team. Every campaign has one goal, one audience, one number to beat. Write campaign plans with channel, audience, budget, offer and the metric. Assign copy to Amelia, creative briefs to Harry, bids and reporting to Isla. Review copy for the platform's rules and for honesty. Never change spend or launch anything; you propose, the boss applies.`
     },
     {
       first: 'Amelia', job: 'Copy', head: 'smile', engine: 'gemini-cli',
@@ -25,7 +25,7 @@ export const paidAds: AgencyTemplate = {
     },
     {
       first: 'Harry', job: 'Creative brief', head: 'idea', engine: 'claude-code',
-      instructions: `You write briefs for images and video: goal, audience, message, format and sizes, must-show elements, tone, references described in words, what to avoid. Hand it to a human designer or the Video & Creative agency.`
+      instructions: `You write briefs for images and video: goal, audience, message, format and sizes, must-show elements, tone, references described in words, what to avoid. Hand it to a human designer or the Video & Creative team.`
     },
     {
       first: 'Isla', job: 'Bids & reporting', head: 'chart', engine: 'codex',

@@ -117,8 +117,8 @@ export function StartChat({ you, onPickTemplate, onSettings, onCreated }: Props)
         </form>
       </section>
 
-      <aside className="flex w-[340px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-muted px-5 py-6" aria-label="Your organization so far">
-        <span className="text-[13px] font-semibold">Your organization so far</span>
+      <aside className="flex w-[340px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-muted px-5 py-6" aria-label="Your project so far">
+        <span className="text-[13px] font-semibold">Your project so far</span>
         {picks.length === 0 && <div className="rounded-xl border border-dashed border-border-strong px-4 py-5 text-[13px] leading-relaxed text-muted-foreground">Your teams show up here as you describe what you need. Each is a Lead and a few workers, ready in a minute.</div>}
         {picks.map((p) => {
           const t = AVAILABLE_TEMPLATES.find((x) => x.id === p.templateId)
@@ -136,8 +136,8 @@ export function StartChat({ you, onPickTemplate, onSettings, onCreated }: Props)
         {picks.length > 0 && (
           <div className="mt-auto flex flex-col gap-2 pt-2">
             {progress && <span className="text-xs text-muted-foreground" role="status">{progress}</span>}
-            <Button variant="lime" className="h-10 font-semibold" disabled={!chosen.length || !!busy} onClick={() => void create()}>{busy === 'creating' ? 'Creating…' : chosen.length ? `Create ${chosen.length} ${chosen.length === 1 ? 'agency' : 'agencies'}` : 'Switch one on to create it'}</Button>
-            <span className="text-xs leading-snug text-muted-foreground">Nothing is made until you press Create. You can rename, change or delete any agency later.</span>
+            <Button variant="lime" className="h-10 font-semibold" disabled={!chosen.length || !!busy} onClick={() => void create()}>{busy === 'creating' ? 'Creating…' : chosen.length ? `Create ${chosen.length} ${chosen.length === 1 ? 'team' : 'teams'}` : 'Switch one on to create it'}</Button>
+            <span className="text-xs leading-snug text-muted-foreground">Nothing is made until you press Create. You can rename, change or delete any team later.</span>
           </div>
         )}
       </aside>
@@ -154,7 +154,7 @@ export function StartReady({ made, onStart, onHome }: { made: StartedAgency[]; o
     <div className="flex h-full flex-col items-center overflow-y-auto px-8 py-12">
       <div className="flex w-full max-w-[640px] flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-[26px] font-semibold tracking-tight">{made.length === 1 ? 'Your agency is ready' : 'Your agencies are ready'}</h1>
+          <h1 className="text-[26px] font-semibold tracking-tight">{made.length === 1 ? 'Your team is ready' : 'Your teams are ready'}</h1>
           <p className="text-[15px] text-muted-foreground">Start a first task now, or go to Home and type your own.</p>
         </div>
         {made.map((m) => (

@@ -15,8 +15,8 @@ const MAX_PICKS = 4
 
 function instructions(): string {
   return [
-    'You help a new user of Tyslin Studio set up their first teams of AI agents ("agencies"). You only suggest; the user creates them.',
-    'Pick the agencies that fit what the user wants, from this list only (id: name: what it does):',
+    'You help a new user of Tyslin Studio set up their first AI agent teams. You only suggest; the user creates them.',
+    'Pick the teams that fit what the user wants, from this list only (id: name: what it does):',
     ...AVAILABLE_TEMPLATES.map((t) => `- ${t.id}: ${t.name}: ${t.tagline}`),
     '',
     `Rules: pick one to ${MAX_PICKS}, only what the user's words call for; when nothing fits, pick none and say so. Use plain, everyday English a non-technical person understands: no jargon. Keep "reply" to one or two short sentences, and ask at most one short follow-up question when it would change the picks.`,

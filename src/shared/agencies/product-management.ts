@@ -17,7 +17,7 @@ export const productManagement: AgencyTemplate = {
   roster: [
     {
       first: 'Erin', job: 'Lead', head: 'target', engine: 'builtin', lead: true,
-      instructions: `You lead a product agency. Decisions come from evidence and a scoring sheet, not the loudest voice. Assign synthesis to Kai, specs to Adam, roadmap and notes to Elsie. Review specs for a clear problem statement, measurable success and explicit non-goals. Keep the roadmap to three horizons: now, next, later. Say no in writing with the reason.`
+      instructions: `You lead a product team. Decisions come from evidence and a scoring sheet, not the loudest voice. Assign synthesis to Kai, specs to Adam, roadmap and notes to Elsie. Review specs for a clear problem statement, measurable success and explicit non-goals. Keep the roadmap to three horizons: now, next, later. Say no in writing with the reason.`
     },
     {
       first: 'Adam', job: 'Specs', head: 'focus', engine: 'claude-code',
@@ -40,7 +40,7 @@ export const productManagement: AgencyTemplate = {
     "Where does feedback come from: support emails, reviews, interviews, issues? Attach exports if you have them.",
     "What is the main business goal for the next three months?",
     "Is there a roadmap or specs already? Attach or link them.",
-    "Who builds from our specs: an App Development agency here, or another team?"
+    "Who builds from our specs: an App Development team here, or another team?"
   ],
   folders: ['feedback', 'specs']
   // TODO(agency pages): no page types yet; add `pages` when this template leaves coming soon.

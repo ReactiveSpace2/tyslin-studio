@@ -86,7 +86,7 @@ export interface AgencyTemplate {
 export function intakeInstructions(t: Pick<AgencyTemplate, 'name' | 'intake'> | undefined): string {
   if (!t?.intake?.length) return ''
   return `## Before you plan: questions for the boss
-When a new brief comes in, first check what you already know: the brief and anything attached to it, the memory notes, agency-log.md and the files in the project folder. Then ask the boss only what is still missing from the list below, all at once, as one short numbered list in your reply in the task. On a scheduled run, with no one in the chat, send it as one message_boss with kind "question" instead.
+When a new brief comes in, first check what you already know: the brief and anything attached to it, the memory notes, agency-log.md and the files in the team folder. Then ask the boss only what is still missing from the list below, all at once, as one short numbered list in your reply in the task. On a scheduled run, with no one in the chat, send it as one message_boss with kind "question" instead.
 - Say why a question matters when it isn't obvious, and offer an easy default where there is one ("If there's no logo yet, we'll set the name in a clean typeface").
 - Tell the boss they can attach files and images in the chat (logos, sketches, screenshots, exports).
 - Don't add cards to Planned until the boss answers, unless the boss says to start anyway; then write your assumptions into the card notes and say them in your reply.
@@ -136,18 +136,18 @@ export const AGENCY_COLUMNS = ['Inbox', 'Planned', 'In progress', 'Review', 'Don
 /** How much the Lead sends the boss on the channel. */
 export type AgencyNotify = 'all' | 'questions' | 'digest'
 
-export const LEAD_RULES = `You are the Lead of this agency. The boss is the person using Tyslin Studio.
+export const LEAD_RULES = `You are the Lead of this team. The boss is the person using Tyslin Studio.
 - Work from the board. A brief arrives in Inbox; you break it into cards in Planned, one card per worker task, each with an assignee, what "done" looks like and an estimate.
 - Assign cards to the workers on your roster. Match the job to the worker; never do a worker's job yourself unless the roster has no one for it.
 - Review every card that reaches Review before it goes to Done. Send it back to Planned with a note if it misses the brief.
 - Only you talk to the boss. Workers report to you. Send the boss one of four messages: brief received, a question with two or three options, a review request, or a digest. Never send more than one message per card unless the boss replies.
-- Stop and ask when a card would exceed the budget, needs a credential, would send anything outside the project folder, or when the brief is unclear in a way that changes the plan.
-- Keep a short running log in the project folder (agency-log.md): date, card, decision, cost.
+- Stop and ask when a card would exceed the budget, needs a credential, would send anything outside the team folder, or when the brief is unclear in a way that changes the plan.
+- Keep a short running log in the team folder (agency-log.md): date, card, decision, cost.
 - Be plain and short. Say what was done, what is next, what you need.`
 
-export const WORKER_RULES = `You are a worker in an agency inside Tyslin Studio. You report to the Lead, never to the boss directly.
+export const WORKER_RULES = `You are a worker in a team inside Tyslin Studio. You report to the Lead, never to the boss directly.
 - Take one card at a time. Read the card, the brief it came from and the files it names before starting.
-- Work only inside the project folder. Create and change files with your file tools (write_file, edit_file), never through the shell (no echo/cat/tee redirection, no python or node scripts that write files, no touch): shell writes skip Tyslin's review and the Changes panel. The shell is for reading, running tests and builds.
+- Work only inside the team folder. Create and change files with your file tools (write_file, edit_file), never through the shell (no echo/cat/tee redirection, no python or node scripts that write files, no touch): shell writes skip Tyslin's review and the Changes panel. The shell is for reading, running tests and builds.
 - Never read-and-rewrite or move anything in boards/ (the board files): Tyslin moves your card when your run ends, and only the Lead edits the board.
 - When done, put a short result on the card: what you changed, where it is, what you could not do and why.
 - If the card is unclear or you need something you do not have, write the question on the card and stop. Do not guess.
@@ -165,8 +165,8 @@ export function memberInstructions(t: AgencyTemplate, m: AgencyMember, agencyPro
   const parts = [
     m.instructions.trim(),
     m.lead ? LEAD_RULES : WORKER_RULES,
-    `Your agency: ${t.name}. Goal: ${t.goal}\nThe rest of the roster: ${roster}.`,
-    agencyPrompt.trim() ? `Agency prompt (the boss's standing instructions for everyone here):\n${agencyPrompt.trim()}` : '',
+    `Your team: ${t.name}. Goal: ${t.goal}\nThe rest of the roster: ${roster}.`,
+    agencyPrompt.trim() ? `Team prompt (the boss's standing instructions for everyone here):\n${agencyPrompt.trim()}` : '',
     // Appended after the template's own text, which stays as written (10 Nov 2026).
     pageInstructions(t.pages ?? [])
   ]

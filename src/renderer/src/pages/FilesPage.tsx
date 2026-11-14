@@ -386,7 +386,7 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {agencies.length > 1 ? (
           <Select value={view.agency.id} onValueChange={(v) => void switchRef.current(v)}>
-            <SelectTrigger className="h-8 w-auto max-w-[220px] min-w-0 flex-none gap-1.5 border-0 bg-transparent px-1.5 text-[15px] font-medium shadow-none" aria-label="Agency folder"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-auto max-w-[220px] min-w-0 flex-none gap-1.5 border-0 bg-transparent px-1.5 text-[15px] font-medium shadow-none" aria-label="Team folder"><SelectValue /></SelectTrigger>
             <SelectContent>{agencies.map((v) => <SelectItem key={v.agency.id} value={v.agency.id}>{v.agency.name}</SelectItem>)}</SelectContent>
           </Select>
         ) : <span className="flex-none truncate text-[15px] font-medium">{view.agency.name}</span>}
@@ -408,7 +408,7 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
   if (!view || !projectId) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-8">
-        <Empty className="max-w-[520px]"><EmptyHeader><EmptyMedia><Pose pose={6} height={140} /></EmptyMedia><EmptyTitle>No agency yet</EmptyTitle><EmptyDescription>Files live in each agency's folder. Create one and its folder shows here.</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={onNewAgency}>Create an agency</Button></EmptyContent></Empty>
+        <Empty className="max-w-[520px]"><EmptyHeader><EmptyMedia><Pose pose={6} height={140} /></EmptyMedia><EmptyTitle>No team yet</EmptyTitle><EmptyDescription>Files live in each team's folder. Create one and its folder shows here.</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={onNewAgency}>Create a team</Button></EmptyContent></Empty>
       </div>
     )
   }
@@ -467,7 +467,7 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
         )}
         {t?.readOnly === 'memory' && (
           <Bar>
-            <span className="min-w-0 flex-1">Memory notes are read-only here. Edit them on the agency's Memory tab.</span>
+            <span className="min-w-0 flex-1">Memory notes are read-only here. Edit them on the team's Memory tab.</span>
             <Button variant="outline" size="sm" onClick={() => onOpenMemory(view.agency.id)}>Open Memory</Button>
           </Bar>
         )}
@@ -520,7 +520,7 @@ export function FilesPage({ agencies, agencyId, onAgency, initialDir, onNewTaskW
                 <EmptyHeader>
                   <EmptyMedia><Pose pose={6} height={140} /></EmptyMedia>
                   <EmptyTitle>Pick a file in Explorer</EmptyTitle>
-                  <EmptyDescription>Open a file to edit it, see its git changes or preview it. Files your agency makes show up in the tree as they land.</EmptyDescription>
+                  <EmptyDescription>Open a file to edit it, see its git changes or preview it. Files your team makes show up in the tree as they land.</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             </div>

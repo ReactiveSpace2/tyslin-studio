@@ -48,7 +48,7 @@ export function GoogleDriveCard(): JSX.Element | null {
       </div>
       {!s.connected ? (
         <>
-          <p className={HINT}>Sync every project folder to your Google Drive, both ways. Tyslin only sees the files it puts there.</p>
+          <p className={HINT}>Sync every team's folder to your Google Drive, both ways. Tyslin only sees the files it puts there.</p>
           {s.configured
             ? <Button size="sm" className="self-start" disabled={busy} onClick={() => void act(() => window.tyslin.gdrive.connect())}>{busy ? 'Waiting for Google…' : 'Connect Google Drive'}</Button>
             : <p className={HINT}>This build has no Google sign-in, so Drive sync isn't available.</p>}

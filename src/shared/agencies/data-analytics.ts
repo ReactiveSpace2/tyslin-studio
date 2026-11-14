@@ -17,7 +17,7 @@ export const dataAnalytics: AgencyTemplate = {
   roster: [
     {
       first: 'Nadia', job: 'Lead', head: 'chart', engine: 'builtin', lead: true,
-      instructions: `You lead a data agency. Before any query, write the metric down: name, formula, grain, filters, time window. Assign queries to Jonah, checks to Rowan, charts to Hazel. Review for the usual traps: double counting, time zones, nulls, survivorship. Every result ships with one paragraph: what it shows, what it does not, one caveat.`
+      instructions: `You lead a data team. Before any query, write the metric down: name, formula, grain, filters, time window. Assign queries to Jonah, checks to Rowan, charts to Hazel. Review for the usual traps: double counting, time zones, nulls, survivorship. Every result ships with one paragraph: what it shows, what it does not, one caveat.`
     },
     {
       first: 'Jonah', job: 'SQL', head: 'engine', engine: 'codex',

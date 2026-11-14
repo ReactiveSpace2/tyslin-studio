@@ -74,7 +74,7 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
       const tested = await window.tyslin.integrations.test(saved.id)
       if (tested.lastTest && !tested.lastTest.ok) {
         // Keep the connector (it can be fixed on the Connectors tab) but say plainly that it didn't answer.
-        setError(`${tool.title} was added but the test failed: ${tested.lastTest.error ?? 'no answer'}. You can fix it on the agency's Connectors tab.`)
+        setError(`${tool.title} was added but the test failed: ${tested.lastTest.error ?? 'no answer'}. You can fix it on the team's Connectors tab.`)
         setDone(tested); onConnected(tested); return
       }
       setDone(tested); onConnected(tested)
@@ -121,7 +121,7 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
         <span className="flex flex-wrap items-center gap-2">
           <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={!!busy} onClick={() => void connect()}>{busy === 'saving' ? 'Connecting…' : busy === 'testing' ? 'Testing…' : 'Connect and test'}</Button>
           <Button variant="ghost" size="sm" className="min-h-9" disabled={!!busy} onClick={onCancel}>Cancel</Button>
-          <span className={`ml-auto ${HINT}`}>Also on the agency's Connectors tab</span>
+          <span className={`ml-auto ${HINT}`}>Also on the team's Connectors tab</span>
         </span>
       </Card>
     </div>

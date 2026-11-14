@@ -41,7 +41,7 @@ export function LeadModelField({ idPrefix, value, onChange }: { idPrefix: string
         <SelectTrigger id={`${idPrefix}-lead-model`} className="w-full bg-card"><SelectValue /></SelectTrigger>
         <SelectContent position="popper">
           <SelectItem value="default">The default model{dm ? ` (${modelLabel(dm)})` : ''}</SelectItem>
-          <SelectItem value="own">Another model for this agency</SelectItem>
+          <SelectItem value="own">Another model for this team</SelectItem>
         </SelectContent>
       </Select>
       {value

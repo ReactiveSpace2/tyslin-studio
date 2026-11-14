@@ -60,15 +60,15 @@ export function listProjectFiles(folder: string, limit = 200): string[] {
 export const FILE_TOOLS: ToolDef[] = [
   {
     name: 'list_files',
-    description: 'List files in the project folder (relative paths).',
+    description: 'List files in the team folder (relative paths).',
     parameters: { type: 'object', properties: {}, additionalProperties: false }
   },
   {
     name: 'read_file',
-    description: 'Read a text file from the project folder.',
+    description: 'Read a text file from the team folder.',
     parameters: {
       type: 'object',
-      properties: { path: { type: 'string', description: 'Path relative to the project folder' } },
+      properties: { path: { type: 'string', description: 'Path relative to the team folder' } },
       required: ['path']
     }
   },
@@ -78,7 +78,7 @@ export const FILE_TOOLS: ToolDef[] = [
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Path relative to the project folder' },
+        path: { type: 'string', description: 'Path relative to the team folder' },
         content: { type: 'string', description: 'The full new file contents' }
       },
       required: ['path', 'content']
@@ -90,7 +90,7 @@ export const FILE_TOOLS: ToolDef[] = [
     parameters: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'Path relative to the project folder' },
+        path: { type: 'string', description: 'Path relative to the team folder' },
         old_string: { type: 'string', description: 'Exact text to replace' },
         new_string: { type: 'string', description: 'Replacement text' }
       },
@@ -107,7 +107,7 @@ function safePath(folder: string, p: unknown): { abs: string; rel: string } {
   if (typeof p !== 'string' || !p.trim()) throw new Error('path is required')
   const abs = resolve(folder, p)
   const rel = relative(folder, abs)
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error(`${p} is outside the project folder`)
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error(`${p} is outside the team folder`)
   if (rel.split(sep).includes('.git')) throw new Error('The .git folder is off limits')
   // A symlink inside the folder (or a dangling one) could still lead outside it: check where the path really goes.
   let probe = abs
@@ -118,8 +118,8 @@ function safePath(folder: string, p: unknown): { abs: string; rel: string } {
     probe = up
   }
   let real: string
-  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error(`${p} is outside the project folder`) }
-  if (real.startsWith('..') || isAbsolute(real)) throw new Error(`${p} is outside the project folder`)
+  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error(`${p} is outside the team folder`) }
+  if (real.startsWith('..') || isAbsolute(real)) throw new Error(`${p} is outside the team folder`)
   return { abs, rel }
 }
 
@@ -175,7 +175,7 @@ export async function runTools(calls: ToolCall[], ctx: ToolContext): Promise<Too
   for (const call of calls) {
     try {
       if (BOARD_TOOL_NAMES.has(call.name)) {
-        if (!ctx.agency) throw new Error('Only an agency Lead can use the board tools.')
+        if (!ctx.agency) throw new Error('Only a team Lead can use the board tools.')
         results.push(runBoardTool(call, ctx.agent, ctx.agency).catch((err) => ({ id: call.id, content: err instanceof Error ? err.message : String(err), isError: true })))
       } else if (call.name === 'list_files') {
         results.push({ id: call.id, content: listProjectFiles(folder).join('\n') || '(empty)', isError: false })
@@ -241,7 +241,7 @@ export function acpFileAccess(ctx: ToolContext): {
     write: async (absPath, content, toolCallId) => {
       const { abs, rel } = safePath(folder, absPath)
       // The board is main's to write (cards.ts, boardTools.ts); an agent rewriting it races those writes (10 Nov 2026).
-      if (/^boards[\\/]/.test(rel)) throw new Error(`${rel} is the agency's board; Tyslin moves cards itself and only the Lead changes the board through its board tools`)
+      if (/^boards[\\/]/.test(rel)) throw new Error(`${rel} is the team's board; Tyslin moves cards itself and only the Lead changes the board through its board tools`)
       if (ctx.agent.writeMode === 'direct') {
         writeText(abs, content)
         return
@@ -273,7 +273,7 @@ export function resolveChange(changeId: string, acceptedHunks: number[], note: s
   if (change.status !== 'pending') throw new Error('This change has already been reviewed')
   const session = db.getSession(change.sessionId)
   const project = session?.projectId ? db.getProject(session.projectId) : null
-  if (!project?.folder) throw new Error('The project folder is no longer linked')
+  if (!project?.folder) throw new Error('The team folder is no longer linked')
 
   const original = change.original ?? ''
   const { hunkCount } = diffHunks(original, change.proposed)

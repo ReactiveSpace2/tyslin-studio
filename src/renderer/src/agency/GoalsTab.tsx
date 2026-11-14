@@ -39,11 +39,11 @@ export function GoalsTab({ view, onChanged, onChannel, onBudget }: { view: Agenc
           <Card className="gap-2 px-5 py-[18px]">
             <Label htmlFor="ag-goal" className="text-sm font-semibold">Goal</Label>
             <span className={HINT}>One paragraph. {who} reads it before every plan; workers see it on every card.</span>
-            <Textarea id="ag-goal" rows={3} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="What this agency exists to do." />
+            <Textarea id="ag-goal" rows={3} value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="What this team exists to do." />
           </Card>
           <Card className="gap-2 px-5 py-[18px]">
             <Label htmlFor="ag-rules" className="text-sm font-semibold">Rules for every agent</Label>
-            <span className={HINT}>The agency's shared instructions, on top of each agent's own. Changes apply to new chats and new agents.</span>
+            <span className={HINT}>The team's shared instructions, on top of each agent's own. Changes apply to new chats and new agents.</span>
             <Textarea id="ag-rules" rows={7} className="resize-y" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder={'- Use pnpm, not npm.\n- Build UI only with the components in components/ui.\n- Ask before adding a dependency.'} />
           </Card>
         </div>
@@ -68,7 +68,7 @@ export function GoalsTab({ view, onChanged, onChannel, onBudget }: { view: Agenc
             </div>
             <span className={HINT}>{autoRun ? `${who} starts planned cards on its own.` : `Each plan waits for your OK in the task.`} Where messages go: {agency.channel.kind === 'none' ? 'the app only' : agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'} (<button type="button" className="text-green underline underline-offset-2" onClick={onChannel}>Channel</button>).</span>
           </Card>
-          <span className={HINT}>{who}'s own instructions are on its page under Team. Memory is what the agents learn as they go, under Memory.</span>
+          <span className={HINT}>{who}'s own instructions are on its page under Members. Memory is what the agents learn as they go, under Memory.</span>
         </div>
       </div>
       <div className="flex items-center gap-3">

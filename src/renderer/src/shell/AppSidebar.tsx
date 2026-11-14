@@ -66,7 +66,7 @@ export function AppSidebar({ route, mac, agencies, agents, sessions, runningIds,
   const main: { name: string; icon: IconName; on: boolean; go: () => void; collapsedOnly?: boolean }[] = [
     { name: 'New task', icon: 'plus', on: route.name === 'home', go: newTask },
     { name: 'Search', icon: 'search', on: false, go: onSearch, collapsedOnly: true },
-    { name: 'Agencies', icon: 'agency', on: route.name === 'agencies' || route.name === 'agency' || route.name === 'agent', go: () => onNavigate({ name: 'agencies' }) },
+    { name: 'Teams', icon: 'agency', on: route.name === 'agencies' || route.name === 'agency' || route.name === 'agent', go: () => onNavigate({ name: 'agencies' }) },
     { name: 'Scheduled', icon: 'clock', on: route.name === 'scheduled', go: () => onNavigate({ name: 'scheduled' }) },
     { name: 'Files', icon: 'folder', on: route.name === 'files', go: () => onNavigate({ name: 'files' }) }
   ]

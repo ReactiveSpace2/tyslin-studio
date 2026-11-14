@@ -50,17 +50,17 @@ export function pageInstructions(pages: AgencyPageSpec[]): string {
   const lines = pages.flatMap((p) => {
     if (p.kind === 'table') {
       const cols = p.columns?.length ? p.columns.map((c) => JSON.stringify(c)).join(', ') : '"name", ...'
-      return [`- ${pageFile(p)} (${p.about}), shown on the agency's "${p.title}" page: { "columns": [${cols}], "rows": [ { ${p.columns?.[0] ? JSON.stringify(p.columns[0]) : '"name"'}: "...", ... } ] }. One row per item; keep the columns as listed.`]
+      return [`- ${pageFile(p)} (${p.about}), shown on the team's "${p.title}" page: { "columns": [${cols}], "rows": [ { ${p.columns?.[0] ? JSON.stringify(p.columns[0]) : '"name"'}: "...", ... } ] }. One row per item; keep the columns as listed.`]
     }
     if (p.kind === 'calendar') {
-      return [`- ${pageFile(p)} (${p.about}), shown on the agency's "${p.title}" page: { "items": [ { "date": "YYYY-MM-DD", "channel": "...", "title": "...", "state": "draft" } ] }. state is one of draft, approved, scheduled, posted. One item per post.`]
+      return [`- ${pageFile(p)} (${p.about}), shown on the team's "${p.title}" page: { "items": [ { "date": "YYYY-MM-DD", "channel": "...", "title": "...", "state": "draft" } ] }. state is one of draft, approved, scheduled, posted. One item per post.`]
     }
     return []
   })
   if (!lines.length) return ''
   return [
-    '## Agency pages',
-    'Keep these files in the agency folder up to date whenever your work changes what they hold. Write them with your file tools (write_file, edit_file), never with shell redirection or scripts, and keep them valid JSON:',
+    '## Team pages',
+    'Keep these files in the team folder up to date whenever your work changes what they hold. Write them with your file tools (write_file, edit_file), never with shell redirection or scripts, and keep them valid JSON:',
     ...lines
   ].join('\n')
 }

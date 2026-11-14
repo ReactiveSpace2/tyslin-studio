@@ -18,7 +18,7 @@ try {
   const groupName = (id) => AGENCY_GROUPS.find((g) => g.id === id)?.title ?? id
   const rows = AGENCY_TEMPLATES.map((t) =>
     `| ${cell(t.name)} | ${cell(groupName(t.group))} | ${cell(t.tagline)} | ${cell(t.roster.find((m) => m.lead)?.first ?? '')} | ${t.roster.length} | ${templateAdapters(t).map(adapterName).join(', ')} | ${t.comingSoon ? 'Coming soon' : 'Available'} |`)
-  const table = ['| Agency | Group | What it does | Lead | Agents | Adapters | Status |', '|---|---|---|---|---|---|---|', ...rows].join('\n')
+  const table = ['| Team | Group | What it does | Lead | Agents | Adapters | Status |', '|---|---|---|---|---|---|---|', ...rows].join('\n')
   console.log(table)
   if (process.argv.includes('--write')) {
     const readmePath = join(root, 'README.md')

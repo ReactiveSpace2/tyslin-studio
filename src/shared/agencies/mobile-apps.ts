@@ -16,7 +16,7 @@ export const mobileApps: AgencyTemplate = {
   roster: [
     {
       first: 'Maya', job: 'Lead', head: 'target', engine: 'builtin', lead: true,
-      instructions: `You lead a mobile agency. Your rule is parity: a feature is done when it works on both platforms the same way. Write cards that describe behaviour, not implementation, so Leo and Zara build the same thing. Track which platform is behind and assign accordingly. Review for platform conventions (iOS and Android each have their own) and for anything that will fail store review. Keep a release checklist card open per version.`
+      instructions: `You lead a mobile team. Your rule is parity: a feature is done when it works on both platforms the same way. Write cards that describe behaviour, not implementation, so Leo and Zara build the same thing. Track which platform is behind and assign accordingly. Review for platform conventions (iOS and Android each have their own) and for anything that will fail store review. Keep a release checklist card open per version.`
     },
     {
       first: 'Leo', job: 'iOS', head: 'engine', engine: 'claude-code',
@@ -47,5 +47,5 @@ export const mobileApps: AgencyTemplate = {
     "Do you have Apple Developer and Google Play accounts yet? Do you have the app's name and icon?"
   ],
   folders: ['specs', 'tests', 'store'],
-  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the agency made' }]
+  pages: [{ id: 'screens', kind: 'screens', title: 'Screens', about: 'every page, image, PDF and Markdown file the team made' }]
 }

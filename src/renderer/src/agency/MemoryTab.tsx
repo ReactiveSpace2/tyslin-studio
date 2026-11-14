@@ -84,7 +84,7 @@ export function MemoryTab({ view, agents, initial }: { view: AgencyView; agents:
             <button key={f.key} type="button" aria-current={on ? 'true' : undefined} onClick={() => void choose(f.key)}
               className={cn('flex min-h-11 w-full items-center gap-2.5 border-b border-border px-3 py-2 text-left text-sm outline-none last:border-b-0 focus-visible:ring-[3px] focus-visible:ring-ring/40', on ? 'bg-muted' : 'hover:bg-accent/60')}>
               {a ? <Avatar shape={a.shape} tone={a.tone} head={a.head} size={22} /> : <span className="grid size-[22px] flex-none place-items-center rounded-md bg-lime text-on-lime"><Icon name="agency" size={13} /></span>}
-              <span className="min-w-0 flex-1 truncate">{f.key === 'agency' ? 'Whole agency' : f.title}</span>
+              <span className="min-w-0 flex-1 truncate">{f.key === 'agency' ? 'Whole team' : f.title}</span>
               <Badge variant={f.notes ? 'soft' : 'secondary'} className="h-5 font-mono text-[10.5px]">{f.notes ? plural(f.notes, 'note') : 'empty'}</Badge>
             </button>
           )

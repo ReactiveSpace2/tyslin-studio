@@ -37,10 +37,10 @@ export function registerPreviewScheme(): void {
 /** Resolves a request path inside the project folder, or throws. Same rule as studio.ts `inside`. */
 function fileFor(projectId: string, rel: string): string {
   const p = db.getProject(projectId)
-  if (!p?.folder) throw new Error('No such project')
+  if (!p?.folder) throw new Error('No such folder')
   const abs = resolve(p.folder, rel)
   const r = relative(p.folder, abs)
-  if (!r || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('Outside the project folder')
+  if (!r || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('Outside the team folder')
   return abs
 }
 

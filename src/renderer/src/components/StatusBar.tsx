@@ -48,7 +48,7 @@ interface Item {
 }
 
 const TOOL_STEP: Record<string, string> = {
-  list_files: 'Listing project files',
+  list_files: 'Listing the folder',
   read_file: 'Reading a file',
   write_file: 'Proposing a file change',
   edit_file: 'Proposing a file change'

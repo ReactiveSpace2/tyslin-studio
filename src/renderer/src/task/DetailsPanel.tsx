@@ -95,13 +95,13 @@ export function DetailsPanel({ view, agent, taskId, cards, channel, onOpenAgency
     <div className="flex flex-col gap-5 p-[18px]">
       {view && (
         <section className="flex flex-col gap-1">
-          <H>Agency</H>
+          <H>Team</H>
           <Row><span className="grid size-[18px] place-items-center rounded-[4px] bg-lime text-[10px] font-bold text-on-lime">{view.agency.name.slice(0, 1)}</span><span className="min-w-0 flex-1 truncate">{view.agency.name}</span><Button variant="link" size="sm" className="h-8 px-1 text-[13px]" onClick={onOpenAgency}>Open</Button></Row>
           <span className="truncate font-mono text-xs text-muted-foreground" title={view.project.folder ?? undefined}>{view.project.folder}</span>
         </section>
       )}
       <section className="flex flex-col gap-0.5">
-        <H>Team</H>
+        <H>Members</H>
         {team.map((a) => (
           <Row key={a.id}>
             <button type="button" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left outline-none hover:text-green focus-visible:ring-[3px] focus-visible:ring-ring/40" onClick={() => onOpenAgent(a)}>

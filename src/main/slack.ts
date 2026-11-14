@@ -81,7 +81,7 @@ function agentFor(channelId: string): Agent | null {
 
 async function onMessage(channelId: string, text: string): Promise<void> {
   const agent = agentFor(channelId)
-  if (!agent) { await slackPost(channelId, 'No agency Lead answers here yet. Create an agency in Tyslin Studio first.'); return }
+  if (!agent) { await slackPost(channelId, 'No team Lead answers here yet. Create a team in Tyslin Studio first.'); return }
   const sessionId = sessionFor(agent)
   let started: ReturnType<Deps['startRun']>
   try { started = deps!.startRun(sessionId, text) } catch (err) { await slackPost(channelId, err instanceof Error ? err.message : String(err)); return }
@@ -105,7 +105,7 @@ async function poll(signal: AbortSignal): Promise<void> {
         setLinks([...links(), { channelId: c.id, name: c.name }])
         db.setSetting(`slack:ts:${c.id}`, String(Date.now() / 1000))
         pendingCode = null
-        await slackPost(c.id, 'Linked to your Tyslin Studio. The agency Lead answers here.')
+        await slackPost(c.id, 'Linked to your Tyslin Studio. The team Lead answers here.')
         break
       }
     }

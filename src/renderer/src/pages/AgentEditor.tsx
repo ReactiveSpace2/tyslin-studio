@@ -100,7 +100,7 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
   return (
     <div className="flex w-full max-w-[1180px] flex-col gap-5 px-10 pt-6 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm text-muted-foreground"><button type="button" className="hover:text-foreground" onClick={onBack}>{view.agency.name}</button><span>/</span><button type="button" className="hover:text-foreground" onClick={onBack}>Team</button><span>/</span><strong className="text-foreground">{isNew ? 'New worker' : firstName(agent!.name)}</strong></span>
+        <span className="flex items-center gap-2 text-sm text-muted-foreground"><button type="button" className="hover:text-foreground" onClick={onBack}>{view.agency.name}</button><span>/</span><button type="button" className="hover:text-foreground" onClick={onBack}>Members</button><span>/</span><strong className="text-foreground">{isNew ? 'New worker' : firstName(agent!.name)}</strong></span>
         <span className="flex gap-2"><Button variant="ghost" onClick={onBack}>Cancel</Button><Button onClick={() => void save()} disabled={busy}>{busy ? 'Saving…' : isNew ? 'Create' : 'Save'}</Button></span>
       </div>
       {error && <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
@@ -116,14 +116,14 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
                   {HEADS.map(([id]) => {
                     const isTaken = taken.has(id)
                     return (
-                      <button key={id} type="button" role="radio" aria-checked={form.head === id} aria-label={`${id}${isTaken ? ' (taken in this agency)' : ''}`} disabled={isTaken} onClick={() => { set('head', id); setHeadOpen(false) }}
+                      <button key={id} type="button" role="radio" aria-checked={form.head === id} aria-label={`${id}${isTaken ? ' (taken in this team)' : ''}`} disabled={isTaken} onClick={() => { set('head', id); setHeadOpen(false) }}
                         className={cn('grid size-11 place-items-center rounded-lg border bg-card outline-none hover:border-border-strong focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:opacity-35', form.head === id ? 'border-foreground ring-1 ring-foreground' : 'border-border')}>
                         <Avatar shape={form.shape} tone={form.tone} head={id} size={34} />
                       </button>
                     )
                   })}
                 </div>
-                <span className={cn(HINT, 'mt-2 block')}>20 heads. Each one once per agency.</span>
+                <span className={cn(HINT, 'mt-2 block')}>20 heads. Each one once per team.</span>
               </PopoverContent>
             </Popover>
             <div className="grid flex-1 gap-3 sm:grid-cols-2">
@@ -131,7 +131,7 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
               <div className="flex flex-col gap-1.5"><Label htmlFor="ae-job">Job</Label><Input id="ae-job" value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Frontend" /></div>
             </div>
           </div>
-          <div className="flex flex-col gap-1.5"><Label htmlFor="ae-goal">Goal</Label><Input id="ae-goal" value={form.goal ?? ''} maxLength={300} onChange={(e) => set('goal', e.target.value)} placeholder="One line: what good work from this agent looks like." /><span className={HINT}>The agency's goal and rules (Agency → Goals) sit above this.</span></div>
+          <div className="flex flex-col gap-1.5"><Label htmlFor="ae-goal">Goal</Label><Input id="ae-goal" value={form.goal ?? ''} maxLength={300} onChange={(e) => set('goal', e.target.value)} placeholder="One line: what good work from this agent looks like." /><span className={HINT}>The team's goal and rules (Team → Goals) sit above this.</span></div>
           <div className="flex flex-col gap-1.5"><Label htmlFor="ae-inst">Instructions</Label><Textarea id="ae-inst" rows={10} className="resize-y" value={form.instructions} onChange={(e) => set('instructions', e.target.value)} placeholder="Written in plain words. The Lead adds the team and the task on top of this." /></div>
           <div className="flex flex-col gap-2">
             <span className="text-[13px] font-medium">Skills</span>
@@ -198,12 +198,12 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
               <span className="text-sm font-semibold">Connectors</span>
               {!agent && <span className={HINT}>Create the worker first, then switch connectors on.</span>}
               {agent && form.engine === 'builtin' && <span className={HINT}>Built-in-model agents can't use connectors yet.</span>}
-              {agent && form.engine !== 'builtin' && servers.length === 0 && <span className={HINT}>None in this organization. Add one under Agency → Connectors.</span>}
+              {agent && form.engine !== 'builtin' && servers.length === 0 && <span className={HINT}>None in this project. Add one under Team → Connectors.</span>}
               {agent && form.engine !== 'builtin' && servers.map((s) => <span key={s.id} className="flex min-h-9 items-center justify-between gap-3 text-sm"><span>{s.title || s.name}</span><Switch checked={s.agentIds.includes(agent.id)} aria-label={`${s.title || s.name}`} onCheckedChange={(v) => void toggleServer(s, v)} /></span>)}
             </div>
           </Card>
-          {agent && <Card className="gap-2 px-4 py-3.5"><span className="flex items-center justify-between"><strong className="text-sm font-semibold">Memory</strong><Button variant="link" size="sm" className="h-7 px-1" onClick={onMemory}>Open</Button></span><span className={HINT}>What {firstName(agent.name)} always remembers, in the agency's memory folder.</span></Card>}
-          {agent && !isLead && <Button variant="ghost" size="sm" className="self-start text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => setConfirm(true)}><Icon name="trash" size={12} /> Remove {firstName(agent.name)} from the agency</Button>}
+          {agent && <Card className="gap-2 px-4 py-3.5"><span className="flex items-center justify-between"><strong className="text-sm font-semibold">Memory</strong><Button variant="link" size="sm" className="h-7 px-1" onClick={onMemory}>Open</Button></span><span className={HINT}>What {firstName(agent.name)} always remembers, in the team's memory folder.</span></Card>}
+          {agent && !isLead && <Button variant="ghost" size="sm" className="self-start text-destructive hover:bg-destructive-soft hover:text-destructive" onClick={() => setConfirm(true)}><Icon name="trash" size={12} /> Remove {firstName(agent.name)} from the team</Button>}
         </div>
       </div>
       <AlertDialog open={confirm} onOpenChange={setConfirm}>

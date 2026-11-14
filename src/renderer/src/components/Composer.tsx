@@ -118,7 +118,7 @@ export function Composer({ agencies, agencyId, onAgency, onOpenAgency, footer, o
       <div className="flex flex-wrap items-center justify-end gap-0.5 px-1">
         {agencies.length > 1 && onAgency ? (
           <Select value={agencyId ?? ''} onValueChange={onAgency}>
-            <SelectTrigger size="sm" aria-label="Agency" className={cn(foot, 'w-auto min-w-0 border-0 bg-transparent shadow-none')}><SelectValue placeholder="Pick an agency" /></SelectTrigger>
+            <SelectTrigger size="sm" aria-label="Team" className={cn(foot, 'w-auto min-w-0 border-0 bg-transparent shadow-none')}><SelectValue placeholder="Pick a team" /></SelectTrigger>
             <SelectContent align="end">
               {agencies.map((v) => <SelectItem key={v.agency.id} value={v.agency.id}>{v.agency.name}{!v.lead ? ' · no Lead' : ''}</SelectItem>)}
             </SelectContent>
@@ -164,7 +164,7 @@ function ModeMenu({ agencyId, className, onChange }: { agencyId: string; classNa
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-[300px] rounded-xl p-1.5">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Commands in this agency</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Commands in this team</DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup value={mode} onValueChange={pick}>
           {(['ask', 'auto'] as const).map((m) => (

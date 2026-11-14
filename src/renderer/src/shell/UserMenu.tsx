@@ -54,7 +54,7 @@ export function UserMenu({ account, canSignOut, onSettings, onSignOut }: Props):
     <>
       <DropdownMenu open={open} onOpenChange={(o) => { setOpen(o); if (o) load() }}>
         <DropdownMenuTrigger asChild>
-          <SidebarMenuButton size="lg" className="no-drag data-[state=open]:bg-sidebar-accent" aria-label="Your menu: settings, organizations, sign out">
+          <SidebarMenuButton size="lg" className="no-drag data-[state=open]:bg-sidebar-accent" aria-label="Your menu: settings, projects, sign out">
             <span className="grid size-8 flex-none place-items-center rounded-lg text-xs font-bold text-on-lime" style={{ background: ORG_COLORS[current?.color ?? 'lime'].fill }}>{initial}</span>
             <span className="flex min-w-0 flex-1 flex-col leading-tight">
               <span className="truncate text-sm font-medium">{name}</span>
@@ -69,7 +69,7 @@ export function UserMenu({ account, canSignOut, onSettings, onSignOut }: Props):
             {account?.email && <span className="text-xs font-normal text-muted-foreground">{account.email}</span>}
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="mx-0.5" />
-          <DropdownMenuLabel className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground uppercase">Organization</DropdownMenuLabel>
+          <DropdownMenuLabel className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground uppercase">Project</DropdownMenuLabel>
           <DropdownMenuRadioGroup value={current?.id ?? ''} onValueChange={(id) => void switchOrg(id)}>
             {orgs.map((o) => (
               <DropdownMenuRadioItem key={o.id} value={o.id} className={cn(item, 'pl-2.5 [&>span:first-child]:hidden')}>
@@ -79,7 +79,7 @@ export function UserMenu({ account, canSignOut, onSettings, onSignOut }: Props):
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
-          <DropdownMenuItem className={item} onSelect={() => setNewOrg(true)}><Icon name="plus" size={14} /> New organization…</DropdownMenuItem>
+          <DropdownMenuItem className={item} onSelect={() => setNewOrg(true)}><Icon name="plus" size={14} /> New project…</DropdownMenuItem>
           {current && <DropdownMenuItem className={item} onSelect={() => setEditOrg(true)}><Icon name="art" size={14} /> Rename or recolour {current.name}</DropdownMenuItem>}
           <DropdownMenuSeparator className="mx-0.5" />
           <DropdownMenuItem className={item} onSelect={onSettings}><Icon name="settings" size={14} /> Settings</DropdownMenuItem>
@@ -125,7 +125,7 @@ function EditOrgDialog({ org, onClose }: { org: Organization; onClose: () => voi
         <form className="flex flex-col gap-4" onSubmit={(e) => { e.preventDefault(); void save() }}>
           <DialogHeader className="text-left">
             <DialogTitle>Rename or recolour</DialogTitle>
-            <DialogDescription className="sr-only">Change the organization's name or colour.</DialogDescription>
+            <DialogDescription className="sr-only">Change the project's name or colour.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="eo-name">Name</Label>

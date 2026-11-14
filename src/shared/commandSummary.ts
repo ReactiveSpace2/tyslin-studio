@@ -69,7 +69,7 @@ export function describeCommand(title: string): CommandSummary {
   if (/screenshot/i.test(cmd)) notes.push('Takes screenshots')
   if (/\b(curl|wget)\b|https?:\/\//.test(cmd)) notes.push('Reaches the web')
   const outside = [...new Set([...cmd.matchAll(/(?:^|[\s"'`=(])((?:\/tmp|\/var|\/etc|\/usr|\/home|\/Users|~)(?:\/[^\s"'`$)]*)?)/g)].map((m) => m[1].replace(/\/[^/]*\$?$/, '') || m[1]))].slice(0, 3)
-  if (outside.length) notes.push(`Uses paths outside the agency folder: ${outside.join(', ')}`)
+  if (outside.length) notes.push(`Uses paths outside the team folder: ${outside.join(', ')}`)
   if (/\bsudo\b/.test(outer)) notes.push('Asks for administrator rights')
   if (/\brm\s+-[a-zA-Z]*r/.test(outer)) notes.push('Deletes folders')
   return { summary, notes }

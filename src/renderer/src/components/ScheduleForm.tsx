@@ -57,9 +57,9 @@ export function ScheduleForm({ agencies, task, agencyId, onSaved, onCancel }: Pr
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sf-agency">Agency</Label>
+            <Label htmlFor="sf-agency">Team</Label>
             <Select value={agency} onValueChange={(v) => { setAgency(v); const nv = agencies.find((x) => x.agency.id === v); setAgentId(nv?.lead?.id ?? '') }}>
-              <SelectTrigger id="sf-agency" className="bg-card"><SelectValue placeholder="Pick an agency" /></SelectTrigger>
+              <SelectTrigger id="sf-agency" className="bg-card"><SelectValue placeholder="Pick a team" /></SelectTrigger>
               <SelectContent position="popper">{agencies.map((v) => <SelectItem key={v.agency.id} value={v.agency.id}>{v.agency.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>

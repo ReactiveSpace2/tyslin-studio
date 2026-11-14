@@ -15,9 +15,9 @@ const MAX_BYTES = 2 * 1024 * 1024
 
 function agencyFolder(agencyId: string): { folder: string; pages: AgencyPageSpec[] } {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   const folder = db.getProject(agency.projectId)?.folder
-  if (!folder) throw new Error('This agency has no folder.')
+  if (!folder) throw new Error('This team has no folder.')
   return { folder, pages: templatePages(agency.templateId) }
 }
 
@@ -25,10 +25,10 @@ function agencyFolder(agencyId: string): { folder: string; pages: AgencyPageSpec
 function pageFile(folder: string, file: string): string {
   const abs = resolve(folder, file)
   const rel = relative(folder, abs)
-  if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('Outside the agency folder')
+  if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('Outside the team folder')
   if (existsSync(abs)) {
     const real = relative(realpathSync(folder), realpathSync(abs))
-    if (real.startsWith('..') || isAbsolute(real)) throw new Error('Outside the agency folder')
+    if (real.startsWith('..') || isAbsolute(real)) throw new Error('Outside the team folder')
   }
   return abs
 }
@@ -73,7 +73,7 @@ function calendar(raw: unknown): CalendarData {
 export function readPage(agencyId: string, pageId: string): PageData {
   const { folder, pages } = agencyFolder(agencyId)
   const spec = pages.find((p) => p.id === pageId)
-  if (!spec) return { error: 'This agency has no such page.' }
+  if (!spec) return { error: 'This team has no such page.' }
   if (spec.kind !== 'table' && spec.kind !== 'calendar') return { error: 'This page has no data file.' }
   const file = specFile(spec)
   try {

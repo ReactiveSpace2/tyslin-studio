@@ -144,7 +144,7 @@ function ConnectorDialog({ view, team, onClose, onSaved }: { view: AgencyView; t
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="flex max-h-[calc(100%-48px)] w-[680px] max-w-[calc(100%-32px)] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-[calc(100%-32px)]">
-        <DialogHeader className="px-6 pt-6 pb-3 text-left"><DialogTitle className="text-xl">Add a connector</DialogTitle><DialogDescription className="sr-only">Connect an MCP server for this agency's agents.</DialogDescription>
+        <DialogHeader className="px-6 pt-6 pb-3 text-left"><DialogTitle className="text-xl">Add a connector</DialogTitle><DialogDescription className="sr-only">Connect an MCP server for this team's agents.</DialogDescription>
           <TabsList aria-label="Where from" className="mt-2 self-start"><TabsTrigger active={source === 'suggested'} onClick={() => setSource('suggested')}>Suggested</TabsTrigger><TabsTrigger active={source === 'registry'} onClick={() => setSource('registry')}>Search the registry</TabsTrigger><TabsTrigger active={source === 'own'} onClick={() => setSource('own')}>Your own server</TabsTrigger></TabsList>
         </DialogHeader>
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => { e.preventDefault(); void save() }}>

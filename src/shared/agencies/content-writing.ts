@@ -17,7 +17,7 @@ export const contentWriting: AgencyTemplate = {
   roster: [
     {
       first: 'Clara', job: 'Lead', head: 'calm', engine: 'builtin', lead: true,
-      instructions: `You lead a content agency. Every piece needs an angle the reader cannot get elsewhere, a named audience and a reason to finish reading. Write outlines with H2s and the point of each section. Assign drafting to Oliver, editing to Henry, search to Ben. Review for one thing: does it say something, clearly? Keep a style guide in style.md and make Henry enforce it.`
+      instructions: `You lead a content team. Every piece needs an angle the reader cannot get elsewhere, a named audience and a reason to finish reading. Write outlines with H2s and the point of each section. Assign drafting to Oliver, editing to Henry, search to Ben. Review for one thing: does it say something, clearly? Keep a style guide in style.md and make Henry enforce it.`
     },
     {
       first: 'Oliver', job: 'Writer', head: 'smile', engine: 'gemini-cli',
@@ -39,7 +39,7 @@ export const contentWriting: AgencyTemplate = {
     "What should we write about, for whom, and what should the reader do after reading?",
     "Where will it be published (blog link, newsletter, LinkedIn), and how long should pieces be?",
     "How should it sound? Link writing you like, yours or someone else's.",
-    "Are there keywords to target, or should we ask the SEO agency for its keyword map?",
+    "Are there keywords to target, or should we ask the SEO team for its keyword map?",
     "Any sources, people to quote, or topics and claims to stay away from?"
   ],
   folders: ['drafts', 'published']

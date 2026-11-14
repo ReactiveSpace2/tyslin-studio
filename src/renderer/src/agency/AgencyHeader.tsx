@@ -39,7 +39,7 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Agencies">
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Teams">
         {agencies.map((v) => {
           const on = v.agency.id === agency.id
           const s = v.lead ? statuses.get(v.lead.id) : undefined
@@ -51,7 +51,7 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
             </button>
           )
         })}
-        <Button variant="outline" className="h-9 rounded-full border-dashed text-muted-foreground" onClick={onNewAgency}><Icon name="plus" size={13} /> New agency</Button>
+        <Button variant="outline" className="h-9 rounded-full border-dashed text-muted-foreground" onClick={onNewAgency}><Icon name="plus" size={13} /> New team</Button>
       </div>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
@@ -74,20 +74,20 @@ export function AgencyHeader({ view, agencies, onPick, onNewAgency, onNewTask, o
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setEditing(true)}><Icon name="settings" size={14} /> Edit agency</Button>
+          <Button variant="outline" onClick={() => setEditing(true)}><Icon name="settings" size={14} /> Edit team</Button>
           <Button onClick={onNewTask} disabled={!lead || agency.paused}>New task here</Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="size-11" aria-label={`More for ${agency.name}`}><Icon name="more" size={16} /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[220px] rounded-xl p-1.5 shadow-lg">
-              <DropdownMenuItem className={menuItem} onSelect={() => setEditing(true)}><Icon name="settings" size={14} /> Edit agency</DropdownMenuItem>
+              <DropdownMenuItem className={menuItem} onSelect={() => setEditing(true)}><Icon name="settings" size={14} /> Edit team</DropdownMenuItem>
               <DropdownMenuItem className={menuItem} onSelect={() => void run(() => window.tyslin.agencies.update(agency.id, { paused: !agency.paused }))}>
-                <Icon name={agency.paused ? 'play' : 'pause'} size={14} /> {agency.paused ? 'Resume agency' : 'Pause agency'}
+                <Icon name={agency.paused ? 'play' : 'pause'} size={14} /> {agency.paused ? 'Resume team' : 'Pause team'}
               </DropdownMenuItem>
               <DropdownMenuItem className={menuItem} onSelect={() => void window.tyslin.drive.reveal(project.id, '')}><Icon name="folder" size={14} /> Open the folder</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className={cn(menuItem, 'text-destructive focus:text-destructive')} onSelect={() => setConfirm(true)}><Icon name="trash" size={14} /> Delete agency…</DropdownMenuItem>
+              <DropdownMenuItem className={cn(menuItem, 'text-destructive focus:text-destructive')} onSelect={() => setConfirm(true)}><Icon name="trash" size={14} /> Delete team…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -114,7 +114,7 @@ function DeleteDialog({ open, onOpenChange, view, members, onDelete }: { open: b
         <div className="flex flex-col gap-1.5"><Label htmlFor="ag-del">Type the name to confirm</Label><Input id="ag-del" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={view.agency.name} autoFocus /></div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={!ok} onClick={() => void onDelete()}>Delete agency</AlertDialogAction>
+          <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={!ok} onClick={() => void onDelete()}>Delete team</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

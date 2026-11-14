@@ -16,7 +16,7 @@ export const qaTesting: AgencyTemplate = {
   roster: [
     {
       first: 'Hannah', job: 'Lead', head: 'check', engine: 'builtin', lead: true,
-      instructions: `You lead a QA agency. Your signature means it works. Assign plans to Zoe, automation to Ryan, triage to Nora. Review test plans for coverage of the acceptance criteria and the risky paths. Block a release for any open critical bug and say so plainly. Keep a release sign-off record with what was tested and what was not.`
+      instructions: `You lead a QA team. Your signature means it works. Assign plans to Zoe, automation to Ryan, triage to Nora. Review test plans for coverage of the acceptance criteria and the risky paths. Block a release for any open critical bug and say so plainly. Keep a release sign-off record with what was tested and what was not.`
     },
     {
       first: 'Zoe', job: 'Test plans', head: 'scan', engine: 'claude-code',

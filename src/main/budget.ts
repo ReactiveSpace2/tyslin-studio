@@ -19,7 +19,7 @@ const usd = (n: number): string => `$${n.toFixed(2)}`
 
 /** The reason a card can't start at the cap, for runCard's error and the card log. */
 export const capMessage = (a: Agency): string =>
-  `${a.name} has reached its monthly cap (${usd(a.spent)} of ${usd(a.budget ?? 0)}). Raise it on the agency's Budget tab, or wait until ${resetDay(a)}.`
+  `${a.name} has reached its monthly cap (${usd(a.spent)} of ${usd(a.budget ?? 0)}). Raise it on the team's Budget tab, or wait until ${resetDay(a)}.`
 
 /** After a run's ledger row: ask the boss once per month when the agency has reached its cap. */
 export async function afterRunCost(agencyId: string | null): Promise<void> {
@@ -43,7 +43,7 @@ export function setBudgetResume(fn: (agencyId: string) => void): void { resume =
  */
 export function answerBudget(m: ChannelMessage, answer: string): ChannelMessage {
   const a = db.getAgency(m.agencyId)
-  if (!a) throw new Error('That agency no longer exists.')
+  if (!a) throw new Error('That team no longer exists.')
   const raise = /\b(raise|increase|set|up|cap)\b[^0-9]*\$?\s*(\d+(?:\.\d+)?)/i.exec(answer) ?? /^\s*\$?\s*(\d+(?:\.\d+)?)\s*$/.exec(answer)
   const amount = raise ? Number(raise[raise.length - 1]) : NaN
   let reply: string

@@ -27,10 +27,10 @@ export function AgenciesPage({ agencies, runningByAgency, needsYouByAgency, onOp
     <div className="flex flex-col gap-6 px-10 pt-7 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-6">
         <div className="flex flex-col gap-2">
-          <h1 className="text-[32px] font-semibold tracking-tight">Your agencies</h1>
-          <p className="text-[15px] font-medium text-green">Every agent you run. One studio.</p>
-          <span className="font-mono text-xs text-muted-foreground">{plural(agencies.length, 'agency', 'agencies')}{Object.values(runningByAgency).reduce((a, b) => a + b, 0) ? ` · ${plural(Object.values(runningByAgency).reduce((a, b) => a + b, 0), 'task')} running` : ''}</span>
-          <Button className="mt-1 self-start" onClick={() => onNew()}><Icon name="plus" size={13} /> New agency</Button>
+          <h1 className="text-[32px] font-semibold tracking-tight">Your teams</h1>
+          <p className="text-[15px] font-medium text-green">The Agent management studio.</p>
+          <span className="font-mono text-xs text-muted-foreground">{plural(agencies.length, 'team', 'teams')}{Object.values(runningByAgency).reduce((a, b) => a + b, 0) ? ` · ${plural(Object.values(runningByAgency).reduce((a, b) => a + b, 0), 'task')} running` : ''}</span>
+          <Button className="mt-1 self-start" onClick={() => onNew()}><Icon name="plus" size={13} /> New team</Button>
         </div>
         <div className="relative hidden h-[200px] w-[360px] items-end justify-center lg:flex" aria-hidden="true">
           <span className="absolute right-8 bottom-0 size-[200px] rounded-full bg-lime-soft" />

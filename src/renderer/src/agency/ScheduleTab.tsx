@@ -34,7 +34,7 @@ export function ScheduleList({ agencies, only, onOpenTask }: { agencies: AgencyV
       {form && <ScheduleForm agencies={agencies} task={form.task} agencyId={only?.agency.id ?? null} onSaved={() => { setForm(null); load() }} onCancel={() => setForm(null)} />}
       <Card className="gap-0 overflow-hidden py-0">
         {tasks === null && <span className="px-4 py-3 text-[13px] text-muted-foreground">Loading…</span>}
-        {tasks !== null && rows.length === 0 && <span className="px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled{only ? ` for ${only.agency.name}` : ''}. Agencies made from a template get the Lead's weekly digest.</span>}
+        {tasks !== null && rows.length === 0 && <span className="px-4 py-4 text-[13px] text-muted-foreground">Nothing scheduled{only ? ` for ${only.agency.name}` : ''}. Teams made from a template get the Lead's weekly digest.</span>}
         {rows.map(({ t, who }) => (
           <div key={t.id} className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3 last:border-b-0">
             <Avatar shape={who!.a.shape} tone={who!.a.tone} head={who!.a.head} size={30} />

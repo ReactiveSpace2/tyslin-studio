@@ -126,7 +126,7 @@ export function PreviewPanel({ view, agent, path, onPath, onSend, expanded, onEx
           <Input id="preview-note" className="h-9 min-w-[140px] flex-1 text-[13px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="The button is too far from the field on phone" disabled={sending} />
           <Button type="submit" size="sm" className="h-9 flex-none" disabled={sending}>{sending ? 'Sending…' : 'Send with screenshot'}</Button>
         </div>
-        <span className="text-[11px] leading-snug text-muted-foreground">Shown from the agency folder in a locked-down view: no network, only files inside {view.agency.name}'s folder. The screenshot goes into this task as an image.</span>
+        <span className="text-[11px] leading-snug text-muted-foreground">Shown from the team's folder in a locked-down view: no network, only files inside {view.agency.name}'s folder. The screenshot goes into this task as an image.</span>
       </form>
     </div>
   )

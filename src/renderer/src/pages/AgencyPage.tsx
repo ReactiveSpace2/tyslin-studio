@@ -14,7 +14,7 @@ import { TeamTab } from '../agency/TeamTab'
 import { AgencyPageView, shownPages } from '../agency/pages'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Team'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule'], ['budget', 'Budget']]
+const TABS: [AgencyTab, string][] = [['goals', 'Goals'], ['team', 'Members'], ['skills', 'Skills'], ['connectors', 'Connectors'], ['channel', 'Channel'], ['memory', 'Memory'], ['schedule', 'Schedule'], ['budget', 'Budget']]
 
 interface Props {
   view: AgencyView
@@ -44,7 +44,7 @@ export function AgencyPage({ view, agencies, agents, tab, you, focus, onTab, onP
   return (
     <div className={`flex w-full flex-col gap-5 px-10 pt-6 pb-12 ${tab === 'board' ? '' : 'max-w-[1180px]'}`}>{/* the board uses the whole width (owner, 12 Nov 2026) */}
       <AgencyHeader view={view} agencies={agencies} onPick={onPick} onNewAgency={onNewAgency} onNewTask={onNewTask} onChanged={onChanged} onDeleted={onDeleted} />
-      <TabsList aria-label="Agency" className="h-auto flex-wrap self-start">
+      <TabsList aria-label="Team" className="h-auto flex-wrap self-start">
         {tabs.map(([id, label]) => <TabsTrigger key={id} active={tab === id} onClick={() => onTab(id)} className="h-9 px-3">{label}</TabsTrigger>)}
       </TabsList>
       {tab === 'goals' && <GoalsTab key={view.agency.updatedAt} view={view} onChanged={onChanged} onChannel={() => onTab('channel')} onBudget={() => onTab('budget')} />}

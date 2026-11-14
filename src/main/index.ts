@@ -381,7 +381,7 @@ function createWindow(): void {
     height: 880,
     minWidth: 900,
     minHeight: 600,
-    title: 'Tyslin Studio — run your own AI agency',
+    title: 'Tyslin Studio — AI agent teams',
     backgroundColor: nativeTheme.shouldUseDarkColors ? BACKGROUND.dark : BACKGROUND.light,
     icon: join(__dirname, '../../resources/icon.png'),
     titleBarStyle: 'hidden',
@@ -486,7 +486,7 @@ function notifyBoss(m: ChannelMessage): void {
   const lead = db.getAgent(m.agentId)
   const who = lead?.name ?? 'Your Lead'
   const n = new Notification({
-    title: `${who} · ${agency?.name ?? 'Agency'} ${NOTIFY_VERB[m.kind]}`,
+    title: `${who} · ${agency?.name ?? 'Team'} ${NOTIFY_VERB[m.kind]}`,
     body: m.text.length > 240 ? `${m.text.slice(0, 240)}…` : m.text,
     hasReply: m.kind === 'question' || m.kind === 'review',
     replyPlaceholder: `Reply to ${who}`,

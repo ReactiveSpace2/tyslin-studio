@@ -124,8 +124,8 @@ export function waitingPlans(): { agencyId: string; count: number; at: number }[
 /** "Approve and run the plan": starts the Planned cards one at a time, whatever the auto-run setting. Returns how many are planned. */
 export async function runPlan(agencyId: string): Promise<number> {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
-  if (!agency.leadId) throw new Error('This agency has no Lead yet.')
+  if (!agency) throw new Error('That team no longer exists.')
+  if (!agency.leadId) throw new Error('This team has no Lead yet.')
   if (agency.paused) throw new Error(`${agency.name} is paused. Resume it on its page first.`)
   const doc = readBoard(agency)
   if (!doc) throw new Error('The board file is missing.')
@@ -141,14 +141,14 @@ export type CardPatch = Partial<Pick<KanbanCard, 'title' | 'notes' | 'assignee'>
 /** Edits a planned card (title, notes, who does it) and saves the board. */
 export function updateCard(agencyId: string, cardId: string, patch: CardPatch): void {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   if (active.has(cardId)) throw new Error('That card is running; wait for it to finish.')
   const ok = patchCard(agency, cardId, (card) => {
     if (typeof patch.title === 'string' && patch.title.trim()) card.title = patch.title.trim().slice(0, 120)
     if (typeof patch.notes === 'string') card.notes = patch.notes
     if (typeof patch.assignee === 'string' && patch.assignee !== card.assignee) {
       const who = db.getAgent(patch.assignee)
-      if (!who || who.agency !== agency.id) throw new Error('Pick someone on this agency\'s roster.')
+      if (!who || who.agency !== agency.id) throw new Error('Pick someone on this team\'s roster.')
       card.assignee = who.id
       card.agentId = who.id
       log(card, `Reassigned to ${who.name}`)
@@ -160,7 +160,7 @@ export function updateCard(agencyId: string, cardId: string, patch: CardPatch): 
 /** Removes a card from the board (not a running one). */
 export function removeCard(agencyId: string, cardId: string): void {
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   if (active.has(cardId)) throw new Error('That card is running; stop it first.')
   const doc = readBoard(agency)
   if (!doc) throw new Error('The board file is missing.')
@@ -176,7 +176,7 @@ const cardPrompt = (agency: Agency, title: string, notes: string, column: string
   notes.trim() ? `\n${notes.trim()}` : '',
   parent ? `\n(Split from card ${parent}.)` : '',
   '',
-  agency.goal ? `The agency's goal: ${agency.goal}` : '',
+  agency.goal ? `The team's goal: ${agency.goal}` : '',
   'Reply with the finished work for this card: what you did, where it is, what you could not do and why. If the card is unclear or you need something you do not have, write the question and stop.'
 ].filter((l) => l !== '').join('\n')
 
@@ -184,7 +184,7 @@ const cardPrompt = (agency: Agency, title: string, notes: string, column: string
 export async function runCard(agencyId: string, cardId: string): Promise<string> {
   if (!deps) throw new Error('Card runs are not ready yet.')
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   if (agency.paused) throw new Error(`${agency.name} is paused. Resume it on its page first.`)
   if (atCap(agency)) throw new Error(capMessage(agency))
   const doc = readBoard(agency)
@@ -318,15 +318,15 @@ export function onChangeResolved(change: PendingChange): void {
 export function planNow(agencyId: string): string {
   if (!deps) throw new Error('Not ready yet.')
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
-  if (!agency.leadId) throw new Error('This agency has no Lead yet.')
+  if (!agency) throw new Error('That team no longer exists.')
+  if (!agency.leadId) throw new Error('This team has no Lead yet.')
   if (agency.paused) throw new Error(`${agency.name} is paused.`)
   const task = db.listTasks().find((t) => t.agentId === agency.leadId)
   if (task) return deps.runTask(task, false)
   const prompt = AGENCY_TEMPLATES.find((t) => t.id === agency.templateId)?.leadTask.prompt
     ?? 'Read the Inbox and Review columns. Plan new briefs into cards with assignees in Planned, review finished cards, and send the boss a digest.'
   const lead = db.getAgent(agency.leadId)
-  if (!lead) throw new Error('This agency has no Lead yet.')
+  if (!lead) throw new Error('This team has no Lead yet.')
   deps.checkReady(lead)
   const session = db.createSession(agency.leadId, agency.projectId)
   deps.startRun(session.id, prompt)
@@ -342,7 +342,7 @@ export function briefLead(agencyId: string, text: string): { cardId: string; pla
   const body = text.trim()
   if (!body) throw new Error('Write the brief.')
   const agency = db.getAgency(agencyId)
-  if (!agency) throw new Error('That agency no longer exists.')
+  if (!agency) throw new Error('That team no longer exists.')
   const doc = readBoard(agency)
   if (!doc || !doc.columns.length) throw new Error(`${agency.name} has no board yet.`)
   const inbox = doc.columns.find((c) => c.title.trim().toLowerCase() === 'inbox') ?? doc.columns[0]

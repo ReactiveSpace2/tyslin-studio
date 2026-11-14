@@ -204,7 +204,7 @@ export default function App(): JSX.Element {
     const v = viewById(agencyId)
     const leadId = known?.leadId ?? v?.lead?.id
     const projectId = known?.projectId ?? v?.project.id
-    if (!leadId || !projectId) throw new Error('This agency has no Lead yet.')
+    if (!leadId || !projectId) throw new Error('This team has no Lead yet.')
     const s = await window.tyslin.sessions.create(leadId, projectId)
     setSessions((list) => [s, ...list])
     openTask(s.id, leadId)
@@ -330,9 +330,9 @@ export default function App(): JSX.Element {
         return <SettingsPage key={route.tab ?? 'models'} initialTab={route.tab} agencies={agencies} activeAgency={activeAgency} orgName={orgName} onAuthChange={setAuth} onChanged={() => void refresh()} />
     }
   }
-  const TITLE: Partial<Record<Route['name'], string>> = { home: 'Home', agencies: 'Agencies', files: 'Files', scheduled: 'Scheduled', settings: 'Settings' }
+  const TITLE: Partial<Record<Route['name'], string>> = { home: 'Home', agencies: 'Teams', files: 'Files', scheduled: 'Scheduled', settings: 'Settings' }
   const title = route.name === 'task' ? (sessions.find((x) => x.id === route.sessionId)?.title || 'Task')
-    : route.name === 'agency' ? viewById(route.id)?.agency.name ?? 'Agency'
+    : route.name === 'agency' ? viewById(route.id)?.agency.name ?? 'Team'
     : route.name === 'agent' ? agents.find((x) => x.id === route.agentId)?.name ?? 'Agent'
     : TITLE[route.name] ?? ''
   document.title = title ? `${title} · Tyslin Studio` : 'Tyslin Studio'

@@ -35,7 +35,7 @@ export function readBoard(agency: Agency): KanbanDoc | null {
 
 export function writeBoard(agency: Agency, doc: KanbanDoc): void {
   const file = boardFile(agency)
-  if (!file) throw new Error('This agency has no board file.')
+  if (!file) throw new Error('This team has no board file.')
   // Write to a temporary file and rename, so a crash mid-write never leaves a half-written (unreadable) board.
   const tmp = `${file}.${process.pid}.tmp`
   writeFileSync(tmp, JSON.stringify(doc, null, 2), 'utf8')
@@ -124,7 +124,7 @@ export function boardSummary(agency: Agency): string {
   const team = roster(agency)
   const doc = readBoard(agency)
   const lines = [
-    `Agency "${agency.name}". Goal: ${agency.goal || '(none set)'}.`,
+    `Team "${agency.name}". Goal: ${agency.goal || '(none set)'}.`,
     agency.budget !== null ? `Budget: ${agency.spent.toFixed(2)} spent of ${agency.budget} this month.` : 'Budget: none set.',
     boardHooks.runsOnItsOwn(agency)
       ? `Cards in Planned with an assignee start on their own after you plan${agency.autoRun ? '' : ' (the boss approved the plan)'}; board_run_card starts one right away.`
@@ -170,7 +170,7 @@ function parseNeeds(raw: unknown): CardNeed[] {
 }
 
 export const BOARD_TOOLS: ToolDef[] = [
-  { name: 'board_list_cards', description: 'The agency board: every column and card with its id, assignee and state.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
+  { name: 'board_list_cards', description: 'The team board: every column and card with its id, assignee and state.', parameters: { type: 'object', properties: {}, additionalProperties: false } },
   {
     name: 'board_add_card',
     description: 'Add a card to the board. Put the brief it came from, what "done" looks like and an estimate in the notes.',
@@ -232,12 +232,12 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   }
   if (call.name === 'agency_log') {
     const project = db.getProject(agency.projectId)
-    if (!project?.folder) throw new Error('No agency folder.')
+    if (!project?.folder) throw new Error('No team folder.')
     // Agencies can share one folder, so the log names the agency on each line and Leads' own dates are dropped.
     const file = join(project.folder, 'agency-log.md')
     const text = String(input.text ?? '').trim().replace(/^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?Z?)?\s*[—–-]?\s*/, '')
     const line = `- ${new Date().toISOString().slice(0, 16).replace('T', ' ')} [${agency.name}] ${text}\n`
-    writeFileSync(file, (existsSync(file) ? readFileSync(file, 'utf8') : '# Agency log\n\n') + line, 'utf8')
+    writeFileSync(file, (existsSync(file) ? readFileSync(file, 'utf8') : '# Team log\n\n') + line, 'utf8')
     return ok('Logged.')
   }
   if (call.name === 'board_run_card') {

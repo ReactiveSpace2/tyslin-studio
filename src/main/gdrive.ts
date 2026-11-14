@@ -259,7 +259,7 @@ async function syncProject(p: Project, parent: string): Promise<number> {
   const remote = await tree(folderId)
   // Safety: an emptied side never deletes the other side's files.
   if (base.size && !remote.files.size) { for (const path of base.keys()) db.gsyncSetFile(p.id, { path, remove: true }); base = new Map() }
-  if (base.size && !local.size) throw new Error('The project folder is empty, so nothing was deleted from Google Drive. Check the folder, then sync again.')
+  if (base.size && !local.size) throw new Error('The team folder is empty, so nothing was deleted from Google Drive. Check the folder, then sync again.')
 
   const folderFor = async (rel: string): Promise<string> => {
     const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : ''

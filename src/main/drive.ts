@@ -29,7 +29,7 @@ export function root(projectId: string | null): { folder: string; projectId: str
 export function inside(folder: string, rel: string, allowRoot = false): string {
   const abs = resolve(folder, rel || '.')
   const r = relative(folder, abs)
-  if ((!r && !allowRoot) || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the project folder.')
+  if ((!r && !allowRoot) || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the team folder.')
   let probe = abs
   for (;;) {
     try { lstatSync(probe); break } catch { /* not there yet: check its parent */ }
@@ -38,8 +38,8 @@ export function inside(folder: string, rel: string, allowRoot = false): string {
     probe = up
   }
   let real: string
-  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error('That path is outside the project folder.') }
-  if (real.startsWith('..') || isAbsolute(real)) throw new Error('That path is outside the project folder.')
+  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error('That path is outside the team folder.') }
+  if (real.startsWith('..') || isAbsolute(real)) throw new Error('That path is outside the team folder.')
   return abs
 }
 
@@ -218,7 +218,7 @@ export function driveWriteText(projectId: string | null, path: string, text: str
   const abs = inside(folder, path)
   const rel = toRel(folder, abs)
   const ro = readOnlyReason(rel)
-  if (ro === 'memory') throw new Error('Memory notes are edited on the agency\'s Memory tab.')
+  if (ro === 'memory') throw new Error('Memory notes are edited on the team\'s Memory tab.')
   if (ro === 'app') throw new Error('This is the app\'s own data; it can\'t be edited here.')
   if (Buffer.byteLength(text, 'utf8') > MAX_EDIT) throw new Error('That is over 2 MB, too large to save here.')
   let mode: number | null = null

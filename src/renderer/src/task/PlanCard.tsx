@@ -129,7 +129,7 @@ export function PlanCard({ view, cards, workingOn, onAskLead, onChanged, onOpenA
       <span className="flex flex-wrap items-center gap-2">
         {!approved && <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={busy} onClick={() => void run(() => window.tyslin.cards.runPlan(view.agency.id))}><Icon name="play" size={12} /> Approve and run the plan</Button>}
         <Button variant="outline" size="sm" className="min-h-9" onClick={onAskLead}>Ask {lead} to change it</Button>
-        <Button variant="link" size="sm" className="ml-auto h-9 px-1 text-xs text-muted-foreground" onClick={onOpenAgency}>Auto-run: Agency → Goals → Limits</Button>
+        <Button variant="link" size="sm" className="ml-auto h-9 px-1 text-xs text-muted-foreground" onClick={onOpenAgency}>Auto-run: Team → Goals → Limits</Button>
       </span>
       {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
       {editing && (

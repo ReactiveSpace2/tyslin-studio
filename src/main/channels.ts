@@ -60,7 +60,7 @@ export async function sendToBoss(agency: Agency, from: Agent, kind: MessageKind,
       delivered = n > 0
       note = `Sent on Slack (${n} channel${n === 1 ? '' : 's'}).`
     } else {
-      note = wanted ? 'No channel is set up for this agency; the boss gets it in this agency\'s Inbox in the app and as a desktop notification, and the answer comes back to you in your "Your answers" chat.' : `The boss only gets ${agency.notify === 'digest' ? 'digests' : 'questions and reviews'} from this agency as notifications; this ${kind} is kept in the Inbox.`
+      note = wanted ? 'No channel is set up for this team; the boss gets it in this team\'s Inbox in the app and as a desktop notification, and the answer comes back to you in your "Your answers" chat.' : `The boss only gets ${agency.notify === 'digest' ? 'digests' : 'questions and reviews'} from this team as notifications; this ${kind} is kept in the Inbox.`
     }
   } catch (err) {
     note = `Could not send: ${err instanceof Error ? err.message : String(err)} The boss sees it in the app.`
@@ -114,7 +114,7 @@ export function replyToLead(messageId: string, text: string, sessionId?: string)
   if (m.kind === 'budget') { const saved = answerBudget(m, answer); onChannelMessage(saved, false); return saved }
   const agency = db.getAgency(m.agencyId)
   const lead = agency?.leadId ? db.getAgent(agency.leadId) : null
-  if (!agency || !lead) throw new Error('This agency has no Lead to answer.')
+  if (!agency || !lead) throw new Error('This team has no Lead to answer.')
   if (!deps) throw new Error('Replies are not available yet.')
   const quoted = m.text.length > 400 ? `${m.text.slice(0, 400)}…` : m.text
   const card = m.cardId ? ` (card ${m.cardId})` : ''

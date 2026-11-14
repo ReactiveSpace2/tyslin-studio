@@ -80,7 +80,7 @@ function ThemePreview({ theme }: { theme: Theme }): JSX.Element {
   return <span className="flex h-[88px] w-full overflow-hidden rounded-[10px] border border-border" aria-hidden="true">{theme === 'system' ? <>{pane(false)}{pane(true)}</> : pane(theme === 'dark')}</span>
 }
 type Accent = Preferences['accent']
-const ACCENTS: [Accent, string, string][] = [['lime', 'Lime', 'The Tyslin brand colour.'], ['forest', 'Forest', 'Dark green fills with light text. Quieter.'], ['mono', 'Monochrome', 'Ink only. Good for screenshots and focus.'], ['org', 'Organization colour', 'Each organization uses its own colour.']]
+const ACCENTS: [Accent, string, string][] = [['lime', 'Lime', 'The Tyslin brand colour.'], ['forest', 'Forest', 'Dark green fills with light text. Quieter.'], ['mono', 'Monochrome', 'Ink only. Good for screenshots and focus.'], ['org', 'Project colour', 'Each project uses its own colour.']]
 
 function AppearanceTab(): JSX.Element {
   const [prefs, setPrefsState] = useState<Preferences | null>(null)
@@ -102,7 +102,7 @@ function AppearanceTab(): JSX.Element {
           {ACCENTS.map(([id, title, hint]) => <label key={id} className={cn(choiceCls(prefs.accent === id), 'items-center')}><RadioGroupItem className={radioCls} value={id} /><span className="size-7 flex-none rounded-lg border border-border" aria-hidden="true" style={{ background: accentFill(id) }} /><span className="flex flex-col gap-0.5"><strong className="font-semibold">{title}</strong><span className={hintCls}>{hint}</span></span></label>)}
         </RadioGroup>
       </Group>
-      {org && <Group id="orgcolor-h" title={<>Colour for {org.name}</>} hint="Marks this organization in your menu, and sets the accent when 'Organization colour' is chosen above."><ColorSwatches value={org.color} onChange={(c) => void setOrgColor(c)} name="org-color" /></Group>}
+      {org && <Group id="orgcolor-h" title={<>Colour for {org.name}</>} hint="Marks this project in your menu, and sets the accent when 'Project colour' is chosen above."><ColorSwatches value={org.color} onChange={(c) => void setOrgColor(c)} name="org-color" /></Group>}
       <Group id="icons-h" title="Icons" hint="Bold strokes are easier to see at small sizes and low zoom.">
         <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2.5" aria-labelledby="icons-h" value={prefs.iconStyle} onValueChange={(v) => void save({ iconStyle: v as Preferences['iconStyle'] })}>
           {([['outline', 'Outline', 'Thin, light strokes.'], ['bold', 'Bold', 'Thicker strokes.']] as const).map(([id, title, hint]) => <label key={id} className={choiceCls(prefs.iconStyle === id)}><RadioGroupItem className={radioCls} value={id} /><span className="flex flex-col gap-0.5"><strong className="font-semibold">{title}</strong><span className={hintCls}>{hint}</span><span className={cn('mt-2 flex gap-3 text-foreground', id === 'bold' ? '[--icon-stroke:2.1]' : '[--icon-stroke:1.6]')} aria-hidden="true"><Icon name="home" size={18} /><Icon name="agents" size={18} /><Icon name="chat" size={18} /><Icon name="clock" size={18} /><Icon name="settings" size={18} /></span></span></label>)}
@@ -181,10 +181,10 @@ function AccountsTab({ agencies, activeAgency, onAuthChange, onChanged }: { agen
     <>
       <AdaptersCard />
       <Group id="google-h" title="Google account" hint="Your sign-in on this computer. Tyslin keeps only your name and email."><AccountBox onChange={onAuthChange} /></Group>
-      <Group id="drive-h" title="Google Drive" hint="Keeps a copy of each agency's folder in your Drive and brings back what you change there."><GoogleDriveCard /></Group>
+      <Group id="drive-h" title="Google Drive" hint="Keeps a copy of each team's folder in your Drive and brings back what you change there."><GoogleDriveCard /></Group>
       <Card className="gap-0 px-5 py-1">
-        <Row title="Telegram and Slack" hint="Where a Lead reaches you when you're away. Set up once; each agency chooses whether to use it.">{view ? <Button variant="outline" size="sm" onClick={() => setChannel(true)}>Manage</Button> : <span className={hintCls}>Create an agency first.</span>}</Row>
-        <Row title="Connectors (MCP)" hint="Per agency, each with its own token: Agency → Connectors."><span className={hintCls}>{agencies.length ? `${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'No agencies yet'}</span></Row>
+        <Row title="Telegram and Slack" hint="Where a Lead reaches you when you're away. Set up once; each team chooses whether to use it.">{view ? <Button variant="outline" size="sm" onClick={() => setChannel(true)}>Manage</Button> : <span className={hintCls}>Create a team first.</span>}</Row>
+        <Row title="Connectors (MCP)" hint="Per team, each with its own token: Team → Connectors."><span className={hintCls}>{agencies.length ? `${agencies.length} ${agencies.length === 1 ? 'team' : 'teams'}` : 'No teams yet'}</span></Row>
       </Card>
       {channel && view && <ChannelDialog view={view} kind={view.agency.channel.kind === 'slack' ? 'slack' : 'telegram'} onClose={() => setChannel(false)} onChanged={onChanged} />}
     </>
@@ -202,20 +202,20 @@ function NotificationsTab(): JSX.Element {
     <>
       <Card className="gap-0 px-5 py-1">
         <Row title="Desktop notifications" hint="When a Lead needs you: questions and reviews. The app icon shows the count either way."><Switch checked={prefs.desktopNotifications} aria-label="Desktop notifications" onCheckedChange={(v) => void save({ desktopNotifications: v }, v ? 'Notifications on' : 'Notifications off')} /></Row>
-        <Row title="Telegram and Slack" hint="What each Lead sends there is set per agency: Agency → Goals → Limits (everything, questions only, or a digest)."><span className={hintCls}>Per agency</span></Row>
+        <Row title="Telegram and Slack" hint="What each Lead sends there is set per team: Team → Goals → Limits (everything, questions only, or a digest)."><span className={hintCls}>Per team</span></Row>
       </Card>
       <Group id="approvals-h" title="Approvals" hint="What external agents (Claude Code, Codex, Gemini CLI) may do without asking you.">
         <Card className="gap-0 px-5 py-1">
-          <Row title="Allow read-only commands without asking" hint="Looking at files inside the agency folder (ls, cat, grep, git status, find) and version checks (node -v, which pnpm). Anything that writes, installs, runs code or reaches the network still asks."><Switch checked={prefs.autoAllowReadOnly} aria-label="Allow read-only commands without asking" onCheckedChange={(v) => void save({ autoAllowReadOnly: v }, v ? 'Read-only commands allowed' : 'Every command asks')} /></Row>
+          <Row title="Allow read-only commands without asking" hint="Looking at files inside the team's folder (ls, cat, grep, git status, find) and version checks (node -v, which pnpm). Anything that writes, installs, runs code or reaches the network still asks."><Switch checked={prefs.autoAllowReadOnly} aria-label="Allow read-only commands without asking" onCheckedChange={(v) => void save({ autoAllowReadOnly: v }, v ? 'Read-only commands allowed' : 'Every command asks')} /></Row>
         </Card>
       </Group>
       <Group id="writes-h" title="File changes for new agents" hint="The starting choice when you add a worker. Each agent can change it on its page.">
         <RadioGroup className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-2.5" aria-labelledby="writes-h" value={prefs.defaultWriteMode} onValueChange={(v) => void save({ defaultWriteMode: v as WriteMode }, 'Default saved')}>
           {([['ask', 'Ask before writing files', 'Review each change, accept or send it back.'], ['direct', 'Write directly', 'Changes go straight to disk.']] as [WriteMode, string, string][]).map(([m, t, h]) => <label key={m} className={choiceCls(prefs.defaultWriteMode === m)}><RadioGroupItem className={radioCls} value={m} /><span className="flex flex-col gap-0.5"><strong className="font-semibold">{t}</strong><span className={hintCls}>{h}</span></span></label>)}
         </RadioGroup>
-        <p className={hintCls}>Each agency also has Ask first or Auto for commands, under the message box in a task.</p>
+        <p className={hintCls}>Each team also has Ask first or Auto for commands, under the message box in a task.</p>
       </Group>
-      <Group id="shared-h" title="Guidelines for every agent, in every agency" hint="Added to each agent's instructions. Agency-level rules live under Agency → Goals.">
+      <Group id="shared-h" title="Guidelines for every agent, in every team" hint="Added to each agent's instructions. Team-level rules live under Team → Goals.">
         <div className="flex flex-col gap-1.5"><Label htmlFor="shared-ins">Guidelines</Label><Textarea id="shared-ins" rows={6} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={'e.g.\nUse British English.\nNever invent numbers; say when you are unsure.'} /></div>
         <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={!draft && !prefs.sharedInstructions} onClick={() => void save({ sharedInstructions: '' }, 'Guidelines cleared')}>Clear</Button><Button type="button" disabled={draft.trim() === prefs.sharedInstructions} onClick={() => void save({ sharedInstructions: draft }, 'Guidelines saved')}>Save guidelines</Button></div>
       </Group>
@@ -260,13 +260,13 @@ function ResetBox(): JSX.Element {
   const [error, setError] = useState<string | null>(null)
   const go = async (): Promise<void> => { setBusy(true); setError(null); try { await window.tyslin.app.reset() } catch (e) { setError(e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e)); setBusy(false) } }
   return (
-    <Group id="reset-h" title="Reset Tyslin Studio" className="border-destructive-soft" hint="Start again as if Tyslin were just installed. Every organization, agency, agent, chat, task and skill is removed, along with your keys and sign-in. Your files move to the Trash.">
+    <Group id="reset-h" title="Reset Tyslin Studio" className="border-destructive-soft" hint="Start again as if Tyslin were just installed. Every project, team, agent, chat, task and skill is removed, along with your keys and sign-in. Your files move to the Trash.">
       <div><Button type="button" variant="destructive" onClick={() => { setOpen(true); setTyped('') }}>Reset…</Button></div>
       <AlertDialog open={open} onOpenChange={(o) => { if (!busy) setOpen(o) }}>
         <AlertDialogContent className="w-[560px] gap-4 rounded-2xl border-0 sm:max-w-[560px]">
           <AlertDialogHeader className="place-items-start text-left">
             <AlertDialogTitle className="text-xl font-semibold">Reset everything?</AlertDialogTitle>
-            <AlertDialogDescription asChild><div className="flex flex-col gap-2 text-[13.5px] leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground"><p><strong>Deleted from this computer:</strong> all organizations and their agencies, agents, chats, tasks and skills; API keys, Telegram, Slack and Google Drive connections; your sign-in.</p><p><strong>Moved to the Trash</strong> (you can restore them): the Documents/Tyslin Studio folder, and Tyslin's own folders inside agency folders you picked yourself. Your other files stay where they are.</p><p><strong>Then</strong> Tyslin closes and opens again on the first-run setup.</p></div></AlertDialogDescription>
+            <AlertDialogDescription asChild><div className="flex flex-col gap-2 text-[13.5px] leading-relaxed text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground"><p><strong>Deleted from this computer:</strong> all projects and their teams, agents, chats, tasks and skills; API keys, Telegram, Slack and Google Drive connections; your sign-in.</p><p><strong>Moved to the Trash</strong> (you can restore them): the Documents/Tyslin Studio folder, and Tyslin's own folders inside team folders you picked yourself. Your other files stay where they are.</p><p><strong>Then</strong> Tyslin closes and opens again on the first-run setup.</p></div></AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex flex-col gap-1.5"><Label htmlFor="reset-confirm">Type RESET to confirm</Label><Input id="reset-confirm" className="font-mono" autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} disabled={busy} autoComplete="off" /></div>
           {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
@@ -291,10 +291,10 @@ function AboutTab({ orgName, agencyCount }: { orgName: string; agencyCount: numb
           {update?.state === 'available' && <Button type="button" variant="lime" onClick={() => void window.tyslin.updates.openDownload()}>Download</Button>}
         </div>
       </Group>
-      <Group id="org-h" title="Organization" hint="Switch, rename or add one from your menu at the foot of the left column.">
-        <KV rows={[['Current', orgName || '…'], ['Agencies', String(agencyCount)], ['Location', <span key="l" className="font-mono text-xs break-all">{info?.dataPath ?? '…'}</span>]]} />
+      <Group id="org-h" title="Project" hint="Switch, rename or add one from your menu at the foot of the left column.">
+        <KV rows={[['Current', orgName || '…'], ['Teams', String(agencyCount)], ['Location', <span key="l" className="font-mono text-xs break-all">{info?.dataPath ?? '…'}</span>]]} />
         <div><Button type="button" variant="outline" onClick={() => void window.tyslin.app.openDataFolder()}>Open the data folder</Button></div>
-        <p className={hintCls}>Agencies, agents, chats and skills live in a local database, one per organization; boards, memory and the files your agents make are in each agency's folder. Tyslin sends nothing anywhere except your work to the model providers and adapters you set up, the Lead's messages to the chats you link, Google when you sign in or sync Drive, and requests to GitHub for updates, skill packs and the star count.</p>
+        <p className={hintCls}>Teams, agents, chats and skills live in a local database, one per project; boards, memory and the files your agents make are in each team's folder. Tyslin sends nothing anywhere except your work to the model providers and adapters you set up, the Lead's messages to the chats you link, Google when you sign in or sync Drive, and requests to GitHub for updates, skill packs and the star count.</p>
       </Group>
       <ResetBox />
       <section className="flex flex-col items-start gap-4 rounded-xl border border-border bg-card p-5 shadow-xs" aria-label="About">
@@ -302,7 +302,7 @@ function AboutTab({ orgName, agencyCount }: { orgName: string; agencyCount: numb
         <span className="hidden dark:block"><span className="flex w-24 flex-col items-center gap-2.5"><img src={mark} alt="Tyslin" className="w-20" /><img src={wordmarkWhite} alt="" className="w-24" /></span></span>
         <KV rows={[['Version', <span key="v" className="font-mono">{info?.version ?? '…'}</span>], ['Electron', <span key="e" className="font-mono">{info?.electron ?? '…'}</span>], ['Platform', <span key="p" className="font-mono">{info?.platform ?? '…'}</span>]]} />
         <GitHubStars />
-        <span className={hintCls}>Every agent you run. One studio. · <a href="https://tyslin.ai" target="_blank" rel="noreferrer" className="text-green underline-offset-4 hover:underline">tyslin.ai</a> · <a href="https://github.com/ReactiveSpace2/tyslin-studio/issues" target="_blank" rel="noreferrer" className="text-green underline-offset-4 hover:underline">Report an issue</a></span>
+        <span className={hintCls}>The Agent management studio. · <a href="https://tyslin.ai" target="_blank" rel="noreferrer" className="text-green underline-offset-4 hover:underline">tyslin.ai</a> · <a href="https://github.com/ReactiveSpace2/tyslin-studio/issues" target="_blank" rel="noreferrer" className="text-green underline-offset-4 hover:underline">Report an issue</a></span>
       </section>
     </>
   )
@@ -311,7 +311,7 @@ function AboutTab({ orgName, agencyCount }: { orgName: string; agencyCount: numb
 const TAB_LINE: Record<SettingsTab, string> = {
   models: 'The models your Leads and agents run on.',
   accounts: 'The adapters your workers run on, your Google account and Drive, and where the Leads reach you.',
-  usage: 'What your agencies spent this month, by agency and provider.',
+  usage: 'What your teams spent this month, by team and provider.',
   appearance: 'How Tyslin looks on this computer.',
   notifications: 'What interrupts you, and the defaults new agents start with.',
   about: 'Version, updates and your data.'
