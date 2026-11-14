@@ -1,6 +1,6 @@
 import { app, dialog, type BrowserWindow } from 'electron'
 import { randomUUID } from 'crypto'
-import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readSync, statSync } from 'fs'
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync } from 'fs'
 import { basename, extname, join } from 'path'
 import type { Attachment } from '@shared/types'
 import { listProjectFiles } from './tools'
@@ -34,6 +34,42 @@ export interface PreparedMessage {
   attachments: StoredAttachment[]
   /** Text the model sees after the user's message. */
   context: string
+}
+
+/** Attached files are also saved into the project folder here, so workers can use them (owner, 14 Nov 2026). */
+export const ATTACH_DIR = 'attachments'
+/** Larger files stay where they are; the agent still gets their text (if any) in the message. */
+const MAX_SAVE_BYTES = 50 * 1024 * 1024
+
+/**
+ * Copies an attached file into `<folder>/attachments/`, written directly (it is the user's own file, so no review).
+ * The same file sent again reuses its copy; a different file with the same name gets "name-2.ext".
+ * Returns the path relative to the folder, or null when it wasn't saved.
+ */
+function saveIntoFolder(src: string, name: string, folder: string): string | null {
+  try {
+    const size = statSync(src).size
+    if (size > MAX_SAVE_BYTES) return null
+    const dir = join(folder, ATTACH_DIR)
+    mkdirSync(dir, { recursive: true })
+    const safe = basename(name).replace(/[\\/:*?"<>|\x00-\x1f]/g, '-') || 'file'
+    const ext = extname(safe)
+    const stem = safe.slice(0, safe.length - ext.length)
+    const bytes = readFileSync(src)
+    for (let n = 1; n < 100; n++) {
+      const file = n === 1 ? safe : `${stem}-${n}${ext}`
+      const dest = join(dir, file)
+      if (existsSync(dest)) {
+        try { if (readFileSync(dest).equals(bytes)) return `${ATTACH_DIR}/${file}` } catch { /* try the next name */ }
+        continue
+      }
+      const tmp = join(dir, `.${file}.${randomUUID()}.tmp`)
+      copyFileSync(src, tmp)
+      renameSync(tmp, dest)
+      return `${ATTACH_DIR}/${file}`
+    }
+  } catch { /* unreadable or the folder isn't writable: the message still goes, without the copy */ }
+  return null
 }
 
 /** Picked but not yet sent. Only ids from this map are accepted by `sessions:send`. */
@@ -93,8 +129,19 @@ function readText(path: string, size: number): { text?: string; note?: string } 
 
 const attr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
-/** Reads the picked attachments for a message being sent, and forgets them. Unknown ids are ignored. */
-export function prepareAttachments(ids: string[]): PreparedMessage {
+/**
+ * Reads the picked attachments for a message being sent, and forgets them. Unknown ids are ignored. With `folder`
+ * (the task's project folder) files and images are also saved into its attachments/ folder and the context says where.
+ */
+export function prepareAttachments(ids: string[], folder?: string | null): PreparedMessage {
+  const saved: string[] = []
+  const save = (a: Attachment): string => {
+    if (!folder) return ''
+    const rel = saveIntoFolder(a.path, a.name, folder)
+    if (!rel) return ''
+    saved.push(rel)
+    return ` saved="${attr(rel)}"`
+  }
   const out: StoredAttachment[] = []
   const parts: string[] = []
   let budget = MAX_MESSAGE_CHARS
@@ -134,7 +181,7 @@ export function prepareAttachments(ids: string[]): PreparedMessage {
         const copy = join(dir, `${a.id}${extname(a.path).toLowerCase()}`)
         copyFileSync(a.path, copy)
         out.push({ ...a, copy, mime: IMAGE_TYPES[extname(a.path).toLowerCase()] })
-        parts.push(`<image name="${attr(a.name)}" path="${attr(a.path)}" />`)
+        parts.push(`<image name="${attr(a.name)}" path="${attr(a.path)}"${save(a)} />`)
       } catch {
         out.push({ ...a, note: 'could not be read' })
       }
@@ -142,7 +189,9 @@ export function prepareAttachments(ids: string[]): PreparedMessage {
     }
 
     if (a.kind === 'file') {
+      const where = save(a)
       const note = addFile(a.path, a.name, sizeOf(a.path))
+      if (where) parts[parts.length - 1] = parts[parts.length - 1].replace(/^<file /, `<file${where} `)
       out.push(note ? { ...a, note } : a)
       continue
     }
@@ -161,8 +210,11 @@ export function prepareAttachments(ids: string[]): PreparedMessage {
     out.push({ ...a, files: files.length, ...(skipped ? { note: `${skipped} file${skipped === 1 ? '' : 's'} not fully included` } : {}) })
   }
 
+  const copies = saved.length
+    ? `\nCopies are already saved in the project folder at the saved= paths (${saved.join(', ')}). Use them from there and point workers to those paths; don't write them again.`
+    : ''
   const context = parts.length
-    ? `The user attached the following. Hidden folders, node_modules and build folders are left out.\n<attachments>\n${parts.join('\n')}\n</attachments>`
+    ? `The user attached the following. Hidden folders, node_modules and build folders are left out.${copies}\n<attachments>\n${parts.join('\n')}\n</attachments>`
     : ''
   return { attachments: out, context }
 }

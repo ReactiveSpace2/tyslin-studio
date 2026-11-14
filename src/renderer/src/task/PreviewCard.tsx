@@ -25,7 +25,8 @@ export function useMadeFiles(projectId: string | null, since: number | null, unt
     return () => { live = false }
   }, [projectId, since, refreshKey])
   if (since === null) return { shown: [], more: 0, loaded: false }
-  const mine = files.filter((f) => f.kind !== 'markdown' && f.updatedAt >= since && (until === null || f.updatedAt < until))
+  // Your own attachments (main saves them in attachments/) weren't made by the team, so they get no card here.
+  const mine = files.filter((f) => f.kind !== 'markdown' && !f.path.startsWith('attachments/') && f.updatedAt >= since && (until === null || f.updatedAt < until))
   return { shown: mine.slice(0, MAX_CARDS), more: Math.max(0, mine.length - MAX_CARDS), loaded }
 }
 

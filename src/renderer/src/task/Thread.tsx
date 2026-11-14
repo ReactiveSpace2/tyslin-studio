@@ -14,7 +14,7 @@ import { PreviewCard, useMadeFiles } from './PreviewCard'
 import { SkillSuggestCard, ToolSetupCard, ToolSuggestCard, type NeedHandlers } from './ToolCards'
 import { connectedTool, skillHint, toolById, toolHint, type ToolDef } from '@shared/toolCatalog'
 import type { McpServerInfo, Skill } from '@shared/types'
-import { ProgressRail, ProgressTimeline } from './TaskProgress'
+import { ProgressRail, ProgressTimeline, cardState } from './TaskProgress'
 import { WorkerWork } from './WorkerWork'
 import { RunFix } from './RunProblem'
 import { activityLabel, type Task } from './useTask'
@@ -162,8 +162,12 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
   const started = [...active].sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))
   const waiting = task.cards.filter((c) => !active.includes(c) && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
   const plan = view ? [...started, ...waiting] : []
+  // Once nothing is working or waiting, the Progress card moves down to when the last card finished, below the
+  // workers' runs and the files they made, so the "All done" line ends the work (owner, 14 Nov 2026).
+  const allFinished = plan.length > 0 && plan.every((c) => { const s = cardState(c, task.board); return s !== 'working' && s !== 'planned' })
+  const finishedAt = Math.max(0, ...plan.map((c) => Math.max(c.createdAt, ...(c.log ?? []).map((l) => l.at))))
   const items: { at: number; node: JSX.Element }[] = [
-    ...(active.length > 0 && view ? [{ at: firstStart - 1, node: <ProgressTimeline key="status" cards={plan} board={task.board} team={team} /> }] : []),
+    ...(active.length > 0 && view ? [{ at: allFinished ? finishedAt + 1 : firstStart - 1, node: <ProgressTimeline key="status" cards={plan} board={task.board} team={team} /> }] : []),
     ...runs.map((c) => ({
       at: startOf(c) ?? c.createdAt,
       node: (

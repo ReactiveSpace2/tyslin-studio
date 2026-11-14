@@ -544,7 +544,10 @@ function registerIpc(): void {
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.
     checkCanRun(sessionId)
-    startRun(sessionId, text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : []))
+    // Attached files also go into the task's project folder (attachments/), so the agency's workers can use them.
+    const session = db.getSession(String(sessionId ?? ''))
+    const folder = session?.projectId ? db.getProject(session.projectId)?.folder ?? null : null
+    startRun(sessionId, text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : [], folder))
   })
   ipcMain.handle('sessions:stop', (_e, sessionId: string) => {
     const run = activeRuns.get(sessionId)
