@@ -107,18 +107,25 @@ export function ExplorerPanel(p: Props): JSX.Element {
     if (!v) return
     // One name, one level: "a/b" used to become "a b" on create (QA, 10 Nov 2026). Say so instead.
     if (/[\\/]/.test(v)) { p.onError('A name can\'t contain / or \\. Make the folder first with New folder, then add the file inside it.'); return }
+    let ok = true
     if (naming.mode === 'file') {
       const dir = naming.dir
       let made = ''
-      if (await act(async () => { made = await window.tyslin.drive.createFile(p.projectId, dir, v) })) { if (dir) toggle(dir, true); p.onOpen(made) }
+      ok = await act(async () => { made = await window.tyslin.drive.createFile(p.projectId, dir, v) })
+      if (ok) { if (dir) toggle(dir, true); p.onOpen(made) }
     } else if (naming.mode === 'folder') {
       const dir = naming.dir
-      if (await act(() => window.tyslin.drive.mkdir(p.projectId, dir, v)) && dir) toggle(dir, true)
+      ok = await act(() => window.tyslin.drive.mkdir(p.projectId, dir, v))
+      if (ok && dir) toggle(dir, true)
     } else {
       const from = (naming as { path: string }).path
       const to = (parentOf(from) ? parentOf(from) + '/' : '') + v
-      if (to !== from && await act(() => window.tyslin.drive.rename(p.projectId, from, v))) p.onRenamed(from, to)
+      if (to !== from) {
+        ok = await act(() => window.tyslin.drive.rename(p.projectId, from, v))
+        if (ok) p.onRenamed(from, to)
+      }
     }
+    if (!ok) { nameRef.current?.focus(); return }
     setNaming(null)
   }
 

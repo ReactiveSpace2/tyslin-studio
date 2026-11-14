@@ -42,11 +42,8 @@ export type Route =
 
 export default function App(): JSX.Element {
   const [route, setRouteNow] = useState<Route>({ name: 'home' })
-  const routeRef = useRef(route)
-  routeRef.current = route
-  /** Leaving Files with unsaved tabs asks first (files/leaveGuard.ts); every other move is immediate. */
+  /** Editors with unsaved changes register a guard before navigation. */
   const setRoute = useCallback((r: Route): void => {
-    if (routeRef.current.name !== 'files') { setRouteNow(r); return }
     void confirmLeave().then((ok) => { if (ok) setRouteNow(r) })
   }, [])
   const [agents, setAgents] = useState<Agent[]>([])

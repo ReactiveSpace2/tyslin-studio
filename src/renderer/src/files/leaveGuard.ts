@@ -1,6 +1,6 @@
 /**
- * Leaving the Files screen with unsaved tabs asks first. FilesPage registers a guard while it has unsaved edits;
- * App.tsx awaits `confirmLeave()` before it changes the route away from Files.
+ * The active editor (Files or agency Memory) registers a guard for unsaved changes.
+ * App.tsx awaits `confirmLeave()` before changing routes, including agency tabs.
  */
 let guard: (() => Promise<boolean>) | null = null
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Agent, MemoryFile } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { Avatar } from '../components/Avatar'
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { useConfirm } from '../components/useConfirm'
+import { setLeaveGuard } from '../files/leaveGuard'
 
 const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
 const plural = (n: number, w: string): string => `${n} ${w}${n === 1 ? '' : 's'}`
@@ -39,18 +40,32 @@ export function MemoryTab({ view, agents, initial }: { view: AgencyView; agents:
   const [confirmEl, confirm] = useConfirm()
   const choose = async (key: string): Promise<void> => {
     if (key === sel) return
-    if (dirty && !(await confirm({ title: 'Leave without saving?', description: 'Your edits to this memory file are lost.', action: 'Leave', destructive: true }))) return
+    if (!(await confirmUnsaved())) return
     setError(''); setSel(key)
   }
-  const save = async (): Promise<void> => {
+  const save = async (): Promise<boolean> => {
     setBusy(true); setError('')
     try {
       const f = await window.tyslin.memory.write(agencyId, sel, text)
       const fresh = await window.tyslin.memory.read(agencyId, sel)
       setText(fresh); setLoaded(fresh); setSaved(true)
       setFiles((l) => (l ?? []).map((x) => (x.key === f.key ? f : x)))
-    } catch (e) { setError(errText(e)) } finally { setBusy(false) }
+      return true
+    } catch (e) { setError(errText(e)); return false } finally { setBusy(false) }
   }
+  const confirmUnsaved = async (): Promise<boolean> => {
+    if (busy) return false
+    if (!dirty) return true
+    const answer = await confirm({ title: 'Save changes to this memory file?', description: 'You have unsaved notes. They are lost if you leave without saving.', action: 'Save and leave', alt: 'Leave without saving' })
+    if (answer === false) return false
+    return answer === 'alt' || await save()
+  }
+  const leaveRef = useRef(confirmUnsaved)
+  leaveRef.current = confirmUnsaved
+  useEffect(() => {
+    setLeaveGuard(() => leaveRef.current())
+    return () => setLeaveGuard(null)
+  }, [])
   const addNote = (): void => {
     setText((t) => (t.endsWith('\n') || !t ? t : t + '\n') + '- ')
     setTimeout(() => { const el = document.getElementById('mem-body') as HTMLTextAreaElement | null; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length) } }, 0)

@@ -16,7 +16,7 @@ Three places, one left column (New task, Search, Agencies, Scheduled, Files; the
 
 - **Agency templates:** ten agencies you can create today: Research & Planning (researches an idea before you build it and writes the plan and roadmap), five software (App Development, Mobile Apps, Web Design, QA & Testing, DevOps) and four marketing and sales (Social Media Marketing, SEO, Email Marketing, Sales & Lead Gen), with Paid Ads and the Documents and data templates coming soon. Each is a Lead and a team with jobs, a goal, a plan and skills, around one folder.
 - **One thread per task:** the Lead's plan, each worker's work, questions, reviews and the digest all land in the task. Away from the computer, the Lead reaches you on Telegram or Slack.
-- **Memory:** plain Markdown notes per agency and per agent, added to every run.
+- **Memory:** plain Markdown notes per agency and per agent, added to every run. Switching memory files, agency tabs or screens with unsaved notes offers Save, Leave without saving or Cancel.
 - **Connectors:** tools from GitHub, Linear, Stripe and any MCP server, including search and install from the official MCP Registry.
 - **Your keys or your sign-in:** API keys for Claude, OpenAI and Gemini, or your Claude, ChatGPT or Google sign-in through Claude Code, Codex and Gemini CLI.
 - **You approve:** every file change is a diff you accept or reject, the plan waits for your OK and cards run one at a time, and each agency has a monthly budget. Agents on Claude Code, Codex or Gemini CLI ask before each command; read-only looks inside the folder (`ls`, `cat`, `git status`, version checks) are allowed without asking unless you turn that off in Settings → Notifications → Approvals.
