@@ -22,6 +22,7 @@ import { removeIntegration, saveIntegration, testIntegration } from './integrati
 import { searchRegistry } from './mcpRegistry'
 import { listMemory, readMemory, writeMemory } from './memory'
 import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
+import { adapterStates, checkAdapters, startAdapterManager } from './adapterManager'
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
@@ -602,6 +603,8 @@ function registerIpc(): void {
   ipcMain.handle('accounts:cancelSignIn', (_e, engine: AccountEngine) => cancelAccountSignIn(engine))
   ipcMain.handle('accounts:setUseAccount', (_e, engine: AccountEngine, on: boolean) => setUseAccount(engine, !!on))
   ipcMain.handle('engines:cancelInstall', (_e, id: ExternalEngineId) => cancelInstall(id))
+  ipcMain.handle('engines:adapters', () => adapterStates())
+  ipcMain.handle('engines:checkAdapters', async () => { await checkAdapters(); return adapterStates() })
   // The adapter's own model list, for the agent page's model picker. Kept for five minutes per adapter, because
   // each read starts the adapter; a failed read is never kept, so signing in or installing shows up at once.
   ipcMain.handle('engines:models', async (_e, id: ExternalEngineId): Promise<EngineModels> => {
@@ -897,6 +900,15 @@ app.whenReady().then(() => {
   initAgencies()
   createWindow()
   startScheduler()
+  // Claude Code, Codex and Gemini CLI: downloaded and kept up to date by Tyslin (adapterManager.ts). A new version
+  // drops the cached model lists, and the sign-in check decides whether each uses the sign-in or the saved key.
+  void accountStatuses().catch(() => undefined)
+  let lastDone = 0
+  startAdapterManager((list) => {
+    win?.webContents.send('engines:adaptersChanged', list)
+    const done = Math.max(0, ...list.map((a) => (a.phase === 'done' ? a.at ?? 0 : 0)))
+    if (done > lastDone) { lastDone = done; engineModels.clear(); void accountStatuses().catch(() => undefined) }
+  })
   void initTelegram({ startRun: (sid, text) => startRun(sid, text), resolveChange, answerPermission })
   void initSlack({ startRun: (sid, text) => startRun(sid, text) })
   initGDrive((s) => { win?.webContents.send('gdrive:status', s) })

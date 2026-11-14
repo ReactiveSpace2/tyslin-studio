@@ -1,8 +1,7 @@
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { AccountStatus, AppInfo, AuthStatus, EngineStatus, Organization, OrgColor, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
+import type { AccountEngine, AccountStatus, AdapterState, AppInfo, AuthStatus, Organization, OrgColor, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import { ORG_COLORS } from '@shared/types'
-import { MAIN_ENGINES } from '@shared/engines'
 import stacked from '../assets/logo-stacked.png'
 import mark from '../assets/logo-mark.png'
 import wordmarkWhite from '../assets/wordmark-white.png'
@@ -18,7 +17,7 @@ import { DefaultModelPicker, ModelKeys } from '../components/ModelSetup'
 import { modelLabel, refreshDefaultModel } from '../defaultModel'
 import { Mark } from '../components/RunsOnBadge'
 import { ChannelDialog } from '../agency/ChannelTab'
-import { InstallDialog } from '../settings/InstallDialog'
+import { BusyBar, adapterLine, isBusy, useAdapterStates } from '../components/AdapterNotice'
 import { UsageTab } from '../settings/UsageTab'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -114,47 +113,79 @@ function AppearanceTab(): JSX.Element {
   )
 }
 
-const ACCOUNT_LABEL: Record<string, string> = { 'claude-code': 'Claude', codex: 'ChatGPT', 'gemini-cli': 'Google' }
+/** The sign-in each adapter can use and the Models key it falls back to. */
+const ADAPTER_AUTH: Record<AccountEngine, { account: string; key: string; flag: keyof ProviderSettings }> = {
+  'claude-code': { account: 'Claude', key: 'Claude', flag: 'anthropicKeySet' },
+  codex: { account: 'ChatGPT', key: 'OpenAI', flag: 'openaiKeySet' },
+  'gemini-cli': { account: 'Google', key: 'Gemini', flag: 'geminiKeySet' }
+}
 
-/** The adapters (install, sign in, key or account), Google Drive, Telegram and Slack, and where connectors live. */
+/**
+ * Adapters (14 Nov 2026, owner): Tyslin downloads Claude Code, Codex and Gemini CLI itself and keeps them up to date,
+ * so this card only shows the version, what is being downloaded, and what each one runs on. Nothing to sign in to or
+ * pick here: a signed-in adapter uses its sign-in, otherwise the key from Models.
+ */
+function AdaptersCard(): JSX.Element {
+  const list = useAdapterStates()
+  const [accounts, setAccounts] = useState<AccountStatus[] | null>(null)
+  const [keys, setKeys] = useState<ProviderSettings | null>(null)
+  const [checking, setChecking] = useState(false)
+  const doneAt = Math.max(0, ...list.map((a) => a.at ?? 0))
+  useEffect(() => {
+    void window.tyslin.accounts.status().then(setAccounts).catch(() => setAccounts([]))
+    void window.tyslin.settings.get().then(setKeys).catch(() => undefined)
+  }, [doneAt])
+  const runsOn = (a: AdapterState): string => {
+    const auth = ADAPTER_AUTH[a.id]
+    if (!accounts || !keys) return 'Checking how it signs in…'
+    const acct = accounts.find((x) => x.engine === a.id)
+    if (acct?.signedIn) return `Uses your ${auth.account} sign-in${acct.email ? ` (${acct.email}${acct.plan ? `, ${acct.plan} plan` : ''})` : ''}`
+    if (keys[auth.flag]) return `Uses your ${auth.key} key from Models`
+    return `No ${auth.account} sign-in or ${auth.key} key on this computer yet`
+  }
+  const check = async (): Promise<void> => { setChecking(true); try { await window.tyslin.engines.checkAdapters() } finally { setChecking(false) } }
+  const anyBusy = list.some((a) => isBusy(a) || a.phase === 'checking')
+  return (
+    <Group id="adapters-h" title="Adapters" hint="Workers run on Claude Code, Codex or Gemini CLI. Tyslin downloads them for you and keeps them up to date.">
+      <div className="flex flex-col">
+        {list.map((a) => (
+          <div key={a.id} className="flex flex-col gap-2 border-b border-border py-3.5 last:border-b-0">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-2.5 text-sm font-semibold"><Mark id={a.id} size={28} />{a.name}</span>
+                <span className={hintCls}>{runsOn(a)}</span>
+              </span>
+              {a.phase === 'error'
+                ? <span className="max-w-72 text-right text-[13px] text-destructive" title={a.error}>{adapterLine(a)}</span>
+                : a.phase === 'idle' || a.phase === 'done' || (a.phase === 'checking' && a.version)
+                  ? <Badge variant={a.version ? 'soft' : 'secondary'} className="h-6 gap-1.5 px-2 font-mono text-[11px]">{a.version && <span className="size-1.5 rounded-full bg-green" aria-hidden="true" />}{a.version ? `v${a.version}` : 'Not installed yet'}</Badge>
+                  : !isBusy(a) && <span className="text-[13px] text-muted-foreground" role="status">{adapterLine(a)}</span>}
+            </div>
+            {isBusy(a) && <div className="flex flex-col gap-1"><span className="text-[13px]" role="status">{adapterLine(a)}</span><BusyBar track="bg-muted" /></div>}
+            {a.phase === 'error' && a.error && <span className="font-mono text-[11px] break-words text-muted-foreground">{a.error}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <Button type="button" variant="outline" size="sm" disabled={checking || anyBusy} onClick={() => void check()}>{checking || anyBusy ? 'Checking…' : 'Check for updates'}</Button>
+        <span className={hintCls}>Tyslin also checks when it opens and every six hours.</span>
+      </div>
+    </Group>
+  )
+}
+
 function AccountsTab({ agencies, activeAgency, onAuthChange, onChanged }: { agencies: AgencyView[]; activeAgency: string | null; onAuthChange?: (s: AuthStatus) => void; onChanged: () => void }): JSX.Element {
-  const [engines, setEngines] = useState<EngineStatus[]>([])
-  const [accounts, setAccounts] = useState<AccountStatus[]>([])
-  const [dialog, setDialog] = useState<{ engine: EngineStatus; start: 'install' | 'signin' } | null>(null)
   const [channel, setChannel] = useState(false)
-  const load = (): void => { void window.tyslin.engines.list().then(setEngines); void window.tyslin.accounts.status().then(setAccounts).catch(() => setAccounts([])) }
-  useEffect(load, [])
   const view = agencies.find((v) => v.agency.id === activeAgency) ?? agencies[0] ?? null
-  const setUse = async (e: EngineStatus, on: boolean): Promise<void> => { if (e.id !== 'claude-code' && e.id !== 'codex' && e.id !== 'gemini-cli') return; await window.tyslin.accounts.setUseAccount(e.id, on); load() }
   return (
     <>
-      <Group id="adapters-h" title="Adapters" hint="Workers run on Claude Code, Codex or Gemini CLI. Each signs in with your own account, or uses the API key from Models.">
-        <div className="flex flex-col">
-          {engines.filter((e) => (MAIN_ENGINES as string[]).includes(e.id)).map((e) => {
-            const a = accounts.find((x) => x.engine === e.id)
-            return (
-              <Row key={e.id} title={<span className="flex items-center gap-2.5"><Mark id={e.id} size={28} />{e.name}</span>}
-                hint={!e.resolvedPath ? 'Not installed' : a?.signedIn ? `Signed in${a.email ? ` · ${a.email}` : ''}${a.plan ? ` · ${a.plan} plan` : ''}` : 'Installed · not signed in'}>
-                {!e.resolvedPath && <Button variant="outline" size="sm" onClick={() => setDialog({ engine: e, start: 'install' })}>Install</Button>}
-                {e.resolvedPath && !a?.signedIn && <Button variant="outline" size="sm" onClick={() => setDialog({ engine: e, start: 'signin' })}>Sign in with {ACCOUNT_LABEL[e.id]}</Button>}
-                {e.resolvedPath && a?.signedIn && (
-                  <span className="inline-flex gap-0.5 rounded-lg bg-accent p-[3px]" role="radiogroup" aria-label={`What agents on ${e.name} use`}>
-                    {([true, false] as const).map((on) => <button key={String(on)} type="button" role="radio" aria-checked={a.useAccount === on} onClick={() => void setUse(e, on)} className={cn('inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium transition-colors', a.useAccount === on ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>{on ? 'Account' : 'API key'}</button>)}
-                  </span>
-                )}
-                {e.resolvedPath && <Button variant="ghost" size="sm" onClick={() => setDialog({ engine: e, start: 'install' })}>Test</Button>}
-              </Row>
-            )
-          })}
-        </div>
-      </Group>
+      <AdaptersCard />
       <Group id="google-h" title="Google account" hint="Your sign-in on this computer. Tyslin keeps only your name and email."><AccountBox onChange={onAuthChange} /></Group>
       <Group id="drive-h" title="Google Drive" hint="Keeps a copy of each agency's folder in your Drive and brings back what you change there."><GoogleDriveCard /></Group>
       <Card className="gap-0 px-5 py-1">
         <Row title="Telegram and Slack" hint="Where a Lead reaches you when you're away. Set up once; each agency chooses whether to use it.">{view ? <Button variant="outline" size="sm" onClick={() => setChannel(true)}>Manage</Button> : <span className={hintCls}>Create an agency first.</span>}</Row>
         <Row title="Connectors (MCP)" hint="Per agency, each with its own token: Agency → Connectors."><span className={hintCls}>{agencies.length ? `${agencies.length} ${agencies.length === 1 ? 'agency' : 'agencies'}` : 'No agencies yet'}</span></Row>
       </Card>
-      {dialog && <InstallDialog engine={dialog.engine} account={accounts.find((x) => x.engine === dialog.engine.id)} start={dialog.start} onChange={() => load()} onClose={() => { setDialog(null); load() }} />}
       {channel && view && <ChannelDialog view={view} kind={view.agency.channel.kind === 'slack' ? 'slack' : 'telegram'} onClose={() => setChannel(false)} onChanged={onChanged} />}
     </>
   )

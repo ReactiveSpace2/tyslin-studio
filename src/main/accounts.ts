@@ -4,7 +4,7 @@ import { homedir } from 'os'
 import { join } from 'path'
 import { getSetting, setSetting } from './db'
 import { authenticateAcp } from './acp'
-import { engineLaunch, engineProgram, engineStatus, launchEnv, usesAccount } from './engines'
+import { engineLaunch, engineProgram, engineStatus, launchEnv, signedIn, usesAccount } from './engines'
 import type { AccountEngine, AccountStatus } from '@shared/types'
 
 /**
@@ -65,10 +65,11 @@ function geminiStatus(): { signedIn: boolean; email?: string } {
 
 export async function accountStatus(engine: AccountEngine): Promise<AccountStatus> {
   const program = engineProgram(engine)
-  const base = { engine, installed: !!program, useAccount: usesAccount(engine) }
-  if (engine === 'claude-code') return { ...base, ...(program ? await claudeStatus(program.path, program.args) : { signedIn: false }) }
-  if (engine === 'codex') return { ...base, ...codexStatus() }
-  return { ...base, ...geminiStatus() }
+  const s = engine === 'claude-code' ? (program ? await claudeStatus(program.path, program.args) : { signedIn: false })
+    : engine === 'codex' ? codexStatus() : geminiStatus()
+  // Only a known answer changes the choice: an adapter not on this computer yet says nothing about the sign-in.
+  if (program || engine !== 'claude-code') signedIn.set(engine, s.signedIn)
+  return { engine, installed: !!program, useAccount: usesAccount(engine), ...s }
 }
 
 export const accountStatuses = (): Promise<AccountStatus[]> => Promise.all(ACCOUNT_ENGINES.map(accountStatus))

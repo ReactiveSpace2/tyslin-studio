@@ -10,6 +10,7 @@ import { getSecret as getKey } from './secrets'
 import type { AcpLaunch } from './acp'
 import { usesOpenRouter } from '@shared/openrouter'
 import { openRouterLaunchEnv } from './openrouterLaunch'
+import { MANAGED, installAdapter, managedProgram } from './adapterManager'
 
 type EngineDef = Omit<EngineStatus, 'command' | 'resolvedPath' | 'install'>
 
@@ -66,6 +67,8 @@ const INSTALLERS: Partial<Record<ExternalEngineId, InstallRecipe>> = {
 }
 
 function installFor(id: ExternalEngineId): EngineInstall | null {
+  // The three agency adapters are downloaded and kept up to date by Tyslin itself (adapterManager.ts).
+  if (id in MANAGED) return { command: `npm install ${MANAGED[id as keyof typeof MANAGED].pkg} (into Tyslin's own folder)`, source: 'npmjs.com', nextStep: '' }
   const r = INSTALLERS[id]
   if (!r) return null
   return { command: process.platform === 'win32' ? r.windows : withUserPrefix(r.posix), source: r.source, nextStep: r.nextStep }
@@ -237,12 +240,26 @@ function commandLine(id: ExternalEngineId): string {
   return (getSetting(`engine:${id}:command`) ?? '').trim() || def(id).defaultCommand
 }
 
+/**
+ * The program that starts an engine: Tyslin's own copy of an agency adapter (node + its script) unless the user set
+ * their own command, else the command found on PATH. `dir` goes first in the adapter's PATH.
+ */
+function resolveProgram(id: ExternalEngineId): { path: string; args: string[]; dir: string } | null {
+  if (!(getSetting(`engine:${id}:command`) ?? '').trim()) {
+    const m = managedProgram(id)
+    if (m) return { path: m.path, args: m.args, dir: m.nodeDir }
+  }
+  const [program, ...args] = splitCommand(commandLine(id))
+  const path = program ? which(program) : null
+  return path ? { path, args, dir: dirname(path) } : null
+}
+
 export function engineStatus(id: ExternalEngineId): EngineStatus {
-  const [program] = splitCommand(commandLine(id))
+  const managed = !(getSetting(`engine:${id}:command`) ?? '').trim() ? managedProgram(id) : null
   return {
     ...def(id),
     command: (getSetting(`engine:${id}:command`) ?? '').trim(),
-    resolvedPath: program ? which(program) : null,
+    resolvedPath: managed ? managed.args[0] : resolveProgram(id)?.path ?? null,
     install: installFor(id)
   }
 }
@@ -302,8 +319,15 @@ export const ACCOUNT_KEY_VARS: Partial<Record<ExternalEngineId, string[]>> = {
   'gemini-cli': ['GEMINI_API_KEY', 'GOOGLE_API_KEY']
 }
 
-/** Settings → Models → "Use my account": agents on this adapter run on the user's own sign-in, never a key. */
-export const usesAccount = (id: ExternalEngineId): boolean => getSetting(`engine:${id}:auth`) === 'account'
+/**
+ * Whether the adapter's own sign-in is signed in, kept by accounts.ts (refreshed at launch, after each adapter check
+ * and whenever the status is read). Since 14 Nov 2026 (owner: adapters "should not ask for keys or sign in") the
+ * choice is automatic: an adapter that is signed in uses that sign-in; otherwise it gets the key from Settings → Models.
+ */
+export const signedIn = new Map<ExternalEngineId, boolean>()
+
+/** Agents on this adapter run on the user's own sign-in (no key variables), because the adapter is signed in. */
+export const usesAccount = (id: ExternalEngineId): boolean => signedIn.get(id) ?? getSetting(`engine:${id}:auth`) === 'account'
 
 /**
  * The ACP auth method that makes an adapter use the API key from its environment. Codex needs it: a saved
@@ -334,10 +358,11 @@ function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
 /** How to start an engine in `cwd` for an agent. Throws a readable error when it isn't installed or configured. */
 export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): AcpLaunch {
   const d = def(id)
-  const [program, ...args] = splitCommand(commandLine(id))
-  if (!program) throw new Error(`Set the command for ${d.name} in Settings → Agent engines.`)
-  const path = which(program)
-  if (!path) throw new Error(`${d.name} isn't installed, or Tyslin can't find "${program}". Install it, or set its full path in Settings → Agent engines.`)
+  const [program] = splitCommand(commandLine(id))
+  if (!program && !managedProgram(id)) throw new Error(`Set the command for ${d.name} in Settings → Agent engines.`)
+  const found = resolveProgram(id)
+  if (!found) throw new Error(id in MANAGED ? `${d.name} isn't ready yet. Tyslin is downloading it; try again in a minute.` : `${d.name} isn't installed, or Tyslin can't find "${program}". Install it, or set its full path in Settings → Agent engines.`)
+  const { path, args } = found
   // Hermes: the agent's own profile, before the subcommand ("hermes -p <profile> acp").
   const finalArgs = id === 'hermes' && agent ? ['-p', ensureHermesProfile(agent, path), ...args] : args
   // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
@@ -389,9 +414,9 @@ export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
   // The adapter's own folder goes first, so a program installed by one Node (say under nvm) runs on the
   // `node` beside it and not on an older system one found earlier in PATH.
-  const [program] = splitCommand(commandLine(id))
-  const found = program ? which(program) : null
-  if (found) env.PATH = [...new Set([dirname(found), ...searchDirs()])].join(delimiter)
+  const found = resolveProgram(id)
+  if (found) env.PATH = [...new Set([found.dir, ...searchDirs()])].join(delimiter)
+  delete env.ELECTRON_RUN_AS_NODE
   if (usesAccount(id)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
   // Only when a key will actually be used (see keyAuthMethod); with no key at all Codex keeps its usual home.
   if (id === 'codex' && keyAuthMethod(id, env)) env.CODEX_HOME = codexKeyHome()
@@ -400,9 +425,8 @@ export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
 
 /** Absolute path of the engine's program and its default arguments, or null when it isn't installed. */
 export function engineProgram(id: ExternalEngineId): { path: string; args: string[] } | null {
-  const [program, ...args] = splitCommand(commandLine(id))
-  const path = program ? which(program) : null
-  return path ? { path, args } : null
+  const p = resolveProgram(id)
+  return p ? { path: p.path, args: p.args } : null
 }
 
 const INSTALL_TIMEOUT_MS = 20 * 60 * 1000
@@ -413,6 +437,10 @@ const installing = new Map<ExternalEngineId, ChildProcess>()
  * fails fast instead of hanging. Resolves with whether it exited cleanly.
  */
 export function runInstall(id: ExternalEngineId, onOutput: (text: string) => void): Promise<{ ok: boolean; error?: string }> {
+  if (id in MANAGED) {
+    onOutput(`Downloading ${def(id).name} into Tyslin's own folder…\n`)
+    return installAdapter(id as keyof typeof MANAGED).then((r) => { onOutput(r.ok ? 'Done.\n' : `${r.error ?? 'The download failed.'}\n`); return r })
+  }
   const recipe = installFor(id)
   if (!recipe) return Promise.resolve({ ok: false, error: `Tyslin can't install ${def(id).name}; follow its setup guide.` })
   if (installing.has(id)) return Promise.resolve({ ok: false, error: 'An install is already running.' })

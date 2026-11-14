@@ -125,6 +125,22 @@ export interface RegistryServer {
 /** Adapters that sign in with the user's own Claude, ChatGPT or Google account. */
 export type AccountEngine = 'claude-code' | 'codex' | 'gemini-cli'
 
+/** Tyslin's own copy of an agency adapter (main/adapterManager.ts): what it is doing now, for Settings and the sidebar notice. */
+export interface AdapterState {
+  id: AccountEngine
+  name: string
+  /** checking = asking npm for the newest version; queued = waiting for its turn to download; done = just installed or updated (`at`). */
+  phase: 'idle' | 'checking' | 'queued' | 'installing' | 'updating' | 'done' | 'error'
+  /** The version Tyslin runs now, when one is installed. */
+  version?: string
+  from?: string
+  to?: string
+  /** A step inside the phase, e.g. "Downloading Node.js". */
+  detail?: string
+  error?: string
+  at?: number
+}
+
 /** Whether an account adapter is installed and signed in, read from the adapter's own login (never stored by Tyslin). */
 export interface AccountStatus {
   engine: AccountEngine
@@ -1142,6 +1158,11 @@ export interface TyslinApi {
     install(id: ExternalEngineId): Promise<{ ok: boolean; error?: string; status: EngineStatus }>
     cancelInstall(id: ExternalEngineId): Promise<void>
     onInstallOutput(cb: (o: InstallOutput) => void): () => void
+    /** Tyslin's own copies of Claude Code, Codex and Gemini CLI: version and what is being downloaded now. */
+    adapters(): Promise<AdapterState[]>
+    /** Checks npm for new versions now (it also does so at launch and every six hours). */
+    checkAdapters(): Promise<AdapterState[]>
+    onAdapters(cb: (list: AdapterState[]) => void): () => void
   }
   memory: {
     /** The agency file and one file per agent (created when missing). */

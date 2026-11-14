@@ -66,6 +66,13 @@ const api: TyslinApi = {
     test: (id) => ipcRenderer.invoke('engines:test', id),
     models: (id) => ipcRenderer.invoke('engines:models', id),
     install: (id) => ipcRenderer.invoke('engines:install', id),
+    adapters: () => ipcRenderer.invoke('engines:adapters'),
+    checkAdapters: () => ipcRenderer.invoke('engines:checkAdapters'),
+    onAdapters: (cb) => {
+      const fn = (_e: unknown, list: Parameters<typeof cb>[0]): void => cb(list)
+      ipcRenderer.on('engines:adaptersChanged', fn)
+      return () => ipcRenderer.removeListener('engines:adaptersChanged', fn)
+    },
     cancelInstall: (id) => ipcRenderer.invoke('engines:cancelInstall', id),
     onInstallOutput: (cb) => {
       const fn = (_e: unknown, o: InstallOutput): void => cb(o)

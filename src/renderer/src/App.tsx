@@ -10,6 +10,7 @@ import { SiteHeader } from './shell/SiteHeader'
 import { SearchDialog } from './shell/SearchDialog'
 import { StatusBar } from './components/StatusBar'
 import { UpdateNotice } from './components/UpdateNotice'
+import { AdapterNotice } from './components/AdapterNotice'
 import { LoginScreen } from './components/LoginScreen'
 import { FirstRun } from './pages/FirstRun'
 import { NewAgencyDialog } from './agency/NewAgencyDialog'
@@ -348,7 +349,8 @@ export default function App(): JSX.Element {
         <div className="min-h-0 flex-1 overflow-y-auto">{screen()}</div>
         <StatusBar route={route} agents={agents} sessions={sessions} onNavigate={setRoute} onOpenChat={openChat} />
       </SidebarInset>
-      <div className="pointer-events-none fixed bottom-11 left-[calc(var(--sidebar-width)+1rem)] z-20 w-60 [&>*]:pointer-events-auto [&>*]:shadow-[0_4px_16px_var(--shadow)]">
+      <div className="pointer-events-none fixed bottom-11 left-[calc(var(--sidebar-width)+1rem)] z-20 flex w-60 flex-col gap-2 [&>*]:pointer-events-auto [&>*]:shadow-[0_4px_16px_var(--shadow)]">
+        <AdapterNotice />
         <UpdateNotice />
       </div>
       <SearchDialog open={search} onOpenChange={setSearch} agencies={agencies} agents={agents} sessions={sessions} runningIds={runningIds} needsYouBySession={needsYouBySession}

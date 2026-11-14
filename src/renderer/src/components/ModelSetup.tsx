@@ -1,10 +1,9 @@
 import * as React from 'react'
 import { useEffect, useMemo, useState } from 'react'
-import type { AccountEngine, AccountStatus, EngineStatus, KeyProvider, OpenRouterAccount, OpenRouterModel, ProviderId, ProviderSettings } from '@shared/types'
+import type { AccountEngine, AccountStatus, KeyProvider, OpenRouterAccount, OpenRouterModel, ProviderId, ProviderSettings } from '@shared/types'
 import { MODEL_SUGGESTIONS, PROVIDER_NAME } from '@shared/models'
 import { refreshDefaultModel } from '../defaultModel'
 import { Mark, type MarkKey } from './RunsOnBadge'
-import { track } from '../activity'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,11 +50,6 @@ function Status({ on, text }: { on: boolean; text?: string }): JSX.Element {
   )
 }
 
-/** The box that shows an install command before it runs (install → confirm → run). */
-function InstallConfirm({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
-  return <div className="flex flex-col gap-2.5 rounded-xl border border-border bg-muted p-3.5 text-sm" role="group" aria-label={label}>{children}</div>
-}
-
 /** A password field with Save (Enter saves; no <form>, so it can sit inside one). Keys are encrypted in main and never come back to the window. */
 function KeyField({ id, placeholder, label, onSave, onCancel }: { id: KeyProvider; placeholder: string; label: string; onSave: (key: string) => Promise<void>; onCancel?: () => void }): JSX.Element {
   const [value, setValue] = useState('')
@@ -79,148 +73,6 @@ function KeyField({ id, placeholder, label, onSave, onCancel }: { id: KeyProvide
   )
 }
 
-const errText = (err: unknown): string => (err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
-const planName = (p?: string): string => p ? p.charAt(0).toUpperCase() + p.slice(1) + ' plan' : ''
-
-/**
- * "Or sign in with your account": the provider's own adapter (Claude Code, Codex, Gemini CLI) signs in with the user's
- * account in the browser and keeps that login itself. Steps: install the adapter (official installer, command shown
- * first) → sign in → signed in, with a switch for whether agents on it use the account or the saved API key.
- */
-function AccountSignIn({ info, status, engine, keySaved, onChange, onSaved, onOpenEngines }: {
-  info: NonNullable<(typeof KEY_PROVIDERS)[number]['signIn']>
-  status: AccountStatus | undefined
-  engine: EngineStatus | undefined
-  keySaved: boolean
-  onChange: (s: AccountStatus) => void
-  onSaved: (message: string) => void | Promise<void>
-  onOpenEngines?: () => void
-}): JSX.Element {
-  const [step, setStep] = useState<'idle' | 'confirm' | 'installing' | 'signing'>('idle')
-  const [error, setError] = useState('')
-  const [url, setUrl] = useState('')
-  const [lastLine, setLastLine] = useState('')
-  useEffect(() => window.tyslin.accounts.onSignInUrl((o) => { if (o.engine === info.engine) setUrl(o.url) }), [info.engine])
-  useEffect(() => window.tyslin.engines.onInstallOutput((o) => {
-    if (o.id !== info.engine) return
-    const line = o.text.trim().split('\n').filter(Boolean).pop()
-    if (line) setLastLine(line.slice(0, 160))
-  }), [info.engine])
-
-  const refresh = async (): Promise<AccountStatus | undefined> => {
-    const all = await window.tyslin.accounts.status()
-    const mine = all.find((a) => a.engine === info.engine)
-    if (mine) onChange(mine)
-    return mine
-  }
-  const install = async (): Promise<void> => {
-    setError('')
-    setLastLine('')
-    setStep('installing')
-    try {
-      const r = await track(`engine:${info.engine}`, `Installing ${info.engineName}`, () => window.tyslin.engines.install(info.engine))
-      if (!r.ok) setError(r.error ?? 'The install failed.')
-      else if (!r.status.resolvedPath) setError(`The installer finished, but Tyslin can't find ${info.engineName} yet. Restart Tyslin and try again.`)
-      await refresh()
-    } finally { setStep('idle') }
-  }
-  const signIn = async (): Promise<void> => {
-    setError('')
-    setUrl('')
-    setStep('signing')
-    try {
-      const s = await track(`signin:${info.engine}`, `Signing in to ${info.account}`, () => window.tyslin.accounts.signIn(info.engine))
-      onChange(s)
-      await onSaved(`Signed in to ${info.account}${s.email ? ' as ' + s.email : ''}`)
-    } catch (err) {
-      const msg = errText(err)
-      if (!/cancelled/i.test(msg)) setError(msg)
-      await refresh()
-    } finally { setStep('idle') }
-  }
-  const setUse = async (on: boolean): Promise<void> => {
-    onChange(await window.tyslin.accounts.setUseAccount(info.engine, on))
-    await onSaved(on ? `Agents on ${info.engineName} use your ${info.account} account` : `Agents on ${info.engineName} use your API key`)
-  }
-
-  const waitBox = (text: string, action: JSX.Element, extra?: React.ReactNode): JSX.Element => (
-    <div className="flex flex-col gap-1.5 rounded-lg bg-lime-soft px-3 py-2.5" role="status">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1 text-sm">{text}</span>
-        {action}
-      </div>
-      {extra}
-    </div>
-  )
-  const segBtn = (on: boolean): string => cn('inline-flex h-8 items-center rounded-md px-3 text-[13px] font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50',
-    on ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')
-
-  let body: JSX.Element
-  if (!status) body = <p className={hintCls}>Checking {info.engineName}…</p>
-  else if (step === 'installing') {
-    body = waitBox(`Installing ${info.engineName}…`,
-      <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.engines.cancelInstall(info.engine)}>Stop</Button>,
-      lastLine && <span className="truncate font-mono text-[11px] text-muted-foreground">{lastLine}</span>)
-  } else if (step === 'signing') {
-    body = waitBox(`Finish signing in to ${info.account} in your browser…`,
-      <Button type="button" variant="outline" size="sm" onClick={() => void window.tyslin.accounts.cancelSignIn(info.engine)}>Cancel</Button>,
-      url && <a className={linkCls} href={url} target="_blank" rel="noreferrer">Browser didn't open? Open the sign-in page</a>)
-  } else if (!status.installed) {
-    body = step === 'confirm' && engine?.install ? (
-      <InstallConfirm label={`Install ${info.engineName}`}>
-        <strong className="font-medium">This will run on your computer:</strong>
-        <pre className="rounded-md border border-border bg-card px-3 py-2.5 font-mono text-xs break-all whitespace-pre-wrap">{engine.install.command}</pre>
-        <span className={hintCls}>The official installer from {engine.install.source}, run with your user account.</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={() => void install()}>Install</Button>
-          <Button type="button" variant="outline" onClick={() => setStep('idle')}>Cancel</Button>
-        </div>
-      </InstallConfirm>
-    ) : (
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={cn(hintCls, 'min-w-0 flex-1 basis-56')}>Have {info.plan}? Install {info.engineName}, then sign in with your {info.account} account. No key needed.</p>
-        {engine?.install
-          ? <Button type="button" variant="outline" onClick={() => setStep('confirm')}>Install {info.engineName}</Button>
-          : onOpenEngines && <Button type="button" variant="outline" onClick={onOpenEngines}>Set up {info.engineName}</Button>}
-      </div>
-    )
-  } else if (!status.signedIn) {
-    body = (
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={cn(hintCls, 'min-w-0 flex-1 basis-56')}>Have {info.plan}? Sign in once and agents that run on {info.engineName} use your account. No key needed.</p>
-        <Button type="button" onClick={() => void signIn()}>Sign in with {info.account}</Button>
-      </div>
-    )
-  } else {
-    body = (
-      <>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm [overflow-wrap:anywhere]">
-          <span className="size-1.5 rounded-full bg-green" aria-hidden="true" />
-          <span>Signed in{status.email ? <> as <strong className="font-medium">{status.email}</strong></> : ''}</span>
-          {status.plan && <Badge variant="lime" className="font-mono text-[11px]">{planName(status.plan)}</Badge>}
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2" role="radiogroup" aria-label={`What agents on ${info.engineName} use`}>
-          <span className="text-[13px] text-muted-foreground">Agents on {info.engineName} use</span>
-          <div className="inline-flex gap-0.5 rounded-lg bg-accent p-[3px]">
-            <button type="button" role="radio" aria-checked={status.useAccount} className={segBtn(status.useAccount)} onClick={() => void setUse(true)}>My {info.account} account</button>
-            <button type="button" role="radio" aria-checked={!status.useAccount} className={segBtn(!status.useAccount)} disabled={!keySaved}
-              title={keySaved ? undefined : 'Save an API key above first'} onClick={() => void setUse(false)}>API key</button>
-          </div>
-        </div>
-        <p className={hintCls}>Pick {info.engineName} under "Runs on" for an agent. To sign out, use {info.engineName} itself; Tyslin never stores your sign-in.</p>
-        {!keySaved && <p className={hintCls}>Leads and the default model run on an API key, so save a {info.account === 'Google' ? 'Gemini' : info.account === 'ChatGPT' ? 'OpenAI' : 'Claude'} key above to use {info.account === 'Google' ? 'Gemini' : info.account} for them too.</p>}
-      </>
-    )
-  }
-
-  return (
-    <div className={sectionCls}>
-      <span className={sectionLabelCls}>Or sign in with your account</span>
-      {body}
-      {error && <p className={errorCls} role="alert">{error}</p>}
-    </div>
-  )
-}
 
 /** Logo tile, name, maker and status badge at the top of a provider card. */
 function ProviderHead({ id, mark, title, maker, size = 40, children }: { id: string; mark: MarkKey; title: string; maker: string; size?: number; children: React.ReactNode }): JSX.Element {
@@ -248,15 +100,7 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
 }): JSX.Element {
   const [editing, setEditing] = useState<KeyProvider | null>(null)
   const [accounts, setAccounts] = useState<AccountStatus[]>([])
-  const [engines, setEngines] = useState<EngineStatus[]>([])
-  useEffect(() => {
-    void window.tyslin.accounts.status().then(setAccounts).catch(() => setAccounts([]))
-    void window.tyslin.engines.list().then(setEngines).catch(() => setEngines([]))
-  }, [])
-  const putAccount = (a: AccountStatus): void => {
-    setAccounts((list) => [...list.filter((x) => x.engine !== a.engine), a])
-    void window.tyslin.engines.list().then(setEngines).catch(() => undefined)
-  }
+  useEffect(() => { void window.tyslin.accounts.status().then(setAccounts).catch(() => setAccounts([])) }, [])
   const [orAccount, setOrAccount] = useState<OpenRouterAccount | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [orError, setOrError] = useState('')
@@ -345,8 +189,12 @@ export function ModelKeys({ settings, onSaved, onOpenEngines }: {
                 </div>
               )}
               {k.signIn && (
-                <AccountSignIn info={k.signIn} status={accounts.find((x) => x.engine === k.signIn!.engine)} engine={engines.find((e) => e.id === k.signIn!.engine)}
-                  keySaved={saved} onChange={putAccount} onSaved={onSaved} onOpenEngines={onOpenEngines} />
+                // Adapters choose on their own since 14 Nov 2026: their own sign-in when they have one, else this key. Nothing to set here.
+                <p className={cn(hintCls, sectionCls)}>
+                  {viaAccount
+                    ? <>{k.signIn.engineName} workers use your {k.signIn.account} sign-in{acct && acct.email ? <> ({acct.email})</> : ''}.</>
+                    : <>{k.signIn.engineName} workers use this key, or your {k.signIn.account} sign-in when {k.signIn.engineName} has one.</>}
+                </p>
               )}
             </article>
           )
