@@ -250,12 +250,17 @@ export function checkAdapters(): Promise<void> {
       const todo = ORDER.filter((id) => { const v = latest.get(id); const cur = readSaved().adapters[id]; return v && (!cur || !existsSync(cur.script) || newer(v, cur.version)) })
       for (const id of ORDER) if (!todo.includes(id) && latest.has(id)) put(id, { phase: 'idle' })
       for (const id of todo) put(id, { phase: 'queued' })
-      if (!todo.length) return
+      // Installed adapters whose saved Node is gone (deleted, or an nvm version removed) can't start even when no
+      // update is due, so Node is recovered on its own, also when npm can't be reached (16 Nov 2026 QA).
+      const stranded = managedNode() ? [] : ORDER.filter((id) => { const cur = readSaved().adapters[id]; return !!cur && existsSync(cur.script) && !todo.includes(id) })
+      if (!todo.length && !stranded.length) return
+      for (const id of stranded) put(id, { phase: 'installing', detail: 'Setting up Node.js' })
       let n: { node: string; npmCli: string }
       try { n = await ensureNode() } catch (e) {
-        for (const id of todo) put(id, { phase: 'error', error: e instanceof Error ? e.message : String(e) })
+        for (const id of [...todo, ...stranded]) put(id, { phase: 'error', error: e instanceof Error ? e.message : String(e) })
         return
       }
+      for (const id of stranded) put(id, { phase: 'idle', detail: undefined })
       for (const id of todo) await installVersion(id, latest.get(id)!, n)
     } finally { checking = null }
   })()
@@ -266,7 +271,14 @@ export function checkAdapters(): Promise<void> {
 export async function installAdapter(id: AccountEngine): Promise<{ ok: boolean; error?: string }> {
   await checkAdapters()
   const s = states.get(id)
-  return s?.phase === 'error' ? { ok: false, error: s.error } : { ok: !!managedProgram(id) }
+  if (s?.phase === 'error') return { ok: false, error: s.error }
+  if (managedProgram(id)) return { ok: true }
+  // Never a bare { ok: false }: say what is missing.
+  const cur = readSaved().adapters[id]
+  const error = !cur || !existsSync(cur.script)
+    ? `${ENGINE_NAMES[id]} isn't downloaded yet. Check your internet connection and try again.`
+    : `${ENGINE_NAMES[id]} is downloaded, but Tyslin couldn't find a Node.js to run it with. Check your internet connection and try again.`
+  return { ok: false, error }
 }
 
 /** Starts the managed adapters: clean old copies, check now, then every six hours while Tyslin is open. */

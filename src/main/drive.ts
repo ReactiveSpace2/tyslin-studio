@@ -1,6 +1,6 @@
 import { dialog, shell, type BrowserWindow } from 'electron'
-import { chmodSync, closeSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'fs'
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'path'
+import { chmodSync, closeSync, copyFileSync, cpSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'fs'
+import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'path'
 import type { DriveChange, DriveEntry, DriveKind, DriveListing, DrivePreview, DriveSearchFile, DriveSearchOptions, DriveSearchResult, DriveText, DriveWriteResult } from '@shared/types'
 import { projectFor } from './studio'
 
@@ -21,27 +21,8 @@ export function root(projectId: string | null): { folder: string; projectId: str
   return { folder: p.folder!, projectId: p.id }
 }
 
-/**
- * A path inside the folder ('' = the folder itself); refuses escapes and .git. A symlink inside the folder (or a
- * dangling one) could still lead outside it, so where the path really goes is checked too (same rule as tools.ts).
- * Shared with git.ts, so every path git is given passes the same check.
- */
-export function inside(folder: string, rel: string, allowRoot = false): string {
-  const abs = resolve(folder, rel || '.')
-  const r = relative(folder, abs)
-  if ((!r && !allowRoot) || r.startsWith('..') || isAbsolute(r) || r.split(sep).includes('.git')) throw new Error('That path is outside the team folder.')
-  let probe = abs
-  for (;;) {
-    try { lstatSync(probe); break } catch { /* not there yet: check its parent */ }
-    const up = dirname(probe)
-    if (up === probe) break
-    probe = up
-  }
-  let real: string
-  try { real = relative(realpathSync(folder), realpathSync(probe)) } catch { throw new Error('That path is outside the team folder.') }
-  if (real.startsWith('..') || isAbsolute(real)) throw new Error('That path is outside the team folder.')
-  return abs
-}
+export { inside } from './confine'
+import { inside } from './confine'
 
 const toRel = (folder: string, abs: string): string => relative(folder, abs).split(sep).join('/')
 

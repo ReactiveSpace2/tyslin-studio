@@ -92,14 +92,15 @@ export async function signInAccount(engine: AccountEngine, clientVersion: string
   cancelAccountSignIn(engine)
   const program = engineProgram(engine)
   if (!program) throw new Error(`Install ${engineStatus(engine).name} first.`)
-  // Sign in without keys in the environment, so the adapter doesn't settle for a key.
+  // Sign in without keys in the environment, so the adapter doesn't settle for a key. The launch itself is forced to
+  // account mode ('account' below): the setting alone loses to a cached `signedIn = false` in usesAccount.
   setSetting(`engine:${engine}:auth`, 'account')
   try {
     if (engine === 'claude-code') await claudeLogin(program.path, program.args, onUrl)
     else {
       const ctrl = new AbortController()
       running.set(engine, { cancel: () => ctrl.abort() })
-      await authenticateAcp(engineStatus(engine).name, engineLaunch(engine, homedir()), engine === 'codex' ? 'chat-gpt' : 'oauth-personal', clientVersion, ctrl.signal, SIGN_IN_TIMEOUT_MS)
+      await authenticateAcp(engineStatus(engine).name, engineLaunch(engine, homedir(), undefined, 'account'), engine === 'codex' ? 'chat-gpt' : 'oauth-personal', clientVersion, ctrl.signal, SIGN_IN_TIMEOUT_MS)
     }
   } catch (err) {
     if (getSetting(`engine:${engine}:auth`) === 'account' && !(await accountStatus(engine)).signedIn) setSetting(`engine:${engine}:auth`, '')
@@ -117,7 +118,7 @@ function claudeLogin(path: string, args: string[], onUrl: (url: string) => void)
     let tail = ''
     let sentUrl = false
     const child: ChildProcess = spawn(path, [...args, '--cli', 'auth', 'login', '--claudeai'], {
-      stdio: ['ignore', 'pipe', 'pipe'], env: launchEnv('claude-code'), windowsHide: true, cwd: homedir(),
+      stdio: ['ignore', 'pipe', 'pipe'], env: launchEnv('claude-code', 'account'), windowsHide: true, cwd: homedir(),
       shell: process.platform === 'win32' && /\.(cmd|bat)$/i.test(path)
     })
     const read = (b: Buffer): void => {

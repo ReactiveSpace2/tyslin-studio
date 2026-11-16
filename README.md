@@ -164,6 +164,7 @@ cd tyslin-studio
 npm install        # also rebuilds the SQLite driver for Electron
 npm run dev        # the app with hot reload
 npm run typecheck  # run after every change
+npm test           # main-process regression tests (tests/, plain Node, no Electron)
 ```
 
 The interface is React with Tailwind CSS v4 and shadcn/ui (Radix) components only (`src/renderer/src/components/ui/`), themed with Tyslin's colour tokens in `src/renderer/src/index.css`. The window is one shadcn sidebar (Home, Teams, Scheduled, Files, recent tasks) beside the screen: Home, a task, or a team.

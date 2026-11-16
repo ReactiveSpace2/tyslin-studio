@@ -330,6 +330,14 @@ export const signedIn = new Map<ExternalEngineId, boolean>()
 export const usesAccount = (id: ExternalEngineId): boolean => signedIn.get(id) ?? getSetting(`engine:${id}:auth`) === 'account'
 
 /**
+ * How one launch authenticates. `'account'` is the adapter's own browser sign-in (accounts.ts signInAccount): no key
+ * variables, no ACP key `authenticate`, and Codex keeps the inherited CODEX_HOME that accountStatus reads, whatever
+ * the cached `signedIn` says (16 Nov 2026 QA: a cached `false` sent the key and the Tyslin key home to the login).
+ */
+export type LaunchAuth = 'account'
+const accountLaunch = (id: ExternalEngineId, auth?: LaunchAuth): boolean => auth === 'account' || usesAccount(id)
+
+/**
  * The ACP auth method that makes an adapter use the API key from its environment. Codex needs it: a saved
  * ChatGPT login in ~/.codex wins over OPENAI_API_KEY unless the client authenticates with "api-key" (which
  * Codex then records in its auth.json). Claude Code reads ANTHROPIC_API_KEY on its own and offers no key
@@ -338,16 +346,16 @@ export const usesAccount = (id: ExternalEngineId): boolean => signedIn.get(id) ?
 export const KEY_AUTH_METHODS: Partial<Record<ExternalEngineId, string>> = { codex: 'api-key' }
 
 /** In key mode, with a key in the adapter's environment: the auth method to run after `initialize`. */
-export function keyAuthMethod(id: ExternalEngineId, env: NodeJS.ProcessEnv): string | undefined {
+export function keyAuthMethod(id: ExternalEngineId, env: NodeJS.ProcessEnv, auth?: LaunchAuth): string | undefined {
   const method = KEY_AUTH_METHODS[id]
-  if (!method || usesAccount(id)) return undefined
+  if (!method || accountLaunch(id, auth)) return undefined
   return (ACCOUNT_KEY_VARS[id] ?? []).some((v) => !!env[v]) ? method : undefined
 }
 
 /** Keys the adapters read from the environment, passed from Settings → Models when set (not in account mode). */
-function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
+function keyEnv(id: ExternalEngineId, auth?: LaunchAuth): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {}
-  if (usesAccount(id)) return env
+  if (accountLaunch(id, auth)) return env
   const keyFor = (name: string): string | null => { try { return getKey(name) } catch { return null } }
   if (id === 'claude-code') { const k = keyFor('anthropic'); if (k && !process.env.ANTHROPIC_API_KEY) env.ANTHROPIC_API_KEY = k }
   if (id === 'gemini-cli') { const k = keyFor('gemini'); if (k && !process.env.GEMINI_API_KEY) env.GEMINI_API_KEY = k }
@@ -356,7 +364,7 @@ function keyEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
 }
 
 /** How to start an engine in `cwd` for an agent. Throws a readable error when it isn't installed or configured. */
-export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): AcpLaunch {
+export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent, auth?: LaunchAuth): AcpLaunch {
   const d = def(id)
   const [program] = splitCommand(commandLine(id))
   if (!program && !managedProgram(id)) throw new Error(`Set the command for ${d.name} in Settings → Agent engines.`)
@@ -366,7 +374,7 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
   // Hermes: the agent's own profile, before the subcommand ("hermes -p <profile> acp").
   const finalArgs = id === 'hermes' && agent ? ['-p', ensureHermesProfile(agent, path), ...args] : args
   // The child gets the same widened PATH, so it can find its own helpers, and the keys it reads from the environment.
-  const env = launchEnv(id)
+  const env = launchEnv(id, auth)
   // Gemini CLI refuses its "auto_edit" mode in a folder it hasn't been told to trust, and keeps that list in
   // ~/.gemini, which Tyslin never writes. For an agent the user set to write directly (and only then), this one
   // process trusts its own agency folder, the same as `gemini --skip-trust` (10 Nov 2026).
@@ -376,7 +384,7 @@ export function engineLaunch(id: ExternalEngineId, cwd: string, agent?: Agent): 
     openRouterEnv(id, agent, env)
     return { command: path, args: finalArgs, cwd, env }
   }
-  return { command: path, args: finalArgs, cwd, env, authMethodId: keyAuthMethod(id, env) }
+  return { command: path, args: finalArgs, cwd, env, authMethodId: keyAuthMethod(id, env, auth) }
 }
 
 /** Adapter state Tyslin owns (under userData/adapters); deleted by reset.ts with the other app data. */
@@ -410,16 +418,16 @@ function openRouterEnv(id: ExternalEngineId, agent: Agent, env: NodeJS.ProcessEn
 }
 
 /** The adapter's environment: widened PATH, saved keys, and in account mode no key variables at all. */
-export function launchEnv(id: ExternalEngineId): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id), PATH: searchDirs().join(delimiter) }
+export function launchEnv(id: ExternalEngineId, auth?: LaunchAuth): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env, ...keyEnv(id, auth), PATH: searchDirs().join(delimiter) }
   // The adapter's own folder goes first, so a program installed by one Node (say under nvm) runs on the
   // `node` beside it and not on an older system one found earlier in PATH.
   const found = resolveProgram(id)
   if (found) env.PATH = [...new Set([found.dir, ...searchDirs()])].join(delimiter)
   delete env.ELECTRON_RUN_AS_NODE
-  if (usesAccount(id)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
+  if (accountLaunch(id, auth)) for (const v of ACCOUNT_KEY_VARS[id] ?? []) delete env[v]
   // Only when a key will actually be used (see keyAuthMethod); with no key at all Codex keeps its usual home.
-  if (id === 'codex' && keyAuthMethod(id, env)) env.CODEX_HOME = codexKeyHome()
+  if (id === 'codex' && keyAuthMethod(id, env, auth)) env.CODEX_HOME = codexKeyHome()
   return env
 }
 

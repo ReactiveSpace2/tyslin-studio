@@ -12,6 +12,7 @@ cd tyslin-studio
 npm install          # also rebuilds the SQLite driver for Electron
 npm run dev          # the app with hot reload
 npm run typecheck    # run after every change; CI runs it too
+npm test             # main-process regression tests in tests/ (plain Node; Electron, the DB and ACP are stubbed)
 ```
 
 Running from a VS Code terminal? VS Code sets `ELECTRON_RUN_AS_NODE=1`, which makes Electron start as plain Node. Use `env -u ELECTRON_RUN_AS_NODE npm run dev`.

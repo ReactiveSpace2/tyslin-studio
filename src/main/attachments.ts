@@ -1,9 +1,10 @@
 import { app, dialog, type BrowserWindow } from 'electron'
 import { randomUUID } from 'crypto'
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync } from 'fs'
+import { closeSync, copyFileSync, mkdirSync, openSync, readFileSync, readSync, statSync } from 'fs'
 import { basename, extname, join } from 'path'
 import type { Attachment } from '@shared/types'
 import { listProjectFiles } from './tools'
+import { saveIntoFolder } from './attachmentSave'
 
 /**
  * Chat attachments. The user picks files or folders with the system dialog; they are read here,
@@ -36,41 +37,7 @@ export interface PreparedMessage {
   context: string
 }
 
-/** Attached files are also saved into the project folder here, so workers can use them (owner, 14 Nov 2026). */
-export const ATTACH_DIR = 'attachments'
-/** Larger files stay where they are; the agent still gets their text (if any) in the message. */
-const MAX_SAVE_BYTES = 50 * 1024 * 1024
-
-/**
- * Copies an attached file into `<folder>/attachments/`, written directly (it is the user's own file, so no review).
- * The same file sent again reuses its copy; a different file with the same name gets "name-2.ext".
- * Returns the path relative to the folder, or null when it wasn't saved.
- */
-function saveIntoFolder(src: string, name: string, folder: string): string | null {
-  try {
-    const size = statSync(src).size
-    if (size > MAX_SAVE_BYTES) return null
-    const dir = join(folder, ATTACH_DIR)
-    mkdirSync(dir, { recursive: true })
-    const safe = basename(name).replace(/[\\/:*?"<>|\x00-\x1f]/g, '-') || 'file'
-    const ext = extname(safe)
-    const stem = safe.slice(0, safe.length - ext.length)
-    const bytes = readFileSync(src)
-    for (let n = 1; n < 100; n++) {
-      const file = n === 1 ? safe : `${stem}-${n}${ext}`
-      const dest = join(dir, file)
-      if (existsSync(dest)) {
-        try { if (readFileSync(dest).equals(bytes)) return `${ATTACH_DIR}/${file}` } catch { /* try the next name */ }
-        continue
-      }
-      const tmp = join(dir, `.${file}.${randomUUID()}.tmp`)
-      copyFileSync(src, tmp)
-      renameSync(tmp, dest)
-      return `${ATTACH_DIR}/${file}`
-    }
-  } catch { /* unreadable or the folder isn't writable: the message still goes, without the copy */ }
-  return null
-}
+export { ATTACH_DIR } from './attachmentSave'
 
 /** Picked but not yet sent. Only ids from this map are accepted by `sessions:send`. */
 const picked = new Map<string, Attachment>()
