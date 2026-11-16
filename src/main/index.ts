@@ -26,7 +26,7 @@ import { adapterStates, checkAdapters, startAdapterManager } from './adapterMana
 import { resetEverything, resetting } from './reset'
 import { gdriveStatus, initGDrive, resetSyncState, setAutoSync, syncAll } from './gdrive'
 import { pickAttachments, prepareAttachments } from './attachments'
-import { capturePreview, exportPdf, listPreviewFiles, officeStatus, previewBytes, registerPreviewProtocol, registerPreviewScheme, saveCopy } from './preview'
+import { capturePreview, exportPdf, exportPng, listPreviewFiles, officeStatus, previewBytes, registerPreviewProtocol, registerPreviewScheme, saveCopy } from './preview'
 import { readPage, unwatchAgency, watchAgency } from './pages'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
@@ -541,6 +541,7 @@ function registerIpc(): void {
   ipcMain.handle('preview:bytes', (_e, projectId: string, path: string) => previewBytes(String(projectId ?? ''), String(path ?? '')))
   ipcMain.handle('preview:office', () => officeStatus())
   ipcMain.handle('preview:exportPdf', (_e, projectId: string, path: string) => exportPdf(win!, String(projectId ?? ''), String(path ?? '')))
+  ipcMain.handle('preview:exportPng', (_e, projectId: string, path: string, width: number, height: number) => exportPng(win!, String(projectId ?? ''), String(path ?? ''), Number(width), Number(height)))
   ipcMain.handle('preview:saveCopy', (_e, projectId: string, path: string) => saveCopy(win!, String(projectId ?? ''), String(path ?? '')))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.

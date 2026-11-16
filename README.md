@@ -66,6 +66,7 @@ Ten teams can be created today (Research & Planning, added on 12 Nov 2026, the f
 | Web Design | Software | Designs and builds marketing sites and landing pages. | Jade | 5 | Claude Code, Gemini CLI, Codex | Available |
 | QA & Testing | Software | Writes test plans, runs tests and reports bugs. | Hannah | 4 | Claude Code, Codex | Available |
 | DevOps | Software | Sets up builds, deploys and monitoring. | Viktor | 4 | Codex, Claude Code | Available |
+| Design | Design | Draws web pages, app screens, posts and print on live artboards. | Iris | 2 | Claude Code | Available |
 | Product Management | Documents and data | Turns feedback and goals into specs and a roadmap. | Erin | 4 | Claude Code, Gemini CLI | Coming soon |
 | Data & Analytics | Documents and data | Cleans data, builds reports and explains what the numbers say. | Nadia | 4 | Codex, Claude Code | Coming soon |
 | Content Writing | Documents and data | Researches, writes and edits articles, guides and newsletters. | Clara | 4 | Gemini CLI, Claude Code | Coming soon |
@@ -127,8 +128,13 @@ Some teams get an extra tab on their Team screen, built from shared page types:
 | QA & Testing | Test results (table) | `data/tests.json` |
 | DevOps | Environments (table) | `data/environments.json` |
 | Social Media Marketing | Calendar | `data/calendar.json` |
+| Design | Design board | `design/board.json` and one HTML file per artboard |
 
 A table file is `{ "columns": [...], "rows": [...] }`; the calendar file is `{ "items": [{ "date", "channel", "title", "state" }] }`, with state draft, approved, scheduled or posted. The team's agents keep these files up to date with their file tools, and the tab refreshes when a file changes. Email Marketing's Campaigns page comes later.
+
+### Design board
+
+The Design team (a Lead and a designer) draws on one canvas of artboards: web pages, app screens, square and portrait posts, stories, link images and print pages (A4, tri-fold, US Letter), each at its real size. Every artboard is an HTML file in the team's `design/` folder, listed in `design/board.json`, and the board shows it live while the designer writes it (the designer saves directly, without the file review, so you can watch). Pan and zoom the canvas, drag an artboard by its name to move it, and add an empty one from **+ Artboard**. With the Edit tool, click any part of an artboard to change its text, colours, text size, weight, corners, padding and alignment, or duplicate or delete it; double-click text to type over it. Your changes save into the same file, and Undo (or Ctrl+Z on the artboard) puts the last version back. In a task, **Ask for a change** sends the Lead a note about the part you selected. Each artboard exports as PNG or PDF.
 
 ### Files
 

@@ -39,7 +39,7 @@ function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, e
     skills: [...t.skills, ...(t.packSkills ?? []).filter((p) => !p.for || p.for.includes(m.first)).map((p) => p.skill)],
     schedule: 'manual',
     engine,
-    writeMode: 'ask',
+    writeMode: m.writeMode ?? 'ask',
     isMascot: false,
     projectId, leadId,
     tools: { read: true, write: true },

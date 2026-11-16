@@ -1,4 +1,5 @@
 import type { Skill } from '@shared/types'
+import { DESIGN_SKILLS } from './seedSkillsDesign'
 
 /**
  * Built-in skills the agency templates (shared/agencies/) rely on, beyond the ones in seedSkills.ts.
@@ -265,7 +266,9 @@ Check versions, prices and limits on the makers' own pages and link them with th
     description: 'Turn research into phases with sizes, costs, risks and open questions.',
     body: `Read the research first and use only what it supports; mark every assumption as one. Three phases: a first version that proves the idea, what comes next, and later. Per phase: what is built, what is left out on purpose, what it depends on, a size in weeks as a range, a cost range, and how you will know it worked.
 Then the risks, each with what would reduce it, and the questions still open with who can answer them. Put a one-page summary at the top that a busy reader can decide from.`
-  }
+  },
+  // Design
+  ...DESIGN_SKILLS
 ]
 
 /**

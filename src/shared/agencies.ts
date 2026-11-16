@@ -15,6 +15,7 @@ import { dataAnalytics } from './agencies/data-analytics'
 import { productManagement } from './agencies/product-management'
 import { qaTesting } from './agencies/qa-testing'
 import { devops } from './agencies/devops'
+import { design } from './agencies/design'
 
 /**
  * Agencies: the unit Tyslin is organised around. An agency is a Lead agent with a goal, a plan, skills, a
@@ -42,14 +43,17 @@ export interface AgencyMember {
   /** 'builtin' for every Lead. */
   engine: AgencyEngine
   lead?: boolean
+  /** 'direct': the worker's file writes skip the review (the Design team's designer, so the board updates live). Default: ask. */
+  writeMode?: 'direct'
 }
 
 /** How screens group the templates (wizard, Home, the site). */
-export type AgencyGroup = 'planning' | 'software' | 'documents' | 'marketing'
+export type AgencyGroup = 'planning' | 'software' | 'design' | 'documents' | 'marketing'
 
 export const AGENCY_GROUPS: { id: AgencyGroup; title: string; hint: string }[] = [
   { id: 'planning', title: 'Research and planning', hint: 'Before you build' },
   { id: 'software', title: 'Software', hint: 'Code in a repo' },
+  { id: 'design', title: 'Design', hint: 'Artboards for web, apps, posts and print' },
   { id: 'documents', title: 'Documents and data', hint: 'Specs, reports and writing' },
   { id: 'marketing', title: 'Marketing and sales', hint: 'Campaigns, outreach and growth' }
 ]
@@ -113,6 +117,7 @@ ${t.intake.map((q) => `- ${q}`).join('\n')}`
 export const AGENCY_TEMPLATES: AgencyTemplate[] = [
   researchPlanning,
   appDevelopment, mobileApps, webDesign, qaTesting, devops,
+  design,
   productManagement, dataAnalytics, contentWriting,
   socialMediaMarketing, seo, paidAds, emailMarketing, salesLeadGen
 ]

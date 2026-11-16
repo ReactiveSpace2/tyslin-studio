@@ -8,6 +8,7 @@ import { PREVIEW_SCHEME, previewKind, previewUrl } from '@shared/preview'
 import * as db from './db'
 import { addCapturedImage } from './attachments'
 import { officeToPdf, soffice } from './office'
+import { EDITOR_JS, EDITOR_PATH, injectEditor } from './designEditor'
 
 /**
  * The Preview tab's back end: a custom `tyslin-preview://<projectId>/<path>` scheme that serves files from
@@ -51,6 +52,8 @@ export function registerPreviewProtocol(): void {
       const u = new URL(request.url)
       // Standard schemes lower-case the host; project ids are lower-case UUIDs, so it round-trips.
       let rel = decodeURIComponent(u.pathname.replace(/^\/+/, ''))
+      // The Design board's hand-editing script, from the app itself (designEditor.ts), never from the folder.
+      if (rel === EDITOR_PATH) return new Response(EDITOR_JS, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'content-security-policy': CSP, 'cache-control': 'no-store' } })
       let abs = fileFor(u.hostname, rel)
       if (statSync(abs).isDirectory()) { rel = join(rel, 'index.html'); abs = fileFor(u.hostname, rel) }
       // `?as=pdf` on an Office file: the LibreOffice conversion (main/office.ts), cached, shown in the PDF viewer.
@@ -59,11 +62,13 @@ export function registerPreviewProtocol(): void {
           (pdf) => new Response(readFileSync(pdf), { headers: { 'content-type': 'application/pdf', 'cache-control': 'no-store' } }),
           (err) => new Response(err instanceof Error ? err.message : String(err), { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } }))
       }
-      const body = readFileSync(abs)
+      let body: Buffer | string = readFileSync(abs)
+      // `?edit=1` on a page: the Design board is editing this artboard, so the editor script comes along.
+      if (u.searchParams.get('edit') === '1' && /\.html?$/i.test(abs)) body = injectEditor(body.toString('utf8'))
       // A PDF is drawn by Chromium's own viewer, which is a frame of its own: the page CSP (frame-src 'none') blocked it
       // and every PDF came up blank (ERR_BLOCKED_BY_CLIENT; found 12 Nov 2026). PDFs carry no page scripts, so they go without it.
       const type = MIME[extname(abs).toLowerCase()] ?? 'application/octet-stream'
-      return new Response(body, { headers: { 'content-type': type, ...(type === 'application/pdf' ? {} : { 'content-security-policy': CSP }), 'cache-control': 'no-store' } })
+      return new Response(typeof body === 'string' ? body : new Uint8Array(body), { headers: { 'content-type': type, ...(type === 'application/pdf' ? {} : { 'content-security-policy': CSP }), 'cache-control': 'no-store' } })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       return new Response(msg, { status: msg.includes('Outside') || msg.includes('No such') ? 403 : 404, headers: { 'content-type': 'text/plain' } })
@@ -147,6 +152,33 @@ export async function exportPdf(win: BrowserWindow, projectId: string, rel: stri
     await page.loadURL(previewUrl(projectId, rel))
     const pdf = await page.webContents.printToPDF({ printBackground: true, pageSize: 'A4', margins: { marginType: 'default' } })
     writeFileSync(filePath, pdf)
+    return filePath
+  } finally {
+    page.destroy()
+  }
+}
+
+/**
+ * "Export as PNG" on the Design board: the artboard drawn at its own size in a hidden, sandboxed, offscreen window on
+ * the same locked-down scheme, then saved where the user picks. Offscreen so sizes larger than the screen (a story,
+ * a long web page) come out whole.
+ */
+export async function exportPng(win: BrowserWindow, projectId: string, rel: string, width: number, height: number): Promise<string | null> {
+  fileFor(projectId, rel)
+  if (previewKind(rel) !== 'page') throw new Error('Only artboards (HTML files) can be saved as PNG.')
+  const w = Math.min(8000, Math.max(40, Math.round(width))), h = Math.min(8000, Math.max(40, Math.round(height)))
+  const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: join(app.getPath('downloads'), `${basename(rel, extname(rel))}.png`), filters: [{ name: 'PNG image', extensions: ['png'] }] })
+  if (canceled || !filePath) return null
+  const page = new BrowserWindow({ show: false, width: w, height: h, useContentSize: true, enableLargerThanScreen: true, webPreferences: { offscreen: true, sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: true } })
+  try {
+    page.webContents.on('will-navigate', (e) => e.preventDefault())
+    page.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    page.setContentSize(w, h)
+    await page.loadURL(previewUrl(projectId, rel))
+    // Let fonts, pictures and a first animation frame settle.
+    await new Promise((r) => setTimeout(r, 400))
+    const img = await page.webContents.capturePage({ x: 0, y: 0, width: w, height: h })
+    writeFileSync(filePath, img.toPNG())
     return filePath
   } finally {
     page.destroy()

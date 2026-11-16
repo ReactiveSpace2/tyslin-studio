@@ -11,6 +11,7 @@ export const AGENCY_INTEGRATIONS: Record<string, { presets: string[]; searches: 
   'qa-testing': { presets: ['github', 'linear'], searches: ['playwright', 'sentry', 'browserstack'] },
   'mobile-apps': { presets: ['github', 'linear'], searches: ['expo', 'firebase', 'app store'] },
   'web-design': { presets: ['github'], searches: ['playwright', 'figma', 'webflow', 'vercel'] },
+  design: { presets: [], searches: ['figma', 'canva', 'unsplash'] },
   'product-management': { presets: ['linear', 'github'], searches: ['notion', 'jira', 'posthog'] },
   'sales-lead-gen': { presets: [], searches: ['hubspot', 'salesforce', 'apollo', 'linkedin'] },
   'email-marketing': { presets: [], searches: ['mailchimp', 'resend', 'hubspot', 'brevo'] },

@@ -141,7 +141,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             {onBackToLead && view.lead && <Button variant="ghost" size="sm" className="h-8" onClick={onBackToLead}>Back to {firstName(view.lead.name)}</Button>}
           </div>
         )}
-        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onMade={(p) => { if (pane !== 'changes' && !expanded) openPreview(p) }} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
+        <Thread task={task} agent={agent} view={view} sessionId={sessionId} focus={focus} until={nextTask} onPreview={openPreviewFull} onMade={(p) => { if (pane !== 'changes' && !pane.startsWith('page:') && !expanded) openPreview(p) }} servers={servers} toolSetup={toolSetup} onToolSetup={setToolSetup} onToolConnected={(s) => { setServers((l) => [...l.filter((x) => x.id !== s.id), s]); onSessionsChanged() }} skills={skills} onAgentsChanged={onAgentsChanged} onConnectors={onConnectors} onReview={openReview}
           onAskLead={() => { composerRef.current?.querySelector('textarea')?.focus(); setText((t) => t || `${firstName(agent.name)}, change the plan: `) }}
           onOpenAgency={onOpenAgency} onSettings={onSettings} onOpenAgent={onOpenAgent} onChanged={onSessionsChanged} />
         <div ref={composerRef} className="mx-auto flex w-full max-w-[760px] flex-none flex-col gap-2 px-6 pt-2 pb-4">
@@ -161,9 +161,11 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
             <span className="text-[13px] font-semibold">{paneTitle}</span>
             <Button variant="ghost" size="icon" className="size-8" aria-label="Close panel" onClick={() => { setPane(''); setWide(false) }}><Icon name="close" size={14} /></Button>
           </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <div className={agencyPage?.kind === 'design' ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : 'flex min-h-0 flex-1 flex-col overflow-y-auto'}>
             {pane === 'details' && <DetailsPanel view={view} agent={agent} taskId={sessionId} cards={task.cards} channel={task.channel} onOpenAgency={onOpenAgency} onOpenAgent={onOpenAgent} onConnectors={onConnectors} onFiles={onFiles} onPreview={openPreview} />}
-            {agencyPage && view && <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>}
+            {agencyPage && view && (agencyPage.kind === 'design'
+              ? <AgencyPageView view={view} page={agencyPage} onSend={task.send} className="min-h-0 flex-1 rounded-none border-0" />
+              : <div className="flex flex-col gap-3 p-4"><AgencyPageView view={view} page={agencyPage} /></div>)}
             {pane === 'preview' && view && <PreviewPanel view={view} agent={agent} path={previewPath} onPath={setPreviewPath} onSend={task.send} expanded={expanded} onExpand={() => setWide((w) => !w)} onClose={() => { setPane(''); setWide(false) }} />}
             {pane === 'changes' && (shownReview
               ? <ChangesPanel key={shownReview.sessionId + shownReview.changes.map((c) => c.id + c.status).join(',')} review={shownReview} taskSessionId={sessionId} onResolved={() => void refreshReview()} onPreview={openPreview} />
