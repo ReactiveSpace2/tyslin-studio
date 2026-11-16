@@ -62,7 +62,8 @@ export function saveIntegration(input: McpServerInput): McpServerInfo {
     const local = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
     if (parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) throw new Error('Use an https:// address (http:// only for localhost).')
   } else {
-    const parts = splitCommand(input.commandLine ?? '')
+    // No command line sent for a saved stdio server = keep its command (the chat's setup card turning an existing one on).
+    const parts = input.commandLine === undefined && old?.transport === 'stdio' ? [old.command, ...old.args] : splitCommand(input.commandLine ?? '')
     if (!parts.length) throw new Error('Enter the command that starts the server, e.g. npx -y some-mcp-server')
     ;[command, ...args] = parts
   }

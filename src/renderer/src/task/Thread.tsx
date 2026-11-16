@@ -264,7 +264,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
               onDismiss={() => dismiss(suggestedTool.id)} />
           )}
           {skillSuggestion && !toolSetup && <SkillSuggestCard key={'skill:' + skillSuggestion.skill.name} skill={skillSuggestion.skill} agent={skillSuggestion.agent} reason={skillSuggestion.reason} team={team} onAdded={onAgentsChanged} onDismiss={() => dismiss('skill:' + skillSuggestion.skill.name)} />}
-          {toolSetup && <ToolSetupCard key={toolSetup.tool.id} tool={toolSetup.tool} team={team} initialAgentIds={toolSetup.agentIds} onConnected={onToolConnected} onCancel={() => onToolSetup(null)} />}
+          {toolSetup && <ToolSetupCard key={toolSetup.tool.id} tool={toolSetup.tool} team={team} servers={servers} initialAgentIds={toolSetup.agentIds} onConnected={onToolConnected} onCancel={() => onToolSetup(null)} />}
           {task.permissions.map((p) => <PermissionCard key={p.id} p={p} agent={agent} onAnswer={task.answerPermission} />)}
           {workerPermissions.map(({ p, a }) => <PermissionCard key={p.id} p={p} agent={a} onAnswer={task.answerPermission} />)}
           {task.streaming !== null && !task.waiting && (

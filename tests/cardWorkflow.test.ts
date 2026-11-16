@@ -100,3 +100,11 @@ test('edits: adapters may write inside the folder only, never the board', () => 
     assert.throws(() => agentWritePath(dir, join(dir, '.git', 'config')), /\.git/)
   } finally { rmSync(dir, { recursive: true, force: true }) }
 })
+
+import { isTaskChat } from '../src/shared/taskChat'
+// 17 Nov 2026: a Lead's own card run split its task, hiding questions, reviews and the Plan card.
+test('only tasks the boss started end a task window', () => {
+  assert.equal(isTaskChat({ title: 'Redesign the Reves.ai home page' }), true)
+  assert.equal(isTaskChat({ title: 'Card: Start card: Page brief' }), false)
+  assert.equal(isTaskChat({ title: 'Your answers' }), false)
+})

@@ -52,8 +52,12 @@ export function ToolSuggestCard({ tool, agent, reason, onAdd, onDismiss }: { too
  * D on the canvas: the setup as a card in the thread. A token for the token tools, who gets it, then Connect and test.
  * Once connected the card becomes one quiet line, so the task keeps a record of what the team was given.
  */
-export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCancel }: { tool: ToolDef; team: Agent[]; initialAgentIds: string[]; onConnected: (s: McpServerInfo) => void; onCancel: () => void }): JSX.Element {
+export function ToolSetupCard({ tool, team, servers, initialAgentIds, onConnected, onCancel }: { tool: ToolDef; team: Agent[]; servers: McpServerInfo[]; initialAgentIds: string[]; onConnected: (s: McpServerInfo) => void; onCancel: () => void }): JSX.Element {
   const preset = tool.presetId ? MCP_PRESETS.find((p) => p.id === tool.presetId) ?? null : null
+  // Connectors belong to the whole project, and their names are unique there. When another team already added this
+  // one, switch it on for the people picked here instead of adding a second copy (which failed with "already exists").
+  const existing = servers.find((s) => (preset ? s.preset === preset.id : s.name === tool.name)) ?? null
+  const hasToken = !!existing && existing.secretNames.length > 0
   const canUse = team.filter((a) => a.engine !== 'builtin')
   const lead = team.find((a) => a.engine === 'builtin')
   const [token, setToken] = useState('')
@@ -63,11 +67,13 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
   const [done, setDone] = useState<McpServerInfo | null>(null)
   const connect = async (): Promise<void> => {
     setError('')
-    if (preset && !token.trim()) { setError(`Paste your ${preset.title} ${preset.tokenLabel.toLowerCase()} first.`); return }
+    if (preset && !token.trim() && !hasToken) { setError(`Paste your ${preset.title} ${preset.tokenLabel.toLowerCase()} first.`); return }
     if (!agentIds.length) { setError('Pick at least one agent.'); return }
     setBusy('saving')
     try {
-      const saved = await window.tyslin.integrations.save(preset
+      const saved = await window.tyslin.integrations.save(existing
+        ? { id: existing.id, name: existing.name, preset: existing.preset, transport: existing.transport, url: existing.url, token: preset && token.trim() ? token : undefined, agentIds: [...new Set([...existing.agentIds, ...agentIds])] }
+        : preset
         ? { name: tool.name, preset: preset.id, transport: 'http', url: preset.url, token, agentIds }
         : { name: tool.name, title: tool.title, source: tool.source ?? '', preset: '', transport: 'stdio', commandLine: tool.commandLine, env: '', agentIds })
       setBusy('testing')
@@ -102,11 +108,11 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
         {preset ? (
           <div className="flex flex-col gap-1.5">
             <span className="flex items-center justify-between"><Label htmlFor="tool-token">Your {preset.title} {preset.tokenLabel.toLowerCase()}</Label><a href={preset.tokenUrl} target="_blank" rel="noreferrer" className="text-xs text-green underline-offset-2 hover:underline">Make one on {preset.title}</a></span>
-            <Input id="tool-token" type="password" className="font-mono" autoComplete="off" value={token} placeholder={preset.tokenPlaceholder} onChange={(e) => setToken(e.target.value)} disabled={!!busy} />
-            <span className={HINT}>{preset.tokenHint} It stays encrypted on this computer.</span>
+            <Input id="tool-token" type="password" className="font-mono" autoComplete="off" value={token} placeholder={hasToken ? 'Leave empty to keep the saved one' : preset.tokenPlaceholder} onChange={(e) => setToken(e.target.value)} disabled={!!busy} />
+            <span className={HINT}>{hasToken ? `${preset.title} is already set up in this project, so you can leave this empty.` : `${preset.tokenHint} It stays encrypted on this computer.`}</span>
           </div>
         ) : (
-          <p className={HINT}>{tool.needs}. Tyslin starts it when an agent needs it: <span className="font-mono">{tool.commandLine}</span></p>
+          <p className={HINT}>{existing ? `${tool.title} is already set up in this project. Pick who in this team gets it.` : <>{tool.needs}. Tyslin starts it when an agent needs it: <span className="font-mono">{tool.commandLine}</span></>}</p>
         )}
         <div className="flex flex-col gap-2">
           <span className="text-[13px] font-medium">Who gets it</span>
@@ -119,7 +125,7 @@ export function ToolSetupCard({ tool, team, initialAgentIds, onConnected, onCanc
         </div>
         {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
         <span className="flex flex-wrap items-center gap-2">
-          <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={!!busy} onClick={() => void connect()}>{busy === 'saving' ? 'Connecting…' : busy === 'testing' ? 'Testing…' : 'Connect and test'}</Button>
+          <Button variant="lime" size="sm" className="min-h-9 font-semibold" disabled={!!busy} onClick={() => void connect()}>{busy === 'saving' ? 'Connecting…' : busy === 'testing' ? 'Testing…' : existing ? 'Turn on and test' : 'Connect and test'}</Button>
           <Button variant="ghost" size="sm" className="min-h-9" disabled={!!busy} onClick={onCancel}>Cancel</Button>
           <span className={`ml-auto ${HINT}`}>Also on the team's Connectors tab</span>
         </span>

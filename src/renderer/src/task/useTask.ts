@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isTaskChat } from '@shared/taskChat'
 import type { Agent, Attachment, ChannelMessage, KanbanCard, KanbanDoc, Message, PendingChange, PermissionChoice, RunEvent, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 
@@ -148,7 +149,7 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
 
   // This task's window on the agency: from the chat's start to the next Lead task (cards and messages are per agency).
   const start = session?.createdAt ?? 0
-  const next = agent ? allSessions.filter((s) => s.agentId === agent.id && s.createdAt > start).sort((a, b) => a.createdAt - b.createdAt)[0] : undefined
+  const next = agent ? allSessions.filter((s) => s.agentId === agent.id && s.createdAt > start && isTaskChat(s)).sort((a, b) => a.createdAt - b.createdAt)[0] : undefined
   const end = next?.createdAt ?? Number.POSITIVE_INFINITY
   const inWindow = (t: number): boolean => t >= start && t < end
   // A card is this task's when it was made in the window, or when the Lead touched it then (assigned, moved,

@@ -1,4 +1,5 @@
 import { missingNeeds, needLabel } from './boardTools'
+import { isTaskChat } from '@shared/taskChat'
 import { randomUUID } from 'crypto'
 import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
 import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
@@ -76,6 +77,10 @@ const approved = new Set<string>()
 const runsOnItsOwn = (agency: Agency): boolean => agency.autoRun || approved.has(agency.id)
 /** Agencies with cards that finished since the Lead last reviewed; the Lead gets one review run when the plan runs out. */
 const toReview = new Set<string>()
+/** Teams whose Lead review couldn't start because the Lead was busy; it starts when the Lead's run ends. */
+const pendingReview = new Set<string>()
+/** Whether a card in this team is running. */
+const teamBusy = (agency: Agency): boolean => { const doc = readBoard(agency); return !!doc && doc.columns.some((c) => c.cards.some((k) => active.has(k.id))) }
 /** Review runs per agency today, so a Lead that keeps sending cards back can't loop for ever. */
 const reviewRounds = new Map<string, { day: string; n: number }>()
 const MAX_REVIEWS_PER_DAY = 6
@@ -99,11 +104,18 @@ function startLeadReview(agency: Agency): void {
   const lead = db.getAgent(agency.leadId)
   if (!lead) return
   try { deps.checkReady(lead) } catch { return }
-  const session = db.listSessions(lead.id).filter((x) => x.projectId === agency.projectId && !x.title.startsWith('Card:')).sort((a, b) => b.createdAt - a.createdAt)[0]
+  const session = db.listSessions(lead.id).filter((x) => x.projectId === agency.projectId && isTaskChat(x)).sort((a, b) => b.createdAt - a.createdAt)[0]
     ?? db.createSession(lead.id, agency.projectId)
+  // The Lead may be busy answering the boss (17 Nov 2026: a blocked card's review was thrown away, unhandled, while
+  // Jade was still on the boss's answers). Keep it owed; cardsOnRunEvent starts it when the Lead's run ends.
+  try { deps.startRun(session.id, REVIEW_PROMPT) } catch (err) {
+    if (err instanceof Error && /still working/.test(err.message)) { pendingReview.add(agency.id); return }
+    console.warn(`[cards] ${agency.name}: review did not start:`, err)
+    return
+  }
+  pendingReview.delete(agency.id)
   reviewRounds.set(agency.id, { day, n: n + 1 })
   toReview.delete(agency.id)
-  deps.startRun(session.id, REVIEW_PROMPT)
 }
 
 export const runningCards = (): string[] => [...active]
@@ -359,6 +371,8 @@ export function cardsOnRunEvent(e: RunEvent): void {
     const agent = session ? db.getAgent(session.agentId) : null
     const agency = agent?.agency ? db.getAgency(agent.agency) : null
     if (agency && agency.leadId === agent!.id && runsOnItsOwn(agency)) void runNext(agency)
+    // A review that was owed while the Lead was busy, once no card is running in the team.
+    else if (agency && agency.leadId === agent!.id && pendingReview.has(agency.id) && !teamBusy(agency)) setTimeout(() => { const a = db.getAgency(agency.id); if (a && pendingReview.has(a.id)) startLeadReview(a) }, 1000)
   }
 }
 

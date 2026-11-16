@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { isTaskChat } from '@shared/taskChat'
 import type { Agency, Agent, AuthStatus, ChannelMessage, DashboardStats, Project, Session } from '@shared/types'
 import { refreshAppearance } from './appearance'
 import { agencyOf, type AgencyView } from './agencies'
@@ -118,7 +119,7 @@ export default function App(): JSX.Element {
         void refreshSessions().then(() => {
           setActiveAgency(a.id)
           const lead = a.leadId
-          const s = lead ? latestSession(lead) : null
+          const s = lead ? latestSession(lead, true) : null
           setRoute(s && lead ? { name: 'task', sessionId: s.id, agentId: lead, focus: id } : { name: 'agency', id: a.id, tab: 'team' })
         })
       })
@@ -134,8 +135,9 @@ export default function App(): JSX.Element {
   const activeView = viewById(activeAgency)
   const sessionsRef = useRef<Session[]>([])
   sessionsRef.current = sessions
-  const latestSession = (agentId: string): Session | null =>
-    [...sessionsRef.current].filter((s) => s.agentId === agentId).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null
+  /** An agent's newest chat; `tasksOnly` skips card runs and Inbox answers (for a Lead's newest task). */
+  const latestSession = (agentId: string, tasksOnly = false): Session | null =>
+    [...sessionsRef.current].filter((s) => s.agentId === agentId && (!tasksOnly || isTaskChat(s))).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null
   // The active agency: the remembered one, else the first; follows creation and deletion.
   useEffect(() => {
     if (!agencyRows.length) { setActiveAgency(null); return }
@@ -155,7 +157,7 @@ export default function App(): JSX.Element {
   const needsYouBySession: Record<string, number> = {}
   for (const v of agencies) {
     if (!v.lead) continue
-    const s = latestSession(v.lead.id)
+    const s = latestSession(v.lead.id, true)
     if (!s) continue
     const n = channelMsgs.filter((m) => m.agencyId === v.agency.id && needsYou(m)).length + waitingFor(v)
     if (n) needsYouBySession[s.id] = n
@@ -166,7 +168,7 @@ export default function App(): JSX.Element {
   const doneSessions = new Set<string>()
   for (const v of agencies) {
     if (!v.lead) continue
-    const s = latestSession(v.lead.id)
+    const s = latestSession(v.lead.id, true)
     if (!s || needsYouBySession[s.id]) continue
     const ids = memberIds(v)
     if (sessions.some((x) => runningIds.has(x.id) && ids.has(x.agentId))) continue

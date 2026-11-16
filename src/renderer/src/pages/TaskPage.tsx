@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isTaskChat } from '@shared/taskChat'
 import type { Agent, Attachment, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
@@ -61,7 +62,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const openPreviewFull = (p: string): void => { openPreview(p); setWide(true) }
   // The agency's next task after this one: files changed from then on belong to it, not to this conversation.
   const started = task.session?.createdAt ?? 0
-  const nextTask = sessions.filter((s) => s.projectId === task.session?.projectId && s.id !== sessionId && !s.title.startsWith('Card: ') && s.messageCount > 0 && s.createdAt > started).reduce<number | null>((min, s) => (min === null || s.createdAt < min ? s.createdAt : min), null)
+  const nextTask = sessions.filter((s) => s.projectId === task.session?.projectId && s.id !== sessionId && isTaskChat(s) && s.messageCount > 0 && s.createdAt > started).reduce<number | null>((min, s) => (min === null || s.createdAt < min ? s.createdAt : min), null)
   const composerRef = useRef<HTMLDivElement>(null)
   // Tools from the chat (owner, 12 Nov 2026: B + C + D on the canvas): the organization's connectors, a setup card
   // in the thread, and the "Tools · n" overview under the box.
