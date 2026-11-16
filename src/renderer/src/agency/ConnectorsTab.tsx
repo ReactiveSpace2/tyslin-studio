@@ -67,7 +67,7 @@ export function ConnectorsTab({ view }: { view: AgencyView }): JSX.Element {
       </Card>
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="outline" size="sm" onClick={() => setAdding(true)}><Icon name="plus" size={12} /> Add a connector</Button>
-        <span className={HINT}>GitHub, Linear, Stripe, anything from the MCP registry, or your own server. Each needs your token; nothing is connected for you.</span>
+        <span className={HINT}>Playwright (a browser) is added for every worker on its own: it's free and runs on this computer. GitHub, Linear, Stripe, the MCP registry or your own server need your token, so you add those.</span>
       </div>
       {error && <p className="text-[13px] text-destructive" role="alert">{error}</p>}
       {adding && <ConnectorDialog view={view} team={team} onClose={() => setAdding(false)} onSaved={(s) => { setAdding(false); setList((l) => [...(l ?? []), s]); void test(s.id) }} />}

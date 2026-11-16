@@ -11,10 +11,11 @@ export const store = (s.__tyslinDb ??= { projects: [], agents: [] })
 export const getProject = (id: string): { id: string; name: string; folder: string } | null => store.projects.find((p) => p.id === id) ?? null
 export const listAgents = (): unknown[] => store.agents
 export const listSkills = (): { name: string }[] => []
-export const listMcpServers = (): unknown[] => []
+export const listMcpServers = (): any[] => [...((globalThis as any).__tyslinMcp?.values() ?? [])]
 export const mcpServersForAgent = (): unknown[] => []
 // Connectors (integrations.ts saveIntegration).
 const gm = globalThis as unknown as { __tyslinMcp?: Map<string, any> }
 const mcp: Map<string, any> = (gm.__tyslinMcp ??= new Map())
 export const getMcpServer = (id: string): any => mcp.get(id) ?? null
 export const saveMcpServer = (srv: any): any => { const saved = { createdAt: Date.now(), ...mcp.get(srv.id), ...srv }; mcp.set(srv.id, saved); return saved }
+export const setMcpAgents = (id: string, agentIds: string[]): any => { const srv = mcp.get(id); srv.agentIds = [...new Set(agentIds)]; return srv }

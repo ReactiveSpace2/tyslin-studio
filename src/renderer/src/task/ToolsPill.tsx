@@ -58,7 +58,7 @@ export function ToolsPill({ agencyName, team, servers, onTest, onAdd, onMore, cl
               <DropdownMenuItem className="min-h-10 cursor-pointer gap-2.5 rounded-md px-2.5 text-green" onSelect={() => { setOpen(false); onMore() }}><Icon name="search" size={14} /> Find another tool…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <span className="text-xs text-muted-foreground">Each needs your own sign-in or token; nothing is connected for you.</span>
+          <span className="text-xs text-muted-foreground">A browser (Playwright) is added for you. The others need your own sign-in or token.</span>
         </span>
       </PopoverContent>
     </Popover>

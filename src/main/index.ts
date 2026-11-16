@@ -18,7 +18,7 @@ import { usesOpenRouter } from '@shared/openrouter'
 import { estimateCost } from '@shared/pricing'
 import { afterRunCost, budgetAlerts, onCapChanged, setBudgetResume } from './budget'
 import { cancelOpenRouter, checkOpenRouterKey, connectOpenRouter, openRouterAccount } from './openrouterAuth'
-import { removeIntegration, saveIntegration, testIntegration } from './integrations'
+import { giveBasicConnectors, removeIntegration, saveIntegration, testIntegration } from './integrations'
 import { searchRegistry } from './mcpRegistry'
 import { listMemory, readMemory, writeMemory } from './memory'
 import { accountStatuses, cancelAccountSignIn, setUseAccount, signInAccount } from './accounts'
@@ -506,7 +506,12 @@ function registerIpc(): void {
   // Agencies are the only unit: assistants, Builder and the old Studio assistant stay in the table but are never listed.
   ipcMain.handle('agents:list', () => db.listAgents().filter((a) => a.kind === 'agent' && !a.isMascot))
   ipcMain.handle('agents:get', (_e, id: string) => db.getAgent(id))
-  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => db.saveAgent(input))
+  ipcMain.handle('agents:save', (_e, input: AgentInput & { id?: string }) => {
+    const saved = db.saveAgent(input)
+    // A new worker gets the browser and the other basic connectors like the rest of its team.
+    if (!input.id) giveBasicConnectors()
+    return saved
+  })
   ipcMain.handle('agents:remove', (_e, id: string) => {
     const gone = db.getAgent(id)
     if (gone?.engine === 'hermes') deleteHermesProfile(gone)
@@ -760,6 +765,7 @@ function registerIpc(): void {
   ipcMain.handle('agencies:suggest', (_e, turns: StarterTurn[]) => suggestAgencies(Array.isArray(turns) ? turns.map((t) => ({ role: t?.role === 'user' ? 'user' as const : 'tyslin' as const, text: String(t?.text ?? '') })) : []))
   ipcMain.handle('agencies:create', (_e, input: AgencyCreateInput) => {
     const a = createAgency(input)
+    giveBasicConnectors()
     win?.webContents.send('tasks:changed')
     return a
   })
@@ -868,6 +874,7 @@ function registerIpc(): void {
   ipcMain.handle('orgs:switch', (_e, id: string) => {
     if (activeRuns.size) throw new Error('An agent is still replying. Stop it or wait, then switch.')
     db.switchOrg(id)
+    giveBasicConnectors()
     updateBadge()
   })
   ipcMain.handle('app:info', (): AppInfo => ({
@@ -901,6 +908,7 @@ app.whenReady().then(() => {
   db.expireStaleChanges()
   registerIpc()
   initAgencies()
+  giveBasicConnectors()
   createWindow()
   startScheduler()
   // Claude Code, Codex and Gemini CLI: downloaded and kept up to date by Tyslin (adapterManager.ts). A new version

@@ -105,6 +105,44 @@ function toAcp(s: McpServerInfo): McpServer | null {
   return { name: s.name, command: path, args: s.args, env: [{ name: 'PATH', value: searchDirs().join(delimiter) }, ...sec.env] }
 }
 
+/**
+ * Connectors every team's workers get without being asked (owner, 17 Nov 2026: "for basic connectors like a browser,
+ * add them without asking"): free, run on this computer, need no account or token. Each worker is given one once,
+ * remembered in the per-project setting `connector:auto:<name>`, so a worker the boss later switches off stays off.
+ * Called at launch, after switching projects, after a team is made and after a worker is added (index.ts).
+ */
+export const BASIC_CONNECTORS = [
+  // Microsoft's Playwright MCP server (github.com/microsoft/playwright-mcp README: `npx @playwright/mcp@latest`).
+  { name: 'playwright', title: 'Playwright', source: 'io.github.microsoft/playwright-mcp', commandLine: 'npx -y @playwright/mcp@latest' }
+]
+
+/** Gives every adapter worker the basic connectors it hasn't been given yet; returns the connectors that changed. */
+export function ensureBasicConnectors(): McpServerInfo[] {
+  const workers = db.listAgents().filter((a) => a.kind === 'agent' && !a.isMascot && a.engine !== 'builtin' && !!a.agency).map((a) => a.id)
+  const changed: McpServerInfo[] = []
+  for (const c of BASIC_CONNECTORS) {
+    const key = `connector:auto:${c.name}`
+    let given: string[] = []
+    try { const v = JSON.parse(db.getSetting(key) ?? '[]'); if (Array.isArray(v)) given = v.map(String) } catch { /* start over */ }
+    const fresh = workers.filter((id) => !given.includes(id))
+    if (!fresh.length) continue
+    const existing = db.listMcpServers().find((s) => s.name === c.name)
+    const saved = existing
+      ? db.setMcpAgents(existing.id, [...existing.agentIds, ...fresh])
+      : saveIntegration({ name: c.name, title: c.title, source: c.source, preset: '', transport: 'stdio', commandLine: c.commandLine, env: '', agentIds: fresh })
+    db.setSetting(key, JSON.stringify([...given, ...fresh]))
+    changed.push(saved)
+  }
+  return changed
+}
+
+/** ensureBasicConnectors, then a test in the background for any that was never tested, so the tab shows Connected. */
+export function giveBasicConnectors(): void {
+  try {
+    for (const s of ensureBasicConnectors()) if (!s.lastTest) void testIntegration(s.id).catch(() => undefined)
+  } catch (err) { console.warn('[integrations] basic connectors:', err) }
+}
+
 /** The integrations switched on for this agent, ready for ACP `session/new`. Servers that can't start are left out. */
 export function acpServersForAgent(agentId: string): McpServer[] {
   return db.mcpServersForAgent(agentId).map(toAcp).filter((s): s is McpServer => !!s)
