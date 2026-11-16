@@ -30,10 +30,11 @@ function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, e
     description: m.lead ? `Lead of ${agencyName}: plans the work, hands out cards and reports to you.` : `${m.job} in ${agencyName}.`,
     instructions: memberInstructions(t, m, agencyPrompt),
     shape: 'round', tone: 'lime', head: m.head,
-    // Workers on an adapter use their own key or account; OpenRouter is chosen per worker in the editor, never
-    // inherited from a default model that happens to be on OpenRouter.
-    ...(engine !== 'builtin' && d.provider === 'openrouter'
-      ? { provider: engine === 'codex' ? 'openai' as const : engine === 'gemini-cli' ? 'gemini' as const : 'anthropic' as const, model: '' }
+    // Workers on an adapter use their own key or account and the adapter's own model choice (model ''): the default
+    // model belongs to built-in runs, and copying it made Codex workers "run" claude-sonnet (QA 16 Nov 2026). OpenRouter
+    // is chosen per worker in the editor, never inherited.
+    ...(engine !== 'builtin'
+      ? { provider: nativeProvider(engine), model: '' }
       : { provider: d.provider, model: d.model }),
     skills: [...t.skills, ...(t.packSkills ?? []).filter((p) => !p.for || p.for.includes(m.first)).map((p) => p.skill)],
     schedule: 'manual',
@@ -207,7 +208,8 @@ function setWorkersAdapter(agency: Agency, adapter: string): void {
     if (engine === a.engine) continue
     if (a.engine === 'hermes') deleteHermesProfile(a)
     const keepOr = a.provider === 'openrouter' && canUseOpenRouter(engine) && slugFits(engine, a.model)
-    db.saveAgent({ ...a, engine, ...(a.provider === 'openrouter' && !keepOr ? { provider: nativeProvider(engine), model: '' } : {}) })
+    // A model picked for the old adapter means nothing to the new one: back to the new adapter's own choice.
+    db.saveAgent({ ...a, engine, ...(keepOr ? {} : { provider: nativeProvider(engine), model: '' }) })
   }
 }
 

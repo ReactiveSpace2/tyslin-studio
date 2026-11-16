@@ -15,8 +15,17 @@ export interface AcpHost {
   readTextFile?: (absPath: string, line?: number | null, limit?: number | null) => string
   /** Resolves once written; throws (with a reason the agent can read) if the user declined. */
   writeTextFile?: (absPath: string, content: string, toolCallId: string) => Promise<void>
-  /** Resolves with the chosen option id, or null if the user declined. */
-  requestPermission: (title: string, choices: PermissionChoice[], toolCallId: string) => Promise<string | null>
+  /**
+   * Resolves with the chosen option id, or null if the user declined. `info` says what kind of tool call it is and the
+   * paths it touches: Codex asks to apply its own patches this way ("edit"), not through fs/write_text_file.
+   */
+  requestPermission: (title: string, choices: PermissionChoice[], toolCallId: string, info?: PermissionInfo) => Promise<string | null>
+}
+
+export interface PermissionInfo {
+  kind?: string
+  /** Absolute or folder-relative paths named in the tool call's locations. */
+  paths: string[]
 }
 
 export interface AcpLaunch {
@@ -183,6 +192,18 @@ async function autoEditMode(agent: ClientContext, session: ActiveSession, name: 
   }
 }
 
+/** Codex's "read-only" mode: every edit asks first (see AcpTurnOptions.editsAsk). Adapters without it are left alone. */
+async function askingEditsMode(agent: ClientContext, session: ActiveSession, name: string): Promise<void> {
+  const modes = session.newSessionResponse.modes
+  const hit = modes?.availableModes.find((m) => m.id === 'read-only')
+  if (!modes || !hit || hit.id === modes.currentModeId) return
+  try {
+    await agent.request('session/set_mode', { sessionId: session.sessionId, modeId: hit.id })
+  } catch (err) {
+    console.warn(`[acp] ${name} refused the mode "${hit.id}" (${err instanceof Error ? err.message : String(err)}); its edits won't ask.`)
+  }
+}
+
 /**
  * Error forms Codex sends as plain reply text (to clients without its typed-failure extension) while the
  * turn still ends with `end_turn`. Only these exact shapes count; a normal reply mentioning an error doesn't.
@@ -199,13 +220,22 @@ const TEXT_FAILURE_FORMS = [
 
 /** What the agent said went wrong during the turn, if anything; checked when the turn stops. */
 /** `cost`: the adapter's own running total for the session in USD (ACP usage_update), when it reports one. */
-interface TurnState { failure: string | null; lastText: string; cost: number | null }
+interface TurnState {
+  failure: string | null
+  /** The failure is only a guess (the last text when Codex reported a system error); a real error line replaces it. */
+  failureGuess?: boolean
+  lastText: string
+  cost: number | null
+}
 
 /** An agent-side error: Codex's `_meta.codex.error` (not a retry) or its thread ending in a system error. */
 function failureFromMeta(meta: Record<string, unknown> | null | undefined, state: TurnState): string | null {
   const codex = meta?.codex as { error?: { message?: unknown; willRetry?: unknown }; threadStatus?: { type?: unknown } } | undefined
   if (!codex) return null
-  if (codex.error && codex.error.willRetry !== true && typeof codex.error.message === 'string') return codex.error.message
+  // Codex also sends warnings in this field ("Warning: Model metadata for `gpt-5.2-codex` not found…"). Taken as the
+  // failure, a warning hid the real error that came after it ("model is not supported … with a ChatGPT account"), and the
+  // in-task fix never showed (QA 16 Nov 2026).
+  if (codex.error && codex.error.willRetry !== true && typeof codex.error.message === 'string' && !/^\s*warning\b/i.test(codex.error.message)) return codex.error.message
   if (codex.threadStatus?.type === 'systemError') return state.lastText.trim() || 'The agent stopped with a system error.'
   return null
 }
@@ -241,6 +271,12 @@ export async function runAcpTurn(opts: {
   model?: string
   /** The agent writes directly: pick the adapter's edits-without-asking mode when it has one (see autoEditMode). */
   autoEdit?: boolean
+  /**
+   * Route the adapter's own edits through requestPermission (kind "edit"), where Tyslin applies the folder rules and
+   * the agent's write mode. Codex edits the workspace freely in its default mode, so it is put in "read-only", which
+   * asks before every edit (QA 16 Nov 2026: in "ask first" mode Codex still wrote without asking).
+   */
+  editsAsk?: boolean
 }): Promise<string> {
   const { name, launch, host, signal } = opts
   if (signal?.aborted) throw new Error('Stopped.')
@@ -254,7 +290,9 @@ export async function runAcpTurn(opts: {
     .onRequest('session/request_permission', async ({ params }) => {
       const choices: PermissionChoice[] = params.options.map((o) => ({ id: o.optionId, name: o.name, kind: o.kind }))
       const title = params.toolCall.title || `${name} wants to use a tool`
-      const picked = await host.requestPermission(title, choices, params.toolCall.toolCallId)
+      const locations = (params.toolCall.locations ?? []) as unknown[]
+      const paths = locations.map((l) => (typeof l === 'string' ? l : (l as { path?: unknown })?.path)).filter((p): p is string => typeof p === 'string' && !!p)
+      const picked = await host.requestPermission(title, choices, params.toolCall.toolCallId, { kind: params.toolCall.kind ?? undefined, paths })
       return { outcome: picked ? { outcome: 'selected', optionId: picked } : { outcome: 'cancelled' } }
     })
     .onRequest('fs/read_text_file', ({ params }) => {
@@ -315,6 +353,7 @@ export async function runAcpTurn(opts: {
       if (signal?.aborted) throw new Error('Stopped.')
       if (opts.model?.trim()) await chooseModel(agent, session, opts.model, name)
       if (opts.autoEdit) await autoEditMode(agent, session, name)
+      if (opts.editsAsk) await askingEditsMode(agent, session, name)
 
       const onAbort = (): void => {
         void agent.notify('session/cancel', { sessionId: session.sessionId }).catch(() => undefined)
@@ -382,15 +421,21 @@ function handleUpdate(u: SessionUpdate, host: AcpHost, reply: string[], tools: S
         // Gemini CLI announces a session mode change as a text chunk ("[MODE_UPDATE] autoEdit"); it isn't the agent's
         // reply, and as one it hid a run that ended with no answer (10 Nov 2026).
         if (/^\s*\[MODE_UPDATE\] \S+\s*$/.test(text)) break
+        // Codex sends its own warnings as a whole chunk ("Warning: Model metadata for `x` not found…"). Not the reply;
+        // as the last text it became the run's error and hid the real one that came next (QA 16 Nov 2026).
+        if (/^\s*Warning: [^\n]+\s*$/.test(text) && !reply.some((r) => r.trim())) { console.warn(`[acp] ${text.trim()}`); break }
         reply.push(text)
         state.lastText = text
         // Codex sends an error as one whole chunk; a streamed reply never arrives in these exact shapes.
-        if (TEXT_FAILURE_FORMS.some((re) => re.test(text.trim()))) state.failure = state.failure ?? text
+        if (TEXT_FAILURE_FORMS.some((re) => re.test(text.trim())) && (!state.failure || state.failureGuess)) { state.failure = text; state.failureGuess = false }
         host.emit({ type: 'text_delta', text })
       }
       break
     case 'session_info_update':
-      state.failure = state.failure ?? failureFromMeta(u._meta, state)
+      if (!state.failure) {
+        state.failure = failureFromMeta(u._meta, state)
+        state.failureGuess = !!state.failure && (u._meta?.codex as { threadStatus?: { type?: unknown } } | undefined)?.threadStatus?.type === 'systemError'
+      }
       break
     case 'tool_call':
       tools.add(u.toolCallId)

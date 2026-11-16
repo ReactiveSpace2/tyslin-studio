@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Agent, ScheduledTask, TaskInput, TaskSchedule } from '@shared/types'
-import { nextRunAfter, WEEKDAY_NAMES } from '@shared/schedule'
+import { isValidTime, nextRunAfter, WEEKDAY_NAMES } from '@shared/schedule'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
 import { Button } from '@/components/ui/button'
@@ -36,10 +36,11 @@ export function ScheduleForm({ agencies, task, agencyId, onSaved, onCancel }: Pr
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const agent = team.find((a) => a.id === agentId) ?? team[0] ?? null
-  const next = nextRunAfter(schedule, Date.now())
+  const timeOk = isValidTime(schedule.time)
+  const next = timeOk ? nextRunAfter(schedule, Date.now()) : null
 
   const save = async (): Promise<void> => {
-    if (!view || !agent || !prompt.trim()) return
+    if (!view || !agent || !prompt.trim() || !timeOk) return
     setBusy(true); setError('')
     try {
       const input: TaskInput = { id: task?.id, name: (task?.name && task.prompt === prompt ? task.name : prompt.trim().split('\n')[0].slice(0, 80)), prompt: prompt.trim(), agentId: agent.id, projectId: view.project.id, schedule, enabled: task?.enabled ?? true }
@@ -84,12 +85,12 @@ export function ScheduleForm({ agencies, task, agencyId, onSaved, onCancel }: Pr
               {DAYS.map((d) => <ToggleGroupItem key={d} value={String(d)} className="h-9 w-11 rounded-md border border-border text-xs data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">{WEEKDAY_NAMES[d].slice(0, 3)}</ToggleGroupItem>)}
             </ToggleGroup>
           )}
-          <span className="flex items-center gap-2"><Label htmlFor="sf-time">at</Label><Input id="sf-time" type="time" value={schedule.time} onChange={(e) => setSchedule((s) => ({ ...s, time: e.target.value }))} className="w-[120px] font-mono" /></span>
-          <span className="text-xs text-muted-foreground">Next run: {new Date(next).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}</span>
+          <span className="flex items-center gap-2"><Label htmlFor="sf-time">at</Label><Input id="sf-time" type="time" required value={schedule.time} onChange={(e) => setSchedule((s) => ({ ...s, time: e.target.value }))} aria-invalid={!timeOk} aria-describedby="sf-time-hint" className="w-[120px] font-mono" /></span>
+          <span id="sf-time-hint" className={timeOk ? 'text-xs text-muted-foreground' : 'text-xs text-destructive'}>{next !== null ? `Next run: ${new Date(next).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : 'Pick a time for this task.'}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">Each run is a task you can open. Runs happen while the app is open; a missed one runs once at launch.</span>
-          <span className="flex gap-2"><Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button><Button type="submit" size="sm" disabled={busy || !prompt.trim() || !agent}>{busy ? 'Saving…' : 'Save'}</Button></span>
+          <span className="flex gap-2"><Button type="button" variant="ghost" size="sm" onClick={onCancel}>Cancel</Button><Button type="submit" size="sm" disabled={busy || !prompt.trim() || !agent || !timeOk}>{busy ? 'Saving…' : 'Save'}</Button></span>
         </div>
         {error && <span className="text-[13px] text-destructive" role="alert">{error}</span>}
       </form>

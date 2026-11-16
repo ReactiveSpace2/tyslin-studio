@@ -5,6 +5,7 @@ import type { ToolCall, ToolDef, ToolResult } from './tools'
 import * as db from './db'
 import { needLabel, resolveTool, serverIsTool, TOOL_CATALOG } from '@shared/toolCatalog'
 import type { CardNeed } from '@shared/types'
+import { OPEN_ON_BOARD } from '@shared/cardOutcome'
 
 /**
  * The Lead's board tools: list, add, edit, move, assign and comment on cards of its agency's board, run a card,
@@ -64,11 +65,14 @@ export function moveCard(doc: KanbanDoc, cardId: string, columnTitle: string): b
   const hit = findCard(doc, cardId)
   if (!target || !hit) return false
   hit.column.cards = hit.column.cards.filter((c) => c.id !== cardId)
-  target.cards.push(hit.card)
-  log(hit.card, `Moved to ${target.title}`)
   // Back to Planned means "do it again": without clearing the old status auto-run (which starts only cards with
   // no status) never picked a sent-back card up (10 Nov 2026). The previous result stays until the rerun replaces it.
-  if (/^planned$/i.test(target.title) && hit.card.status && hit.card.status !== 'running') {
+  const sentBack = /^planned$/i.test(target.title) && !!hit.card.status && hit.card.status !== 'running'
+  // A sent-back card goes to the front, so it runs before the cards that build on it (QA 16 Nov 2026).
+  if (sentBack) target.cards.unshift(hit.card)
+  else target.cards.push(hit.card)
+  log(hit.card, `Moved to ${target.title}`)
+  if (sentBack) {
     delete hit.card.status
     log(hit.card, 'Sent back to run again')
   }
@@ -101,8 +105,24 @@ function cardState(c: KanbanCard): string {
     const why = [...(c.log ?? [])].reverse().find((l) => / failed: |^Could not start: /.test(l.text))?.text
     return ` — status: failed${why ? ` (${why.replace(/^.*? failed: |^Could not start: /, '').slice(0, 160)})` : ''}`
   }
-  if (c.status === 'done') return ' — status: done, has a result'
-  return c.result ? ' — has a result' : ''
+  const issues = c.openIssues ? `; open issues: ${c.openIssues.slice(0, 200)}` : ''
+  if (c.status === 'done') return ` — status: done, has a result${issues}`
+  return c.result ? ` — has a result${issues}` : ''
+}
+
+const isDone = (title: string): boolean => /^done$/i.test(title.trim())
+
+/** What is still open on the board, one line each: failed or blocked cards, open issues, cards waiting in Review. */
+export function openItems(doc: KanbanDoc): string[] {
+  const out: string[] = []
+  for (const col of doc.columns) {
+    for (const c of col.cards) {
+      if (c.status === 'failed' && !isDone(col.title)) out.push(`"${c.title}" failed${cardState(c).replace(/^ — status: failed/, '')}`)
+      else if (c.openIssues) out.push(`"${c.title}" has open issues: ${c.openIssues.slice(0, 200)}`)
+      else if (/^review$/i.test(col.title.trim()) && c.status !== 'running') out.push(`"${c.title}" is waiting in Review`)
+    }
+  }
+  return out
 }
 
 /** What the Lead sees in its system prompt: the roster with ids and every card by column. */
@@ -192,7 +212,11 @@ export const BOARD_TOOLS: ToolDef[] = [
       needs: { type: 'array', description: 'What the card needs that the team may not have: a tool (Playwright = a browser, GitHub, Linear, Stripe) or a skill from the library, by name, with why', items: { type: 'object', properties: { kind: { type: 'string', enum: ['tool', 'skill'] }, name: { type: 'string' }, why: { type: 'string' } }, required: ['kind', 'name'] } }
     }, required: ['card_id'] }
   },
-  { name: 'board_move_card', description: 'Move a card to another column.', parameters: { type: 'object', properties: { card_id: { type: 'string' }, column: { type: 'string' } }, required: ['card_id', 'column'] } },
+  {
+    name: 'board_move_card',
+    description: 'Move a card to another column. Done means checked and finished: a running or failed card can\'t go there, and a card with open issues only when they are fixed and checked, or the boss accepted them (then set accept_open_issues and say so in the digest).',
+    parameters: { type: 'object', properties: { card_id: { type: 'string' }, column: { type: 'string' }, accept_open_issues: { type: 'boolean', description: 'Only when the boss accepted the card\'s open issues as they are.' } }, required: ['card_id', 'column'] }
+  },
   { name: 'board_assign_card', description: 'Give a card to a roster member.', parameters: { type: 'object', properties: { card_id: { type: 'string' }, assignee: { type: 'string' } }, required: ['card_id', 'assignee'] } },
   { name: 'board_comment', description: 'Add a note to a card\'s log (a review verdict, a question, a decision).', parameters: { type: 'object', properties: { card_id: { type: 'string' }, text: { type: 'string' } }, required: ['card_id', 'text'] } },
   { name: 'board_run_card', description: 'Start a card: its assignee works on it now in its own chat. The result lands on the card and it moves to Review.', parameters: { type: 'object', properties: { card_id: { type: 'string' } }, required: ['card_id'] } },
@@ -226,9 +250,23 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
   const input = call.input
   if (call.name === 'board_list_cards') return ok(boardSummary(agency))
   if (call.name === 'message_boss') {
-    const kind = String(input.kind ?? 'digest') as 'brief' | 'question' | 'review' | 'digest'
+    const raw = String(input.kind ?? 'digest')
+    const kind = (['brief', 'question', 'review', 'digest', 'needs'].includes(raw) ? raw : 'digest') as 'brief' | 'question' | 'review' | 'digest' | 'needs'
     const options = Array.isArray(input.options) ? input.options.map(String) : []
-    return ok(await boardHooks.messageBoss(agency, agent, ['brief', 'question', 'review', 'digest', 'needs'].includes(kind) ? kind : 'digest', String(input.text ?? ''), { options, cardId: input.card_id ? String(input.card_id) : null }))
+    let text = String(input.text ?? '')
+    const doc = readBoard(agency)
+    // A "plan is ready" brief with nothing planned sent the boss to an Approve button that wasn't there (QA 16 Nov 2026).
+    if (kind === 'brief' && doc) {
+      const planned = doc.columns.filter((c) => /^(planned|in progress)$/i.test(c.title.trim())).flatMap((c) => c.cards).filter((k) => k.assignee || k.agentId)
+      if (!planned.length) return { id: call.id, content: 'Not sent: there are no cards in Planned with an assignee, so there is no plan to approve. Add the cards first (board_add_card with column Planned and an assignee, or board_assign_card and board_move_card on the starter cards), check them with board_list_cards, then send the brief.', isError: true }
+    }
+    // A digest always says what is still open, whatever the Lead wrote (QA 16 Nov 2026: "Nothing else for this brief"
+    // with QA failures unresolved).
+    if (kind === 'digest' && doc) {
+      const open = openItems(doc)
+      if (open.length) text = `${text.trim()}\n\n${OPEN_ON_BOARD}\n${open.map((l) => `- ${l}`).join('\n')}`
+    }
+    return ok(await boardHooks.messageBoss(agency, agent, kind, text, { options, cardId: input.card_id ? String(input.card_id) : null }))
   }
   if (call.name === 'agency_log') {
     const project = db.getProject(agency.projectId)
@@ -288,6 +326,13 @@ export async function runBoardTool(call: ToolCall, agent: Agent, agency: Agency)
     return ok(changed.length ? `Updated the ${changed.join(' and ')} of [${hit.card.id}] "${hit.card.title}".` : 'Nothing changed.')
   }
   if (call.name === 'board_move_card') {
+    if (isDone(String(input.column ?? ''))) {
+      const c = hit.card
+      if (c.status === 'running') return { id: call.id, content: `Not moved: "${c.title}" is still running. Review it when its run ends.`, isError: true }
+      if (c.status === 'failed') return { id: call.id, content: `Not moved: "${c.title}" failed or is blocked${cardState(c).replace(/^ — status: failed/, '')}. Answer it and send it back to Planned, or remove it.`, isError: true }
+      if (c.openIssues && input.accept_open_issues !== true) return { id: call.id, content: `Not moved: "${c.title}" reported open issues: ${c.openIssues}. Send it back to Planned with notes (or add a fix card) and check the fix. Only if the boss accepted these issues as they are, call again with accept_open_issues: true and name them in the digest.`, isError: true }
+      if (c.openIssues) { log(c, `Open issues accepted by ${agent.name}: ${c.openIssues.slice(0, 200)}`); delete c.openIssues }
+    }
     if (!moveCard(doc, hit.card.id, String(input.column ?? ''))) throw new Error(`No column called "${String(input.column)}".`)
     writeBoard(agency, doc)
     return ok(`Moved "${hit.card.title}" to ${String(input.column)}.`)

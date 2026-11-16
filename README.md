@@ -48,8 +48,8 @@ Updates: the app checks GitHub Releases when it starts. Windows and the AppImage
 2. **Plan:** the Lead answers in the task with a plan: cards, each with a worker. Approve and run it, change a card, or ask the Lead to change the plan. (A team set to run on its own skips the approval.)
 3. **Work:** workers run their cards on their adapter, in the team's folder. Each one's work folds into the task as it happens.
 4. **Review:** every file change waits for you in the task's Changes panel, hunk by hunk, to accept or send back with a note.
-5. **Done:** accepting a card's changes moves it to Done; the task shows where every card stands.
-6. **Digest:** the Lead reports in the task, and on Telegram or Slack if you link one.
+5. **Done:** when the plan has run, the Lead checks each card against its notes and any QA report, and moves it to Done or sends it back. A card with a failed check or an open question doesn't count as done. The task shows where every card stands.
+6. **Digest:** the Lead reports in the task, and on Telegram or Slack if you link one. The digest always lists what is still open.
 
 Only the Lead messages you; workers report to the Lead on the card (you can still open a direct chat with a worker from the task's title menu). Each team has a budget: every card shows its estimated cost, and once the team's total reaches the budget no more cards start until you raise it.
 

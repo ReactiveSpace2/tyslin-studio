@@ -8,9 +8,23 @@ const PRICES: { provider: ProviderId; match: RegExp; input: number; output: numb
   { provider: 'anthropic', match: /opus/i, input: 15, output: 75 },
   { provider: 'anthropic', match: /sonnet/i, input: 3, output: 15 },
   { provider: 'anthropic', match: /haiku/i, input: 0.8, output: 4 },
-  // OpenAI list prices as published for these exact families. gpt-5.1 and later (5.2, 5.4, 5.5, their mini and
-  // nano sizes) have no row on purpose: their prices aren't recorded here, so they estimate as "not reported"
-  // rather than at a guessed rate. Add a row when the price is known. Small sizes come before their family.
+  // OpenAI list prices from developers.openai.com/api/docs/pricing (standard tier, read 16 Nov 2026). For models with
+  // context tiers this is the short-context rate (up to 272K input tokens). A model with no row here estimates as
+  // "not reported", never at a guessed rate. Pro sizes come before their family; small sizes too.
+  { provider: 'openai', match: /^gpt-5\.6-sol/i, input: 4, output: 20 },
+  { provider: 'openai', match: /^gpt-5\.6-terra/i, input: 2, output: 12 },
+  { provider: 'openai', match: /^gpt-5\.6-luna/i, input: 0.2, output: 1.2 },
+  { provider: 'openai', match: /^gpt-5\.5-pro/i, input: 30, output: 180 },
+  { provider: 'openai', match: /^gpt-5\.5(-\d{4}-\d\d-\d\d)?$/i, input: 5, output: 30 },
+  { provider: 'openai', match: /^gpt-5\.4-pro/i, input: 30, output: 180 },
+  { provider: 'openai', match: /^gpt-5\.4-mini/i, input: 0.75, output: 4.5 },
+  { provider: 'openai', match: /^gpt-5\.4-nano/i, input: 0.2, output: 1.25 },
+  { provider: 'openai', match: /^gpt-5\.4(-\d{4}-\d\d-\d\d)?$/i, input: 2.5, output: 15 },
+  { provider: 'openai', match: /^gpt-5\.3-codex/i, input: 1.75, output: 14 },
+  { provider: 'openai', match: /^gpt-5\.2-pro/i, input: 21, output: 168 },
+  { provider: 'openai', match: /^gpt-5\.2(-\d{4}-\d\d-\d\d)?$/i, input: 1.75, output: 14 },
+  { provider: 'openai', match: /^gpt-5\.1(-\d{4}-\d\d-\d\d)?$/i, input: 1.25, output: 10 },
+  { provider: 'openai', match: /^gpt-5-pro/i, input: 15, output: 120 },
   { provider: 'openai', match: /^gpt-5-nano/i, input: 0.05, output: 0.4 },
   { provider: 'openai', match: /^gpt-5-mini/i, input: 0.25, output: 2 },
   { provider: 'openai', match: /^gpt-5(-chat|-codex|-\d{4})?$|^gpt-5-\d{4}-\d\d-\d\d$/i, input: 1.25, output: 10 },

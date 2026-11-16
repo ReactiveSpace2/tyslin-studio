@@ -85,6 +85,12 @@ export function BudgetTab({ view, agents, onChanged }: { view: AgencyView; agent
               {total.unreported > 0 && ` ${total.unreported} run${total.unreported === 1 ? '' : 's'} reported no cost, so the real total is higher.`}
             </span>
           )}
+          {total && total.unreported > 0 && agency.budget !== null && (
+            // QA 16 Nov 2026: every run was unpriced, so the cap could never stop anything and nothing said so.
+            <span className="text-xs leading-snug text-destructive" role="note">
+              The cap only counts runs that report a cost. {total.unreported === total.runs ? 'None of this month\'s runs did' : `${total.unreported} of this month's runs didn't`}, so the team can go past {money(agency.budget)} without stopping. Runs on an adapter signed in with your own account, and models Tyslin has no price for, report no cost; check your provider's dashboard for those.
+            </span>
+          )}
           <div className="mt-1 h-[180px]">
             {chart.some((d) => d.cost > 0) ? (
               <ChartContainer config={chartConfig} className="h-full w-full">

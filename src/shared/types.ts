@@ -273,6 +273,8 @@ export interface KanbanCard {
   /** The last run on this card and where it stands. */
   runId?: string
   status?: 'running' | 'done' | 'failed'
+  /** What the worker said is still open ("Outcome: done with open issues: …", shared/cardOutcome.ts). Blocks Done until handled. */
+  openIssues?: string
   /** Tools and skills this card needs (12 Nov 2026); the Plan card lets the boss add them before approving. */
   needs?: CardNeed[]
   createdAt: number

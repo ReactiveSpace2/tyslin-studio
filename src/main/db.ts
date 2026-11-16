@@ -4,6 +4,7 @@ import { join } from 'path'
 import { existsSync, mkdirSync, renameSync } from 'fs'
 import { randomUUID } from 'crypto'
 import { BUILT_IN_SKILLS, SKILL_LIBRARY_VERSION } from './seedSkills'
+import { SKILL_BODY_UPDATES } from './seedSkillsAgencies'
 import type { StoredAttachment } from './attachments'
 import { clampZoom } from '@shared/types'
 import type { McpServerInfo } from '@shared/types'
@@ -280,6 +281,12 @@ function seedSkills(): void {
   const ins = db.prepare('INSERT OR IGNORE INTO skills (id, name, description, body, source_url) VALUES (?, ?, ?, ?, ?)')
   db.transaction(() => {
     for (const s of BUILT_IN_SKILLS) ins.run(randomUUID(), s.name, s.description, s.body, s.sourceUrl ?? '')
+    // Built-in skills whose text changed: replaced only where the body is still exactly the old built-in text.
+    const upd = db.prepare("UPDATE skills SET body = ? WHERE name = ? AND body = ? AND (pack_id IS NULL OR pack_id = '')")
+    for (const u of SKILL_BODY_UPDATES) {
+      const now = BUILT_IN_SKILLS.find((s) => s.name === u.name)
+      if (now) upd.run(now.body, u.name, u.old)
+    }
     setSetting('seed:skillsVersion', String(SKILL_LIBRARY_VERSION))
   })()
 }

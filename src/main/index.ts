@@ -31,7 +31,7 @@ import { readPage, unwatchAgency, watchAgency } from './pages'
 import { checkPacks, claudeCatalog, discoverPacks, installPack, listPacks, uninstallPack } from './skillPacks'
 import { parseSkillFile, serializeSkill, validateSkill } from './skillFiles'
 import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdateDownload, setUpdaterWindow } from './updater'
-import { nextRunAfter } from '@shared/schedule'
+import { isValidTime, nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { suggestAgencies } from './starter'
 import type { StarterTurn } from '@shared/types'
@@ -803,8 +803,10 @@ function registerIpc(): void {
   ipcMain.handle('app:dashboard', () => ({ ...db.dashboardStats(), plans: waitingPlans(), budgetAlerts: budgetAlerts() }))
   ipcMain.handle('app:stars', () => githubStars())
   ipcMain.handle('tasks:list', () => db.listTasks())
-  ipcMain.handle('tasks:save', (_e, input: TaskInput) =>
-    db.saveTask(input, input.enabled ? nextRunAfter(input.schedule, Date.now()) : null))
+  ipcMain.handle('tasks:save', (_e, input: TaskInput) => {
+    if (!isValidTime(input?.schedule?.time)) throw new Error('Pick a time for this task, in hours and minutes.')
+    return db.saveTask(input, input.enabled ? nextRunAfter(input.schedule, Date.now()) : null)
+  })
   ipcMain.handle('tasks:remove', (_e, id: string) => db.removeTask(id))
   ipcMain.handle('tasks:runNow', (_e, id: string) => {
     const t = db.getTask(id)

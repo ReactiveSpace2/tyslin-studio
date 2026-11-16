@@ -1,13 +1,14 @@
 import { app } from 'electron'
 import { randomUUID } from 'crypto'
 import { homedir } from 'os'
+import { relative, resolve } from 'path'
 import type { Agent, ExternalEngineId, PendingPermission, PermissionChoice, Project, RunEventBody, Skill } from '@shared/types'
 import { getSecret } from './secrets'
 import { isReadOnlyCommand, isRiskyCommand } from './readOnly'
 import { getAgent, getPrefs, getProject, getSetting, listAgents, setSetting, type ModelMessage } from './db'
 import { readImage } from './attachments'
-import { acpFileAccess, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
-import { runAcpTurn } from './acp'
+import { acpFileAccess, agentWritePath, FILE_TOOLS, listProjectFiles, runTools, type ToolCall, type ToolContext, type ToolDef } from './tools'
+import { runAcpTurn, type PermissionInfo } from './acp'
 import { acpServersForAgent } from './integrations'
 import { engineLaunch, engineStatus } from './engines'
 import { BOARD_TOOLS, boardSummary } from './boardTools'
@@ -119,10 +120,20 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
       parts.push((agent.writeMode === 'ask'
         ? 'You can read and change files with your tools. The user reviews every change before it is written, so propose complete, focused edits and explain them briefly.'
         : 'You can read and change files with your tools. Changes are written straight to disk.')
-        + (agent.engine !== 'builtin' ? ' Create and change files only with your file tools (write_file, edit_file), never through the shell: no echo/cat/tee redirection, no python or node one-liners that write files, no touch. Shell writes skip the review and the Changes panel. The shell is for reading, tests and builds.' : ''))
+        + (agent.engine !== 'builtin' ? ` Create and change files only with your own file-editing tools (${EDIT_TOOLS[agent.engine] ?? 'the ones your agent has for writing and editing files'}); where other instructions say write_file or edit_file, they mean these. Never through the shell: no echo/cat/tee redirection, no python or node one-liners that write files, no touch. Shell writes skip the review and the Changes panel. The shell is for reading, tests and builds.` : ''))
     }
   }
   return parts.join('\n\n')
+}
+
+/**
+ * Each adapter's own tools for writing files (QA 16 Nov 2026: the rules named write_file and edit_file, which Codex
+ * doesn't have, so Codex workers refused to write at all). Codex's apply_patch asks first; runtime.ts answers it.
+ */
+const EDIT_TOOLS: Record<string, string> = {
+  'claude-code': 'Write and Edit',
+  codex: 'apply_patch',
+  'gemini-cli': 'write_file and replace'
 }
 
 /** File tools are offered only when the project is linked to a folder. */
@@ -440,6 +451,19 @@ export function pendingPermissions(): PendingPermission[] {
   return [...permissions.entries()].map(([id, p]) => ({ id, sessionId: p.sessionId, runId: p.runId, toolCallId: p.toolCallId, title: p.title, choices: p.choices, askedAt: p.askedAt })).sort((a, b) => a.askedAt - b.askedAt)
 }
 
+/** The adapter's "reject" choice, for an edit Tyslin refuses on the user's behalf. */
+function rejectChoice(choices: PermissionChoice[]): PermissionChoice | undefined {
+  return choices.find((c) => c.kind === 'reject_once') ?? choices.find((c) => c.kind.startsWith('reject'))
+}
+
+/** Why an adapter's own edit to these paths is refused, or null when every path is fine. */
+function editRefusal(folder: string, paths: string[]): string | null {
+  for (const p of paths) {
+    try { agentWritePath(folder, p) } catch (err) { return err instanceof Error ? err.message : String(err) }
+  }
+  return null
+}
+
 /** The adapter's own "allow once" choice, when it offers one, for a command Tyslin answers on the user's behalf. */
 function allowOnceChoice(choices: PermissionChoice[]): PermissionChoice | undefined {
   return choices.find((c) => c.kind === 'allow_once') ?? choices.find((c) => c.kind.startsWith('allow'))
@@ -513,9 +537,25 @@ class AcpRuntime implements AgentRuntime {
       : access?.read
     const files = access && { read: read!, write: opts.agent.tools.write ? access.write : undefined }
 
-    const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
-      // Looking at files inside the folder and version checks don't need the user (Settings → Notifications → Approvals).
+    const requestPermission = (title: string, choices: PermissionChoice[], toolCallId: string, info?: PermissionInfo): Promise<string | null> => {
       const allow = allowOnceChoice(choices)
+      // An adapter applying its own edits (Codex asks "Make edits?" with the files it changes) follows the same rules as
+      // a write through Tyslin: only inside the folder and never boards/; written straight away for agents set to write
+      // directly, otherwise always the boss's call, even in Auto mode (QA 16 Nov 2026: told to use write_file, which
+      // Codex doesn't have, Codex workers wrote nothing at all).
+      if (info?.kind === 'edit') {
+        const why = !folder ? 'this chat has no team folder' : !opts.agent.tools.write ? 'this agent may not change files' : info.paths.length ? editRefusal(folder, info.paths) : null
+        if (why) {
+          opts.emit({ type: 'tool_result', toolCallId, content: `Not written: ${why}`, isError: true })
+          return Promise.resolve(rejectChoice(choices)?.id ?? null)
+        }
+        if (allow && opts.agent.writeMode === 'direct') {
+          opts.emit({ type: 'tool_result', toolCallId, content: `Written directly (this agent writes straight to disk): ${info.paths.map((p) => relative(folder!, resolve(folder!, p))).join(', ')}`, isError: false })
+          return Promise.resolve(allow.id)
+        }
+        return ask(info.paths.length ? `Write ${info.paths.map((p) => relative(folder!, resolve(folder!, p))).join(', ')}` : title, choices, toolCallId)
+      }
+      // Looking at files inside the folder and version checks don't need the user (Settings → Notifications → Approvals).
       if (allow && getPrefs().autoAllowReadOnly && isReadOnlyCommand(title)) {
         opts.emit({ type: 'tool_result', toolCallId, content: `Allowed without asking (read-only): ${title}`, isError: false })
         return Promise.resolve(allow.id)
@@ -525,6 +565,9 @@ class AcpRuntime implements AgentRuntime {
         opts.emit({ type: 'tool_result', toolCallId, content: `Allowed automatically (Auto mode): ${title}`, isError: false })
         return Promise.resolve(allow.id)
       }
+      return ask(title, choices, toolCallId)
+    }
+    const ask = (title: string, choices: PermissionChoice[], toolCallId: string): Promise<string | null> => {
       const permissionId = randomUUID()
       const answer = new Promise<string | null>((done) => permissions.set(permissionId, { runId: opts.runId, sessionId: opts.sessionId, agencyId: opts.agent.agency ?? null, title, choices, toolCallId, askedAt: Date.now(), done }))
       opts.emit({ type: 'state_update', status: 'waiting_for_review' })
@@ -549,6 +592,7 @@ class AcpRuntime implements AgentRuntime {
       // The agent's model, when the adapter lets clients choose among its models (Codex does); else its default.
       model: viaOpenRouter ? undefined : opts.agent.model,
       autoEdit: opts.agent.writeMode === 'direct' && !!files?.write,
+      editsAsk: this.engine === 'codex' && !!folder,
       host: { emit, readTextFile: files?.read, writeTextFile: files?.write, requestPermission }
     })
     if (!viaOpenRouter) return turn

@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
 import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
 import { estimateCost, type Usage } from '@shared/pricing'
+import { OUTCOME_INSTRUCTION, parseOutcome } from '@shared/cardOutcome'
 import * as db from './db'
 import { atCap, capMessage } from './budget'
 import { boardHooks, findCard, log, moveCard, patchCard, readBoard, writeBoard } from './boardTools'
@@ -10,8 +11,9 @@ import { boardHooks, findCard, log, moveCard, patchCard, readBoard, writeBoard }
 /**
  * Cards are the unit of work. Running one starts a chat with its assignee (or the Lead) through the same
  * startRun path as every other message; when the run ends, the reply, chat id and estimated cost land on
- * the card and it moves to Review. Accepting the run's file changes moves it to Done. With auto-run on,
- * the Lead's planned cards start one after another until the budget is reached.
+ * the card and it moves to Review (or fails when the worker says it is blocked). Only the Lead's review (or the boss)
+ * moves a card to Done: accepting its file changes doesn't (QA 16 Nov 2026). With auto-run on, the Lead's planned
+ * cards start one after another until the budget is reached.
  */
 
 interface Deps {
@@ -78,7 +80,14 @@ const toReview = new Set<string>()
 const reviewRounds = new Map<string, { day: string; n: number }>()
 const MAX_REVIEWS_PER_DAY = 6
 
-const REVIEW_PROMPT = 'Every planned card has run. Review each card in Review now: read its notes and result, and check the files it names exist and match what the notes asked for (use your file tools). Move each card that meets its notes to Done, and send each one that doesn\'t back to Planned with board_edit_card notes that say exactly what is missing (it runs again on its own). Do not add new cards for work that is already Done, and do not ask the boss to approve anything unless a card went back. Then send the boss one digest: what is done, what went back and why, what is next.'
+export const REVIEW_PROMPT = [
+  'Review the board now: the planned cards have run, or a worker is blocked.',
+  '- For each card in Review: read its notes and result, and check the files it names exist and match what the notes asked for (use your file tools). Move it to Done only when it meets its notes. Otherwise send it back to Planned with board_edit_card notes that say exactly what is missing (it runs again on its own).',
+  '- Read every QA or test report the cards produced. A failed check is open work: send the card that owns the fix back to Planned (or add a fix card), even if that card already said it was done. A card that reported open issues can only go to Done when they are fixed and checked, or the boss accepted them.',
+  '- For each failed or blocked card: if the brief, the files or the other cards answer it, put the answer in its notes and send it back to Planned; if only the boss can answer, ask one message_boss question.',
+  'Do not add new cards for work that is already Done, and do not ask the boss to approve anything unless a card went back.',
+  'Then send the boss one digest: what is done, what went back and why, what is still open (every failed check and blocked card, by name), what is next. Never say the work is finished while anything is still open.'
+].join('\n')
 
 /** The Lead's review: in its newest chat in this agency (the task the boss briefed it from), so it shows in that thread. */
 function startLeadReview(agency: Agency): void {
@@ -169,16 +178,55 @@ export function removeCard(agencyId: string, cardId: string): void {
   writeBoard(agency, doc)
 }
 
-const cardPrompt = (agency: Agency, title: string, notes: string, column: string, parent?: string): string => [
-  `Work on this card from the "${agency.name}" board (column: ${column}).`,
-  '',
-  `## ${title}`,
-  notes.trim() ? `\n${notes.trim()}` : '',
-  parent ? `\n(Split from card ${parent}.)` : '',
-  '',
-  agency.goal ? `The team's goal: ${agency.goal}` : '',
-  'Reply with the finished work for this card: what you did, where it is, what you could not do and why. If the card is unclear or you need something you do not have, write the question and stop.'
-].filter((l) => l !== '').join('\n')
+/** Prompts Tyslin writes into the Lead's chat; not part of the boss's brief. */
+const TYSLIN_PROMPTS = /^(Review the board now|Every planned card has run|Work on this card from|Read the Inbox and Review columns)/
+const BRIEF_CAP = 6000
+
+/**
+ * The boss's own words behind a card: the messages in the Lead's task the card came from (the brief, the boss's
+ * answers and what was attached), else a brief typed into the Inbox. Workers used to get only the card, so when the
+ * Lead's notes left out the product facts a designer guessed the wrong product (QA 16 Nov 2026).
+ */
+export function bossBrief(agency: Agency, card: KanbanCard): string {
+  // The card's last activity before this run says which task it belongs to (starter cards are older than the task).
+  const at = Math.max(card.createdAt ?? 0, ...(card.log ?? []).map((l) => l.at))
+  if (agency.leadId) {
+    const session = db.listSessions(agency.leadId)
+      .filter((x) => x.projectId === agency.projectId && !x.title.startsWith('Card:') && x.createdAt <= at)
+      .sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (session) {
+      const parts: string[] = []
+      for (const m of db.listMessages(session.id)) {
+        if (m.role !== 'user' || m.createdAt > Date.now() || TYSLIN_PROMPTS.test(m.content.trim())) continue
+        const files = m.attachments?.length ? `\n(Attached: ${m.attachments.map((a) => a.name).join(', ')}; copies are in attachments/ in the team folder.)` : ''
+        parts.push(m.content.trim() + files)
+      }
+      const text = parts.join('\n\n---\n\n')
+      if (text) return text.length > BRIEF_CAP ? `${text.slice(0, BRIEF_CAP)}\n[…the rest is in the Lead's task]` : text
+    }
+  }
+  const doc = readBoard(agency)
+  const inbox = doc?.columns.flatMap((c) => c.cards).filter((k) => k.id !== card.id && k.log?.some((l) => l.text === BRIEF_LOG) && (k.createdAt ?? 0) <= at)
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0]
+  return inbox ? inbox.notes.trim().slice(0, BRIEF_CAP) : ''
+}
+
+const cardPrompt = (agency: Agency, card: KanbanCard, column: string): string => {
+  const brief = bossBrief(agency, card)
+  return [
+    `Work on this card from the "${agency.name}" board (column: ${column}).`,
+    '',
+    `## ${card.title}`,
+    card.notes.trim() ? `\n${card.notes.trim()}` : '',
+    card.parentCard ? `\n(Split from card ${card.parentCard}.)` : '',
+    brief ? `\n## The boss's brief (background for this card)\nThe card above is your task. This is what the boss asked for; use its facts, and if the card and the brief disagree, follow the card and say so in your reply.\n\n${brief}` : '',
+    '',
+    agency.goal ? `The team's goal: ${agency.goal}` : '',
+    'Reply with the finished work for this card: what you did, where it is, what you could not do and why. If the card is unclear or you need something you do not have, say what you need and stop.',
+    'Report a check as passed only when you ran it and say how (the command, or what you measured in a browser and at which width). A check you only judged by reading the code is "not verified", never "pass".',
+    OUTCOME_INSTRUCTION
+  ].filter((l) => l !== '').join('\n')
+}
 
 /** Starts the card's assignee (or the Lead) on it. Returns the chat id. */
 export async function runCard(agencyId: string, cardId: string): Promise<string> {
@@ -198,7 +246,7 @@ export async function runCard(agencyId: string, cardId: string): Promise<string>
   deps.checkReady(agent)
 
   const session = db.createSession(agent.id, agency.projectId)
-  const { runId, done } = deps.startRun(session.id, cardPrompt(agency, hit.card.title, hit.card.notes, hit.column.title, hit.card.parentCard))
+  const { runId, done } = deps.startRun(session.id, cardPrompt(agency, hit.card, hit.column.title))
   db.setSessionTitle(session.id, `Card: ${hit.card.title}`.slice(0, 80))
   runs.set(runId, { agencyId, cardId, usage: { inputTokens: 0, outputTokens: 0 } })
   active.add(cardId)
@@ -235,15 +283,29 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
   if (!hit) return
   const sessionId = hit.card.sessionId
   const text = cardResult(sessionId ? db.listMessages(sessionId).filter((m) => m.role === 'assistant').pop()?.content ?? '' : '')
+  const outcome = r.ok && text ? parseOutcome(text) : null
+  let blocked = false
   if (r.ok && !text) {
     // The run ended cleanly but said nothing: not done. The card stays where it is for a retry (10 Nov 2026).
     hit.card.status = 'failed'
     log(hit.card, `${agent.name} finished without reporting a result`)
+  } else if (r.ok && outcome?.kind === 'blocked') {
+    // The worker couldn't do it (asked a question, missing input): not finished. The card fails with the reason and
+    // the Lead reviews now, before the next card builds on nothing (QA 16 Nov 2026).
+    hit.card.result = text
+    hit.card.status = 'failed'
+    delete hit.card.openIssues
+    if (cost !== null) hit.card.cost = (hit.card.cost ?? 0) + cost
+    log(hit.card, `${agent.name} failed: blocked: ${outcome.why.slice(0, 200)}${costNote}`)
+    blocked = true
   } else if (r.ok) {
     hit.card.result = text
     hit.card.status = 'done'
+    if (outcome?.kind === 'issues') hit.card.openIssues = outcome.issues.slice(0, 600)
+    else delete hit.card.openIssues
     if (cost !== null) hit.card.cost = (hit.card.cost ?? 0) + cost
     log(hit.card, `${agent.name} finished${costNote}`)
+    if (outcome?.kind === 'issues') log(hit.card, `Open issues: ${outcome.issues.slice(0, 300)}`)
     const pending = sessionId ? db.listChanges(sessionId).some((c) => c.runId === runId && c.status === 'pending') : false
     if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, 'Review')
     if (pending) log(hit.card, 'File changes are waiting for review')
@@ -253,6 +315,12 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     log(hit.card, `${agent.name} failed: ${(r.error ?? 'unknown error').slice(0, 200)}`)
   }
   writeBoard(agency, doc)
+  if (blocked) {
+    // Stop the chain: the Lead unblocks the card (or asks the boss) first; the plan goes on after its review.
+    toReview.add(agency.id)
+    startLeadReview(db.getAgency(agency.id)!)
+    return
+  }
   if (runsOnItsOwn(agency) && r.ok) void runNext(db.getAgency(agency.id)!)
 }
 
@@ -294,7 +362,11 @@ export function cardsOnRunEvent(e: RunEvent): void {
   }
 }
 
-/** A reviewed change: when none of the run's changes are pending any more, its card moves to Done. */
+/**
+ * A reviewed change is logged on its card. It never moves the card: accepting a file only lets it be written; whether
+ * the card is finished is the Lead's review (or the boss's) after the run ends. Moving to Done here put cards in Done
+ * while their worker was still running and skipped the review (QA 16 Nov 2026).
+ */
 export function onChangeResolved(change: PendingChange): void {
   const run = runs.get(change.runId)
   const agencies = run ? [db.getAgency(run.agencyId)] : db.listAgencies()
@@ -306,9 +378,8 @@ export function onChangeResolved(change: PendingChange): void {
     const stillPending = db.listChanges(change.sessionId).some((c) => c.runId === change.runId && c.status === 'pending')
     if (stillPending) return
     const accepted = db.listChanges(change.sessionId).filter((c) => c.runId === change.runId).some((c) => c.status === 'accepted' || c.status === 'partial')
-    patchCard(agency, hit.id, (card, d) => {
+    patchCard(agency, hit.id, (card) => {
       log(card, accepted ? 'Changes reviewed and accepted' : 'Changes reviewed; none accepted')
-      if (accepted) moveCard(d, card.id, 'Done')
     })
     return
   }

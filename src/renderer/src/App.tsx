@@ -24,6 +24,7 @@ import { confirmLeave } from './files/leaveGuard'
 import { ScheduledPage } from './pages/ScheduledPage'
 import { SettingsPage, type SettingsTab } from './pages/SettingsPage'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { OPEN_ON_BOARD } from '@shared/cardOutcome'
 
 /**
  * Three places: Home (start a task, what needs you), a Task (a chat with an agency's Lead, or one worker)
@@ -169,7 +170,9 @@ export default function App(): JSX.Element {
     if (!s || needsYouBySession[s.id]) continue
     const ids = memberIds(v)
     if (sessions.some((x) => runningIds.has(x.id) && ids.has(x.agentId))) continue
-    if (channelMsgs.some((m) => m.agencyId === v.agency.id && m.kind === 'digest' && m.createdAt >= s.createdAt)) doneSessions.add(s.id)
+    // The newest digest decides: one that lists work still open on the board (boardTools.ts adds that list) isn't done.
+    const digest = channelMsgs.filter((m) => m.agencyId === v.agency.id && m.kind === 'digest' && m.createdAt >= s.createdAt).sort((a, b) => b.createdAt - a.createdAt)[0]
+    if (digest && !digest.text.includes(OPEN_ON_BOARD)) doneSessions.add(s.id)
   }
 
   const runningByAgency: Record<string, number> = {}

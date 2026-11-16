@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Agent, AgentInput, EngineId, EngineStatus, McpServerInfo, ProviderId, Skill } from '@shared/types'
 import { ENGINE_NAMES, MAIN_ENGINES, engineListed } from '@shared/engines'
 import { MODEL_SUGGESTIONS, PROVIDER_NAME } from '@shared/models'
@@ -11,6 +11,8 @@ import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { OpenRouterModelPicker } from '../components/OpenRouterModelPicker'
 import { AdapterModelField } from '../components/AdapterSetup'
+import { useConfirm } from '../components/useConfirm'
+import { setLeaveGuard } from '../files/leaveGuard'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -50,6 +52,11 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
     projectId: view.project.id, leadId: view.lead?.id ?? null, agency: view.agency.id, tools: { read: true, write: true }, channels: { telegram: false }, head: HEADS.map(([id]) => id).find((h) => !team.some((a) => a.head === h)) ?? 'smile', goal: ''
   })
   const set = <K extends keyof AgentInput>(k: K, v: AgentInput[K]): void => setForm((f) => ({ ...f, [k]: v }))
+  // Unsaved edits: compared with what was loaded; leaving asks first (QA 16 Nov 2026: Instructions were lost on navigation).
+  const [base, setBase] = useState<AgentInput>(form)
+  const dirty = JSON.stringify(form) !== JSON.stringify(base)
+  const leaving = useRef(false)
+  const [confirmEl, askLeave] = useConfirm()
   // OpenRouter (10 Nov 2026): Leads and built-in agents can pick it as a provider; Claude Code and Codex workers can run
   // on it ("Model and key"); Gemini CLI can't. A worker never inherits it from the default model.
   const [orKey, setOrKey] = useState(false)
@@ -72,24 +79,41 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
     void window.tyslin.engines.list().then(setEngines)
     void window.tyslin.skills.list().then(setSkills)
     void window.tyslin.integrations.list().then(setServers).catch(() => setServers([]))
-    if (isNew) void window.tyslin.settings.prefs().then((p) => set('writeMode', p.defaultWriteMode))
+    if (isNew) void window.tyslin.settings.prefs().then((p) => { set('writeMode', p.defaultWriteMode); setBase((b) => ({ ...b, writeMode: p.defaultWriteMode })) })
   }, [])
   const taken = new Set(team.filter((a) => a.id !== agent?.id).map((a) => a.head))
   const isLead = !!agent && view.lead?.id === agent.id
   const bosses = team.filter((a) => a.id !== agent?.id)
   const engineOptions: { id: EngineId; name: string }[] = [{ id: 'builtin', name: 'Tyslin (built-in model)' }, ...engines.filter((e) => engineListed(e.id, form.engine)).map((e) => ({ id: e.id as EngineId, name: e.name }))]
 
-  const save = async (): Promise<void> => {
-    if (!form.name.trim()) { setError('Give the agent a name.'); return }
-    if ((form.engine === 'builtin' && form.provider === 'openrouter' || adapterOr) && !orKey) { setError('Add your OpenRouter key in Settings → Models first.'); return }
-    if (adapterOr && canUseOpenRouter(form.engine) && !slugFits(form.engine, form.model.trim())) { setError(form.engine === 'claude-code' ? 'Pick an anthropic/ model: Claude Code only runs Claude models.' : 'Pick an OpenRouter model, written in full like openai/gpt-5.5.'); return }
+  /** Saves; true when it worked. `stay` keeps the screen (the leave guard navigates on its own). */
+  const save = async (stay = false): Promise<boolean> => {
+    if (!form.name.trim()) { setError('Give the agent a name.'); return false }
+    if ((form.engine === 'builtin' && form.provider === 'openrouter' || adapterOr) && !orKey) { setError('Add your OpenRouter key in Settings → Models first.'); return false }
+    if (adapterOr && canUseOpenRouter(form.engine) && !slugFits(form.engine, form.model.trim())) { setError(form.engine === 'claude-code' ? 'Pick an anthropic/ model: Claude Code only runs Claude models.' : 'Pick an OpenRouter model, written in full like openai/gpt-5.5.'); return false }
     setBusy(true); setError('')
     try {
       const saved = await window.tyslin.agents.save({ ...form, name: form.name.trim(), description: form.description.trim() })
-      onSaved(saved)
-    } catch (e) { setError(errorText(e)) } finally { setBusy(false) }
+      leaving.current = true
+      if (!stay) onSaved(saved)
+      return true
+    } catch (e) { setError(errorText(e)); return false } finally { setBusy(false) }
   }
-  const remove = async (): Promise<void> => { if (!agent) return; try { await window.tyslin.agents.remove(agent.id); onDeleted() } catch (e) { setError(errorText(e)) } }
+  const remove = async (): Promise<void> => { if (!agent) return; try { await window.tyslin.agents.remove(agent.id); leaving.current = true; onDeleted() } catch (e) { setError(errorText(e)) } }
+  const confirmUnsaved = async (): Promise<boolean> => {
+    if (leaving.current || !dirty) return true
+    if (busy) return false
+    const answer = await askLeave({ title: isNew ? 'Create this worker before leaving?' : `Save changes to ${firstName(agent!.name)}?`, description: 'You have unsaved changes. They are lost if you leave without saving.', action: isNew ? 'Create and leave' : 'Save and leave', alt: 'Leave without saving' })
+    if (answer === false) return false
+    return answer === 'alt' || await save(true)
+  }
+  const leaveRef = useRef(confirmUnsaved)
+  leaveRef.current = confirmUnsaved
+  useEffect(() => {
+    setLeaveGuard(() => leaveRef.current())
+    return () => setLeaveGuard(null)
+  }, [])
+  const cancel = (): void => { leaving.current = true; onBack() }
   const toggleServer = async (s: McpServerInfo, on: boolean): Promise<void> => {
     if (!agent) return
     const ids = on ? [...s.agentIds, agent.id] : s.agentIds.filter((x) => x !== agent.id)
@@ -99,9 +123,10 @@ export function AgentEditor({ view, agent, agents, onSaved, onDeleted, onBack, o
 
   return (
     <div className="flex w-full max-w-[1180px] flex-col gap-5 px-10 pt-6 pb-12">
+      {confirmEl}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span className="flex items-center gap-2 text-sm text-muted-foreground"><button type="button" className="hover:text-foreground" onClick={onBack}>{view.agency.name}</button><span>/</span><button type="button" className="hover:text-foreground" onClick={onBack}>Members</button><span>/</span><strong className="text-foreground">{isNew ? 'New worker' : firstName(agent!.name)}</strong></span>
-        <span className="flex gap-2"><Button variant="ghost" onClick={onBack}>Cancel</Button><Button onClick={() => void save()} disabled={busy}>{busy ? 'Saving…' : isNew ? 'Create' : 'Save'}</Button></span>
+        <span className="flex gap-2"><Button variant="ghost" onClick={cancel}>Cancel</Button><Button onClick={() => void save()} disabled={busy}>{busy ? 'Saving…' : isNew ? 'Create' : 'Save'}</Button></span>
       </div>
       {error && <p className="rounded-md bg-destructive-soft px-3 py-2 text-sm text-destructive" role="alert">{error}</p>}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">

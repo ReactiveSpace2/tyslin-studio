@@ -93,12 +93,12 @@ Report: the command, pass and fail counts, the names of failing tests with their
   {
     name: 'html-css',
     description: 'Build pages as clean, accessible HTML and CSS.',
-    body: `Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 px. Text contrast 4.5:1. Every image has alt text; every input has a label. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure.`
+    body: `Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 by 44 px for every link and button, including the logo link and links in the nav, footer and FAQ (pad them; don't rely on the text size). Text contrast 4.5:1. Every image has alt text; every input has a visible label. Form help and error text are tied to their field with aria-describedby, and an invalid field gets aria-invalid="true". A skip link as the first element that, when focused, shows above any sticky header (its own z-index and position). A favicon (an inline SVG data URI is fine) so the page asks for no missing file. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure.`
   },
   {
     name: 'accessibility-check',
     description: 'Check a page the way an assistive-tech user meets it.',
-    body: `Go through: keyboard only (every control reachable and operable, visible focus), labels on inputs and icon buttons, heading order, alt text, colour contrast, text resize to 200%, motion that can be paused, forms that explain errors. Report each failure with where it is and the fix. Pass or fail per item, no scores.`
+    body: `Go through: keyboard only (every control reachable and operable, visible focus, the skip link visible and not covered by a sticky header when focused), labels on inputs and icon buttons, help and error text tied to fields (aria-describedby, aria-invalid on invalid fields), heading order, alt text, colour contrast, touch targets at least 44 by 44 px (measure width and height, including the logo and text links), text resize to 200%, motion that can be paused, forms that explain errors, no missing files (favicon, images) in the browser's console or network list. Report each failure with where it is and the fix. Pass or fail per item, no scores. Say how you checked each item: measured in a browser (and at which width) or read in the code. An item you only read in the code is "not verified", never a pass.`
   },
   // Content and social
   {
@@ -266,4 +266,15 @@ Check versions, prices and limits on the makers' own pages and link them with th
     body: `Read the research first and use only what it supports; mark every assumption as one. Three phases: a first version that proves the idea, what comes next, and later. Per phase: what is built, what is left out on purpose, what it depends on, a size in weeks as a range, a cost range, and how you will know it worked.
 Then the risks, each with what would reduce it, and the questions still open with who can answer them. Put a one-page summary at the top that a busy reader can decide from.`
   }
+]
+
+/**
+ * Built-in skills whose text changed: the old body is replaced in existing libraries only when the user never edited
+ * it (seedSkills in db.ts). 16 Nov 2026: html-css and accessibility-check gained the checks the live QA site failed
+ * (44 px targets on text links, skip link above a sticky header, aria-describedby/aria-invalid, favicon, how each
+ * check was made).
+ */
+export const SKILL_BODY_UPDATES: { name: string; old: string }[] = [
+  { name: 'html-css', old: "Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 px. Text contrast 4.5:1. Every image has alt text; every input has a label. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure." },
+  { name: 'accessibility-check', old: "Go through: keyboard only (every control reachable and operable, visible focus), labels on inputs and icon buttons, heading order, alt text, colour contrast, text resize to 200%, motion that can be paused, forms that explain errors. Report each failure with where it is and the fix. Pass or fail per item, no scores." }
 ]

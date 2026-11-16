@@ -4,3 +4,12 @@ export const settings: Map<string, string> = (g.__tyslinSettings ??= new Map())
 
 export const getSetting = (key: string): string | null => settings.get(key) ?? null
 export const setSetting = (key: string, value: string): void => { settings.set(key, value) }
+
+// Projects and agents for board tests (globalThis.__tyslinDb): set `projects` and `agents` before calling.
+const s = (globalThis as unknown as { __tyslinDb?: { projects: { id: string; name: string; folder: string }[]; agents: unknown[] } })
+export const store = (s.__tyslinDb ??= { projects: [], agents: [] })
+export const getProject = (id: string): { id: string; name: string; folder: string } | null => store.projects.find((p) => p.id === id) ?? null
+export const listAgents = (): unknown[] => store.agents
+export const listSkills = (): { name: string }[] => []
+export const listMcpServers = (): unknown[] => []
+export const mcpServersForAgent = (): unknown[] => []

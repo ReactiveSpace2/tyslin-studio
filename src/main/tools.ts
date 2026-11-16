@@ -223,6 +223,17 @@ function stageChange(ctx: Pick<ToolContext, 'runId' | 'sessionId' | 'emit'>, too
  * File access for external (ACP) agents: reads and writes confined to the project folder, with
  * writes going through the same review as built-in agents unless the agent writes directly.
  */
+/**
+ * Where an agent may write: inside the team folder (symlinks checked), not .git, not boards/. Returns the folder-relative
+ * path or throws why not. Used for ACP writes and for adapters that apply their own edits after asking (Codex).
+ */
+export function agentWritePath(folder: string, p: string): string {
+  const { rel } = safePath(folder, p)
+  // The board is main's to write (cards.ts, boardTools.ts); an agent rewriting it races those writes (10 Nov 2026).
+  if (/^boards[\\/]/.test(rel)) throw new Error(`${rel} is the team's board; Tyslin moves cards itself and only the Lead changes the board through its board tools`)
+  return rel
+}
+
 export function acpFileAccess(ctx: ToolContext): {
   read: (absPath: string, line?: number | null, limit?: number | null) => string
   write: (absPath: string, content: string, toolCallId: string) => Promise<void>
@@ -239,9 +250,8 @@ export function acpFileAccess(ctx: ToolContext): {
       return lines.slice(from, limit ? from + limit : undefined).join('\n')
     },
     write: async (absPath, content, toolCallId) => {
-      const { abs, rel } = safePath(folder, absPath)
-      // The board is main's to write (cards.ts, boardTools.ts); an agent rewriting it races those writes (10 Nov 2026).
-      if (/^boards[\\/]/.test(rel)) throw new Error(`${rel} is the team's board; Tyslin moves cards itself and only the Lead changes the board through its board tools`)
+      const rel = agentWritePath(folder, absPath)
+      const abs = resolve(folder, rel)
       if (ctx.agent.writeMode === 'direct') {
         writeText(abs, content)
         return

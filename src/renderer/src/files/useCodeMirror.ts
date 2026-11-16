@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import { Compartment, EditorSelection, EditorState, type Text, type TransactionSpec } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { baseExtensions, detectIndent, indentFor, languageFor } from './editorSetup'
@@ -63,7 +63,8 @@ export function useCodeMirror(cb: Callbacks): CodeMirror {
     }
   }, [])
 
-  useEffect(() => () => { view.current?.destroy(); view.current = null }, [])
+  // No effect cleanup here: the ref callback above destroys the view when its element goes. React StrictMode replays
+  // effect cleanups in development without calling the ref again, so a cleanup here left Files with no editor (QA 16 Nov 2026).
 
   const stateOf = (key: string): EditorState | null =>
     key === active.current && view.current ? view.current.state : states.current.get(key) ?? null
