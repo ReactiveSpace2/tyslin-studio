@@ -35,7 +35,7 @@ function memberAgent(t: AgencyTemplate, m: AgencyMember, agencyPrompt: string, e
     ...(engine !== 'builtin' && d.provider === 'openrouter'
       ? { provider: engine === 'codex' ? 'openai' as const : engine === 'gemini-cli' ? 'gemini' as const : 'anthropic' as const, model: '' }
       : { provider: d.provider, model: d.model }),
-    skills: t.skills,
+    skills: [...t.skills, ...(t.packSkills ?? []).filter((p) => !p.for || p.for.includes(m.first)).map((p) => p.skill)],
     schedule: 'manual',
     engine,
     writeMode: 'ask',
@@ -150,7 +150,10 @@ export function createAgency(input: AgencyCreateInput): Agency {
     }
 
     // 6. Skill packs, in the background.
-    for (const id of input.packs ?? []) void installPack(id).catch(() => { /* shown on the Skills page */ })
+    // The template's pack skills (e.g. Web Design's frontend-design) bring their pack along when it isn't installed yet.
+    const packs = new Set(input.packs ?? [])
+    for (const p of t?.packSkills ?? []) if (!db.getPackRow(p.pack)) packs.add(p.pack)
+    for (const id of packs) void installPack(id).catch((err) => console.warn(`Skill pack ${id} didn't install:`, err))
 
     return agency
   } catch (err) {

@@ -36,6 +36,8 @@ export const webDesign: AgencyTemplate = {
     }
   ],
   skills: ['design-brief', 'ui-tokens', 'ux-copy', 'html-css', 'accessibility-check'],
+  // Anthropic's frontend-design skill (Apache 2.0), installed from GitHub with the Claude skills pack.
+  packSkills: [{ pack: 'anthropic-skills', skill: 'frontend-design', for: ['Max', 'Finn'] }],
   starterCards: ['Page brief', 'Layout and tokens', 'Copy for every section', 'Build the page', 'Mobile and desktop check'],
   leadTask: { schedule: { repeat: 'weekdays', time: '09:00' }, prompt: 'Plan new page briefs, review design, copy and build cards, send a digest.' },
   intake: [

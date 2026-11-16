@@ -68,6 +68,13 @@ export interface AgencyTemplate {
   roster: AgencyMember[]
   /** Skill names every member gets (built-ins; see seedSkills.ts and seedSkillsAgencies.ts). */
   skills: string[]
+  /**
+   * Openly licensed skills from a skill pack (skillPacks.ts id), never bundled in the app: the pack is
+   * installed from GitHub when the team is created (if it isn't already) and the skill attached to the
+   * members named in `for` (first names; all members when left out). Until the download lands the skill
+   * is simply missing at run time, so creation never waits for GitHub.
+   */
+  packSkills?: { pack: string; skill: string; for?: string[] }[]
   /** Cards the board starts with, in Inbox. */
   starterCards: string[]
   leadTask: { schedule: TaskSchedule; prompt: string }

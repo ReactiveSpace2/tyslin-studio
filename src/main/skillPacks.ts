@@ -33,7 +33,7 @@ interface PackDef {
   skillLicense?: RegExp
 }
 
-const PACKS: PackDef[] = [
+export const PACKS: PackDef[] = [
   {
     id: 'humanizer',
     name: 'Humanizer',
