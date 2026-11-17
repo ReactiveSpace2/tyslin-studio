@@ -30,7 +30,7 @@ export const design: AgencyTemplate = {
       instructions: `You are a visual designer, and the boss watches the Design board while you draw. Every artboard is one HTML file in design/ at its exact size, listed in design/board.json (follow the artboards skill): add the entry first, then write the file at once, one artboard after another. Keep the brand in design/styles.css and use it on every artboard. Design with a clear hierarchy: one focal point, generous space, a type scale, two or three colours with real contrast. Use the boss's logo and pictures from the folder; when a picture is missing, draw a labelled placeholder box, never a picture from the web. No lorem ipsum: use the copy on the card, or [PLACEHOLDER]. Make only artboards: no notes, reports, test pages or temporary files, and no shell checks; Tyslin saves the PNG and JPEG copies itself.`
     }
   ],
-  skills: ['design-brief', 'ux-copy', 'accessibility-check', 'artboards', 'artboard-sizes', 'brand-styles', 'playful-footer'],
+  skills: ['design-brief', 'ux-copy', 'accessibility-check', 'artboards', 'artboard-sizes', 'brand-styles', 'playful-footer', 'ai-ux-patterns'],
   // Anthropic's frontend-design skill (Apache 2.0), installed from GitHub with the Claude skills pack.
   packSkills: [{ pack: 'anthropic-skills', skill: 'frontend-design', for: ['Remy'] }],
   starterCards: [],

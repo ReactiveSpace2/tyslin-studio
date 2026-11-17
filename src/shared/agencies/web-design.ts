@@ -35,7 +35,7 @@ export const webDesign: AgencyTemplate = {
       instructions: `You check built pages at 390, 768 and 1440 px: layout, copy matches Luna's card, links work, forms validate, contrast 4.5:1, keyboard navigation, Lighthouse-style basics. File problems as cards with a screenshot and the breakpoint.`
     }
   ],
-  skills: ['design-brief', 'ui-tokens', 'ux-copy', 'html-css', 'accessibility-check'],
+  skills: ['design-brief', 'ui-tokens', 'ux-copy', 'html-css', 'accessibility-check', 'ai-ux-patterns'],
   // Anthropic's frontend-design skill (Apache 2.0), installed from GitHub with the Claude skills pack.
   packSkills: [{ pack: 'anthropic-skills', skill: 'frontend-design', for: ['Max', 'Finn'] }],
   starterCards: ['Page brief', 'Layout and tokens', 'Copy for every section', 'Build the page', 'Mobile and desktop check'],

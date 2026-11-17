@@ -51,7 +51,7 @@ test('the Design template: a Lead and a designer who writes directly, skills tha
   assert.deepEqual(t.roster.map((m) => [m.job, !!m.lead, m.writeMode ?? 'ask']), [['Lead', true, 'ask'], ['Designer', false, 'direct']])
   assert.equal(new Set(t.roster.map((m) => m.head)).size, t.roster.length)
   const names = new Set(AGENCY_SKILLS.map((s) => s.name))
-  for (const s of ['artboards', 'artboard-sizes', 'brand-styles', 'playful-footer']) assert.ok(names.has(s), s)
+  for (const s of ['artboards', 'artboard-sizes', 'brand-styles', 'playful-footer', 'ai-ux-patterns']) assert.ok(names.has(s), s)
   assert.ok(t.pages?.some((p) => p.kind === 'design'))
   assert.match(pageInstructions(t.pages!), /design\/board\.json/)
 })
