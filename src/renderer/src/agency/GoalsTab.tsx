@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { NOTIFY_LABEL } from '@shared/agencies'
+import { NOTIFY_LABEL, isQuick } from '@shared/agencies'
 
 const errorText = (e: unknown): string => (e instanceof Error ? e.message.replace(/^.*Error: /, '') : String(e))
 const HINT = 'text-xs leading-normal text-muted-foreground'
@@ -21,6 +21,7 @@ export function GoalsTab({ view, onChanged, onChannel, onBudget }: { view: Agenc
   const [prompt, setPrompt] = useState(agency.prompt)
   const [notify, setNotify] = useState<Agency['notify']>(agency.notify)
   const [autoRun, setAutoRun] = useState(agency.autoRun)
+  const quick = isQuick(agency.templateId)
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -64,9 +65,9 @@ export function GoalsTab({ view, onChanged, onChannel, onBudget }: { view: Agenc
             </div>
             <div className="flex min-h-9 items-center justify-between gap-3">
               <Label htmlFor="ag-auto" className="text-sm font-normal">Run the plan without asking</Label>
-              <Switch id="ag-auto" checked={autoRun} onCheckedChange={setAutoRun} />
+              <Switch id="ag-auto" checked={autoRun || quick} disabled={quick} onCheckedChange={setAutoRun} />
             </div>
-            <span className={HINT}>{autoRun ? `${who} starts planned cards on its own.` : `Each plan waits for your OK in the task.`} Where messages go: {agency.channel.kind === 'none' ? 'the app only' : agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'} (<button type="button" className="text-green underline underline-offset-2" onClick={onChannel}>Channel</button>).</span>
+            <span className={HINT}>{quick ? 'This team starts work as soon as you ask, so you see the designs right away.' : autoRun ? `${who} starts planned cards on its own.` : `Each plan waits for your OK in the task.`} Where messages go: {agency.channel.kind === 'none' ? 'the app only' : agency.channel.kind === 'telegram' ? 'Telegram' : 'Slack'} (<button type="button" className="text-green underline underline-offset-2" onClick={onChannel}>Channel</button>).</span>
           </Card>
           <span className={HINT}>{who}'s own instructions are on its page under Members. Memory is what the agents learn as they go, under Memory.</span>
         </div>

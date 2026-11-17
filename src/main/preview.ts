@@ -169,6 +169,14 @@ export async function exportPng(win: BrowserWindow, projectId: string, rel: stri
   const w = Math.min(8000, Math.max(40, Math.round(width))), h = Math.min(8000, Math.max(40, Math.round(height)))
   const { canceled, filePath } = await dialog.showSaveDialog(win, { defaultPath: join(app.getPath('downloads'), `${basename(rel, extname(rel))}.png`), filters: [{ name: 'PNG image', extensions: ['png'] }] })
   if (canceled || !filePath) return null
+  writeFileSync(filePath, (await renderArtboard(projectId, rel, w, h)).toPNG())
+  return filePath
+}
+
+/** An artboard drawn offscreen at its size (sandboxed, no navigation or pop-ups), for PNG/JPEG export. */
+export async function renderArtboard(projectId: string, rel: string, width: number, height: number): Promise<Electron.NativeImage> {
+  fileFor(projectId, rel)
+  const w = Math.min(8000, Math.max(40, Math.round(width))), h = Math.min(8000, Math.max(40, Math.round(height)))
   const page = new BrowserWindow({ show: false, width: w, height: h, useContentSize: true, enableLargerThanScreen: true, webPreferences: { offscreen: true, sandbox: true, contextIsolation: true, nodeIntegration: false, javascript: true } })
   try {
     page.webContents.on('will-navigate', (e) => e.preventDefault())
@@ -177,9 +185,7 @@ export async function exportPng(win: BrowserWindow, projectId: string, rel: stri
     await page.loadURL(previewUrl(projectId, rel))
     // Let fonts, pictures and a first animation frame settle.
     await new Promise((r) => setTimeout(r, 400))
-    const img = await page.webContents.capturePage({ x: 0, y: 0, width: w, height: h })
-    writeFileSync(filePath, img.toPNG())
-    return filePath
+    return await page.webContents.capturePage({ x: 0, y: 0, width: w, height: h })
   } finally {
     page.destroy()
   }

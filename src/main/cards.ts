@@ -2,7 +2,7 @@ import { missingNeeds, needLabel } from './boardTools'
 import { isTaskChat } from '@shared/taskChat'
 import { randomUUID } from 'crypto'
 import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
-import { AGENCY_TEMPLATES, BRIEF_LOG } from '@shared/agencies'
+import { AGENCY_TEMPLATES, BRIEF_LOG, isQuick } from '@shared/agencies'
 import { estimateCost, type Usage } from '@shared/pricing'
 import { OUTCOME_INSTRUCTION, parseOutcome } from '@shared/cardOutcome'
 import * as db from './db'
@@ -24,6 +24,9 @@ interface Deps {
   checkReady: (agent: Agent) => void
 }
 let deps: Deps | null = null
+/** Saves a Design board team's artboards as pictures (designExport.ts, set from index.ts; kept out so tests need no Electron). */
+let designExporter: ((agency: Agency) => Promise<number>) | null = null
+export const setDesignExporter = (fn: (agency: Agency) => Promise<number>): void => { designExporter = fn }
 export function initCards(d: Deps): void {
   deps = d
   boardHooks.runCard = async (agency, cardId) => {
@@ -74,7 +77,7 @@ const runs = new Map<string, LiveRun>()
 const active = new Set<string>()
 /** Agencies whose plan the boss approved (cards:runPlan): their Planned cards run one after another like auto-run, until none is left. */
 const approved = new Set<string>()
-const runsOnItsOwn = (agency: Agency): boolean => agency.autoRun || approved.has(agency.id)
+const runsOnItsOwn = (agency: Agency): boolean => agency.autoRun || isQuick(agency.templateId) || approved.has(agency.id)
 /** Agencies with cards that finished since the Lead last reviewed; the Lead gets one review run when the plan runs out. */
 const toReview = new Set<string>()
 /** Teams whose Lead review couldn't start because the Lead was busy; it starts when the Lead's run ends. */
@@ -234,9 +237,14 @@ const cardPrompt = (agency: Agency, card: KanbanCard, column: string): string =>
     brief ? `\n## The boss's brief (background for this card)\nThe card above is your task. This is what the boss asked for; use its facts, and if the card and the brief disagree, follow the card and say so in your reply.\n\n${brief}` : '',
     '',
     agency.goal ? `The team's goal: ${agency.goal}` : '',
-    'Reply with the finished work for this card: what you did, where it is, what you could not do and why. If the card is unclear or you need something you do not have, say what you need and stop.',
-    'Report a check as passed only when you ran it and say how (the command, or what you measured in a browser and at which width). A check you only judged by reading the code is "not verified", never "pass".',
-    OUTCOME_INSTRUCTION
+    ...(isQuick(agency.templateId)
+      // Quick teams (Design): the boss watches the board and checks the result there, so no test reports (17 Nov 2026:
+      // Remy listed unrun 200% zoom checks as open issues and the cards waited in Review).
+      ? ['Start drawing now; the boss is watching the board. Make what the card and the brief ask for, filling small gaps with sensible choices. Don\'t run or report checks: the boss checks the board. Reply in a few lines: each artboard you made or changed, with its size.',
+        OUTCOME_INSTRUCTION + ' "Open issues" here means only something asked for that you could not make.']
+      : ['Reply with the finished work for this card: what you did, where it is, what you could not do and why. If the card is unclear or you need something you do not have, say what you need and stop.',
+        'Report a check as passed only when you ran it and say how (the command, or what you measured in a browser and at which width). A check you only judged by reading the code is "not verified", never "pass".',
+        OUTCOME_INSTRUCTION])
   ].filter((l) => l !== '').join('\n')
 }
 
@@ -319,14 +327,19 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     log(hit.card, `${agent.name} finished${costNote}`)
     if (outcome?.kind === 'issues') log(hit.card, `Open issues: ${outcome.issues.slice(0, 300)}`)
     const pending = sessionId ? db.listChanges(sessionId).some((c) => c.runId === runId && c.status === 'pending') : false
-    if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, 'Review')
+    // Quick teams (Design): the boss checks the result on the board, so a clean finish is Done with no review round.
+    const quick = isQuick(agency.templateId) && outcome?.kind !== 'issues' && !pending
+    if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, quick ? 'Done' : 'Review')
+    if (quick) log(hit.card, 'Done: on the board for the boss to check')
     if (pending) log(hit.card, 'File changes are waiting for review')
-    toReview.add(agency.id)
+    if (!quick) toReview.add(agency.id)
   } else {
     hit.card.status = 'failed'
     log(hit.card, `${agent.name} failed: ${(r.error ?? 'unknown error').slice(0, 200)}`)
   }
   writeBoard(agency, doc)
+  // Artboards the card drew are saved as PNG and JPEG for other teams (Design board teams only).
+  if (r.ok && designExporter) void designExporter(agency).catch((err) => console.warn(`[cards] ${agency.name}: design export failed:`, err))
   if (blocked) {
     // Stop the chain: the Lead unblocks the card (or asks the boss) first; the plan goes on after its review.
     toReview.add(agency.id)

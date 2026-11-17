@@ -89,6 +89,43 @@ export function layoutArtboards(doc: DesignBoardDoc): (Artboard & { x: number; y
   })
 }
 
+/**
+ * Pictures of the artboards for other teams (owner, 17 Nov 2026): Tyslin saves every artboard as a PNG and a JPEG in
+ * design/exports/ (main/designExport.ts) and lists them in design/exports/designs.json, so a web team can build the
+ * page from them and a social team can post them, without anyone opening the board.
+ */
+export const DESIGN_EXPORTS_DIR = 'design/exports'
+export const DESIGN_MANIFEST = 'design/exports/designs.json'
+
+export interface DesignExport {
+  title: string
+  width: number
+  height: number
+  /** What the size is for ("Square post", "Web page"), or "Custom size". */
+  use: string
+  group: 'Web' | 'App' | 'Social' | 'Print' | 'Other'
+  /** Paths relative to the team folder. */
+  source: string
+  png: string
+  jpg: string
+  updatedAt: number
+}
+
+/** "design/posts/launch.html" -> "posts-launch": the file name both pictures share. */
+export const exportName = (file: string): string => file.replace(/^design\//, '').replace(/\.html?$/i, '').replace(/[\\/]+/g, '-').replace(/[^\w.-]+/g, '-') || 'artboard'
+
+/** The preset an artboard's size matches (same width; same height too, except for web pages, which grow). */
+export function presetFor(width: number, height: number): { use: string; group: DesignExport['group'] } {
+  const p = ARTBOARD_PRESETS.find((x) => x.width === width && x.height === height) ?? ARTBOARD_PRESETS.find((x) => x.group === 'Web' && x.width === width)
+  return p ? { use: p.label, group: p.group } : { use: 'Custom size', group: 'Other' }
+}
+
+/** The manifest entry for one artboard. */
+export function designExport(a: Artboard, updatedAt: number): DesignExport {
+  const name = exportName(a.file)
+  return { title: a.title, width: a.width, height: a.height, ...presetFor(a.width, a.height), source: a.file, png: `${DESIGN_EXPORTS_DIR}/${name}.png`, jpg: `${DESIGN_EXPORTS_DIR}/${name}.jpg`, updatedAt }
+}
+
 /** `{ "columns": [...], "rows": [...] }` after reading: columns as keys and labels, rows as plain objects. */
 export interface TableData {
   columns: { key: string; label: string }[]
@@ -123,7 +160,7 @@ export function pageInstructions(pages: AgencyPageSpec[]): string {
       return [`- ${pageFile(p)} (${p.about}), shown on the team's "${p.title}" page: { "items": [ { "date": "YYYY-MM-DD", "channel": "...", "title": "...", "state": "draft" } ] }. state is one of draft, approved, scheduled, posted. One item per post.`]
     }
     if (p.kind === 'design') {
-      return [`- ${DESIGN_BOARD_FILE} lists the artboards shown on the team's "${p.title}" page: { "artboards": [ { "file": "design/home.html", "title": "Home page", "width": 1440, "height": 2400 } ] }. Each artboard is one self-contained HTML file at that size (follow the artboards skill). Add an artboard to the list when you create its file; never remove one the boss made. The boss may have edited an artboard by hand: read the file again before you change it, and keep their edits.`]
+      return [`- ${DESIGN_BOARD_FILE} lists the artboards shown on the team's "${p.title}" page: { "artboards": [ { "file": "design/home.html", "title": "Home page", "width": 1440, "height": 2400 } ] }. Each artboard is one self-contained HTML file at that size (follow the artboards skill). Add an artboard to the list when you create its file; never remove one the boss made. The boss may have edited an artboard by hand: read the file again before you change it, and keep their edits. Tyslin saves every artboard as a PNG and a JPEG in ${DESIGN_EXPORTS_DIR}/ on its own: never write there.`]
     }
     return []
   })

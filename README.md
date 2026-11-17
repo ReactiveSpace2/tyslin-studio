@@ -128,13 +128,15 @@ Some teams get an extra tab on their Team screen, built from shared page types:
 | QA & Testing | Test results (table) | `data/tests.json` |
 | DevOps | Environments (table) | `data/environments.json` |
 | Social Media Marketing | Calendar | `data/calendar.json` |
-| Design | Design board | `design/board.json` and one HTML file per artboard |
+| Design | Design board | `design/board.json`, one HTML file per artboard, pictures in `design/exports/` |
 
 A table file is `{ "columns": [...], "rows": [...] }`; the calendar file is `{ "items": [{ "date", "channel", "title", "state" }] }`, with state draft, approved, scheduled or posted. The team's agents keep these files up to date with their file tools, and the tab refreshes when a file changes. Email Marketing's Campaigns page comes later.
 
 ### Design board
 
 The Design team (a Lead and a designer) draws on one canvas of artboards: web pages, app screens, square and portrait posts, stories, link images and print pages (A4, tri-fold, US Letter), each at its real size. Every artboard is an HTML file in the team's `design/` folder, listed in `design/board.json`, and the board shows it live while the designer writes it (the designer saves directly, without the file review, so you can watch). Pan and zoom the canvas, drag an artboard by its name to move it, and add an empty one from **+ Artboard**. With the Edit tool, click any part of an artboard to change its text, colours, text size, weight, corners, padding and alignment, or duplicate or delete it; double-click text to type over it. Your changes save into the same file, and Undo (or Ctrl+Z on the artboard) puts the last version back. In a task, **Ask for a change** sends the Lead a note about the part you selected. Each artboard exports as PNG or PDF.
+
+The Design team starts as soon as you ask: there is no plan to approve and no list of questions (the Lead asks only when it can't tell what to make), and the task opens on the board so you watch each artboard appear. Tyslin saves every artboard as a PNG and a JPEG in `design/exports/`, listed in `design/exports/designs.json`, after each piece of work and after your own edits. Agents in your other teams see that list and can read those files, so a web team can build a page from a design and a social team can post it.
 
 ### Files
 

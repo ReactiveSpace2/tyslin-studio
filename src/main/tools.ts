@@ -123,6 +123,29 @@ function safePath(folder: string, p: unknown): { abs: string; rel: string } {
   return { abs, rel }
 }
 
+/**
+ * Folders outside the team folder that agents may read but never write (17 Nov 2026: the Design teams' design/
+ * folders, so a web or social team can look at the artboards and their pictures). Set from index.ts.
+ */
+let extraReadDirs: () => string[] = () => []
+export const setExtraReadDirs = (fn: () => string[]): void => { extraReadDirs = fn }
+
+/** safePath for reads: the team folder, or an absolute path inside one of the extra read-only folders. */
+function readPath(folder: string, p: unknown): { abs: string; rel: string } {
+  try { return safePath(folder, p) } catch (err) {
+    if (typeof p === 'string' && isAbsolute(p)) {
+      for (const dir of extraReadDirs()) {
+        try {
+          const real = realpathSync(resolve(p)), base = realpathSync(dir)
+          const r = relative(base, real)
+          if (r && !r.startsWith('..') && !isAbsolute(r)) return { abs: real, rel: p }
+        } catch { /* not there */ }
+      }
+    }
+    throw err
+  }
+}
+
 function readText(abs: string): string | null {
   if (!existsSync(abs)) return null
   if (statSync(abs).size > MAX_READ_BYTES) throw new Error('File is too large to read (over 200 KB)')
@@ -180,7 +203,7 @@ export async function runTools(calls: ToolCall[], ctx: ToolContext): Promise<Too
       } else if (call.name === 'list_files') {
         results.push({ id: call.id, content: listProjectFiles(folder).join('\n') || '(empty)', isError: false })
       } else if (call.name === 'read_file') {
-        const { abs, rel } = safePath(folder, call.input.path)
+        const { abs, rel } = readPath(folder, call.input.path)
         const text = readText(abs)
         if (text === null) throw new Error(`${rel} does not exist`)
         results.push({ id: call.id, content: text, isError: false })
@@ -241,7 +264,7 @@ export function acpFileAccess(ctx: ToolContext): {
   const folder = ctx.project.folder!
   return {
     read: (absPath, line, limit) => {
-      const { abs, rel } = safePath(folder, absPath)
+      const { abs, rel } = readPath(folder, absPath)
       const text = readText(abs)
       if (text === null) throw new Error(`${rel} does not exist`)
       if (!line && !limit) return text

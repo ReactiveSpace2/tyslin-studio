@@ -51,6 +51,9 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const [pane, setPane] = useState<Pane>('')
   const agencyPage = pane.startsWith('page:') ? shownPages(view).find((p) => `page:${p.id}` === pane) : undefined
   const paneTitle = agencyPage ? agencyPage.title : PANE_TITLE[pane as keyof typeof PANE_TITLE] ?? ''
+  // A Design team's task opens on its board, so the artboards show the moment the designer starts (owner, 17 Nov 2026).
+  const designPage = shownPages(view).find((p) => p.kind === 'design')
+  useEffect(() => { if (designPage) setPane(`page:${designPage.id}`) }, [sessionId, designPage?.id])
   const [review, setReview] = useState<Review | null>(null)
   const [previewPath, setPreviewPath] = useState<string | null>(null)
   // Expand (Claude's artifact panel): Preview takes the whole task; the conversation comes back with collapse or close.
@@ -154,7 +157,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
       </ResizablePanel>
       {pane && !expanded && <ResizableHandle withHandle aria-label="Drag to resize the conversation and the panel" />}
       {pane && (
-        <ResizablePanel id={widePane ? 'pane-wide' : 'pane-side'} order={2} defaultSize={widePane ? 45 : 28} minSize={widePane ? 26 : 18} className="flex min-w-0 flex-col">
+        <ResizablePanel id={agencyPage?.kind === 'design' ? 'pane-design' : widePane ? 'pane-wide' : 'pane-side'} order={2} defaultSize={widePane ? (agencyPage?.kind === 'design' ? 62 : 45) : 28} minSize={widePane ? 26 : 18} className="flex min-w-0 flex-col">
         <aside className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background" aria-label={paneTitle}>
           {/* Preview brings its own one-row header with the close button. */}
           <div className={pane === 'preview' && view ? 'hidden' : 'flex h-10 flex-none items-center justify-between border-b border-border pr-1 pl-4'}>

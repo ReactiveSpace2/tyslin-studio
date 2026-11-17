@@ -26,7 +26,8 @@ export function useMadeFiles(projectId: string | null, since: number | null, unt
   }, [projectId, since, refreshKey])
   if (since === null) return { shown: [], more: 0, loaded: false }
   // Your own attachments (main saves them in attachments/) weren't made by the team, so they get no card here.
-  const mine = files.filter((f) => f.kind !== 'markdown' && !f.path.startsWith('attachments/') && f.updatedAt >= since && (until === null || f.updatedAt < until))
+  // Design board artboards show on the board; the thread shows their saved pictures (one of PNG/JPEG) instead.
+  const mine = files.filter((f) => f.kind !== 'markdown' && !f.path.startsWith('attachments/') && !(f.path.startsWith('design/') && (f.kind === 'page' || /^design\/exports\/.*\.jpe?g$/i.test(f.path) || f.path === 'design/styles.css')) && f.updatedAt >= since && (until === null || f.updatedAt < until))
   return { shown: mine.slice(0, MAX_CARDS), more: Math.max(0, mine.length - MAX_CARDS), loaded }
 }
 

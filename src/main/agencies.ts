@@ -135,7 +135,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
     const agency = db.insertAgency({
       id: agencyId, name, description: String(input.description ?? '').trim() || t?.tagline || '', goal: String(input.goal ?? '').trim() || t?.goal || '',
       prompt, plan: t?.plan ?? [], templateId: t?.id ?? '', leadId, projectId: project.id, adapter: input.adapter || 'template', boardPath,
-      channel: { kind: input.channel ?? 'none' }, notify: input.notify ?? 'questions', budget: input.budget ?? null, autoRun: !!input.autoRun, paused: false
+      channel: { kind: input.channel ?? 'none' }, notify: input.notify ?? 'questions', budget: input.budget ?? null, autoRun: !!input.autoRun || !!t?.quick, paused: false
     })
     inserted = true
 
@@ -146,7 +146,7 @@ export function createAgency(input: AgencyCreateInput): Agency {
     if (t && leadId) {
       db.saveTask({
         name: clip(`${name}: ${t.leadTask.prompt.split('.')[0]}`, 80),
-        prompt: t.leadTask.prompt, agentId: leadId, projectId: project.id, schedule: t.leadTask.schedule, enabled: true
+        prompt: t.leadTask.prompt, agentId: leadId, projectId: project.id, schedule: t.leadTask.schedule, enabled: !t.quick
       }, nextRunAfter(t.leadTask.schedule, Date.now()))
     }
 

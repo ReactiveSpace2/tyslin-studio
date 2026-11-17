@@ -5,7 +5,7 @@ import { existsSync, readFileSync, statSync, writeFileSync } from 'fs'
 import * as db from './db'
 import { setSecret, getSecret } from './secrets'
 import { answerPermission, approvalMode, cancelRunPermissions, pendingPermissions, runtimeFor, setApprovalMode } from './runtime'
-import { expireRunChanges, listProjectFiles, resolveChange } from './tools'
+import { expireRunChanges, listProjectFiles, resolveChange, setExtraReadDirs } from './tools'
 import { cancelInstall, deleteHermesProfile, engineLaunch, engineStatus, listEngines, runInstall, setEngineCommand } from './engines'
 import { killAllAdapters, listAcpModels, testAcp } from './acp'
 import { driveCopyIn, driveCreateFile, driveDuplicate, driveList, driveMkdir, driveMove, driveOpen, drivePreview, driveReadText, driveRemove, driveRename, driveReveal, driveSearch, driveUnwatch, driveUpload, driveWatch, driveWriteText } from './drive'
@@ -35,7 +35,8 @@ import { isValidTime, nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { suggestAgencies } from './starter'
 import type { StarterTurn } from '@shared/types'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, updateCard, removeCard, type CardPatch } from './cards'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, setDesignExporter, updateCard, removeCard, type CardPatch } from './cards'
+import { designReadDirs, exportDesigns } from './designExport'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -448,6 +449,8 @@ async function openrouterModels(): Promise<OpenRouterModel[]> {
 
 function initAgencies(): void {
   initCards({ startRun, runTask, checkReady: checkAgentReady })
+  setDesignExporter((a) => exportDesigns(a))
+  setExtraReadDirs(designReadDirs)
   // A raised cap lets the agency's planned cards run again (budget.ts).
   setBudgetResume((id) => { const a = db.getAgency(id); if (a) void runNext(a) })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
@@ -546,6 +549,11 @@ function registerIpc(): void {
   ipcMain.handle('preview:bytes', (_e, projectId: string, path: string) => previewBytes(String(projectId ?? ''), String(path ?? '')))
   ipcMain.handle('preview:office', () => officeStatus())
   ipcMain.handle('preview:exportPdf', (_e, projectId: string, path: string) => exportPdf(win!, String(projectId ?? ''), String(path ?? '')))
+  // The boss's hand edits on the Design board: the edited artboards get new pictures in design/exports/.
+  ipcMain.handle('design:export', async (_e, agencyId: string, files?: string[]) => {
+    const a = db.getAgency(String(agencyId ?? ''))
+    return a ? exportDesigns(a, { files: Array.isArray(files) ? files.map(String) : undefined }) : 0
+  })
   ipcMain.handle('preview:exportPng', (_e, projectId: string, path: string, width: number, height: number) => exportPng(win!, String(projectId ?? ''), String(path ?? ''), Number(width), Number(height)))
   ipcMain.handle('preview:saveCopy', (_e, projectId: string, path: string) => saveCopy(win!, String(projectId ?? ''), String(path ?? '')))
   ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {

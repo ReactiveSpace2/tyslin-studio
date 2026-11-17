@@ -6,6 +6,7 @@ import * as db from './db'
 import { needLabel, resolveTool, serverIsTool, TOOL_CATALOG } from '@shared/toolCatalog'
 import type { CardNeed } from '@shared/types'
 import { OPEN_ON_BOARD } from '@shared/cardOutcome'
+import { isQuick } from '@shared/agencies'
 
 /**
  * The Lead's board tools: list, add, edit, move, assign and comment on cards of its agency's board, run a card,
@@ -147,7 +148,7 @@ export function boardSummary(agency: Agency): string {
     `Team "${agency.name}". Goal: ${agency.goal || '(none set)'}.`,
     agency.budget !== null ? `Budget: ${agency.spent.toFixed(2)} spent of ${agency.budget} this month.` : 'Budget: none set.',
     boardHooks.runsOnItsOwn(agency)
-      ? `Cards in Planned with an assignee start on their own after you plan${agency.autoRun ? '' : ' (the boss approved the plan)'}; board_run_card starts one right away.`
+      ? `Cards in Planned with an assignee start on their own after you plan${agency.autoRun || isQuick(agency.templateId) ? '' : ' (the boss approved the plan)'}; board_run_card starts one right away.`
       : APPROVAL_LINE,
     '',
     'Roster (name: job):',
@@ -240,7 +241,7 @@ export const boardHooks: {
   messageBoss: (agency: Agency, from: Agent, kind: 'brief' | 'question' | 'review' | 'digest' | 'needs', text: string, extras: { options?: string[]; cardId?: string | null }) => Promise<string>
 } = {
   runCard: async () => { throw new Error('Card runs are not available.') },
-  runsOnItsOwn: (agency) => agency.autoRun,
+  runsOnItsOwn: (agency) => agency.autoRun || isQuick(agency.templateId),
   runningCard: () => null,
   messageBoss: async () => { throw new Error('No channel is set up.') }
 }

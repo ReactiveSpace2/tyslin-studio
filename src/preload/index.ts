@@ -41,6 +41,7 @@ const api: TyslinApi = {
     office: () => ipcRenderer.invoke('preview:office'),
     exportPdf: (projectId, path) => ipcRenderer.invoke('preview:exportPdf', projectId, path),
     exportPng: (projectId, path, width, height) => ipcRenderer.invoke('preview:exportPng', projectId, path, width, height),
+    exportDesigns: (agencyId, files) => ipcRenderer.invoke('design:export', agencyId, files),
     saveCopy: (projectId, path) => ipcRenderer.invoke('preview:saveCopy', projectId, path)
   },
   sessions: {

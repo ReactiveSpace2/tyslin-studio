@@ -136,6 +136,14 @@ export function DesignBoard({ view, onSend, className }: { view: AgencyView; onS
   const send = (file: string, msg: Record<string, unknown>): void => { frames.current[file]?.contentWindow?.postMessage({ tyslin: 1, ...msg }, '*') }
   useEffect(() => { for (const a of placed) send(a.file, { type: 'mode', mode: tool }) }, [tool, placed])
 
+  // Hand edits get new pictures in design/exports/ for other teams, once the boss pauses for a moment.
+  const exportTimer = useRef<{ t: ReturnType<typeof setTimeout> | null; files: Set<string> }>({ t: null, files: new Set() })
+  const exportSoon = (file: string): void => {
+    const x = exportTimer.current
+    x.files.add(file)
+    if (x.t) clearTimeout(x.t)
+    x.t = setTimeout(() => { const files = [...x.files]; x.files.clear(); x.t = null; void window.tyslin.preview.exportDesigns(view.agency.id, files).catch(() => undefined) }, 1500)
+  }
   /** The file as it is on disk, for undo and the "changed meanwhile" check. */
   const base = async (file: string): Promise<{ text: string; mtime: number }> => {
     if (!texts.current[file]) { const t = await window.tyslin.drive.readText(projectId, file); texts.current[file] = { text: t.text, mtime: t.mtimeMs } }
@@ -160,6 +168,7 @@ export function DesignBoard({ view, onSend, className }: { view: AgencyView; onS
         ownSaves.current[file] = r.mtimeMs
         shown.current[file] = r.mtimeMs
         lastFile.current = file
+        exportSoon(file)
       } catch (e) { flash(`Not saved: ${errText(e)}`) }
     }
     const next = (queue.current[file] ?? Promise.resolve()).then(run)

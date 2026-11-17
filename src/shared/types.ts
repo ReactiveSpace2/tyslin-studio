@@ -1127,6 +1127,8 @@ export interface TyslinApi {
     exportPdf(projectId: string, path: string): Promise<string | null>
     /** Design board: asks where to save and writes the artboard as a PNG at width x height; null when cancelled. */
     exportPng(projectId: string, path: string, width: number, height: number): Promise<string | null>
+    /** Saves the Design board's artboards as PNG and JPEG in design/exports/ (only `files` when given); how many were made. */
+    exportDesigns(agencyId: string, files?: string[]): Promise<number>
     /** Asks where to save and copies the file as it is; null when cancelled. */
     saveCopy(projectId: string, path: string): Promise<string | null>
   }

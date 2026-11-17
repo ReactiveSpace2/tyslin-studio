@@ -91,10 +91,36 @@ export interface AgencyTemplate {
    * GitHub access for SEO. Added to the Lead's system prompt at run time (runtime.ts), so older agencies get it too.
    */
   intake?: string[]
+  /**
+   * Starts work at once (Design, owner 17 Nov 2026: "whenever I give a prompt it should open the artboard and start
+   * drawing"): cards run on their own without plan approval, the Lead asks only when it can't tell what to make
+   * (`quickInstructions` instead of the intake list), and a finished card goes straight to Done with no Lead review
+   * round, because the boss checks and tweaks the result on the board.
+   */
+  quick?: boolean
+}
+
+/** The template of an agency, when it still exists. */
+export const templateOf = (templateId: string | null | undefined): AgencyTemplate | undefined => AGENCY_TEMPLATES.find((t) => t.id === templateId)
+
+/** Whether an agency's template starts work at once (see `AgencyTemplate.quick`). */
+export const isQuick = (templateId: string | null | undefined): boolean => !!templateOf(templateId)?.quick
+
+/** The Lead's "start right away" paragraph for a quick template. */
+export function quickInstructions(t: Pick<AgencyTemplate, 'name' | 'intake'>): string {
+  return `## Start right away
+The boss wants to see work start the moment they ask. For a new request:
+- Don't send a list of questions. Ask one short question only when you can't tell at all what to make; for anything else pick a sensible default and say it in one line.
+- In the same turn, add the card(s) to Planned with an assignee and full notes (what to make, sizes, the exact copy, the style), then reply in two or three lines. The cards start on their own as soon as you finish: there is no plan to approve.
+- One card per small set of work, so the first result shows quickly.
+- Cards still in Planned from an earlier request would run before the new one: move them to Inbox with board_move_card, unless the boss asked for them now.
+- Use what the boss attached or already told you (memory, agency-log.md). Never ask for passwords, API keys or tokens.
+Things a ${t.name} brief may need, to fill from defaults rather than ask: ${(t.intake ?? []).map((q) => q.replace(/\?.*$/, '')).join('; ')}.`
 }
 
 /** The Lead's "ask before you plan" paragraph for a template's intake questions ('' when it has none). */
-export function intakeInstructions(t: Pick<AgencyTemplate, 'name' | 'intake'> | undefined): string {
+export function intakeInstructions(t: Pick<AgencyTemplate, 'name' | 'intake' | 'quick'> | undefined): string {
+  if (t?.quick) return quickInstructions(t)
   if (!t?.intake?.length) return ''
   return `## Before you plan: questions for the boss
 When a new brief comes in, first check what you already know: the brief and anything attached to it, the memory notes, agency-log.md and the files in the team folder. Then ask the boss only what is still missing from the list below, all at once, as one short numbered list in your reply in the task. On a scheduled run, with no one in the chat, send it as one message_boss with kind "question" instead.

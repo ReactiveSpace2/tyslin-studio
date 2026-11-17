@@ -1,5 +1,5 @@
 import type { Skill } from '@shared/types'
-import { DESIGN_SKILLS } from './seedSkillsDesign'
+import { ARTBOARDS_V1, DESIGN_SKILLS } from './seedSkillsDesign'
 
 /**
  * Built-in skills the agency templates (shared/agencies/) rely on, beyond the ones in seedSkills.ts.
@@ -278,6 +278,7 @@ Then the risks, each with what would reduce it, and the questions still open wit
  * check was made).
  */
 export const SKILL_BODY_UPDATES: { name: string; old: string }[] = [
+  { name: 'artboards', old: ARTBOARDS_V1 },
   { name: 'html-css', old: "Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 px. Text contrast 4.5:1. Every image has alt text; every input has a label. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure." },
   { name: 'accessibility-check', old: "Go through: keyboard only (every control reachable and operable, visible focus), labels on inputs and icon buttons, heading order, alt text, colour contrast, text resize to 200%, motion that can be paused, forms that explain errors. Report each failure with where it is and the fix. Pass or fail per item, no scores." }
 ]

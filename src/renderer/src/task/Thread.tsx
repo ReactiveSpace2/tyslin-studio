@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { isQuick } from '@shared/agencies'
 
 const clock = (ms: number): string => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 /** Card runs and briefs send long generated prompts; show their start and fold the rest. */
@@ -151,7 +152,7 @@ export function Thread({ task, agent, view, sessionId, focus, until, onPreview, 
     if (atBottom) ref.current?.scrollTo({ top: ref.current.scrollHeight })
   }, [task.messages, task.streaming, task.activity, task.changes, task.channel, task.cards, made.shown.length, toolSetup, focus])
 
-  const planned = isLead && !view!.agency.autoRun ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
+  const planned = isLead && !view!.agency.autoRun && !isQuick(view!.agency.templateId) ? task.cards.filter((c) => !c.status && task.board?.columns.some((col) => /planned/i.test(col.title) && col.cards.some((k) => k.id === c.id))) : []
   const active = task.cards.filter((c) => c.status || task.board?.columns.some((col) => /progress|review|done/i.test(col.title) && col.cards.some((k) => k.id === c.id)))
   const runningCard = task.cards.find((c) => c.status === 'running') ?? null
   const runs = task.cards.filter((c) => c.sessionId).sort((a, b) => (startOf(a) ?? a.createdAt) - (startOf(b) ?? b.createdAt))

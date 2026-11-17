@@ -14,6 +14,7 @@ import { engineLaunch, engineStatus } from './engines'
 import { BOARD_TOOLS, boardSummary } from './boardTools'
 import { getAgency } from './db'
 import { memoryPrompt } from './memory'
+import { designsPrompt } from './designExport'
 import { AGENCY_TEMPLATES, intakeInstructions, templatePages } from '@shared/agencies'
 import { pageInstructions } from '@shared/pages'
 import { openRouterError, usesOpenRouter } from '@shared/openrouter'
@@ -108,6 +109,11 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
   if (agency && !agent.instructions.includes('## Agency pages') && !agent.instructions.includes('## Team pages')) {
     const pages = pageInstructions(templatePages(agency.templateId))
     if (pages) parts.push(pages)
+  }
+  // Other teams see the Design team's pictures (designExport.ts), so they can build or post from them.
+  if (agency && !templatePages(agency.templateId).some((p) => p.kind === 'design')) {
+    const designs = designsPrompt(agency)
+    if (designs) parts.push(designs)
   }
   // Agency memory (memory/agency.md and the agent's own file), written on the Memory screen.
   const memory = memoryPrompt(agent)
