@@ -268,6 +268,8 @@ export interface KanbanCard {
   sessionId?: string
   /** Agency boards: the worker the Lead gave the card to (same as agentId once it runs). */
   assignee?: string
+  /** Quick teams: the boss's task (Lead chat) the card came from, so its worker gets that conversation as the brief. */
+  taskId?: string
   /** The agency this board belongs to. */
   agency?: string
   /** Estimated cost of the runs on this card, in the provider's currency; undefined = not reported. */

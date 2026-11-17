@@ -206,7 +206,9 @@ export function bossBrief(agency: Agency, card: KanbanCard): string {
   // The card's last activity before this run says which task it belongs to (starter cards are older than the task).
   const at = Math.max(card.createdAt ?? 0, ...(card.log ?? []).map((l) => l.at))
   if (agency.leadId) {
-    const session = db.listSessions(agency.leadId)
+    // A quick team's card names its task; a follow-up from an older task used to get the newest task's brief (QA 18 Nov 2026).
+    const own = card.taskId ? db.getSession(card.taskId) : null
+    const session = own ?? db.listSessions(agency.leadId)
       .filter((x) => x.projectId === agency.projectId && !x.title.startsWith('Card:') && x.createdAt <= at)
       .sort((a, b) => b.createdAt - a.createdAt)[0]
     if (session) {
@@ -349,7 +351,9 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     startLeadReview(db.getAgency(agency.id)!)
     return
   }
-  if (runsOnItsOwn(agency) && r.ok) void runNext(db.getAgency(agency.id)!)
+  // Quick teams: each request stands on its own, so a failed one (provider error, stopped) doesn't hold up the ones
+  // queued behind it; its error and fix show on its card (QA 18 Nov 2026: a 400 left the next request in Planned).
+  if (runsOnItsOwn(agency) && (r.ok || isQuick(agency.templateId))) void runNext(db.getAgency(agency.id)!)
 }
 
 /** Auto-run (or an approved plan): the next planned card with an assignee that has never run, one at a time. */
@@ -376,6 +380,8 @@ export async function runNext(agency: Agency): Promise<void> {
     // Mark it so auto-run moves on to the next card instead of retrying this one forever.
     const msg = err instanceof Error ? err.message : String(err)
     patchCard(agency, next.id, (card) => { card.status = 'failed'; log(card, `Could not start: ${msg.slice(0, 200)}`) })
+    // Quick teams go on with the next request (each failed one is marked, so this ends).
+    if (quickTeam) void runNext(db.getAgency(agency.id) ?? agency)
   }
 }
 
@@ -421,6 +427,9 @@ export function onChangeResolved(change: PendingChange): void {
 /** The log line on cards made straight from the boss's message in a quick team. */
 export const QUICK_LOG = "From the boss's message"
 
+/** A boss's request in a quick team that hasn't started yet. */
+const isQueued = (k: KanbanCard): boolean => !k.status && !!k.log?.some((l) => l.text === QUICK_LOG)
+
 /** The member who takes the boss's messages in a quick team, or null (see quickWorkerOf). */
 export const quickWorker = (agency: Agency): Agent | null => quickWorkerOf(agency, db.listAgents())
 
@@ -429,7 +438,7 @@ export const quickWorker = (agency: Agency): Agent | null => quickWorkerOf(agenc
  * first in Planned, and runs now, or right after the card that is running. No Lead planning run in between: the
  * worker gets the whole conversation as the boss's brief (bossBrief). Returns the worker's name.
  */
-export async function handToWorker(agency: Agency, text: string): Promise<string> {
+export async function handToWorker(agency: Agency, text: string, taskId?: string): Promise<string> {
   const worker = quickWorker(agency)
   if (!worker) throw new Error(`${agency.name} has no one to hand the work to. Add a member on the team's page.`)
   deps?.checkReady(worker)
@@ -437,9 +446,11 @@ export async function handToWorker(agency: Agency, text: string): Promise<string
   if (!doc || !doc.columns.length) throw new Error(`${agency.name} has no board yet.`)
   const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned') ?? doc.columns[0]
   const first = text.trim().split('\n')[0].trim() || 'New request'
-  const card: KanbanCard = { id: randomUUID().slice(0, 8), title: first.length > 80 ? `${first.slice(0, 79)}…` : first, notes: text.trim(), labels: [], agency: agency.id, createdAt: Date.now(), log: [], assignee: worker.id, agentId: worker.id }
+  const card: KanbanCard = { id: randomUUID().slice(0, 8), title: first.length > 80 ? `${first.slice(0, 79)}…` : first, notes: text.trim(), labels: [], agency: agency.id, createdAt: Date.now(), log: [], assignee: worker.id, agentId: worker.id, ...(taskId ? { taskId } : {}) }
   log(card, QUICK_LOG)
-  planned.cards.unshift(card)
+  // After the requests already waiting, before older plans' cards: revisions run in the order they were sent (QA 18 Nov 2026).
+  const lastQueued = planned.cards.reduce((at, k, i) => (isQueued(k) ? i : at), -1)
+  planned.cards.splice(lastQueued + 1, 0, card)
   writeBoard(agency, doc)
   if (!teamBusy(agency)) {
     try { await runCard(agency.id, card.id) } catch (err) {

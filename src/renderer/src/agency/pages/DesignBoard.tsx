@@ -1,3 +1,4 @@
+import { quickWorkerOf } from '@shared/agencies'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Attachment, PreviewFile } from '@shared/types'
 import { ARTBOARD_PRESETS, DESIGN_BOARD_FILE, layoutArtboards, parseDesignBoard, type DesignBoardDoc } from '@shared/pages'
@@ -61,13 +62,17 @@ ${styles ? '<link rel="stylesheet" href="styles.css">\n' : ''}<style>body{margin
  */
 export function DesignBoard({ view, onSend, className }: { view: AgencyView; onSend?: (text: string, attachments: Attachment[]) => Promise<void>; className?: string }): JSX.Element {
   const projectId = view.project.id
-  const designer = view.workers[0] ? firstName(view.workers[0].name) : 'the designer'
-  const lead = view.lead ? firstName(view.lead.name) : 'the Lead'
+  // Quick teams send the boss's requests straight to the designer, so the board names them, not the Lead (QA 18 Nov 2026).
+  const quick = quickWorkerOf(view.agency, view.workers)
+  const designer = quick ? firstName(quick.name) : view.workers[0] ? firstName(view.workers[0].name) : 'the designer'
+  const lead = quick ? designer : view.lead ? firstName(view.lead.name) : 'the Lead'
   const tick = usePageWatch(view.agency.id, (p) => p.startsWith('design/'))
   const [doc, setDoc] = useState<DesignBoardDoc | null | 'missing'>(null)
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
   const boardMtime = useRef<number | null>(null)
+  /** design/styles.css's last change (undefined until first read). */
+  const stylesMtime = useRef<number | null | undefined>(undefined)
   const [tool, setTool] = useState<Tool>('edit')
   const [zoom, setZoom] = useState(0.25)
   const [pan, setPan] = useState({ x: 40, y: 60 })
@@ -104,9 +109,16 @@ export function DesignBoard({ view, onSend, className }: { view: AgencyView; onS
       let files: PreviewFile[] = []
       try { files = await window.tyslin.preview.list(projectId) } catch { /* keep the frames as they are */ }
       if (!live) return
-      setHasStyles(await window.tyslin.drive.readText(projectId, 'design/styles.css').then(() => true, () => false))
+      const styles = await window.tyslin.drive.readText(projectId, 'design/styles.css').then((t) => t.mtimeMs, () => null)
+      setHasStyles(styles !== null)
       if (!live) return
       const changed: Record<string, number> = {}
+      // Every artboard links design/styles.css: when it changes, every artboard reloads (QA 18 Nov 2026: the canvas
+      // kept the old colours until Reload).
+      if (styles !== null && stylesMtime.current !== undefined && styles !== stylesMtime.current && next !== 'missing') {
+        for (const a of next.artboards) { changed[a.file] = styles; delete texts.current[a.file] }
+      }
+      stylesMtime.current = styles
       for (const f of files) {
         const was = shown.current[f.path]
         if (was === undefined) { shown.current[f.path] = f.updatedAt; continue }

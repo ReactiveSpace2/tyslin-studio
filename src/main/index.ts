@@ -575,7 +575,7 @@ function registerIpc(): void {
         checkAgentReady(worker)
         const folder = s.projectId ? db.getProject(s.projectId)?.folder ?? null : null
         db.addMessage(s.id, 'user', String(text ?? ''), prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : [], folder))
-        return { handedTo: await handToWorker(agency, String(text ?? '')) }
+        return { handedTo: await handToWorker(agency, String(text ?? ''), s.id) }
       }
     }
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.

@@ -74,7 +74,9 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
   const lead = view?.lead ?? null
   // Quick teams (Design): the message goes straight to this member as a card (cards.ts handToWorker).
   const taker = view ? quickWorkerOf(view.agency, view.workers) : null
-  const leadStatus = lead ? statuses.get(lead.id) : undefined
+  // Who runs the message: the quick team's member, else the Lead (QA 18 Nov 2026: a ready Remy was blocked by Iris's key).
+  const runner = taker ?? lead
+  const leadStatus = runner ? statuses.get(runner.id) : undefined
 
   const newestLeadSession = (v: AgencyView): Session | null =>
     v.lead ? [...sessions].filter((s) => s.agentId === v.lead!.id).sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null : null
@@ -164,11 +166,11 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
         {leadStatus && leadStatus.state === 'setup' && (
           <Alert className="border-destructive/30 bg-destructive-soft">
             <Icon name="warning" size={16} />
-            <AlertTitle>{firstName(lead!.name)} can't start yet</AlertTitle>
+            <AlertTitle>{firstName(runner!.name)} can't start yet</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center gap-2">
-              <span>{leadStatus.reason || 'The Lead needs a model key.'}</span>
+              <span>{leadStatus.reason || (taker ? `${firstName(taker.name)} needs setting up.` : 'The Lead needs a model key.')}</span>
               <Button variant="outline" size="sm" onClick={onSettings}>Open Settings</Button>
-              <Button variant="ghost" size="sm" onClick={() => onOpenAgent(view!.agency.id, lead!.id)}>Change the model</Button>
+              <Button variant="ghost" size="sm" onClick={() => onOpenAgent(view!.agency.id, runner!.id)}>Change the model</Button>
             </AlertDescription>
           </Alert>
         )}

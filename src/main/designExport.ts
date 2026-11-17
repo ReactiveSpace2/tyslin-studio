@@ -7,6 +7,7 @@ import * as db from './db'
 import { inside } from './confine'
 import { renderArtboard } from './preview'
 import { shareDesign } from './assets'
+import { pngWrongSize } from './pngSize'
 
 /**
  * Pictures of the Design board for other teams (owner, 17 Nov 2026): after a designer's card and after the boss's
@@ -58,7 +59,10 @@ async function run(agency: Agency, opts: { files?: string[]; force?: boolean }):
     const e = designExport(a, changed)
     const png = inside(folder, e.png), jpg = inside(folder, e.jpg)
     const wanted = opts.files ? opts.files.includes(a.file) : true
-    const stale = opts.force || mtime(png) < changed || mtime(jpg) < changed
+    // A new width or height in board.json makes the picture stale too (QA 18 Nov 2026: the manifest said 390 x 844
+    // while the PNG was still 1080 x 1080). Read from the PNG itself, so a list written without a redraw can't hide it.
+    const resized = pngWrongSize(png, a.width, a.height)
+    const stale = opts.force || resized || mtime(png) < changed || mtime(jpg) < changed
     if (wanted && stale) {
       try {
         const img = await renderArtboard(agency.projectId, a.file, a.width, a.height)
