@@ -192,7 +192,12 @@ export async function renderArtboard(projectId: string, rel: string, width: numb
     page.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     page.setContentSize(w, h)
     await page.loadURL(previewUrl(projectId, rel))
-    // Let fonts, pictures and a first animation frame settle.
+    // Wait for every picture (Unsplash photos come over the network) and the fonts, up to 12 s: on 18 Nov 2026 an
+    // export was taken before the photo arrived and saved an empty box. Then let a first animation frame settle.
+    await page.webContents.executeJavaScript(`Promise.race([
+      Promise.all([document.fonts ? document.fonts.ready : null, ...Array.from(document.images).map((i) => { i.loading = 'eager'; return i.complete && i.naturalWidth ? (i.decode ? i.decode().catch(() => null) : null) : new Promise((r) => { i.addEventListener('load', () => (i.decode ? i.decode().catch(() => null) : Promise.resolve()).then(r), { once: true }); i.addEventListener('error', r, { once: true }) }) })]),
+      new Promise((r) => setTimeout(r, 12000))
+    ]).then(() => true)`, true).catch(() => undefined)
     await new Promise((r) => setTimeout(r, 400))
     return await page.webContents.capturePage({ x: 0, y: 0, width: w, height: h })
   } finally {

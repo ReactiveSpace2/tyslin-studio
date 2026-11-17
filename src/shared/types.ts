@@ -4,6 +4,9 @@ export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
 /** Providers that need an API key (stored encrypted). */
+/** What sessions:send did with a message. */
+export type SendResult = { handedTo?: string }
+
 /** Settings → Accounts and connectors → Pictures. */
 export type PicturesStatus = { keySet: boolean; assetsFolder: string; pictures: number }
 
@@ -1140,7 +1143,8 @@ export interface TyslinApi {
     create(agentId: string, projectId: string | null): Promise<Session>
     messages(sessionId: string): Promise<Message[]>
     /** `attachmentIds` come from `attachments.pick`. */
-    send(sessionId: string, text: string, attachmentIds?: string[]): Promise<void>
+    /** `handedTo`: a quick team's message went straight to that member as a card; no reply comes in this chat. */
+    send(sessionId: string, text: string, attachmentIds?: string[]): Promise<SendResult>
     onEvent(cb: (e: RunEvent) => void): () => void
     /** Stops the session's running reply, if any. */
     stop(sessionId: string): Promise<void>

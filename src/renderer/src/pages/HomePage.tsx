@@ -1,3 +1,4 @@
+import { quickWorkerOf } from '@shared/agencies'
 import { useEffect, useState } from 'react'
 import { StartChat, StartReady, type StartedAgency } from './StartChat'
 import type { Agent, Attachment, ChannelMessage, DashboardStats, Session } from '@shared/types'
@@ -71,6 +72,8 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
   const statuses = useAgentStatuses()
   const view = agencies.find((v) => v.agency.id === activeAgency) ?? agencies[0] ?? null
   const lead = view?.lead ?? null
+  // Quick teams (Design): the message goes straight to this member as a card (cards.ts handToWorker).
+  const taker = view ? quickWorkerOf(view.agency, view.workers) : null
   const leadStatus = lead ? statuses.get(lead.id) : undefined
 
   const newestLeadSession = (v: AgencyView): Session | null =>
@@ -153,7 +156,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
         <Pose pose={1} height={130} />
         <h1 className="text-[28px] font-semibold tracking-tight">What should your team do?</h1>
         <p className="max-w-[520px] text-[15px] text-muted-foreground">
-          {lead ? <>{firstName(lead.name)}, the Lead of {view!.agency.name}, plans it, hands it to the team and brings it back for your review.</> : view ? <>{view.agency.name} has no Lead yet. Add one on its page.</> : null}
+          {taker ? <>{firstName(taker.name)} starts on it as soon as you send it, and you watch it appear on the board.</> : lead ? <>{firstName(lead.name)}, the Lead of {view!.agency.name}, plans it, hands it to the team and brings it back for your review.</> : view ? <>{view.agency.name} has no Lead yet. Add one on its page.</> : null}
         </p>
       </div>
 
@@ -171,7 +174,7 @@ export function HomePage({ you, agencies, agents, sessions, channelMessages, wai
         )}
         <Composer agencies={agencies} agencyId={view?.agency.id ?? null} onAgency={onActiveAgency} agent={lead}
           value={text} onChange={setText} attached={attached} onAttached={setAttached} running={sending} onSend={() => void start()}
-          placeholder={lead ? `Tell ${firstName(lead.name)} what to do…` : 'Pick a team with a Lead first'} label="Describe the task" rows={3} large autoFocus
+          placeholder={taker ? `Tell ${firstName(taker.name)} what to make…` : lead ? `Tell ${firstName(lead.name)} what to do…` : 'Pick a team with a Lead first'} label="Describe the task" rows={3} large autoFocus
           disabled={!lead || leadStatus?.state === 'setup' || view?.paused} />
         {view?.paused && <p className="px-1 text-xs text-muted-foreground">{view.agency.name} is paused. Resume it on its page to send work.</p>}
         {error && <p role="alert" className="rounded-lg bg-destructive-soft px-3.5 py-2.5 text-sm text-destructive">{error}</p>}

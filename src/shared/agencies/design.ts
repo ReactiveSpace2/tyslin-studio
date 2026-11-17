@@ -6,6 +6,7 @@ import type { AgencyTemplate } from '../agencies'
  * review) so the boss sees the artboards change live, and the boss can tweak any artboard by hand on the board.
  * Quick (owner, 17 Nov 2026): a prompt becomes a card that runs at once, with no question list, plan approval or
  * review round; every artboard is saved as PNG and JPEG in design/exports/ (main/designExport.ts) for other teams.
+ * Since 18 Nov 2026 the boss's messages skip Iris entirely and become Remy's cards (cards.ts handToWorker).
  */
 export const design: AgencyTemplate = {
   id: 'design',
@@ -14,8 +15,8 @@ export const design: AgencyTemplate = {
   group: 'design',
   goal: 'Turn a brief into finished artboards on the Design board, in one consistent style, ready to export or build.',
   plan: [
-    'Iris turns your prompt into a card for Remy at once, with sizes and copy, and asks only when it is unclear what to make.',
-    'Remy puts each artboard on the Design board and draws it while you watch, one at a time.',
+    'Your message goes straight to Remy as a card: no planning step, he starts at once.',
+    'Remy puts each artboard on the Design board and draws it while you watch, one at a time; your next message is his next card.',
     'Remy keeps the brand in design/styles.css so every artboard matches.',
     'Iris: Tyslin saves every artboard as a PNG and a JPEG in design/exports/ for your other teams.',
     'Iris: you check and tweak the artboards by hand on the board, or ask for changes in the task.'

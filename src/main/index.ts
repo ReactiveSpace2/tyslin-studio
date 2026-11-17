@@ -34,8 +34,10 @@ import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdat
 import { isValidTime, nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { suggestAgencies } from './starter'
-import type { PicturesStatus, StarterTurn } from '@shared/types'
-import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, setDesignExporter, updateCard, removeCard, type CardPatch } from './cards'
+import type { PicturesStatus, SendResult, StarterTurn } from '@shared/types'
+import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, setDesignExporter, updateCard, removeCard, handToWorker, quickWorker, type CardPatch } from './cards'
+import { isTaskChat } from '@shared/taskChat'
+import { isQuick } from '@shared/agencies'
 import { designReadDirs, exportDesigns } from './designExport'
 import { assetsFolder, assetsReadDirs, UNSPLASH_SECRET } from './assets'
 import { listAssets } from './assetStore'
@@ -560,13 +562,29 @@ function registerIpc(): void {
   })
   ipcMain.handle('preview:exportPng', (_e, projectId: string, path: string, width: number, height: number) => exportPng(win!, String(projectId ?? ''), String(path ?? ''), Number(width), Number(height)))
   ipcMain.handle('preview:saveCopy', (_e, projectId: string, path: string) => saveCopy(win!, String(projectId ?? ''), String(path ?? '')))
-  ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []) => {
+  ipcMain.handle('sessions:send', async (_e, sessionId: string, text: string, attachmentIds: string[] = []): Promise<SendResult> => {
+    // Quick teams (Design, owner 18 Nov 2026): a message in the Lead's task goes straight to the worker as a card;
+    // the Lead doesn't plan it first (that took 1 to 2.5 minutes of the boss's wait). cards.ts handToWorker.
+    {
+      const s = db.getSession(String(sessionId ?? ''))
+      const lead = s ? db.getAgent(s.agentId) : null
+      const agency = lead?.agency ? db.getAgency(lead.agency) : null
+      if (s && agency && agency.leadId === lead!.id && isQuick(agency.templateId) && isTaskChat(s) && quickWorker(agency)) {
+        if (agency.paused) throw new Error(`${agency.name} is paused. Resume it on its page to send work.`)
+        const worker = quickWorker(agency)!
+        checkAgentReady(worker)
+        const folder = s.projectId ? db.getProject(s.projectId)?.folder ?? null : null
+        db.addMessage(s.id, 'user', String(text ?? ''), prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : [], folder))
+        return { handedTo: await handToWorker(agency, String(text ?? '')) }
+      }
+    }
     // Check first: reading the attachments uses up their ids, and the renderer gives them back to resend after a refusal.
     checkCanRun(sessionId)
     // Attached files also go into the task's project folder (attachments/), so the agency's workers can use them.
     const session = db.getSession(String(sessionId ?? ''))
     const folder = session?.projectId ? db.getProject(session.projectId)?.folder ?? null : null
     startRun(sessionId, text, prepareAttachments(Array.isArray(attachmentIds) ? attachmentIds : [], folder))
+    return {}
   })
   ipcMain.handle('sessions:stop', (_e, sessionId: string) => {
     const run = activeRuns.get(sessionId)

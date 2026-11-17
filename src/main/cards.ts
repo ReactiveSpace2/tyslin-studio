@@ -2,7 +2,7 @@ import { missingNeeds, needLabel } from './boardTools'
 import { isTaskChat } from '@shared/taskChat'
 import { randomUUID } from 'crypto'
 import type { Agency, Agent, KanbanCard, PendingChange, RunEvent, ScheduledTask } from '@shared/types'
-import { AGENCY_TEMPLATES, BRIEF_LOG, isQuick } from '@shared/agencies'
+import { AGENCY_TEMPLATES, BRIEF_LOG, isQuick, quickWorkerOf } from '@shared/agencies'
 import { estimateCost, type Usage } from '@shared/pricing'
 import { OUTCOME_INSTRUCTION, parseOutcome } from '@shared/cardOutcome'
 import * as db from './db'
@@ -332,7 +332,7 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
     if (!/done/i.test(hit.column.title)) moveCard(doc, run.cardId, quick ? 'Done' : 'Review')
     if (quick) log(hit.card, 'Done: on the board for the boss to check')
     if (pending) log(hit.card, 'File changes are waiting for review')
-    if (!quick) toReview.add(agency.id)
+    if (!isQuick(agency.templateId)) toReview.add(agency.id)
   } else {
     hit.card.status = 'failed'
     log(hit.card, `${agent.name} failed: ${(r.error ?? 'unknown error').slice(0, 200)}`)
@@ -340,6 +340,9 @@ function finish(runId: string, agent: Agent, r: { ok: boolean; error?: string })
   writeBoard(agency, doc)
   // Artboards the card drew are saved as PNG and JPEG for other teams (Design board teams only).
   if (r.ok && designExporter) void designExporter(agency).catch((err) => console.warn(`[cards] ${agency.name}: design export failed:`, err))
+  // Quick teams: the worker's answer (what it needs) is in the task; the boss's next message starts a new card. No
+  // Lead round: on 18 Nov 2026 Iris sent a blocked card back four times, each run blocked again for the same reason.
+  if (blocked && isQuick(agency.templateId)) { void runNext(db.getAgency(agency.id)!); return }
   if (blocked) {
     // Stop the chain: the Lead unblocks the card (or asks the boss) first; the plan goes on after its review.
     toReview.add(agency.id)
@@ -359,11 +362,14 @@ export async function runNext(agency: Agency): Promise<void> {
   const busy = doc.columns.some((c) => c.cards.some((k) => active.has(k.id)))
   if (busy) return
   const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned')
-  const next = planned?.cards.find((k) => (k.assignee || k.agentId) && !k.status)
+  // Quick teams run only cards made from the boss's messages; leftovers from older plans wait (18 Nov 2026: a Lead
+  // review sent two old cards back and one ran for 13 minutes before the boss's post).
+  const quickTeam = isQuick(agency.templateId)
+  const next = planned?.cards.find((k) => (k.assignee || k.agentId) && !k.status && (!quickTeam || k.log?.some((l) => l.text === QUICK_LOG)))
   if (!next) {
     approved.delete(agency.id)
     // The plan ran out: the Lead reviews what finished (once per round), so nothing waits in Review unseen.
-    if (toReview.has(agency.id)) startLeadReview(agency)
+    if (toReview.has(agency.id) && !quickTeam) startLeadReview(agency)
     return
   }
   try { await runCard(agency.id, next.id) } catch (err) {
@@ -410,6 +416,39 @@ export function onChangeResolved(change: PendingChange): void {
     })
     return
   }
+}
+
+/** The log line on cards made straight from the boss's message in a quick team. */
+export const QUICK_LOG = "From the boss's message"
+
+/** The member who takes the boss's messages in a quick team, or null (see quickWorkerOf). */
+export const quickWorker = (agency: Agency): Agent | null => quickWorkerOf(agency, db.listAgents())
+
+/**
+ * Quick teams (Design, owner 18 Nov 2026): the boss's message in the Lead's task becomes the worker's card at once,
+ * first in Planned, and runs now, or right after the card that is running. No Lead planning run in between: the
+ * worker gets the whole conversation as the boss's brief (bossBrief). Returns the worker's name.
+ */
+export async function handToWorker(agency: Agency, text: string): Promise<string> {
+  const worker = quickWorker(agency)
+  if (!worker) throw new Error(`${agency.name} has no one to hand the work to. Add a member on the team's page.`)
+  deps?.checkReady(worker)
+  const doc = readBoard(agency)
+  if (!doc || !doc.columns.length) throw new Error(`${agency.name} has no board yet.`)
+  const planned = doc.columns.find((c) => c.title.toLowerCase() === 'planned') ?? doc.columns[0]
+  const first = text.trim().split('\n')[0].trim() || 'New request'
+  const card: KanbanCard = { id: randomUUID().slice(0, 8), title: first.length > 80 ? `${first.slice(0, 79)}…` : first, notes: text.trim(), labels: [], agency: agency.id, createdAt: Date.now(), log: [], assignee: worker.id, agentId: worker.id }
+  log(card, QUICK_LOG)
+  planned.cards.unshift(card)
+  writeBoard(agency, doc)
+  if (!teamBusy(agency)) {
+    try { await runCard(agency.id, card.id) } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      patchCard(agency, card.id, (c) => { c.status = 'failed'; log(c, `Could not start: ${msg.slice(0, 200)}`) })
+      throw err
+    }
+  } else patchCard(agency, card.id, (c) => log(c, 'Queued: starts when the card that is running finishes'))
+  return worker.name
 }
 
 /** Runs the Lead's "plan the Inbox" prompt now. Returns the chat id. */

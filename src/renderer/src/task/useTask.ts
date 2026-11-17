@@ -252,7 +252,14 @@ export function useTask(sessionId: string, agent: Agent | null, view: AgencyView
     setMessages((m) => [...m, { id: `pending-${Date.now()}`, sessionId, role: 'user', content: t, createdAt: Date.now(), attachments }])
     setStreaming('')
     try {
-      await window.tyslin.sessions.send(sessionId, t, attachments.map((a) => a.id))
+      const r = await window.tyslin.sessions.send(sessionId, t, attachments.map((a) => a.id))
+      // A quick team's message went straight to a member as a card: no reply streams here; the work shows as a card.
+      if (r?.handedTo) {
+        setStreaming(null)
+        const m = await window.tyslin.sessions.messages(sessionId)
+        if (sessionRef.current === sessionId) setMessages(m)
+        reloadChannel()
+      }
       onSessionsChanged()
     } catch (err) {
       setMessages((m) => m.filter((x) => !x.id.startsWith('pending-')))

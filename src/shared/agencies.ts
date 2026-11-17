@@ -106,6 +106,17 @@ export const templateOf = (templateId: string | null | undefined): AgencyTemplat
 /** Whether an agency's template starts work at once (see `AgencyTemplate.quick`). */
 export const isQuick = (templateId: string | null | undefined): boolean => !!templateOf(templateId)?.quick
 
+/**
+ * Who takes the boss's messages in a quick team (owner, 18 Nov 2026: "waiting for the team to start and finish"):
+ * the first member who isn't the Lead and isn't paused. The Lead doesn't plan these; the message becomes this
+ * member's card at once (cards.ts handToWorker).
+ */
+export function quickWorkerOf<A extends { id: string; agency?: string | null; kind?: string; isMascot?: boolean; paused?: boolean; createdAt?: number }>(agency: { id: string; leadId: string | null; templateId: string }, agents: A[]): A | null {
+  if (!isQuick(agency.templateId)) return null
+  return agents.filter((a) => a.agency === agency.id && a.id !== agency.leadId && (a.kind ?? 'agent') === 'agent' && !a.isMascot && !a.paused)
+    .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))[0] ?? null
+}
+
 /** The Lead's "start right away" paragraph for a quick template. */
 export function quickInstructions(t: Pick<AgencyTemplate, 'name' | 'intake'>): string {
   return `## Start right away

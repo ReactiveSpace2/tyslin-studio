@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { isTaskChat } from '@shared/taskChat'
+import { quickWorkerOf } from '@shared/agencies'
 import type { Agent, Attachment, Session } from '@shared/types'
 import type { AgencyView } from '../agencies'
 import { firstName } from '../boardStats'
@@ -52,6 +53,8 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
   const agencyPage = pane.startsWith('page:') ? shownPages(view).find((p) => `page:${p.id}` === pane) : undefined
   const paneTitle = agencyPage ? agencyPage.title : PANE_TITLE[pane as keyof typeof PANE_TITLE] ?? ''
   // A Design team's task opens on its board, so the artboards show the moment the designer starts (owner, 17 Nov 2026).
+  // Quick teams (Design): the boss's messages in the Lead's task go straight to this member (cards.ts handToWorker).
+  const taker = view && view.agency.leadId === agent.id && isTaskChat(task.session ?? { title: '' }) ? quickWorkerOf(view.agency, view.workers) : null
   const designPage = shownPages(view).find((p) => p.kind === 'design')
   useEffect(() => { if (designPage) setPane(`page:${designPage.id}`) }, [sessionId, designPage?.id])
   const [review, setReview] = useState<Review | null>(null)
@@ -151,7 +154,7 @@ export function TaskPage({ sessionId, agent, view, sessions, focus, setHeader, o
           <SetupCard team={team} onOpenAgent={onOpenAgent} />
           <Composer agencies={view ? [view] : []} agencyId={view?.agency.id ?? null} onOpenAgency={view ? onOpenAgency : undefined} agent={agent}
             footer={view ? <ToolsPill agencyName={view.agency.name} team={team} servers={servers} onTest={testServer} onAdd={(tool) => setToolSetup({ tool, agentIds: team.filter((a) => a.engine !== 'builtin').map((a) => a.id) })} onMore={onConnectors} className="h-8 gap-1.5 px-2 font-mono text-xs text-muted-foreground has-[>svg]:px-2" /> : undefined} value={text} onChange={setText} attached={attached} onAttached={setAttached} onModeChange={() => task.syncPermissions()}
-            running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={`Message ${firstName(agent.name)}…`} label={`Message ${agent.name}`} />
+            running={running} onSend={() => void send()} onStop={() => void task.stop()} placeholder={taker ? `Tell ${firstName(taker.name)} what to change or make next…` : `Message ${firstName(agent.name)}…`} label={`Message ${(taker ?? agent).name}`} />
         </div>
       </section>
       </ResizablePanel>
