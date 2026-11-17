@@ -125,6 +125,12 @@ const api: TyslinApi = {
     uninstall: (id) => ipcRenderer.invoke('skillPacks:uninstall', id),
     claudeCatalog: () => ipcRenderer.invoke('skillPacks:claudeCatalog')
   },
+  pictures: {
+    status: () => ipcRenderer.invoke('pictures:status'),
+    setKey: (key) => ipcRenderer.invoke('pictures:setKey', key),
+    removeKey: () => ipcRenderer.invoke('pictures:removeKey'),
+    openAssets: () => ipcRenderer.invoke('pictures:openAssets')
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     setKey: (provider, key) => ipcRenderer.invoke('settings:setKey', provider, key),

@@ -138,6 +138,12 @@ The Design team (a Lead and a designer) draws on one canvas of artboards: web pa
 
 The Design team starts as soon as you ask: there is no plan to approve and no list of questions (the Lead asks only when it can't tell what to make), and the task opens on the board so you watch each artboard appear. Tyslin saves every artboard as a PNG and a JPEG in `design/exports/`, listed in `design/exports/designs.json`, after each piece of work and after your own edits. Agents in your other teams see that list and can read those files, so a web team can build a page from a design and a social team can post it.
 
+### Pictures and the shared Assets folder
+
+Each project has one **Assets** folder (`Documents/Tyslin Studio/<project>/Assets`) that every team shares. Tyslin copies pictures there on its own: pictures you attach to a task, Unsplash photos the teams use, and the Design team's finished artboards, with who made each one in `Assets/credits.json`. Every team's agents can read the folder, and their pages and artboards can show any picture in it.
+
+The Design and Web Design teams can search **Unsplash** for free photos once you add a free Access Key (create an app at unsplash.com/developers) in **Settings → Accounts and connectors → Pictures**. As Unsplash's API rules ask, pages show the photo from Unsplash's own address, Tyslin tells Unsplash when a photo is used, and the page credits the photographer. Vecteezy photos can't be fetched by agents (its free licence needs a credit and allows one project per download), so download those yourself into `Assets/vecteezy/`; pages that use them show Vecteezy's credit.
+
 ### Files
 
 Files is a small code editor for the team's folder: an Explorer, search in files, and Source control that runs your own installed git (stage, commit, branches, pull, push, history). Edit, diff and preview files in tabs. Your edits save directly; agents' changes still come to you for review. While an agent is working in the folder, files are read-only and commits wait. Commits use your own git name and email; push and pull use git's own sign-in, and Tyslin never asks for or stores a git password or token.

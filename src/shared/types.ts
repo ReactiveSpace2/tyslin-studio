@@ -4,6 +4,9 @@ export type Shape = 'block' | 'round' | 'hex' | 'pill'
 export type Tone = 'lime' | 'ink' | 'paper'
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'openrouter'
 /** Providers that need an API key (stored encrypted). */
+/** Settings → Accounts and connectors → Pictures. */
+export type PicturesStatus = { keySet: boolean; assetsFolder: string; pictures: number }
+
 export type KeyProvider = 'anthropic' | 'openai' | 'gemini' | 'openrouter'
 /**
  * What runs the agent: Tyslin's own model runtime, or an external agent driven over ACP
@@ -1227,6 +1230,15 @@ export interface TyslinApi {
     claudeCatalog(): Promise<ClaudeSkill[]>
     /** Deletes the pack's skills and detaches them from every agent. */
     uninstall(id: string): Promise<void>
+  }
+  /** Unsplash pictures and the project's shared Assets folder (main/assets.ts, 18 Nov 2026). */
+  pictures: {
+    status(): Promise<PicturesStatus>
+    /** Checks the key with Unsplash first (refused keys throw); offline it is saved unchecked. */
+    setKey(key: string): Promise<void>
+    removeKey(): Promise<void>
+    /** Opens the shared Assets folder in the system file manager. */
+    openAssets(): Promise<void>
   }
   settings: {
     get(): Promise<ProviderSettings>

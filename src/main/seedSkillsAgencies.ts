@@ -1,5 +1,5 @@
 import type { Skill } from '@shared/types'
-import { ARTBOARDS_V1, DESIGN_SKILLS } from './seedSkillsDesign'
+import { ARTBOARDS_V1, ARTBOARDS_V2, DESIGN_SKILLS } from './seedSkillsDesign'
 
 /**
  * Built-in skills the agency templates (shared/agencies/) rely on, beyond the ones in seedSkills.ts.
@@ -94,7 +94,7 @@ Report: the command, pass and fail counts, the names of failing tests with their
   {
     name: 'html-css',
     description: 'Build pages as clean, accessible HTML and CSS.',
-    body: `Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 by 44 px for every link and button, including the logo link and links in the nav, footer and FAQ (pad them; don't rely on the text size). Text contrast 4.5:1. Every image has alt text; every input has a visible label. Form help and error text are tied to their field with aria-describedby, and an invalid field gets aria-invalid="true". A skip link as the first element that, when focused, shows above any sticky header (its own z-index and position). A favicon (an inline SVG data URI is fine) so the page asks for no missing file. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure.`
+    body: `Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 by 44 px for every link and button, including the logo link and links in the nav, footer and FAQ (pad them; don't rely on the text size). Text contrast 4.5:1. Every image has alt text; every input has a visible label. Form help and error text are tied to their field with aria-describedby, and an invalid field gets aria-invalid="true". A skip link as the first element that, when focused, shows above any sticky header (its own z-index and position). A favicon (an inline SVG data URI is fine) so the page asks for no missing file. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure. Pictures: use the boss's own files, pictures from the project's shared Assets folder (shown at /__assets__/<path>), or Unsplash photos through the pictures tool (search_photos, then use_photo) at the address use_photo returns, with its credit line next to the photo or in the footer. Never take pictures from other websites. A missing picture is a box with a 1 px border and a label saying what goes there.`
   },
   {
     name: 'accessibility-check',
@@ -277,8 +277,13 @@ Then the risks, each with what would reduce it, and the questions still open wit
  * (44 px targets on text links, skip link above a sticky header, aria-describedby/aria-invalid, favicon, how each
  * check was made).
  */
+/** html-css as it was before pictures (18 Nov 2026). */
+const HTML_CSS_V2 = `Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 by 44 px for every link and button, including the logo link and links in the nav, footer and FAQ (pad them; don't rely on the text size). Text contrast 4.5:1. Every image has alt text; every input has a visible label. Form help and error text are tied to their field with aria-describedby, and an invalid field gets aria-invalid="true". A skip link as the first element that, when focused, shows above any sticky header (its own z-index and position). A favicon (an inline SVG data URI is fine) so the page asks for no missing file. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure.`
+
 export const SKILL_BODY_UPDATES: { name: string; old: string }[] = [
   { name: 'artboards', old: ARTBOARDS_V1 },
+  { name: 'artboards', old: ARTBOARDS_V2 },
+  { name: 'html-css', old: HTML_CSS_V2 },
   { name: 'html-css', old: "Semantic elements (header, nav, main, section, button, a). Mobile-first CSS with min-width media queries. Touch targets at least 44 px. Text contrast 4.5:1. Every image has alt text; every input has a label. No horizontal scroll at 390 px. Keep CSS in one place and follow the project's existing structure." },
   { name: 'accessibility-check', old: "Go through: keyboard only (every control reachable and operable, visible focus), labels on inputs and icon buttons, heading order, alt text, colour contrast, text resize to 200%, motion that can be paused, forms that explain errors. Report each failure with where it is and the fix. Pass or fail per item, no scores." }
 ]

@@ -15,6 +15,7 @@ import { BOARD_TOOLS, boardSummary } from './boardTools'
 import { getAgency } from './db'
 import { memoryPrompt } from './memory'
 import { designsPrompt } from './designExport'
+import { assetsPrompt, picturesServer } from './assets'
 import { AGENCY_TEMPLATES, intakeInstructions, templatePages } from '@shared/agencies'
 import { pageInstructions } from '@shared/pages'
 import { openRouterError, usesOpenRouter } from '@shared/openrouter'
@@ -115,6 +116,9 @@ function systemPrompt(agent: Agent, skills: Skill[], project: Project | null): s
     const designs = designsPrompt(agency)
     if (designs) parts.push(designs)
   }
+  // The project's shared Assets folder (assets.ts): every team's agents may read it and show its pictures.
+  const sharedPictures = assetsPrompt(agent)
+  if (sharedPictures) parts.push(sharedPictures)
   // Agency memory (memory/agency.md and the agent's own file), written on the Memory screen.
   const memory = memoryPrompt(agent)
   if (memory) parts.push(memory)
@@ -561,6 +565,11 @@ class AcpRuntime implements AgentRuntime {
         }
         return ask(info.paths.length ? `Write ${info.paths.map((p) => relative(folder!, resolve(folder!, p))).join(', ')}` : title, choices, toolCallId)
       }
+      // Tyslin's own pictures tool (search Unsplash, save into the shared Assets folder) never needs the boss.
+      if (allow && /tyslin-pictures|^(search_photos|use_photo|list_assets)\b/.test(title)) {
+        opts.emit({ type: 'tool_result', toolCallId, content: `Allowed without asking (Tyslin's pictures tool): ${title}`, isError: false })
+        return Promise.resolve(allow.id)
+      }
       // Looking at files inside the folder and version checks don't need the user (Settings → Notifications → Approvals).
       if (allow && getPrefs().autoAllowReadOnly && isReadOnlyCommand(title)) {
         opts.emit({ type: 'tool_result', toolCallId, content: `Allowed without asking (read-only): ${title}`, isError: false })
@@ -594,7 +603,8 @@ class AcpRuntime implements AgentRuntime {
       prompt: acpPrompt(opts),
       clientVersion: app.getVersion(),
       signal: opts.signal,
-      mcpServers: acpServersForAgent(opts.agent.id),
+      // The team's connectors, plus Tyslin's own pictures tool for the Design and Web Design teams (assets.ts).
+      mcpServers: [...acpServersForAgent(opts.agent.id), ...[picturesServer(opts.agent)].filter((s) => !!s)],
       // The agent's model, when the adapter lets clients choose among its models (Codex does); else its default.
       model: viaOpenRouter ? undefined : opts.agent.model,
       autoEdit: opts.agent.writeMode === 'direct' && !!files?.write,

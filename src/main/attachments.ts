@@ -5,6 +5,7 @@ import { basename, extname, join } from 'path'
 import type { Attachment } from '@shared/types'
 import { listProjectFiles } from './tools'
 import { saveIntoFolder } from './attachmentSave'
+import { shareAttachment } from './assets'
 
 /**
  * Chat attachments. The user picks files or folders with the system dialog; they are read here,
@@ -147,6 +148,8 @@ export function prepareAttachments(ids: string[], folder?: string | null): Prepa
         mkdirSync(dir, { recursive: true })
         const copy = join(dir, `${a.id}${extname(a.path).toLowerCase()}`)
         copyFileSync(a.path, copy)
+        // Pictures the boss attaches are shared with every team (owner, 18 Nov 2026); screenshots Tyslin took are not.
+        if (!a.path.startsWith(join(app.getPath('userData'), 'captures'))) shareAttachment(a.path, a.name, null)
         out.push({ ...a, copy, mime: IMAGE_TYPES[extname(a.path).toLowerCase()] })
         parts.push(`<image name="${attr(a.name)}" path="${attr(a.path)}"${save(a)} />`)
       } catch {

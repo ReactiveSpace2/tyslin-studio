@@ -22,7 +22,7 @@ const KINDS: Record<StudioKind, { dir: string; ext: string }> = {
   png: { dir: 'exports', ext: '.png' }
 }
 
-const safeName = (s: string): string => s.replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled'
+export const safeName = (s: string): string => s.replace(/[\\/:*?"<>|\x00-\x1f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80) || 'Untitled'
 
 /** The current organization's Default project, created with its folder the first time it's needed. */
 export function defaultProject(): Project {
@@ -48,7 +48,10 @@ function createDefault(name: string): Project {
 export function newProjectFolderPath(name: string): string {
   const base = join(app.getPath('documents'), 'Tyslin Studio', safeName(db.currentOrg().name))
   let folderName = safeName(name || 'New project')
-  for (let i = 2; existsSync(join(base, folderName)); i++) folderName = `${safeName(name || 'New project')} ${i}`
+  // "Assets" is the project's shared pictures folder (assets.ts), never a team's own folder.
+  const taken = (n: string): boolean => existsSync(join(base, n)) || n.toLowerCase() === 'assets'
+  if (taken(folderName)) folderName = `${safeName(name || 'New project')} 2`
+  for (let i = 3; taken(folderName); i++) folderName = `${safeName(name || 'New project')} ${i}`
   return join(base, folderName)
 }
 

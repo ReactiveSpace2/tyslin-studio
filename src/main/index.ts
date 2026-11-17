@@ -34,9 +34,12 @@ import { checkForUpdates, getUpdateStatus, initUpdater, installUpdate, openUpdat
 import { isValidTime, nextRunAfter } from '@shared/schedule'
 import { createAgency, removeAgency, updateAgency } from './agencies'
 import { suggestAgencies } from './starter'
-import type { StarterTurn } from '@shared/types'
+import type { PicturesStatus, StarterTurn } from '@shared/types'
 import { cardsOnRunEvent, initCards, onChangeResolved, briefLead, planNow, runCard, runningCards, runPlan, waitingPlans, approvedPlans, cardForRun, runNext, setDesignExporter, updateCard, removeCard, type CardPatch } from './cards'
 import { designReadDirs, exportDesigns } from './designExport'
+import { assetsFolder, assetsReadDirs, UNSPLASH_SECRET } from './assets'
+import { listAssets } from './assetStore'
+import { checkUnsplashKey } from './unsplashApi'
 import { boardHooks, setBoardChangedHook } from './boardTools'
 import { initChannels, replyToLead, sendToBoss, setChannelMessageHook } from './channels'
 import { initSlack, newSlackLinkCode, setSlackToken, slackStatus, unlinkSlackChannel } from './slack'
@@ -450,7 +453,8 @@ async function openrouterModels(): Promise<OpenRouterModel[]> {
 function initAgencies(): void {
   initCards({ startRun, runTask, checkReady: checkAgentReady })
   setDesignExporter((a) => exportDesigns(a))
-  setExtraReadDirs(designReadDirs)
+  // Other teams read the Design teams' design/ folders and everyone reads the shared Assets folder (assets.ts).
+  setExtraReadDirs(() => [...designReadDirs(), ...assetsReadDirs()])
   // A raised cap lets the agency's planned cards run again (budget.ts).
   setBudgetResume((id) => { const a = db.getAgency(id); if (a) void runNext(a) })
   setBoardChangedHook((projectId, path) => win?.webContents.send('board:changed', { projectId, path }))
@@ -713,6 +717,18 @@ function registerIpc(): void {
   ipcMain.handle('settings:removeKey', (_e, provider: KeyProvider) => {
     setSecret(provider, '')
   })
+  ipcMain.handle('pictures:status', (): PicturesStatus => {
+    const folder = assetsFolder()
+    return { keySet: !!getSecret(UNSPLASH_SECRET), assetsFolder: folder, pictures: listAssets(folder, 5000).length }
+  })
+  ipcMain.handle('pictures:setKey', async (_e, key: string) => {
+    const k = String(key ?? '').trim()
+    if (!k) throw new Error('Paste the Access Key first.')
+    await checkUnsplashKey(k)
+    setSecret(UNSPLASH_SECRET, k)
+  })
+  ipcMain.handle('pictures:removeKey', () => setSecret(UNSPLASH_SECRET, ''))
+  ipcMain.handle('pictures:openAssets', async () => { const err = await shell.openPath(assetsFolder()); if (err) throw new Error(err) })
   ipcMain.handle('settings:openrouterModels', () => openrouterModels())
   ipcMain.handle('settings:connectOpenRouter', async () => {
     await connectOpenRouter()

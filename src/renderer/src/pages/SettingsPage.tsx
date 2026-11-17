@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useEffect, useRef, useState } from 'react'
-import type { AccountEngine, AccountStatus, AdapterState, AppInfo, AuthStatus, Organization, OrgColor, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
+import type { AccountEngine, AccountStatus, AdapterState, AppInfo, AuthStatus, Organization, OrgColor, PicturesStatus, Preferences, ProviderId, ProviderSettings, Theme, UpdateStatus, WriteMode } from '@shared/types'
 import { ORG_COLORS } from '@shared/types'
 import stacked from '../assets/logo-stacked.png'
 import mark from '../assets/logo-mark.png'
@@ -174,12 +174,77 @@ function AdaptersCard(): JSX.Element {
   )
 }
 
+/**
+ * Pictures (owner, 18 Nov 2026): the user's own free Unsplash key for the Design and Web Design teams' photo search,
+ * and the project's shared Assets folder that every team reads (main/assets.ts).
+ */
+function PicturesCard(): JSX.Element {
+  const [status, setStatus] = useState<PicturesStatus | null>(null)
+  const [key, setKey] = useState('')
+  const [replacing, setReplacing] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [saved, flash] = useFlash()
+  const load = (): void => { void window.tyslin.pictures.status().then(setStatus).catch(() => undefined) }
+  useEffect(load, [])
+  const save = async (): Promise<void> => {
+    setBusy(true); setError('')
+    try { await window.tyslin.pictures.setKey(key); setKey(''); setReplacing(false); flash('Key saved'); load() }
+    catch (err) { setError((err instanceof Error ? err.message : String(err)).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')) }
+    finally { setBusy(false) }
+  }
+  const remove = async (): Promise<void> => { await window.tyslin.pictures.removeKey(); flash('Key removed'); load() }
+  const open = async (): Promise<void> => { try { await window.tyslin.pictures.openAssets() } catch (err) { setError(err instanceof Error ? err.message : String(err)) } }
+  const showField = !!status && (!status.keySet || replacing)
+  return (
+    <Group id="pictures-h" title="Pictures" hint="Free photos from Unsplash for your Design and Web Design teams, and one Assets folder every team in this project shares.">
+      <div className="flex flex-col">
+        <div className="flex flex-col gap-2 border-b border-border pb-3.5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-sm font-semibold">Unsplash</span>
+              <span className={hintCls}>
+                {status?.keySet ? 'Connected. Designers search Unsplash, and each photo they use is credited and copied into Assets.' : 'Create a free app at '}
+                {!status?.keySet && <a className="text-green underline underline-offset-2" href="https://unsplash.com/developers" target="_blank" rel="noreferrer">unsplash.com/developers</a>}
+                {!status?.keySet && ' and paste its Access Key here. Without it, designers leave labelled boxes where photos go.'}
+              </span>
+            </span>
+            {status?.keySet && !replacing && (
+              <span className="flex items-center gap-2">
+                <Badge variant="soft" className="h-6 gap-1.5 px-2"><span className="size-1.5 rounded-full bg-green" aria-hidden="true" />Connected</Badge>
+                <Button type="button" variant="outline" size="sm" onClick={() => setReplacing(true)}>Replace</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => void remove()}>Remove</Button>
+              </span>
+            )}
+          </div>
+          {showField && (
+            <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); void save() }}>
+              <span className="flex min-w-60 flex-1 flex-col gap-1.5">
+                <Label htmlFor="unsplash-key">Access Key</Label>
+                <Input id="unsplash-key" type="password" autoComplete="off" spellCheck={false} className="font-mono" value={key} onChange={(e) => setKey(e.target.value)} aria-invalid={!!error} aria-describedby={error ? 'unsplash-err' : undefined} />
+              </span>
+              <Button type="submit" size="sm" disabled={busy || !key.trim()}>{busy ? 'Checking…' : 'Save key'}</Button>
+              {replacing && <Button type="button" variant="ghost" size="sm" onClick={() => { setReplacing(false); setKey(''); setError('') }}>Cancel</Button>}
+            </form>
+          )}
+          {error && <span id="unsplash-err" className="text-[13px] text-destructive" role="alert">{error}</span>}
+          {saved && <span className={okCls} role="status">{saved}</span>}
+        </div>
+        <Row title="Shared Assets folder" hint={status ? <><span className="font-mono text-xs break-all">{status.assetsFolder}</span><br />{status.pictures ? `${status.pictures} ${status.pictures === 1 ? 'picture' : 'pictures'}` : 'No pictures yet'}. Attached pictures, Unsplash photos and finished designs are copied here; every team can use them. Pictures from Vecteezy: download them yourself into the vecteezy folder here; pages that use them show Vecteezy's credit.</> : 'Loading…'}>
+          <Button type="button" variant="outline" size="sm" disabled={!status} onClick={() => void open()}>Open folder</Button>
+        </Row>
+      </div>
+    </Group>
+  )
+}
+
 function AccountsTab({ agencies, activeAgency, onAuthChange, onChanged }: { agencies: AgencyView[]; activeAgency: string | null; onAuthChange?: (s: AuthStatus) => void; onChanged: () => void }): JSX.Element {
   const [channel, setChannel] = useState(false)
   const view = agencies.find((v) => v.agency.id === activeAgency) ?? agencies[0] ?? null
   return (
     <>
       <AdaptersCard />
+      <PicturesCard />
       <Group id="google-h" title="Google account" hint="Your sign-in on this computer. Tyslin keeps only your name and email."><AccountBox onChange={onAuthChange} /></Group>
       <Group id="drive-h" title="Google Drive" hint="Keeps a copy of each team's folder in your Drive and brings back what you change there."><GoogleDriveCard /></Group>
       <Card className="gap-0 px-5 py-1">

@@ -9,6 +9,8 @@ import * as db from './db'
 import { addCapturedImage } from './attachments'
 import { officeToPdf, soffice } from './office'
 import { EDITOR_JS, EDITOR_PATH, injectEditor } from './designEditor'
+import { assetFileFor } from './assets'
+import { ASSETS_URL_PREFIX } from './assetStore'
 
 /**
  * The Preview tab's back end: a custom `tyslin-preview://<projectId>/<path>` scheme that serves files from
@@ -23,7 +25,9 @@ const MIME: Record<string, string> = {
   '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.otf': 'font/otf', '.map': 'application/json'
 }
 /** Only the page's own files: no other hosts, no remote fonts or scripts. 'self' is this project's origin. */
-const CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-src 'none'; form-action 'none'"
+// Pictures may also come from Unsplash's image host (owner, 18 Nov 2026): its API guidelines ask pages to show photos
+// from the address it returns. Only pictures: fonts, scripts and requests stay on the page's own origin.
+const CSP = "default-src 'self' data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https://images.unsplash.com; connect-src 'self'; frame-src 'none'; form-action 'none'"
 /** Build output, and the studio's own notes (memory, boards, the agency log), which Files shows but Preview needn't. */
 const SKIP = new Set(['node_modules', '.git', 'dist', 'out', '.next', '.expo', 'coverage', 'build', 'memory', 'boards'])
 const SKIP_FILES = new Set(['agency-log.md'])
@@ -54,6 +58,11 @@ export function registerPreviewProtocol(): void {
       let rel = decodeURIComponent(u.pathname.replace(/^\/+/, ''))
       // The Design board's hand-editing script, from the app itself (designEditor.ts), never from the folder.
       if (rel === EDITOR_PATH) return new Response(EDITOR_JS, { headers: { 'content-type': 'text/javascript; charset=utf-8', 'content-security-policy': CSP, 'cache-control': 'no-store' } })
+      // The project's shared Assets folder (assets.ts), for every team's pages and artboards.
+      if (rel.startsWith(ASSETS_URL_PREFIX)) {
+        const asset = assetFileFor(rel.slice(ASSETS_URL_PREFIX.length))
+        return new Response(readFileSync(asset), { headers: { 'content-type': MIME[extname(asset).toLowerCase()] ?? 'application/octet-stream', 'content-security-policy': CSP, 'cache-control': 'no-store' } })
+      }
       let abs = fileFor(u.hostname, rel)
       if (statSync(abs).isDirectory()) { rel = join(rel, 'index.html'); abs = fileFor(u.hostname, rel) }
       // `?as=pdf` on an Office file: the LibreOffice conversion (main/office.ts), cached, shown in the PDF viewer.

@@ -6,6 +6,7 @@ import { DESIGN_BOARD_FILE, DESIGN_EXPORTS_DIR, DESIGN_MANIFEST, designExport, p
 import * as db from './db'
 import { inside } from './confine'
 import { renderArtboard } from './preview'
+import { shareDesign } from './assets'
 
 /**
  * Pictures of the Design board for other teams (owner, 17 Nov 2026): after a designer's card and after the boss's
@@ -69,7 +70,11 @@ async function run(agency: Agency, opts: { files?: string[]; force?: boolean }):
         continue
       }
     }
-    if (existsSync(png)) entries.push(e)
+    if (existsSync(png)) {
+      entries.push(e)
+      // Every finished artboard is also in the project's shared Assets folder (owner, 18 Nov 2026).
+      shareDesign(png, agency, e.title)
+    }
   }
   writeAtomic(inside(folder, DESIGN_MANIFEST), JSON.stringify({ team: agency.name, updatedAt: Date.now(), designs: entries }, null, 2) + '\n')
   return made
